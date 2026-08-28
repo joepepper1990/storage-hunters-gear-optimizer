@@ -47,6 +47,10 @@ describe('locked scoring 1.0',()=>{
     expect(zoneEffective(70,s)).toBe(57.5);
   });
   it('regresses Crab Backpack',()=>expect(scoreStandalone(item('Crab',{luck:41,arrowReduction:24}),s).core).toBeCloseTo(61.4,8));
+  it('automatically includes separate numeric authentication metadata in effective stats',()=>{
+    expect(scoreStandalone(item('Crab auth',{luck:41},'Bid Arrow Speed',-24),s).core).toBeCloseTo(61.4,8);
+    expect(scoreStandalone(item('Race auth',{arrowReduction:76,energy:64},'NPC Offers Bonus',7.7),s).core).toBeCloseTo(98.0075,8);
+  });
   it('regresses Diamond Jellyfish core and Rush separately',()=>{
     const jelly=item('Jelly',{luck:54,arrowReduction:32,walk:-1},'Rush',10);
     const score=scoreStandalone(jelly,s);

@@ -10,9 +10,9 @@ export default defineConfig(({ mode }) => ({
       registerType: 'autoUpdate',
       includeAssets: ['icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'],
       manifest: {
-        name: 'Storage Hunters Gear Optimiser',
-        short_name: 'Gear Optimiser',
-        description: 'Offline gear and certificate optimiser for Storage Hunters: Open World.',
+        name: 'Storage Hunters Optimiser',
+        short_name: 'SH Optimiser',
+        description: 'Offline gear, certificate, vehicle and Gavel Trophy optimiser for Storage Hunters: Open World.',
         theme_color: '#10121a',
         background_color: '#10121a',
         display: 'standalone',

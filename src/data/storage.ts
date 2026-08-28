@@ -1,5 +1,5 @@
-import { makeInitialData, LOCKED_DEFAULT_SETTINGS } from '../defaults';
-import type { AppData, GearItem } from '../types';
+import { DEFAULT_TROPHY_SETTINGS, DEFAULT_VEHICLE_PROFILE, DEFAULT_VEHICLE_SETTINGS, makeInitialData, LOCKED_DEFAULT_SETTINGS } from '../defaults';
+import type { AppData, GavelTrophy, GearItem, Trailer, TrophyOptimiserSettings, VehiclePart } from '../types';
 
 const DB_NAME = 'storage-hunters-gear-optimizer';
 const STORE = 'app';
@@ -86,13 +86,92 @@ function request<T = unknown>(req: IDBRequest<T>): Promise<T> {
 export function normalizeData(raw: AppData): AppData {
   const initial = makeInitialData();
   return {
-    schemaVersion: 1,
+    schemaVersion: 3,
     gear: Array.isArray(raw?.gear) ? raw.gear.map(normalizeItem) : [],
     settings: normalizeSettings(raw?.settings),
     authModel: Array.isArray(raw?.authModel) && raw.authModel.length ? raw.authModel : initial.authModel,
     rollLog: Array.isArray(raw?.rollLog) ? raw.rollLog : [],
-    theme: raw?.theme ?? 'system'
+    theme: raw?.theme ?? 'system',
+    vehicleProfile: normalizeVehicleProfile(raw?.vehicleProfile),
+    vehicleSettings: normalizeVehicleSettings(raw?.vehicleSettings),
+    vehicleParts: Array.isArray(raw?.vehicleParts) ? raw.vehicleParts.map(normalizeVehiclePart) : initial.vehicleParts,
+    trailers: Array.isArray(raw?.trailers) ? raw.trailers.map(normalizeTrailer) : initial.trailers,
+    trophies: Array.isArray(raw?.trophies) ? raw.trophies.map(normalizeTrophy) : [],
+    trophySettings: normalizeTrophySettings(raw?.trophySettings)
   };
+}
+
+
+
+function normalizeTrophy(item: GavelTrophy): GavelTrophy {
+  const now = new Date().toISOString();
+  const modifiers = Array.isArray(item?.modifiers) ? item.modifiers
+    .filter(m => m && typeof m.mutation === 'string' && m.mutation.trim())
+    .slice(0, 2)
+    .map(m => ({ mutation: m.mutation.trim(), boostPct: Math.max(0, finite(m.boostPct)) })) : [];
+  return {
+    ...item,
+    id: item?.id || crypto.randomUUID(),
+    name: typeof item?.name === 'string' && item.name.trim() ? item.name : 'Gavel Trophy',
+    modifiers,
+    favourite: Boolean(item?.favourite),
+    createdAt: item?.createdAt || now,
+    updatedAt: item?.updatedAt || now
+  };
+}
+
+function normalizeTrophySettings(raw: Partial<TrophyOptimiserSettings> | undefined): TrophyOptimiserSettings {
+  const defaults = structuredClone(DEFAULT_TROPHY_SETTINGS);
+  const maxActive = Math.max(1, Math.min(4, Math.trunc(finite(raw?.maxActive ?? defaults.maxActive)) || defaults.maxActive));
+  const supplied = Array.isArray(raw?.mutationWeights) ? raw.mutationWeights : [];
+  const merged = new Map(defaults.mutationWeights.map(w => [w.mutation, w]));
+  for (const w of supplied) {
+    if (!w || typeof w.mutation !== 'string' || !w.mutation.trim()) continue;
+    const name = w.mutation.trim();
+    const current = merged.get(name);
+    merged.set(name, {
+      mutation: name,
+      multiplier: Math.max(0, finite(w.multiplier ?? current?.multiplier ?? 0)),
+      enabled: w.enabled ?? current?.enabled ?? true,
+      confidence: ['Confirmed','Community','Uncertain'].includes(String(w.confidence)) ? w.confidence as any : current?.confidence ?? 'Uncertain'
+    });
+  }
+  return { maxActive, mutationWeights: [...merged.values()] };
+}
+
+function normalizeVehicleProfile(raw: Partial<AppData['vehicleProfile']> | undefined): AppData['vehicleProfile'] {
+  return {
+    name: typeof raw?.name === 'string' && raw.name.trim() ? raw.name : DEFAULT_VEHICLE_PROFILE.name,
+    baseSpeed: finite(raw?.baseSpeed ?? DEFAULT_VEHICLE_PROFILE.baseSpeed),
+    baseAcceleration: finite(raw?.baseAcceleration ?? DEFAULT_VEHICLE_PROFILE.baseAcceleration),
+    baseHandling: finite(raw?.baseHandling ?? DEFAULT_VEHICLE_PROFILE.baseHandling),
+    baseCapacityKg: finite(raw?.baseCapacityKg ?? DEFAULT_VEHICLE_PROFILE.baseCapacityKg),
+    capacityMultiplier: finite(raw?.capacityMultiplier ?? DEFAULT_VEHICLE_PROFILE.capacityMultiplier)
+  };
+}
+
+function normalizeVehicleSettings(raw: Partial<AppData['vehicleSettings']> | undefined): AppData['vehicleSettings'] {
+  return {
+    speedWeight: finite(raw?.speedWeight ?? DEFAULT_VEHICLE_SETTINGS.speedWeight),
+    accelerationWeight: finite(raw?.accelerationWeight ?? DEFAULT_VEHICLE_SETTINGS.accelerationWeight),
+    handlingWeight: finite(raw?.handlingWeight ?? DEFAULT_VEHICLE_SETTINGS.handlingWeight),
+    capacityWeight: finite(raw?.capacityWeight ?? DEFAULT_VEHICLE_SETTINGS.capacityWeight)
+  };
+}
+
+function normalizeVehiclePart(item: VehiclePart): VehiclePart {
+  const now = new Date().toISOString();
+  return {
+    ...item, id: item?.id || crypto.randomUUID(), name: typeof item?.name === 'string' ? item.name : '',
+    slot: ['Spoiler','Exhaust','Wheel Stack'].includes(item?.slot) ? item.slot : 'Spoiler',
+    speedPct: finite(item?.speedPct), accelerationPct: finite(item?.accelerationPct), handlingPct: finite(item?.handlingPct), capacityKg: finite(item?.capacityKg),
+    favourite: Boolean(item?.favourite), createdAt: item?.createdAt || now, updatedAt: item?.updatedAt || now
+  };
+}
+
+function normalizeTrailer(item: Trailer): Trailer {
+  const now = new Date().toISOString();
+  return { ...item, id: item?.id || crypto.randomUUID(), name: typeof item?.name === 'string' ? item.name : '', capacityKg: finite(item?.capacityKg), favourite: Boolean(item?.favourite), createdAt: item?.createdAt || now, updatedAt: item?.updatedAt || now };
 }
 
 
@@ -169,4 +248,34 @@ function validateImportedData(raw: AppData): void {
   }
   if (raw.rollLog !== undefined && !Array.isArray(raw.rollLog)) throw new Error('Invalid backup: certificate roll log must be an array.');
   for (const [index,roll] of (raw.rollLog ?? []).entries()) for (const [label,value] of [['previousValue',roll.previousValue],['newValue',roll.newValue],['bestScoreBefore',roll.bestScoreBefore],['bestScoreAfter',roll.bestScoreAfter]] as const) if (!Number.isFinite(Number(value))) throw new Error(`Roll log row ${index + 1}: ${label} is not finite.`);
+  if (raw.vehicleProfile !== undefined) {
+    if (!raw.vehicleProfile || typeof raw.vehicleProfile.name !== 'string' || !raw.vehicleProfile.name.trim()) throw new Error('Vehicle profile: name is required.');
+    for (const [label,value] of Object.entries(raw.vehicleProfile)) if (label !== 'name' && !Number.isFinite(Number(value))) throw new Error(`Vehicle profile: ${label} is not finite.`);
+  }
+  if (raw.vehicleSettings !== undefined) for (const [label,value] of Object.entries(raw.vehicleSettings)) if (!Number.isFinite(Number(value)) || Number(value) < 0) throw new Error(`Vehicle settings: ${label} must be a non-negative finite number.`);
+  if (raw.vehicleParts !== undefined && !Array.isArray(raw.vehicleParts)) throw new Error('Vehicle parts must be an array.');
+  for (const [index,item] of (raw.vehicleParts ?? []).entries()) {
+    if (!item?.name?.trim()) throw new Error(`Vehicle part row ${index + 1}: name is required.`);
+    if (!['Spoiler','Exhaust','Wheel Stack'].includes(item.slot)) throw new Error(`Vehicle part row ${index + 1}: invalid slot.`);
+    for (const [label,value] of [['speedPct',item.speedPct],['accelerationPct',item.accelerationPct],['handlingPct',item.handlingPct],['capacityKg',item.capacityKg]] as const) if (!Number.isFinite(Number(value))) throw new Error(`Vehicle part row ${index + 1}: ${label} is not finite.`);
+  }
+  if (raw.trailers !== undefined && !Array.isArray(raw.trailers)) throw new Error('Trailers must be an array.');
+  for (const [index,item] of (raw.trailers ?? []).entries()) {
+    if (!item?.name?.trim()) throw new Error(`Trailer row ${index + 1}: name is required.`);
+    if (!Number.isFinite(Number(item.capacityKg))) throw new Error(`Trailer row ${index + 1}: capacityKg is not finite.`);
+  }
+  if (raw.trophies !== undefined && !Array.isArray(raw.trophies)) throw new Error('Gavel trophies must be an array.');
+  for (const [index,item] of (raw.trophies ?? []).entries()) {
+    if (!item?.name?.trim()) throw new Error(`Gavel Trophy row ${index + 1}: name is required.`);
+    if (!Array.isArray(item.modifiers) || item.modifiers.length > 2) throw new Error(`Gavel Trophy row ${index + 1}: modifiers must contain at most two entries.`);
+    for (const modifier of item.modifiers) {
+      if (!modifier?.mutation?.trim()) throw new Error(`Gavel Trophy row ${index + 1}: mutation is required.`);
+      if (!Number.isFinite(Number(modifier.boostPct)) || Number(modifier.boostPct) < 0) throw new Error(`Gavel Trophy row ${index + 1}: boost must be a non-negative finite number.`);
+    }
+  }
+  if (raw.trophySettings !== undefined) {
+    if (!Number.isFinite(Number(raw.trophySettings.maxActive)) || Number(raw.trophySettings.maxActive) < 1 || Number(raw.trophySettings.maxActive) > 4) throw new Error('Trophy settings: maxActive must be between 1 and 4.');
+    if (!Array.isArray(raw.trophySettings.mutationWeights)) throw new Error('Trophy settings: mutation weights must be an array.');
+    for (const weight of raw.trophySettings.mutationWeights) if (!weight?.mutation?.trim() || !Number.isFinite(Number(weight.multiplier)) || Number(weight.multiplier) < 0) throw new Error('Trophy settings: every mutation needs a non-negative finite multiplier.');
+  }
 }

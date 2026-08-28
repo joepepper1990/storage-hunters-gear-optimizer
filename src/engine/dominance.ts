@@ -1,24 +1,25 @@
 import type { AlgorithmSettings, DominanceResult, GearItem, GearStats } from '../types';
-import { arrowEffective, energyEffective, passiveScore, zoneEffective } from './scoring';
+import { arrowEffective, effectiveItemStats, energyEffective, isNumericAuth, passiveScore, zoneEffective } from './scoring';
 
 interface PiecewiseSpec { breakpoints: number[]; fn: (x: number) => number; }
 
 export function pairWorstCaseAdvantage(a: GearItem, b: GearItem, s: AlgorithmSettings): number {
+  const ae = effectiveItemStats(a), be = effectiveItemStats(b);
   const linear =
-    (a.stats.luck - b.stats.luck) * s.luckWeight +
-    (a.stats.npc - b.stats.npc) * s.npcWeight +
-    (a.stats.tip - b.stats.tip) * s.tipWeight +
-    (a.stats.recovery - b.stats.recovery) * s.recoveryWeight +
-    (a.stats.vehicle - b.stats.vehicle) * s.vehicleWeight +
-    (a.stats.walk - b.stats.walk) * s.walkWeight;
+    (ae.luck - be.luck) * s.luckWeight +
+    (ae.npc - be.npc) * s.npcWeight +
+    (ae.tip - be.tip) * s.tipWeight +
+    (ae.recovery - be.recovery) * s.recoveryWeight +
+    (ae.vehicle - be.vehicle) * s.vehicleWeight +
+    (ae.walk - be.walk) * s.walkWeight;
 
-  const arrow = minDifference(a.stats.arrowReduction, b.stats.arrowReduction, {
+  const arrow = minDifference(ae.arrowReduction, be.arrowReduction, {
     breakpoints: [s.arrowSweetSpot, s.arrowCeiling, s.arrowPenaltyThreshold], fn: x => arrowEffective(x, s) * s.arrowWeight
   });
-  const energy = minDifference(a.stats.energy, b.stats.energy, {
+  const energy = minDifference(ae.energy, be.energy, {
     breakpoints: [s.energyTarget, s.energyCeiling], fn: x => energyEffective(x, s) * s.energyWeight
   });
-  const zone = minDifference(a.stats.zone, b.stats.zone, {
+  const zone = minDifference(ae.zone, be.zone, {
     breakpoints: [s.zoneBreakpoint1, s.zoneBreakpoint2], fn: x => zoneEffective(x, s) * s.zoneWeight
   });
   const passive = passiveScore(a, s).score - passiveScore(b, s).score;
@@ -26,16 +27,17 @@ export function pairWorstCaseAdvantage(a: GearItem, b: GearItem, s: AlgorithmSet
 }
 
 export function pairBestCaseAdvantage(a: GearItem, b: GearItem, s: AlgorithmSettings): number {
+  const ae = effectiveItemStats(a), be = effectiveItemStats(b);
   const linear =
-    (a.stats.luck - b.stats.luck) * s.luckWeight +
-    (a.stats.npc - b.stats.npc) * s.npcWeight +
-    (a.stats.tip - b.stats.tip) * s.tipWeight +
-    (a.stats.recovery - b.stats.recovery) * s.recoveryWeight +
-    (a.stats.vehicle - b.stats.vehicle) * s.vehicleWeight +
-    (a.stats.walk - b.stats.walk) * s.walkWeight;
-  const arrow = maxDifference(a.stats.arrowReduction, b.stats.arrowReduction, { breakpoints: [s.arrowSweetSpot, s.arrowCeiling, s.arrowPenaltyThreshold], fn: x => arrowEffective(x, s) * s.arrowWeight });
-  const energy = maxDifference(a.stats.energy, b.stats.energy, { breakpoints: [s.energyTarget, s.energyCeiling], fn: x => energyEffective(x, s) * s.energyWeight });
-  const zone = maxDifference(a.stats.zone, b.stats.zone, { breakpoints: [s.zoneBreakpoint1, s.zoneBreakpoint2], fn: x => zoneEffective(x, s) * s.zoneWeight });
+    (ae.luck - be.luck) * s.luckWeight +
+    (ae.npc - be.npc) * s.npcWeight +
+    (ae.tip - be.tip) * s.tipWeight +
+    (ae.recovery - be.recovery) * s.recoveryWeight +
+    (ae.vehicle - be.vehicle) * s.vehicleWeight +
+    (ae.walk - be.walk) * s.walkWeight;
+  const arrow = maxDifference(ae.arrowReduction, be.arrowReduction, { breakpoints: [s.arrowSweetSpot, s.arrowCeiling, s.arrowPenaltyThreshold], fn: x => arrowEffective(x, s) * s.arrowWeight });
+  const energy = maxDifference(ae.energy, be.energy, { breakpoints: [s.energyTarget, s.energyCeiling], fn: x => energyEffective(x, s) * s.energyWeight });
+  const zone = maxDifference(ae.zone, be.zone, { breakpoints: [s.zoneBreakpoint1, s.zoneBreakpoint2], fn: x => zoneEffective(x, s) * s.zoneWeight });
   const passive = passiveScore(a, s).score - passiveScore(b, s).score;
   return linear + arrow + energy + zone + passive;
 }
@@ -100,19 +102,8 @@ function isProtected(item: GearItem, s: AlgorithmSettings): boolean {
 }
 
 export function removeNumericAuthentication(item: GearItem): GearItem {
-  if (!item.authenticated || item.authentication.kind === 'None') return structuredClone(item);
   const clone = structuredClone(item);
-  const value = item.authentication.value;
-  switch (item.authentication.effect) {
-    case 'Luck': clone.stats.luck -= value; break;
-    case 'Bid Recovery': clone.stats.recovery -= value; break;
-    case 'Bid Arrow Speed': clone.stats.arrowReduction -= -value; break;
-    case 'Bid Zone Width': clone.stats.zone -= value; break;
-    case 'Tip Chance': clone.stats.tip -= value; break;
-    case 'NPC Offers Bonus': clone.stats.npc -= value; break;
-    case 'Walkspeed': clone.stats.walk -= value; break;
-    default: break;
-  }
+  if (!clone.authenticated || clone.authentication.kind === 'None' || !isNumericAuth(clone.authentication.effect)) return clone;
   clone.authenticated = false;
   clone.authentication = { kind: 'None', effect: '', value: 0 };
   return clone;
@@ -122,15 +113,6 @@ export function addOutcomeToItem(item: GearItem, outcome: string, roll: number):
   const clone = structuredClone(item);
   clone.authenticated = true;
   clone.authentication = { kind: outcome === 'Rush' || ['Haggler','Anti-Gravity Field','Safecracker','Grade Re-Roll','Exhibitor'].includes(outcome) ? 'Alien' : 'Normal', effect: outcome, value: roll };
-  switch (outcome) {
-    case 'Luck': clone.stats.luck += roll; break;
-    case 'Bid Recovery': clone.stats.recovery += roll; break;
-    case 'Bid Arrow Speed': clone.stats.arrowReduction += -roll; break;
-    case 'Bid Zone Width': clone.stats.zone += roll; break;
-    case 'Tip Chance': clone.stats.tip += roll; break;
-    case 'NPC Offers Bonus': clone.stats.npc += roll; break;
-    case 'Walkspeed': clone.stats.walk += roll; break;
-  }
   return clone;
 }
 

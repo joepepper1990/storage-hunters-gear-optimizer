@@ -1,4 +1,4 @@
-import type { AlgorithmSettings, AppData, AuthModelEntry, GearStats } from './types';
+import type { AlgorithmSettings, AppData, AuthModelEntry, GearStats, Trailer, TrophyOptimiserSettings, VehicleOptimiserSettings, VehiclePart, VehicleProfile } from './types';
 
 export const ZERO_STATS: GearStats = {
   luck: 0,
@@ -11,6 +11,61 @@ export const ZERO_STATS: GearStats = {
   arrowReduction: 0,
   npc: 0
 };
+
+
+export const DEFAULT_VEHICLE_PROFILE: VehicleProfile = {
+  name: 'Dumpster Truck',
+  baseSpeed: 69,
+  baseAcceleration: 1,
+  baseHandling: 90,
+  baseCapacityKg: 2750,
+  capacityMultiplier: 1.5
+};
+
+export const DEFAULT_VEHICLE_SETTINGS: VehicleOptimiserSettings = {
+  capacityWeight: 45,
+  speedWeight: 30,
+  accelerationWeight: 15,
+  handlingWeight: 10
+};
+
+
+export const DEFAULT_TROPHY_SETTINGS: TrophyOptimiserSettings = {
+  maxActive: 4,
+  mutationWeights: [
+    { mutation: 'Silver', multiplier: 2, enabled: true, confidence: 'Confirmed' },
+    { mutation: 'Gold', multiplier: 4, enabled: true, confidence: 'Confirmed' },
+    { mutation: 'Corrupted', multiplier: 6, enabled: true, confidence: 'Confirmed' },
+    { mutation: 'Diamond', multiplier: 8, enabled: true, confidence: 'Confirmed' },
+    { mutation: 'Gem', multiplier: 10, enabled: true, confidence: 'Confirmed' },
+    { mutation: 'Chrome', multiplier: 12, enabled: true, confidence: 'Confirmed' },
+    { mutation: 'Hologram', multiplier: 15, enabled: true, confidence: 'Confirmed' },
+    { mutation: 'Void', multiplier: 35, enabled: true, confidence: 'Confirmed' },
+    { mutation: 'Secret', multiplier: 50, enabled: true, confidence: 'Community' },
+    { mutation: 'Rainbow', multiplier: 100, enabled: true, confidence: 'Uncertain' },
+    { mutation: 'Tiny', multiplier: 2, enabled: true, confidence: 'Confirmed' },
+    { mutation: 'Huge', multiplier: 2, enabled: true, confidence: 'Uncertain' }
+  ]
+};
+
+
+function seededVehicleParts(): VehiclePart[] {
+  const now = new Date().toISOString();
+  return [
+    { id: crypto.randomUUID(), name: '[Silver] Tractor Wheel Stack', slot: 'Wheel Stack', speedPct: 15, accelerationPct: 15, handlingPct: 0, capacityKg: 60, mutation: 'Silver', favourite: true, createdAt: now, updatedAt: now },
+    { id: crypto.randomUUID(), name: 'Manta Spoiler', slot: 'Spoiler', speedPct: 26, accelerationPct: -16, handlingPct: 0, capacityKg: 0, favourite: true, createdAt: now, updatedAt: now },
+    { id: crypto.randomUUID(), name: 'Caution Line Exhaust', slot: 'Exhaust', speedPct: 18, accelerationPct: 18, handlingPct: 0, capacityKg: 0, favourite: true, createdAt: now, updatedAt: now }
+  ];
+}
+
+function seededTrailers(): Trailer[] {
+  const now = new Date().toISOString();
+  return [
+    { id: crypto.randomUUID(), name: 'Wooden Trailer', capacityKg: 175, favourite: false, createdAt: now, updatedAt: now },
+    { id: crypto.randomUUID(), name: 'Trailer', capacityKg: 300, favourite: false, createdAt: now, updatedAt: now },
+    { id: crypto.randomUUID(), name: 'Long Trailer', capacityKg: 600, favourite: true, createdAt: now, updatedAt: now }
+  ];
+}
 
 export const LOCKED_DEFAULT_SETTINGS: AlgorithmSettings = {
   version: '1.0',
@@ -75,11 +130,17 @@ export function makeDefaultAuthModel(): AuthModelEntry[] {
 
 export function makeInitialData(): AppData {
   return {
-    schemaVersion: 1,
+    schemaVersion: 3,
     gear: [],
     settings: { ...LOCKED_DEFAULT_SETTINGS },
     authModel: makeDefaultAuthModel(),
     rollLog: [],
-    theme: 'system'
+    theme: 'system',
+    vehicleProfile: { ...DEFAULT_VEHICLE_PROFILE },
+    vehicleSettings: { ...DEFAULT_VEHICLE_SETTINGS },
+    vehicleParts: seededVehicleParts(),
+    trailers: seededTrailers(),
+    trophies: [],
+    trophySettings: structuredClone(DEFAULT_TROPHY_SETTINGS)
   };
 }

@@ -1,4 +1,4 @@
-# Storage Hunters Gear Optimiser
+# Storage Hunters Optimiser
 
 Mobile-first offline PWA for optimising equipment in **Storage Hunters: Open World**.
 
@@ -11,6 +11,8 @@ Mobile-first offline PWA for optimising equipment in **Storage Hunters: Open Wor
 - Uses an analytical breakpoint proof, including the 75/80/100 Arrow regions for same-slot global dominance; it does not call an item SAFE TO DISCARD merely because it misses the Top 100.
 - Protects unknown and provisional passives from irreversible discard decisions.
 - Provides certificate targeting focused on estimated likelihood of improving the current best overall set, with explicit `HEURISTIC — official roll odds unknown` labelling.
+- Adds a separate vehicle/trailer optimiser using the in-game formulas verified on the Dumpster Truck.
+- Adds a four-slot Gavel Trophy optimiser with editable mutation-value weights and mutation-specialist sets.
 - Keeps a certificate roll log and editable authentication model so empirical data can replace assumptions over time.
 - Autosaves every change to IndexedDB using ordered writes, keeps an emergency localStorage mirror for recovery, works offline after first load and exports/imports JSON and CSV backups.
 - Runs combination ranking, redundancy proof and certificate targeting in a Web Worker so large inventories do not unnecessarily block the iPhone UI.
@@ -42,7 +44,7 @@ All settings are editable in-app and can be reset to the locked defaults.
 
 ## Authentication handling
 
-The nine core fields should contain the **final stats displayed on the item**. For normal numeric authentication, the separate authentication effect/value is metadata used by the re-authentication optimiser to remove the existing roll and calculate its marginal value. It is not scored a second time.
+The nine core fields contain the item's **normal/base accessory stats excluding the separate numeric authentication roll**. Normal numeric authentication is stored separately and automatically added to the effective stats by the scoring engine. This fixes the earlier case where entries such as a Crab Backpack with `-24% Bid Arrow Speed` authentication could otherwise be under-scored if that roll was entered only in the Authentication section.
 
 Unknown Alien effects (Haggler, Anti-Gravity Field, Safecracker and Exhibitor) are stored as first-class effects but score zero and protect the item from SAFE TO DISCARD.
 
@@ -118,3 +120,56 @@ Regression coverage includes:
 ## Licence
 
 Personal companion project. No copyrighted game artwork is included.
+
+## Vehicle optimiser
+
+Version 1.1 adds a separate vehicle/accessory optimiser for **Spoiler × Exhaust × Wheel Stack × Trailer** combinations. Empty slots are included, so an accessory with a bad enough trade-off can correctly lose to equipping nothing.
+
+The current confirmed Dumpster Truck baseline is preconfigured:
+
+- Base Speed: `69`
+- Base Acceleration: `1.00×`
+- Base Handling: `90`
+- Base Capacity: `2750 kg`
+- 50% vehicle-capacity gamepass multiplier: `1.50×`
+
+Confirmed accessory maths from in-game tests:
+
+- Speed percentages from parts **add together**, then apply to base Speed.
+- Acceleration percentages from parts **add together**, then apply to base Acceleration.
+- Trailer capacity is added to base vehicle capacity **before** the capacity multiplier.
+- Flat part capacity (currently observed on Wheel Stacks) is added **after** the capacity multiplier.
+
+Therefore:
+
+`Final Speed = Base Speed × (1 + total Speed% / 100)`
+
+`Final Acceleration = Base Acceleration × (1 + total Acceleration% / 100)`
+
+`Final Capacity = (Base Capacity + Trailer Capacity) × Capacity Multiplier + flat part Capacity`
+
+The seeded known inventory is:
+
+- `[Silver] Tractor Wheel Stack`: +15% Speed, +15% Acceleration, +60 kg.
+- `Manta Spoiler`: +26% Speed, -16% Acceleration.
+- `Caution Line Exhaust`: +18% Speed, +18% Acceleration.
+- Wooden Trailer: +175 kg.
+- Trailer: +300 kg.
+- Long Trailer: +600 kg.
+
+With the Long Trailer, Tractor Wheels, Caution Line Exhaust and Manta Spoiler, the optimiser predicts **110 Speed, 1.17× Acceleration, 90 Handling and 5085 kg capacity**.
+
+The balanced performance score is deliberately labelled as an optimiser model rather than a game mechanic. Default priorities are Capacity 45%, Speed 30%, Acceleration 15% and Handling 10%, all editable. Each dimension is compared as a percentage improvement over the active vehicle baseline before the relative priorities are applied.
+
+
+## Gavel Trophy optimiser
+
+Version 1.2 adds a dedicated Gavel Trophy inventory and four-trophy optimiser. Enter each trophy's one or two mutation chance boosts exactly as displayed in game. The optimiser uses the community Relative Added Value Boost comparison: each boost percentage is multiplied by the editable mutation value multiplier, then all powered trophies are combined.
+
+- Maximum active trophies defaults to 4.
+- Top 10 / 25 / 100 powered sets.
+- Per-mutation specialist sets.
+- Direct mathematical dominance identifies trophies that can never beat a stronger trophy's raw boost coverage; favourites are protected.
+- Default weights: Silver 2x, Gold 4x, Corrupted 6x, Diamond 8x, Gem 10x, Chrome 12x, Hologram 15x, Void 35x, Secret 50x, Rainbow 100x, Tiny 2x and Huge 2x.
+- All weights are editable. Secret/Rainbow/Huge are visibly confidence-labelled because public sources are less consistent than the established core multipliers.
+- Trophy score is a relative heuristic, not literal expected cash value, because the normal mutation base probabilities remain unpublished.

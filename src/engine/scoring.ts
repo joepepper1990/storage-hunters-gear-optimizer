@@ -88,22 +88,41 @@ export function scoreItemOrCombination(stats: GearStats, items: GearItem[], s: A
   };
 }
 
+export function effectiveItemStats(item: GearItem): GearStats {
+  const stats: GearStats = { ...item.stats };
+  if (!item.authenticated || item.authentication.kind === 'None' || !isNumericAuth(item.authentication.effect)) return stats;
+  const value = finite(item.authentication.value);
+  switch (item.authentication.effect) {
+    case 'Luck': stats.luck += value; break;
+    case 'Bid Recovery': stats.recovery += value; break;
+    case 'Bid Arrow Speed': stats.arrowReduction += -value; break;
+    case 'Bid Zone Width': stats.zone += value; break;
+    case 'Tip Chance': stats.tip += value; break;
+    case 'NPC Offers Bonus': stats.npc += value; break;
+    case 'Walkspeed': stats.walk += value; break;
+  }
+  return stats;
+}
+
 export function combineStats(items: GearItem[]): GearStats {
-  return items.reduce<GearStats>((a, i) => ({
-    luck: a.luck + finite(i.stats.luck),
-    energy: a.energy + finite(i.stats.energy),
-    tip: a.tip + finite(i.stats.tip),
-    walk: a.walk + finite(i.stats.walk),
-    vehicle: a.vehicle + finite(i.stats.vehicle),
-    recovery: a.recovery + finite(i.stats.recovery),
-    zone: a.zone + finite(i.stats.zone),
-    arrowReduction: a.arrowReduction + finite(i.stats.arrowReduction),
-    npc: a.npc + finite(i.stats.npc)
-  }), { luck: 0, energy: 0, tip: 0, walk: 0, vehicle: 0, recovery: 0, zone: 0, arrowReduction: 0, npc: 0 });
+  return items.reduce<GearStats>((a, i) => {
+    const stats = effectiveItemStats(i);
+    return {
+      luck: a.luck + finite(stats.luck),
+      energy: a.energy + finite(stats.energy),
+      tip: a.tip + finite(stats.tip),
+      walk: a.walk + finite(stats.walk),
+      vehicle: a.vehicle + finite(stats.vehicle),
+      recovery: a.recovery + finite(stats.recovery),
+      zone: a.zone + finite(stats.zone),
+      arrowReduction: a.arrowReduction + finite(stats.arrowReduction),
+      npc: a.npc + finite(stats.npc)
+    };
+  }, { luck: 0, energy: 0, tip: 0, walk: 0, vehicle: 0, recovery: 0, zone: 0, arrowReduction: 0, npc: 0 });
 }
 
 export function scoreStandalone(item: GearItem, s: AlgorithmSettings): ScoreBreakdown {
-  return scoreItemOrCombination(item.stats, [item], s);
+  return scoreItemOrCombination(effectiveItemStats(item), [item], s);
 }
 
 export function gameArrowToReduction(gameDisplayed: number): number { return gameDisplayed === 0 ? 0 : -gameDisplayed; }

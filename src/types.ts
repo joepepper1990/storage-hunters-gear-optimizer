@@ -5,6 +5,128 @@ export type Verdict = 'EQUIP' | 'KEEP' | 'SAFE TO DISCARD' | 'PROTECTED / UNKNOW
 export type LikelihoodClass = 'VERY HIGH' | 'HIGH' | 'MEDIUM' | 'LOW' | 'VERY LOW';
 export type Confidence = 'Unknown' | 'Low' | 'Medium' | 'High' | 'Empirical';
 
+export type VehiclePartSlot = 'Spoiler' | 'Exhaust' | 'Wheel Stack';
+export type VehicleVerdict = 'EQUIP' | 'KEEP' | 'SAFE TO DISCARD';
+export type TrophyVerdict = 'EQUIP' | 'KEEP' | 'SAFE TO DISCARD';
+
+export interface TrophyModifier {
+  mutation: string;
+  boostPct: number;
+}
+
+export interface GavelTrophy {
+  id: string;
+  name: string;
+  modifiers: TrophyModifier[];
+  favourite: boolean;
+  notes?: string;
+  obtainedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TrophyMutationWeight {
+  mutation: string;
+  multiplier: number;
+  enabled: boolean;
+  confidence: 'Confirmed' | 'Community' | 'Uncertain';
+}
+
+export interface TrophyOptimiserSettings {
+  maxActive: number;
+  mutationWeights: TrophyMutationWeight[];
+}
+
+export interface TrophyCombinationResult {
+  trophies: GavelTrophy[];
+  score: number;
+  totalBoosts: Record<string, number>;
+  weightedContributions: Record<string, number>;
+}
+
+export interface TrophyAnalysis {
+  item: GavelTrophy;
+  verdict: TrophyVerdict;
+  reason: string;
+  score: number;
+  dominator?: GavelTrophy;
+}
+
+export interface VehiclePart {
+  id: string;
+  name: string;
+  slot: VehiclePartSlot;
+  speedPct: number;
+  accelerationPct: number;
+  handlingPct: number;
+  capacityKg: number;
+  mutation?: string;
+  rarity?: string;
+  notes?: string;
+  obtainedAt?: string;
+  favourite: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Trailer {
+  id: string;
+  name: string;
+  capacityKg: number;
+  notes?: string;
+  favourite: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VehicleProfile {
+  name: string;
+  baseSpeed: number;
+  baseAcceleration: number;
+  baseHandling: number;
+  baseCapacityKg: number;
+  capacityMultiplier: number;
+}
+
+export interface VehicleOptimiserSettings {
+  speedWeight: number;
+  accelerationWeight: number;
+  handlingWeight: number;
+  capacityWeight: number;
+}
+
+export interface VehicleFinalStats {
+  speedExact: number;
+  speedDisplay: number;
+  acceleration: number;
+  handlingExact: number;
+  handlingDisplay: number;
+  capacityKg: number;
+  speedBonusPct: number;
+  accelerationBonusPct: number;
+  handlingBonusPct: number;
+  flatCapacityBonusKg: number;
+  trailerCapacityKg: number;
+  capacityImprovementPct: number;
+}
+
+export interface VehicleCombinationResult {
+  spoiler: VehiclePart | null;
+  exhaust: VehiclePart | null;
+  wheelStack: VehiclePart | null;
+  trailer: Trailer | null;
+  stats: VehicleFinalStats;
+  score: number;
+  scoreComponents: { speed: number; acceleration: number; handling: number; capacity: number };
+}
+
+export interface VehicleItemAnalysis {
+  item: VehiclePart;
+  verdict: VehicleVerdict;
+  reason: string;
+  dominator?: VehiclePart;
+}
+
 export interface GearStats {
   luck: number;
   energy: number;
@@ -163,10 +285,16 @@ export interface CertificateTarget {
 }
 
 export interface AppData {
-  schemaVersion: 1;
+  schemaVersion: 3;
   gear: GearItem[];
   settings: AlgorithmSettings;
   authModel: AuthModelEntry[];
   rollLog: CertificateRollLog[];
   theme: ThemeMode;
+  vehicleProfile: VehicleProfile;
+  vehicleSettings: VehicleOptimiserSettings;
+  vehicleParts: VehiclePart[];
+  trailers: Trailer[];
+  trophies: GavelTrophy[];
+  trophySettings: TrophyOptimiserSettings;
 }

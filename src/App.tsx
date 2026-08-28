@@ -3,13 +3,15 @@ import { LOCKED_DEFAULT_SETTINGS, makeInitialData, ZERO_STATS } from './defaults
 import { analyseItems, optimise, specialistLoadout } from './engine/optimizer';
 import { certificateTargets } from './engine/certificates';
 import { addOutcomeToItem, removeNumericAuthentication } from './engine/dominance';
-import { gameArrowToReduction, reductionToGameArrow, scoreStandalone } from './engine/scoring';
+import { effectiveItemStats, gameArrowToReduction, reductionToGameArrow, scoreStandalone } from './engine/scoring';
 import { csvToGear, gearToCsv } from './data/csv';
 import { exportJson, importJson, loadData, saveData, saveEmergencyMirror } from './data/storage';
+import { VehicleScreen } from './components/VehicleScreen';
+import { TrophyScreen } from './components/TrophyScreen';
 import type { AlgorithmSettings, AppData, AuthModelEntry, CertificateRollLog, CertificateTarget, CombinationResult, GearItem, GearStats, ItemAnalysis, Slot } from './types';
 
-type Tab = 'Dashboard' | 'Gear' | 'Optimise' | 'Certificates' | 'Settings';
-const tabs: Tab[] = ['Dashboard','Gear','Optimise','Certificates','Settings'];
+type Tab = 'Dashboard' | 'Gear' | 'Optimise' | 'Vehicle' | 'Trophies' | 'Certificates' | 'Settings';
+const tabs: Tab[] = ['Dashboard','Gear','Optimise','Vehicle','Trophies','Certificates','Settings'];
 const statLabels: Array<[keyof GearStats,string]> = [
   ['luck','Luck'],['energy','Energy Drink Time'],['tip','Tip Chance'],['walk','Walkspeed'],['vehicle','Vehicle Speed'],['recovery','Bid Recovery'],['zone','Bid Zone Width'],['arrowReduction','Bid Arrow Reduction'],['npc','NPC Offers Bonus']
 ];
@@ -82,7 +84,7 @@ export default function App() {
 
   return <div className="appShell">
     <header className="topbar">
-      <div className="brand"><div className="logoMark small">SH</div><div><strong>Gear Optimiser</strong><span>Algorithm 1.0{computed.computing?' · recalculating…':computed.error?' · fallback mode':''}</span></div></div>
+      <div className="brand"><div className="logoMark small">SH</div><div><strong>Storage Hunters Optimiser</strong><span>Algorithm 1.0{computed.computing?' · recalculating…':computed.error?' · fallback mode':''}</span></div></div>
       <button className="iconButton" onClick={()=>downloadText(`storage-hunters-backup-${dateStamp()}.json`,exportJson(data),'application/json')} title="Backup">⇩</button>
     </header>
 
@@ -90,6 +92,8 @@ export default function App() {
       {tab==='Dashboard' && <Dashboard data={data} best={best} analyses={analyses} bestCert={normalTargets[0] ?? alienTargets[0]} onGo={setTab} />}
       {tab==='Gear' && <GearScreen gear={data.gear} analyses={analyses} settings={data.settings} certificateTargets={[...normalTargets,...alienTargets]} onAdd={openAdd} onEdit={openEdit} onClone={cloneItem} onDelete={deleteItem} onFav={toggleFav} onBulkDiscard={bulkDiscard} />}
       {tab==='Optimise' && <OptimiseScreen data={data} combinations={top100.slice(0,comboLimit)} limit={comboLimit} setLimit={setComboLimit} />}
+      {tab==='Vehicle' && <VehicleScreen data={data} setData={setData} />}
+      {tab==='Trophies' && <TrophyScreen data={data} setData={setData} />}
       {tab==='Certificates' && <CertificateScreen data={data} setData={setData} normal={normalTargets} alien={alienTargets} />}
       {tab==='Settings' && <SettingsScreen data={data} setData={setData} showToast={showToast} />}
     </main>
@@ -178,7 +182,7 @@ function GearScreen({gear,analyses,settings,certificateTargets,onAdd,onEdit,onCl
     <div className="gearList">{items.map(item=>{const a=map.get(item.id);return <article className="gearCard" key={item.id}>
       <div className="rowBetween"><div><div className="slotLabel">{item.slot} · <code>{item.id.slice(0,8)}</code></div><h3>{item.name}</h3></div><button className={`star ${item.favourite?'on':''}`} onClick={()=>onFav(item)}>★</button></div>
       <div className="chipRow"><StatusBadge status={a?.verdict ?? 'KEEP'}/>{certMap.get(item.id)&&<span className="badge certificateAction">{certMap.get(item.id)!.action==='AUTHENTICATE'?'AUTHENTICATE':'RE-AUTH CANDIDATE'}</span>}<span className="chip score">{a?.standalone.total.toFixed(2) ?? scoreStandalone(item,settings).total.toFixed(2)} standalone</span>{item.authenticated&&<span className="chip">{item.authentication.kind}: {item.authentication.effect||'—'} {item.authentication.value?`${item.authentication.value}%`:''}</span>}</div>
-      <div className="miniStats">{statLabels.filter(([k])=>Math.abs(item.stats[k])>1e-12).map(([k,l])=><span key={k}>{shortStat(l)} <b>{displayStat(k,item.stats[k])}</b></span>)}</div>
+      <div className="miniStats">{statLabels.filter(([k])=>Math.abs(effectiveItemStats(item)[k])>1e-12).map(([k,l])=><span key={k}>{shortStat(l)} <b>{displayStat(k,effectiveItemStats(item)[k])}</b></span>)}</div>
       <p className="reason">{a?.reason}</p>
       <div className="actions"><button onClick={()=>onEdit(item)}>Edit</button><button onClick={()=>onClone(item)}>Clone</button><button className="textDanger" onClick={()=>onDelete(item)}>Delete</button></div>
     </article>})}</div>
@@ -244,7 +248,7 @@ function GearEditor({item,authModel,mode,onClose,onSave}:{item:GearItem;authMode
       {statLabels.filter(([k])=>k!=='arrowReduction').map(([k,l])=><label key={k}>{l} %<input inputMode="decimal" type="number" step="any" value={v.stats[k]} onChange={e=>setStat(k,Number(e.target.value))}/></label>)}
       <label className="wide arrowInput">Bid Arrow Speed — enter exactly as shown in game %<input inputMode="decimal" type="number" step="any" value={displayedArrow} onChange={e=>setStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><span>Game <b>-24%</b> ⇒ optimiser <b>+24% reduction</b>. Game <b>+3%</b> ⇒ optimiser <b>-3% reduction</b>. Stored internally: {v.stats.arrowReduction.toFixed(2)}% reduction.</span></label>
     </div>
-    <div className="sectionTitle"><h3>Authentication</h3></div><div className="formGrid"><label className="check"><input type="checkbox" checked={v.authenticated} onChange={e=>setV({...v,authenticated:e.target.checked,authentication:e.target.checked?v.authentication:{kind:'None',effect:'',value:0}})}/> Authenticated</label>{v.authenticated&&<><label>Type<select value={v.authentication.kind} onChange={e=>setV({...v,authentication:{...v.authentication,kind:e.target.value as any}})}><option>Normal</option><option>Alien</option></select></label><label>Effect<select value={v.authentication.effect} onChange={e=>setV({...v,authentication:{...v.authentication,effect:e.target.value}})}>{authenticationOptions(v.authentication.kind,v.slot,v.authentication.effect,authModel).map(x=><option value={x} key={x}>{x||'Select effect'}</option>)}</select></label><label>Authentication value %<input type="number" step="any" value={v.authentication.value} onChange={e=>setV({...v,authentication:{...v.authentication,value:Number(e.target.value)}})}/></label><p className="wide fieldHelp">For normal numeric authentication, the nine displayed stats above should contain the final in-game stat. The authentication value is metadata used to calculate reroll value and is not scored twice.</p></>}</div>
+    <div className="sectionTitle"><h3>Authentication</h3></div><div className="formGrid"><label className="check"><input type="checkbox" checked={v.authenticated} onChange={e=>setV({...v,authenticated:e.target.checked,authentication:e.target.checked?v.authentication:{kind:'None',effect:'',value:0}})}/> Authenticated</label>{v.authenticated&&<><label>Type<select value={v.authentication.kind} onChange={e=>setV({...v,authentication:{...v.authentication,kind:e.target.value as any}})}><option>Normal</option><option>Alien</option></select></label><label>Effect<select value={v.authentication.effect} onChange={e=>setV({...v,authentication:{...v.authentication,effect:e.target.value}})}>{authenticationOptions(v.authentication.kind,v.slot,v.authentication.effect,authModel).map(x=><option value={x} key={x}>{x||'Select effect'}</option>)}</select></label><label>Authentication value %<input type="number" step="any" value={v.authentication.value} onChange={e=>setV({...v,authentication:{...v.authentication,value:Number(e.target.value)}})}/></label><p className="wide fieldHelp">Enter the item's normal stats above without adding the separate authentication roll. Numeric authentication is applied automatically by the optimiser, so it is scored once and shown in the effective stats on the Gear screen.</p></>}</div>
     <div className="formGrid"><label className="wide">Notes<textarea rows={3} value={v.notes??''} onChange={e=>setV({...v,notes:e.target.value})}/></label><label>Date obtained<input type="date" value={v.obtainedAt??''} onChange={e=>setV({...v,obtainedAt:e.target.value})}/></label></div>
     <div className="stickyActions"><button className="secondary" onClick={onClose}>Cancel</button><button className="primary" onClick={()=>onSave(v)}>{mode==='add'?'Add gear':'Save changes'}</button></div>
   </div></div>;
@@ -267,7 +271,7 @@ function RollLogEditor({data,type,onClose,onSave}:{data:AppData;type:AuthModelEn
   const after=optimise(previewGear,data.settings,1)[0]?.score.total??before;
   const setFinalStat=(key:keyof GearStats,value:number)=>setFinalStats(current=>({...ZERO_STATS,...current,[key]:Number.isFinite(value)?value:0}));
   return <div className="modalBackdrop"><div className="modal"><div className="modalHeader"><h2>Record certificate roll</h2><button className="iconButton" onClick={onClose}>×</button></div>
-    <div className="formGrid"><label className="wide">Item<select value={itemId} onChange={e=>setItemId(e.target.value)}>{data.gear.map(g=><option value={g.id} key={g.id}>{g.name} · {g.slot}</option>)}</select></label><label>New authentication<select value={newAuth} onChange={e=>setNewAuth(e.target.value)}><option value="">Select result</option>{certificateOutcomeOptions(type,item?.slot,data.authModel).map(a=><option key={a}>{a}</option>)}</select></label><label>New value %<input type="number" step="any" value={newValue} onChange={e=>setNewValue(Number(e.target.value))}/></label><label>Best score before<input type="number" value={before} readOnly/></label><label>Calculated score after<input type="number" value={after} readOnly/></label><p className="wide fieldHelp">Numeric outcomes are applied automatically after removing the previous numeric authentication. Confirm the final displayed stats below before saving; this is especially important when Focused was gained or lost.</p></div>
+    <div className="formGrid"><label className="wide">Item<select value={itemId} onChange={e=>setItemId(e.target.value)}>{data.gear.map(g=><option value={g.id} key={g.id}>{g.name} · {g.slot}</option>)}</select></label><label>New authentication<select value={newAuth} onChange={e=>setNewAuth(e.target.value)}><option value="">Select result</option>{certificateOutcomeOptions(type,item?.slot,data.authModel).map(a=><option key={a}>{a}</option>)}</select></label><label>New value %<input type="number" step="any" value={newValue} onChange={e=>setNewValue(Number(e.target.value))}/></label><label>Best score before<input type="number" value={before} readOnly/></label><label>Calculated score after<input type="number" value={after} readOnly/></label><p className="wide fieldHelp">Numeric authentication is stored separately and applied automatically. Only edit the core stats below if the underlying item stats themselves changed; this is especially important when Focused was gained or lost.</p></div>
     {finalStats&&<details className="finalStatsEditor"><summary>Confirm / correct final displayed stats</summary><div className="formGrid">{statLabels.filter(([k])=>k!=='arrowReduction').map(([k,l])=><label key={k}>{l} %<input type="number" inputMode="decimal" step="any" value={finalStats[k]} onChange={e=>setFinalStat(k,Number(e.target.value))}/></label>)}<label className="wide arrowInput">Bid Arrow Speed — game display %<input type="number" inputMode="decimal" step="any" value={reductionToGameArrow(finalStats.arrowReduction)} onChange={e=>setFinalStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><span>Enter the signed value shown by the game.</span></label></div></details>}
     <div className="stickyActions"><button className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={!item||!newAuth||!preview} onClick={()=>item&&preview&&onSave({id:crypto.randomUUID(),date:new Date().toISOString(),certificateType:type,itemId:item.id,itemName:item.name,slot:item.slot,previousAuthentication:item.authentication.effect,previousValue:item.authentication.value,newAuthentication:newAuth,newValue,improvedBestSet:after>before,bestScoreBefore:before,bestScoreAfter:after},preview)}>Apply & record</button></div>
   </div></div>;
@@ -331,4 +335,4 @@ function replacedName(prev:any,next:any,slot:Slot){const key=slot.toLowerCase() 
 function dateStamp(){return new Date().toISOString().slice(0,10)}
 function downloadText(name:string,text:string,type:string){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 function applyTheme(theme:AppData['theme']){document.documentElement.dataset.theme=theme;if(theme==='system')delete document.documentElement.dataset.theme}
-function navIcon(t:Tab){return ({Dashboard:'▦',Gear:'◆',Optimise:'◎',Certificates:'◈',Settings:'⚙'} as Record<Tab,string>)[t]}
+function navIcon(t:Tab){return ({Dashboard:'▦',Gear:'◆',Optimise:'◎',Vehicle:'▰',Trophies:'♜',Certificates:'◈',Settings:'⚙'} as Record<Tab,string>)[t]}
