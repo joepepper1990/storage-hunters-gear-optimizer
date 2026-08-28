@@ -166,6 +166,8 @@ The balanced performance score is deliberately labelled as an optimiser model ra
 
 Version 1.2 adds a dedicated Gavel Trophy inventory and four-trophy optimiser. Enter each trophy's one or two mutation chance boosts exactly as displayed in game. The optimiser uses the community Relative Added Value Boost comparison: each boost percentage is multiplied by the editable mutation value multiplier, then all powered trophies are combined.
 
+Version 1.2.1 strengthens trophy discard protection: a trophy is never marked SAFE TO DISCARD if it is required by the maximum specialist set for any enabled mutation (for example Maximum Chrome), even when it is not part of the best overall weighted set.
+
 - Maximum active trophies defaults to 4.
 - Top 10 / 25 / 100 powered sets.
 - Per-mutation specialist sets.

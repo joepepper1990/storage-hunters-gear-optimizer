@@ -50,13 +50,41 @@ export function specialistTrophySet(trophies: GavelTrophy[], settings: TrophyOpt
 
 export function analyseTrophies(trophies: GavelTrophy[], best: TrophyCombinationResult | undefined, settings: TrophyOptimiserSettings): TrophyAnalysis[] {
   const equipped = new Set(best?.trophies.map(t => t.id) ?? []);
+
+  // A trophy that is required by ANY mutation-specialist optimum is protected.
+  // This matters with multiple powered slots: a trophy can be individually dominated
+  // by another trophy and still be the 2nd/3rd/4th strongest contributor to, for
+  // example, the maximum Chrome set. One physical dominator cannot fill multiple slots.
+  const specialistFor = new Map<string, string[]>();
+  for (const weight of settings.mutationWeights) {
+    if (!weight.enabled || weight.multiplier <= 0) continue;
+    const specialist = specialistTrophySet(trophies, settings, weight.mutation);
+    if (!specialist || (specialist.totalBoosts[weight.mutation] ?? 0) <= 0) continue;
+    for (const trophy of specialist.trophies) {
+      const mutations = specialistFor.get(trophy.id) ?? [];
+      mutations.push(weight.mutation);
+      specialistFor.set(trophy.id, mutations);
+    }
+  }
+
   return trophies.map(item => {
     const score = trophyScore(item, settings);
-    if (equipped.has(item.id)) return { item, verdict: 'EQUIP', score, reason: `Part of the current best ${best?.trophies.length ?? 0}-trophy set.` };
+    if (equipped.has(item.id)) return { item, verdict: 'EQUIP', score, reason: `Part of the current best ${best?.trophies.length ?? 0}-trophy overall set.` };
+
+    const protectedMutations = specialistFor.get(item.id) ?? [];
+    if (protectedMutations.length) {
+      const shown = protectedMutations.slice(0, 4).join(', ');
+      const more = protectedMutations.length > 4 ? ` +${protectedMutations.length - 4} more` : '';
+      return {
+        item, verdict: 'KEEP', score,
+        reason: `Protected: required by the maximum ${shown}${more} specialist set${protectedMutations.length === 1 ? '' : 's'}.`
+      };
+    }
+
     const dominator = trophies.find(other => other.id !== item.id && dominates(other, item));
     if (dominator && !item.favourite) return {
       item, verdict: 'SAFE TO DISCARD', score, dominator,
-      reason: `${dominator.name} has equal-or-higher boost for every mutation on this trophy and a strictly higher boost somewhere, so this trophy can never beat it in the same slot.`
+      reason: `${dominator.name} has equal-or-higher boost for every mutation on this trophy, this trophy is not used by the best overall set or any enabled mutation-specialist set, and it is not locked/favourited.`
     };
     if (dominator && item.favourite) return {
       item, verdict: 'KEEP', score, dominator,

@@ -36,7 +36,7 @@ function Overview({data,best,analyses,onGo}:{data:AppData;best:TrophyCombination
   return <>
     <div className="heroCard trophyHero"><div><span className="eyebrow">BEST POWERED SET</span><div className="heroScore">{best?.score.toFixed(0)??'—'}</div><span>Relative mutation-value score</span></div><button className="primary compact" onClick={()=>onGo('Optimise')}>Inspect set</button></div>
     {best&&<><div className="trophyLoadout">{best.trophies.map((t,i)=><div className="loadoutCard" key={t.id}><span>Trophy {i+1}</span><strong>{t.name}</strong><small>{modifierText(t)}</small></div>)}</div><div className="sectionTitle"><h2>Combined boosts</h2></div><BoostGrid result={best}/></>}
-    <div className="notice"><b>Scoring model:</b> each trophy modifier is weighted as boost % × mutation value multiplier, then the best set of up to four trophies is ranked. This is a relative comparison score, not a literal expected cash value, because normal mutation base odds are not public.</div>
+    <div className="notice"><b>Scoring model:</b> each trophy modifier is weighted as boost % × mutation value multiplier, then the best set of up to four trophies is ranked. <b>Discard protection also preserves every enabled mutation-specialist set</b> (for example, your maximum Chrome set), even when a trophy is not in the best overall set. This is a relative comparison score, not a literal expected cash value, because normal mutation base odds are not public.</div>
     <div className="sectionTitle"><h2>Inventory</h2></div><div className="statsGrid three"><Stat label="Trophies" value={data.trophies.length}/><Stat label="Powered slots" value={data.trophySettings.maxActive}/><Stat label="Safe trophies" value={safe}/></div>
   </>;
 }
@@ -54,7 +54,7 @@ function Optimise({data,combinations,limit,setLimit}:{data:AppData;combinations:
   const eligible=data.trophySettings.mutationWeights.filter(w=>w.enabled&&w.multiplier>0);
   const ranked=combinations.map((c,i)=>({c,rank:i+1}));
   if(sort!=='score') ranked.sort((a,b)=>(b.c.totalBoosts[sort]??0)-(a.c.totalBoosts[sort]??0)||b.c.score-a.c.score);
-  const specialists=eligible.slice().sort((a,b)=>b.multiplier-a.multiplier).slice(0,8).map(w=>[w.mutation,specialistTrophySet(data.trophies,data.trophySettings,w.mutation)] as const);
+  const specialists=eligible.slice().sort((a,b)=>b.multiplier-a.multiplier).map(w=>[w.mutation,specialistTrophySet(data.trophies,data.trophySettings,w.mutation)] as const);
   const choose=Math.min(data.trophySettings.maxActive,data.trophies.length);
   return <>
     <div className="pageHeading"><div><h2>Trophy optimisation</h2><p>{data.trophies.length?`${nCr(data.trophies.length,choose).toLocaleString()} possible ${choose}-trophy sets`:'Add trophies to calculate a set'}</p></div></div>

@@ -27,11 +27,36 @@ describe('gavel trophy optimiser',()=>{
     const best=specialistTrophySet(list,DEFAULT_TROPHY_SETTINGS,'Void');
     expect(best?.totalBoosts.Void).toBe(42);
   });
-  it('proves simple direct dominance and protects favourites from discard',()=>{
-    const strong=t('Strong',[['Gold',20],['Void',10]]), weak=t('Weak',[['Gold',15]]), fav=t('Fav',[['Gold',10]],true);
-    expect(dominates(strong,weak)).toBe(true);
-    const analyses=analyseTrophies([strong,weak,fav],evaluateTrophySet([strong],DEFAULT_TROPHY_SETTINGS),DEFAULT_TROPHY_SETTINGS);
-    expect(analyses.find(a=>a.item.id==='Weak')?.verdict).toBe('SAFE TO DISCARD');
-    expect(analyses.find(a=>a.item.id==='Fav')?.verdict).toBe('KEEP');
+  it('protects every trophy required by a mutation-specialist max set even when the overall set is different',()=>{
+    const list=[
+      t('Chrome 100',[['Chrome',100]]),
+      t('Chrome 90',[['Chrome',90]]),
+      t('Chrome 80',[['Chrome',80]]),
+      t('Chrome 70',[['Chrome',70]]),
+      t('Chrome 60',[['Chrome',60]]),
+      t('Rainbow A',[['Rainbow',100]]),
+      t('Rainbow B',[['Rainbow',99]]),
+      t('Rainbow C',[['Rainbow',98]]),
+      t('Rainbow D',[['Rainbow',97]]),
+    ];
+    expect(dominates(list[0],list[1])).toBe(true);
+    const best=optimiseTrophies(list,DEFAULT_TROPHY_SETTINGS,1)[0];
+    expect(best.trophies.every(x=>x.name.startsWith('Rainbow'))).toBe(true);
+    const analyses=analyseTrophies(list,best,DEFAULT_TROPHY_SETTINGS);
+    for(const name of ['Chrome 100','Chrome 90','Chrome 80','Chrome 70']){
+      expect(analyses.find(a=>a.item.id===name)?.verdict).toBe('KEEP');
+      expect(analyses.find(a=>a.item.id===name)?.reason).toMatch(/maximum Chrome/);
+    }
+    expect(analyses.find(a=>a.item.id==='Chrome 60')?.verdict).toBe('SAFE TO DISCARD');
+  });
+
+  it('still protects favourites from discard when they are outside all optimum sets',()=>{
+    const list=[
+      t('A',[['Chrome',100]]),t('B',[['Chrome',90]]),t('C',[['Chrome',80]]),t('D',[['Chrome',70]]),
+      t('Favourite weak',[['Chrome',1]],true),
+    ];
+    const best=optimiseTrophies(list,DEFAULT_TROPHY_SETTINGS,1)[0];
+    const analyses=analyseTrophies(list,best,DEFAULT_TROPHY_SETTINGS);
+    expect(analyses.find(a=>a.item.id==='Favourite weak')?.verdict).toBe('KEEP');
   });
 });
