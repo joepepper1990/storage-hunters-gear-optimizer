@@ -19,8 +19,6 @@ export interface GavelTrophy {
   name: string;
   modifiers: TrophyModifier[];
   favourite: boolean;
-  notes?: string;
-  obtainedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -54,6 +52,7 @@ export interface TrophyAnalysis {
 
 export interface VehiclePart {
   id: string;
+  baseName: string;
   name: string;
   slot: VehiclePartSlot;
   speedPct: number;
@@ -62,8 +61,6 @@ export interface VehiclePart {
   capacityKg: number;
   mutation?: string;
   rarity?: string;
-  notes?: string;
-  obtainedAt?: string;
   favourite: boolean;
   createdAt: string;
   updatedAt: string;
@@ -73,7 +70,6 @@ export interface Trailer {
   id: string;
   name: string;
   capacityKg: number;
-  notes?: string;
   favourite: boolean;
   createdAt: string;
   updatedAt: string;
@@ -149,13 +145,12 @@ export interface Authentication {
 
 export interface GearItem {
   id: string;
+  baseName: string;
   name: string;
   slot: Slot;
   stats: GearStats;
   authenticated: boolean;
   authentication: Authentication;
-  notes?: string;
-  obtainedAt?: string;
   favourite: boolean;
   createdAt: string;
   updatedAt: string;
@@ -285,7 +280,7 @@ export interface CertificateTarget {
 }
 
 export interface AppData {
-  schemaVersion: 3;
+  schemaVersion: 4;
   gear: GearItem[];
   settings: AlgorithmSettings;
   authModel: AuthModelEntry[];

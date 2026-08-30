@@ -5,7 +5,7 @@ import { exportJson, importJson } from './storage';
 import type { GearItem } from '../types';
 
 const now='2026-08-28T00:00:00Z';
-const gear:GearItem={id:'abc',name:'Duplicate, "quoted"',slot:'Back',stats:{luck:41,energy:0,tip:0,walk:-1,vehicle:0,recovery:0,zone:0,arrowReduction:0,npc:7.7},authenticated:true,authentication:{kind:'Normal',effect:'Bid Arrow Speed',value:-24},notes:'line 1\nline 2',favourite:true,createdAt:now,updatedAt:now};
+const gear:GearItem={id:'abc',baseName:'Duplicate, "quoted"',name:'Duplicate, "quoted" — Luck +41% / Walk -1% / NPC +7.7% / Auth Arrow -24%',slot:'Back',stats:{luck:41,energy:0,tip:0,walk:-1,vehicle:0,recovery:0,zone:0,arrowReduction:0,npc:7.7},authenticated:true,authentication:{kind:'Normal',effect:'Bid Arrow Speed',value:-24},favourite:true,createdAt:now,updatedAt:now};
 
 describe('backup round trips',()=>{
   it('round-trips JSON without losing gear values',()=>{
@@ -17,7 +17,8 @@ describe('backup round trips',()=>{
     const restored=csvToGear(gearToCsv([gear]))[0];
     expect(restored.stats.arrowReduction).toBe(0);
     expect(restored.authentication.value).toBe(-24);
-    expect(restored.notes).toBe(gear.notes);
+    expect(restored.baseName).toBe(gear.baseName);
+    expect(restored.name).toContain('Auth Arrow -24%');
   });
   it('treats blank CSV numeric fields as zero',()=>{
     const restored=csvToGear('Name,Slot,Luck\nBlank stats,Head,\n')[0];
@@ -48,10 +49,11 @@ describe('backup round trips',()=>{
 
   it('round-trips Gavel Trophies and editable mutation weights',()=>{
     const d=makeInitialData();
-    d.trophies=[{id:'t1',name:'Void / Gold',modifiers:[{mutation:'Void',boostPct:42},{mutation:'Gold',boostPct:80}],favourite:true,createdAt:now,updatedAt:now}];
+    d.trophies=[{id:'t1',name:'legacy label',modifiers:[{mutation:'Void',boostPct:42},{mutation:'Gold',boostPct:80}],favourite:true,createdAt:now,updatedAt:now}];
     d.trophySettings.mutationWeights.find(w=>w.mutation==='Rainbow')!.multiplier=90;
     const restored=importJson(exportJson(d));
     expect(restored.trophies[0].modifiers[0].boostPct).toBe(42);
+    expect(restored.trophies[0].name).toBe('Void +42% / Gold +80%');
     expect(restored.trophySettings.maxActive).toBe(4);
     expect(restored.trophySettings.mutationWeights.find(w=>w.mutation==='Rainbow')?.multiplier).toBe(90);
   });

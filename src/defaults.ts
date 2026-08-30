@@ -36,6 +36,7 @@ export const DEFAULT_TROPHY_SETTINGS: TrophyOptimiserSettings = {
     { mutation: 'Silver', multiplier: 2, enabled: true, confidence: 'Confirmed' },
     { mutation: 'Gold', multiplier: 4, enabled: true, confidence: 'Confirmed' },
     { mutation: 'Corrupted', multiplier: 6, enabled: true, confidence: 'Confirmed' },
+    { mutation: 'Wet', multiplier: 1.4, enabled: true, confidence: 'Community' },
     { mutation: 'Diamond', multiplier: 8, enabled: true, confidence: 'Confirmed' },
     { mutation: 'Gem', multiplier: 10, enabled: true, confidence: 'Confirmed' },
     { mutation: 'Chrome', multiplier: 12, enabled: true, confidence: 'Confirmed' },
@@ -52,9 +53,9 @@ export const DEFAULT_TROPHY_SETTINGS: TrophyOptimiserSettings = {
 function seededVehicleParts(): VehiclePart[] {
   const now = new Date().toISOString();
   return [
-    { id: crypto.randomUUID(), name: '[Silver] Tractor Wheel Stack', slot: 'Wheel Stack', speedPct: 15, accelerationPct: 15, handlingPct: 0, capacityKg: 60, mutation: 'Silver', favourite: true, createdAt: now, updatedAt: now },
-    { id: crypto.randomUUID(), name: 'Manta Spoiler', slot: 'Spoiler', speedPct: 26, accelerationPct: -16, handlingPct: 0, capacityKg: 0, favourite: true, createdAt: now, updatedAt: now },
-    { id: crypto.randomUUID(), name: 'Caution Line Exhaust', slot: 'Exhaust', speedPct: 18, accelerationPct: 18, handlingPct: 0, capacityKg: 0, favourite: true, createdAt: now, updatedAt: now }
+    { id: crypto.randomUUID(), baseName: '[Silver] Tractor Wheel Stack', name: '[Silver] Tractor Wheel Stack — Speed +15% / Accel +15% / Capacity +60kg', slot: 'Wheel Stack', speedPct: 15, accelerationPct: 15, handlingPct: 0, capacityKg: 60, mutation: 'Silver', favourite: true, createdAt: now, updatedAt: now },
+    { id: crypto.randomUUID(), baseName: 'Manta Spoiler', name: 'Manta Spoiler — Speed +26% / Accel -16%', slot: 'Spoiler', speedPct: 26, accelerationPct: -16, handlingPct: 0, capacityKg: 0, favourite: true, createdAt: now, updatedAt: now },
+    { id: crypto.randomUUID(), baseName: 'Caution Line Exhaust', name: 'Caution Line Exhaust — Speed +18% / Accel +18%', slot: 'Exhaust', speedPct: 18, accelerationPct: 18, handlingPct: 0, capacityKg: 0, favourite: true, createdAt: now, updatedAt: now }
   ];
 }
 
@@ -130,7 +131,7 @@ export function makeDefaultAuthModel(): AuthModelEntry[] {
 
 export function makeInitialData(): AppData {
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     gear: [],
     settings: { ...LOCKED_DEFAULT_SETTINGS },
     authModel: makeDefaultAuthModel(),

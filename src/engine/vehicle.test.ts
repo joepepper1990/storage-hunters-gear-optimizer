@@ -5,7 +5,7 @@ import type { Trailer, VehicleOptimiserSettings, VehiclePart, VehicleProfile } f
 const profile: VehicleProfile = { name: 'Dumpster Truck', baseSpeed: 69, baseAcceleration: 1, baseHandling: 90, baseCapacityKg: 2750, capacityMultiplier: 1.5 };
 const settings: VehicleOptimiserSettings = { capacityWeight: 45, speedWeight: 30, accelerationWeight: 15, handlingWeight: 10 };
 const now = '2026-08-28T00:00:00.000Z';
-const part = (id:string,name:string,slot:VehiclePart['slot'],speedPct:number,accelerationPct:number,capacityKg=0,handlingPct=0):VehiclePart => ({id,name,slot,speedPct,accelerationPct,capacityKg,handlingPct,favourite:false,createdAt:now,updatedAt:now});
+const part = (id:string,name:string,slot:VehiclePart['slot'],speedPct:number,accelerationPct:number,capacityKg=0,handlingPct=0):VehiclePart => ({id,baseName:name,name,slot,speedPct,accelerationPct,capacityKg,handlingPct,favourite:false,createdAt:now,updatedAt:now});
 const trailer = (id:string,name:string,capacityKg:number):Trailer => ({id,name,capacityKg,favourite:false,createdAt:now,updatedAt:now});
 const tractor=part('wheel','[Silver] Tractor Wheel Stack','Wheel Stack',15,15,60);
 const caution=part('exhaust','Caution Line Exhaust','Exhaust',18,18);

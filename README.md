@@ -168,10 +168,12 @@ Version 1.2 adds a dedicated Gavel Trophy inventory and four-trophy optimiser. E
 
 Version 1.2.1 strengthens trophy discard protection: a trophy is never marked SAFE TO DISCARD if it is required by the maximum specialist set for any enabled mutation (for example Maximum Chrome), even when it is not part of the best overall weighted set.
 
+Version 1.3 speeds up inventory entry. Gavel Trophy names are generated automatically from their modifier rolls (for example `Silver +54%` or `Gem +110% / Silver +50%`). Gear and vehicle parts now keep a short manually entered base name and automatically append every non-zero stat. Trophy inventory can be sorted by score, name, or any specific mutation boost in either direction. Item notes and obtained-date fields have been removed, and Wet is included in the default trophy modifier list.
+
 - Maximum active trophies defaults to 4.
 - Top 10 / 25 / 100 powered sets.
 - Per-mutation specialist sets.
 - Direct mathematical dominance identifies trophies that can never beat a stronger trophy's raw boost coverage; favourites are protected.
-- Default weights: Silver 2x, Gold 4x, Corrupted 6x, Diamond 8x, Gem 10x, Chrome 12x, Hologram 15x, Void 35x, Secret 50x, Rainbow 100x, Tiny 2x and Huge 2x.
+- Default weights: Silver 2x, Gold 4x, Corrupted 6x, Wet 1.4x, Diamond 8x, Gem 10x, Chrome 12x, Hologram 15x, Void 35x, Secret 50x, Rainbow 100x, Tiny 2x and Huge 2x.
 - All weights are editable. Secret/Rainbow/Huge are visibly confidence-labelled because public sources are less consistent than the established core multipliers.
 - Trophy score is a relative heuristic, not literal expected cash value, because the normal mutation base probabilities remain unpublished.

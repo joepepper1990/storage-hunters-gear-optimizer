@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { LOCKED_DEFAULT_SETTINGS, makeDefaultAuthModel } from '../defaults';
 import { certificateTargets, minimumUsefulArrowMagnitude } from './certificates';
 import type { GearItem, GearStats, Slot } from '../types';
-function g(id:string,slot:Slot,stats:Partial<GearStats>,auth?:{effect:string;value:number}):GearItem{const now='2026-08-28T00:00:00Z';return{id,name:id,slot,stats:{luck:0,energy:0,tip:0,walk:0,vehicle:0,recovery:0,zone:0,arrowReduction:0,npc:0,...stats},authenticated:!!auth,authentication:auth?{kind:'Normal',effect:auth.effect,value:auth.value}:{kind:'None',effect:'',value:0},favourite:false,createdAt:now,updatedAt:now}}
+function g(id:string,slot:Slot,stats:Partial<GearStats>,auth?:{effect:string;value:number}):GearItem{const now='2026-08-28T00:00:00Z';return{id,baseName:id,name:id,slot,stats:{luck:0,energy:0,tip:0,walk:0,vehicle:0,recovery:0,zone:0,arrowReduction:0,npc:0,...stats},authenticated:!!auth,authentication:auth?{kind:'Normal',effect:auth.effect,value:auth.value}:{kind:'None',effect:'',value:0},favourite:false,createdAt:now,updatedAt:now}}
 
 describe('certificate heuristic',()=>{
   it('is deterministic/stable for identical inputs',()=>{

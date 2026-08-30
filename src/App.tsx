@@ -8,6 +8,7 @@ import { csvToGear, gearToCsv } from './data/csv';
 import { exportJson, importJson, loadData, saveData, saveEmergencyMirror } from './data/storage';
 import { VehicleScreen } from './components/VehicleScreen';
 import { TrophyScreen } from './components/TrophyScreen';
+import { generateGearName } from './naming';
 import type { AlgorithmSettings, AppData, AuthModelEntry, CertificateRollLog, CertificateTarget, CombinationResult, GearItem, GearStats, ItemAnalysis, Slot } from './types';
 
 type Tab = 'Dashboard' | 'Gear' | 'Optimise' | 'Vehicle' | 'Trophies' | 'Certificates' | 'Settings';
@@ -66,9 +67,10 @@ export default function App() {
   function showToast(message:string){ setToast(message); window.setTimeout(()=>setToast(''),2600); }
   function openAdd(){ setEditorMode('add'); setEditor(blankItem()); }
   function openEdit(item:GearItem){ setEditorMode('edit'); setEditor(structuredClone(item)); }
-  function cloneItem(item:GearItem){ const c=structuredClone(item); c.id=crypto.randomUUID(); c.name=`${item.name} copy`; c.createdAt=c.updatedAt=new Date().toISOString(); setEditorMode('add'); setEditor(c); }
+  function cloneItem(item:GearItem){ const c=structuredClone(item); c.id=crypto.randomUUID(); c.name=generateGearName(c.baseName,c.stats,c.authenticated,c.authentication); c.createdAt=c.updatedAt=new Date().toISOString(); setEditorMode('add'); setEditor(c); }
 
-  function commitItem(item:GearItem) {
+  function commitItem(input:GearItem) {
+    const item={...input,name:generateGearName(input.baseName,input.stats,input.authenticated,input.authentication)};
     const validation = validateItem(item); if (validation) { alert(validation); return; }
     const previousBest = best;
     const isAdd = editorMode === 'add';
@@ -169,15 +171,15 @@ function Dashboard({data,best,analyses,bestCert,onGo}:{data:AppData;best:any;ana
 }
 
 function GearScreen({gear,analyses,settings,certificateTargets,onAdd,onEdit,onClone,onDelete,onFav,onBulkDiscard}:{gear:GearItem[];analyses:ItemAnalysis[];settings:AlgorithmSettings;certificateTargets:CertificateTarget[];onAdd:()=>void;onEdit:(i:GearItem)=>void;onClone:(i:GearItem)=>void;onDelete:(i:GearItem)=>void;onFav:(i:GearItem)=>void;onBulkDiscard:()=>void}){
-  const [q,setQ]=useState(''); const [slot,setSlot]=useState<'All'|Slot>('All'); const [status,setStatus]=useState('All'); const [auth,setAuth]=useState('All'); const [sort,setSort]=useState('score');
+  const [q,setQ]=useState(''); const [slot,setSlot]=useState<'All'|Slot>('All'); const [status,setStatus]=useState('All'); const [auth,setAuth]=useState('All'); const [sort,setSort]=useState('scoreDesc');
   const map=new Map(analyses.map(a=>[a.item.id,a]));
   const certMap=new Map<string,CertificateTarget>(); for(const t of certificateTargets){const prior=certMap.get(t.item.id);if(!prior||t.heuristicScore>prior.heuristicScore)certMap.set(t.item.id,t);}
   let items=gear.filter(i=>(slot==='All'||i.slot===slot)&&(!q||i.name.toLowerCase().includes(q.toLowerCase())||i.id.includes(q))&&(status==='All'||map.get(i.id)?.verdict===status)&&(auth==='All'||(auth==='Unauthenticated'?!i.authenticated:i.authentication.kind===auth)));
-  items=[...items].sort((a,b)=>sort==='name'?a.name.localeCompare(b.name):sort==='newest'?b.createdAt.localeCompare(a.createdAt):(map.get(b.id)?.standalone.total??0)-(map.get(a.id)?.standalone.total??0));
+  items=[...items].sort((a,b)=>sort==='nameAsc'?a.name.localeCompare(b.name):sort==='nameDesc'?b.name.localeCompare(a.name):sort==='scoreAsc'?(map.get(a.id)?.standalone.total??0)-(map.get(b.id)?.standalone.total??0):(map.get(b.id)?.standalone.total??0)-(map.get(a.id)?.standalone.total??0));
   const safe=analyses.filter(a=>a.verdict==='SAFE TO DISCARD');
   return <section>
     <div className="pageHeading"><div><h1>Gear</h1><p>{gear.length} items · duplicates allowed</p></div><button className="primary" onClick={onAdd}>＋ Add gear</button></div>
-    <div className="filters"><input placeholder="Search name or ID" value={q} onChange={e=>setQ(e.target.value)}/><select value={slot} onChange={e=>setSlot(e.target.value as any)}><option>All</option><option>Head</option><option>Back</option><option>Wrist</option></select><select value={status} onChange={e=>setStatus(e.target.value)}><option>All</option><option>EQUIP</option><option>KEEP</option><option>SAFE TO DISCARD</option><option>PROTECTED / UNKNOWN</option></select><select value={auth} onChange={e=>setAuth(e.target.value)}><option>All</option><option>Unauthenticated</option><option>Normal</option><option>Alien</option></select><select value={sort} onChange={e=>setSort(e.target.value)}><option value="score">Standalone score</option><option value="name">Name</option><option value="newest">Newest</option></select></div>
+    <div className="filters"><input placeholder="Search name or ID" value={q} onChange={e=>setQ(e.target.value)}/><select value={slot} onChange={e=>setSlot(e.target.value as any)}><option>All</option><option>Head</option><option>Back</option><option>Wrist</option></select><select value={status} onChange={e=>setStatus(e.target.value)}><option>All</option><option>EQUIP</option><option>KEEP</option><option>SAFE TO DISCARD</option><option>PROTECTED / UNKNOWN</option></select><select value={auth} onChange={e=>setAuth(e.target.value)}><option>All</option><option>Unauthenticated</option><option>Normal</option><option>Alien</option></select><select value={sort} onChange={e=>setSort(e.target.value)}><option value="scoreDesc">Score: highest → lowest</option><option value="scoreAsc">Score: lowest → highest</option><option value="nameAsc">Name: A → Z</option><option value="nameDesc">Name: Z → A</option></select></div>
     {safe.length>0 && <details className="dangerPanel"><summary>{safe.length} item{safe.length!==1?'s':''} proven SAFE TO DISCARD</summary><div className="discardList">{safe.map(a=><div key={a.item.id}><strong>{a.item.name}</strong><span>{a.dominance?.reason}</span></div>)}</div><button className="danger" onClick={onBulkDiscard}>Review confirmation & delete all safe items</button></details>}
     <div className="gearList">{items.map(item=>{const a=map.get(item.id);return <article className="gearCard" key={item.id}>
       <div className="rowBetween"><div><div className="slotLabel">{item.slot} · <code>{item.id.slice(0,8)}</code></div><h3>{item.name}</h3></div><button className={`star ${item.favourite?'on':''}`} onClick={()=>onFav(item)}>★</button></div>
@@ -241,16 +243,19 @@ function SettingsScreen({data,setData,showToast}:{data:AppData;setData:(d:AppDat
 }
 
 function GearEditor({item,authModel,mode,onClose,onSave}:{item:GearItem;authModel:AuthModelEntry[];mode:'add'|'edit';onClose:()=>void;onSave:(i:GearItem)=>void}){
-  const [v,setV]=useState(item); const setStat=(k:keyof GearStats,n:number)=>setV({...v,stats:{...v.stats,[k]:Number.isFinite(n)?n:0}});
+  const [v,setV]=useState({...item,name:generateGearName(item.baseName,item.stats,item.authenticated,item.authentication)});
+  const patch=(next:Partial<GearItem>)=>setV(current=>{const updated={...current,...next};return {...updated,name:generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication)};});
+  const setStat=(k:keyof GearStats,n:number)=>setV(current=>{const stats={...current.stats,[k]:Number.isFinite(n)?n:0};return {...current,stats,name:generateGearName(current.baseName,stats,current.authenticated,current.authentication)};});
+  const setAuthentication=(next:Partial<GearItem['authentication']>)=>setV(current=>{const authentication={...current.authentication,...next};return {...current,authentication,name:generateGearName(current.baseName,current.stats,current.authenticated,authentication)};});
   const displayedArrow=reductionToGameArrow(v.stats.arrowReduction);
   return <div className="modalBackdrop"><div className="modal sheet"><div className="modalHeader"><div><span className="eyebrow">{mode==='add'?'NEW ITEM':'EDIT ITEM'}</span><h2>{v.name||'Gear'}</h2></div><button className="iconButton" onClick={onClose}>×</button></div>
-    <div className="formGrid"><label className="wide">Name<input autoFocus value={v.name} onChange={e=>setV({...v,name:e.target.value})}/></label><label>Slot<select value={v.slot} onChange={e=>setV({...v,slot:e.target.value as Slot})}><option>Head</option><option>Back</option><option>Wrist</option></select></label><label className="check"><input type="checkbox" checked={v.favourite} onChange={e=>setV({...v,favourite:e.target.checked})}/> Lock / favourite</label>
+    <div className="formGrid"><label className="wide">Actual gear name<input autoFocus value={v.baseName} onChange={e=>patch({baseName:e.target.value})}/></label><div className="wide autoNamePreview"><span>Automatic name</span><strong>{v.name||'Enter the gear name'}</strong></div><label>Slot<select value={v.slot} onChange={e=>patch({slot:e.target.value as Slot})}><option>Head</option><option>Back</option><option>Wrist</option></select></label><label className="check"><input type="checkbox" checked={v.favourite} onChange={e=>patch({favourite:e.target.checked})}/> Lock / favourite</label>
       {statLabels.filter(([k])=>k!=='arrowReduction').map(([k,l])=><label key={k}>{l} %<input inputMode="decimal" type="number" step="any" value={v.stats[k]} onChange={e=>setStat(k,Number(e.target.value))}/></label>)}
       <label className="wide arrowInput">Bid Arrow Speed — enter exactly as shown in game %<input inputMode="decimal" type="number" step="any" value={displayedArrow} onChange={e=>setStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><span>Game <b>-24%</b> ⇒ optimiser <b>+24% reduction</b>. Game <b>+3%</b> ⇒ optimiser <b>-3% reduction</b>. Stored internally: {v.stats.arrowReduction.toFixed(2)}% reduction.</span></label>
     </div>
-    <div className="sectionTitle"><h3>Authentication</h3></div><div className="formGrid"><label className="check"><input type="checkbox" checked={v.authenticated} onChange={e=>setV({...v,authenticated:e.target.checked,authentication:e.target.checked?v.authentication:{kind:'None',effect:'',value:0}})}/> Authenticated</label>{v.authenticated&&<><label>Type<select value={v.authentication.kind} onChange={e=>setV({...v,authentication:{...v.authentication,kind:e.target.value as any}})}><option>Normal</option><option>Alien</option></select></label><label>Effect<select value={v.authentication.effect} onChange={e=>setV({...v,authentication:{...v.authentication,effect:e.target.value}})}>{authenticationOptions(v.authentication.kind,v.slot,v.authentication.effect,authModel).map(x=><option value={x} key={x}>{x||'Select effect'}</option>)}</select></label><label>Authentication value %<input type="number" step="any" value={v.authentication.value} onChange={e=>setV({...v,authentication:{...v.authentication,value:Number(e.target.value)}})}/></label><p className="wide fieldHelp">Enter the item's normal stats above without adding the separate authentication roll. Numeric authentication is applied automatically by the optimiser, so it is scored once and shown in the effective stats on the Gear screen.</p></>}</div>
-    <div className="formGrid"><label className="wide">Notes<textarea rows={3} value={v.notes??''} onChange={e=>setV({...v,notes:e.target.value})}/></label><label>Date obtained<input type="date" value={v.obtainedAt??''} onChange={e=>setV({...v,obtainedAt:e.target.value})}/></label></div>
-    <div className="stickyActions"><button className="secondary" onClick={onClose}>Cancel</button><button className="primary" onClick={()=>onSave(v)}>{mode==='add'?'Add gear':'Save changes'}</button></div>
+    <div className="sectionTitle"><h3>Authentication</h3></div><div className="formGrid"><label className="check"><input type="checkbox" checked={v.authenticated} onChange={e=>{const authenticated=e.target.checked;const authentication=authenticated?v.authentication:{kind:'None' as const,effect:'',value:0};setV(current=>({...current,authenticated,authentication,name:generateGearName(current.baseName,current.stats,authenticated,authentication)}));}}/> Authenticated</label>{v.authenticated&&<><label>Type<select value={v.authentication.kind} onChange={e=>setAuthentication({kind:e.target.value as any})}><option>Normal</option><option>Alien</option></select></label><label>Effect<select value={v.authentication.effect} onChange={e=>setAuthentication({effect:e.target.value})}>{authenticationOptions(v.authentication.kind,v.slot,v.authentication.effect,authModel).map(x=><option value={x} key={x}>{x||'Select effect'}</option>)}</select></label><label>Authentication value %<input type="number" step="any" value={v.authentication.value} onChange={e=>setAuthentication({value:Number(e.target.value)})}/></label><p className="wide fieldHelp">Enter the item's normal stats above without adding the separate authentication roll. Numeric authentication is applied automatically by the optimiser and included in the generated name as an Auth stat.</p></>}</div>
+    <div className="notice">Type the actual gear name once. The app automatically appends every non-zero stat, making duplicate rolls much quicker to identify.</div>
+    <div className="stickyActions"><button className="secondary" onClick={onClose}>Cancel</button><button className="primary" onClick={()=>onSave({...v,name:generateGearName(v.baseName,v.stats,v.authenticated,v.authentication)})}>{mode==='add'?'Analyse & add':'Save changes'}</button></div>
   </div></div>;
 }
 
@@ -265,7 +270,7 @@ function RollLogEditor({data,type,onClose,onSave}:{data:AppData;type:AuthModelEn
   const [finalStats,setFinalStats]=useState<GearStats|undefined>(autoPreview?{...autoPreview.stats}:undefined);
   useEffect(()=>{setFinalStats(autoPreview?{...autoPreview.stats}:undefined)},[autoPreview]);
   useEffect(()=>{setNewAuth('');setNewValue(0)},[itemId,type]);
-  const preview=autoPreview&&finalStats?{...autoPreview,stats:finalStats}:autoPreview;
+  const preview=autoPreview&&finalStats?{...autoPreview,stats:finalStats,name:generateGearName(autoPreview.baseName,finalStats,autoPreview.authenticated,autoPreview.authentication)}:autoPreview;
   const before=optimise(data.gear,data.settings,1)[0]?.score.total??0;
   const previewGear=preview?data.gear.map(g=>g.id===preview.id?preview:g):data.gear;
   const after=optimise(previewGear,data.settings,1)[0]?.score.total??before;
@@ -288,12 +293,13 @@ function EmptyState({title,text,action,onClick}:{title:string;text:string;action
 
 function algorithmIssues(s:AlgorithmSettings):string[]{const issues:string[]=[];for(const [k,v] of Object.entries(s))if(k!=='version'&&!Number.isFinite(Number(v)))issues.push(`${k} is not finite`);if(s.arrowSweetSpot>s.arrowCeiling)issues.push('Arrow sweet spot must be ≤ flat-region start');if(s.arrowCeiling>s.arrowPenaltyThreshold)issues.push('Arrow flat-region start must be ≤ penalty threshold');if(s.energyTarget>s.energyCeiling)issues.push('Energy target must be ≤ Energy ceiling');if(s.zoneBreakpoint1>s.zoneBreakpoint2)issues.push('Zone breakpoint 1 must be ≤ breakpoint 2');if(s.arrowOvercapPenaltyMultiplier<0)issues.push('Arrow over-cap penalty multiplier cannot be negative');return issues;}
 function newAuthModelEntry():AuthModelEntry{return{id:crypto.randomUUID(),certificateType:'Normal Certificate of Authenticity',slot:'Any',outcome:'Custom outcome',category:'Custom / unknown',assumedLikelihoodClass:'MEDIUM',observedSampleCount:0,observedValues:[],confidence:'Unknown',enabled:true}}
-function blankItem():GearItem{const now=new Date().toISOString();return{id:crypto.randomUUID(),name:'',slot:'Head',stats:{...ZERO_STATS},authenticated:false,authentication:{kind:'None',effect:'',value:0},favourite:false,createdAt:now,updatedAt:now}}
+function blankItem():GearItem{const now=new Date().toISOString();return{id:crypto.randomUUID(),baseName:'',name:'',slot:'Head',stats:{...ZERO_STATS},authenticated:false,authentication:{kind:'None',effect:'',value:0},favourite:false,createdAt:now,updatedAt:now}}
 function applyRollToItem(item:GearItem,effect:string,value:number,type:AuthModelEntry['certificateType']):GearItem{
   let base=removeNumericAuthentication(item);
   if(base.authenticated){base=structuredClone(base);base.authenticated=false;base.authentication={kind:'None',effect:'',value:0};}
   const updated=addOutcomeToItem(base,effect,value);
   updated.authentication.kind=type==='Certificate of Alienticity'?'Alien':'Normal';
+  updated.name=generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication);
   updated.updatedAt=new Date().toISOString();
   return updated;
 }
@@ -304,7 +310,7 @@ function recordEmpiricalRoll(model:AuthModelEntry[],roll:CertificateRollLog):Aut
 }
 function prepareImportedGear(existing:GearItem[],incoming:GearItem[]):GearItem[]{const used=new Set(existing.map(x=>x.id));return incoming.map(item=>{const clone=structuredClone(item);if(!clone.id||used.has(clone.id))clone.id=crypto.randomUUID();used.add(clone.id);return clone;});}
 function validateItem(i:GearItem){
-  if(!i.name.trim())return 'Item name is required.';
+  if(!i.baseName.trim())return 'Item name is required.';
   if(!['Head','Back','Wrist'].includes(i.slot))return 'Valid slot is required.';
   for(const [k] of statLabels)if(!Number.isFinite(i.stats[k]))return `${k} must be a finite number.`;
   if(!Number.isFinite(i.authentication.value))return 'Authentication value must be a finite number.';

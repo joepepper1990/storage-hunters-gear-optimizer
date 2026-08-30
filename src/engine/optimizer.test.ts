@@ -3,7 +3,7 @@ import { LOCKED_DEFAULT_SETTINGS } from '../defaults';
 import { analyseItems, optimise } from './optimizer';
 import type { GearItem, GearStats, Slot } from '../types';
 
-function g(id:string,slot:Slot,stats:Partial<GearStats>,effect='',value=0):GearItem {const now='2026-08-28T00:00:00Z';return{id,name:id,slot,stats:{luck:0,energy:0,tip:0,walk:0,vehicle:0,recovery:0,zone:0,arrowReduction:0,npc:0,...stats},authenticated:!!effect,authentication:{kind:effect? 'Alien':'None',effect,value},favourite:false,createdAt:now,updatedAt:now}}
+function g(id:string,slot:Slot,stats:Partial<GearStats>,effect='',value=0):GearItem {const now='2026-08-28T00:00:00Z';return{id,baseName:id,name:id,slot,stats:{luck:0,energy:0,tip:0,walk:0,vehicle:0,recovery:0,zone:0,arrowReduction:0,npc:0,...stats},authenticated:!!effect,authentication:{kind:effect? 'Alien':'None',effect,value},favourite:false,createdAt:now,updatedAt:now}}
 
 describe('combination optimiser',()=>{
   it('handles empty slots',()=>expect(optimise([g('H','Head',{luck:10})],LOCKED_DEFAULT_SETTINGS)).toEqual([]));

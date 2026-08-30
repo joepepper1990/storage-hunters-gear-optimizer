@@ -1,5 +1,6 @@
 import { DEFAULT_TROPHY_SETTINGS, DEFAULT_VEHICLE_PROFILE, DEFAULT_VEHICLE_SETTINGS, makeInitialData, LOCKED_DEFAULT_SETTINGS } from '../defaults';
 import type { AppData, GavelTrophy, GearItem, Trailer, TrophyOptimiserSettings, VehiclePart } from '../types';
+import { generateGearName, generateTrophyName, generateVehiclePartName, inferBaseName } from '../naming';
 
 const DB_NAME = 'storage-hunters-gear-optimizer';
 const STORE = 'app';
@@ -86,7 +87,7 @@ function request<T = unknown>(req: IDBRequest<T>): Promise<T> {
 export function normalizeData(raw: AppData): AppData {
   const initial = makeInitialData();
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     gear: Array.isArray(raw?.gear) ? raw.gear.map(normalizeItem) : [],
     settings: normalizeSettings(raw?.settings),
     authModel: Array.isArray(raw?.authModel) && raw.authModel.length ? raw.authModel : initial.authModel,
@@ -110,9 +111,8 @@ function normalizeTrophy(item: GavelTrophy): GavelTrophy {
     .slice(0, 2)
     .map(m => ({ mutation: m.mutation.trim(), boostPct: Math.max(0, finite(m.boostPct)) })) : [];
   return {
-    ...item,
     id: item?.id || crypto.randomUUID(),
-    name: typeof item?.name === 'string' && item.name.trim() ? item.name : 'Gavel Trophy',
+    name: generateTrophyName(modifiers),
     modifiers,
     favourite: Boolean(item?.favourite),
     createdAt: item?.createdAt || now,
@@ -161,17 +161,28 @@ function normalizeVehicleSettings(raw: Partial<AppData['vehicleSettings']> | und
 
 function normalizeVehiclePart(item: VehiclePart): VehiclePart {
   const now = new Date().toISOString();
+  const baseName = typeof item?.baseName === 'string' && item.baseName.trim()
+    ? item.baseName.trim()
+    : inferBaseName(typeof item?.name === 'string' ? item.name : '');
+  const part = {
+    speedPct: finite(item?.speedPct), accelerationPct: finite(item?.accelerationPct),
+    handlingPct: finite(item?.handlingPct), capacityKg: finite(item?.capacityKg)
+  };
   return {
-    ...item, id: item?.id || crypto.randomUUID(), name: typeof item?.name === 'string' ? item.name : '',
+    id: item?.id || crypto.randomUUID(),
+    baseName,
+    name: generateVehiclePartName(baseName, part),
     slot: ['Spoiler','Exhaust','Wheel Stack'].includes(item?.slot) ? item.slot : 'Spoiler',
-    speedPct: finite(item?.speedPct), accelerationPct: finite(item?.accelerationPct), handlingPct: finite(item?.handlingPct), capacityKg: finite(item?.capacityKg),
+    ...part,
+    mutation: typeof item?.mutation === 'string' ? item.mutation : undefined,
+    rarity: typeof item?.rarity === 'string' ? item.rarity : undefined,
     favourite: Boolean(item?.favourite), createdAt: item?.createdAt || now, updatedAt: item?.updatedAt || now
   };
 }
 
 function normalizeTrailer(item: Trailer): Trailer {
   const now = new Date().toISOString();
-  return { ...item, id: item?.id || crypto.randomUUID(), name: typeof item?.name === 'string' ? item.name : '', capacityKg: finite(item?.capacityKg), favourite: Boolean(item?.favourite), createdAt: item?.createdAt || now, updatedAt: item?.updatedAt || now };
+  return { id: item?.id || crypto.randomUUID(), name: typeof item?.name === 'string' ? item.name : '', capacityKg: finite(item?.capacityKg), favourite: Boolean(item?.favourite), createdAt: item?.createdAt || now, updatedAt: item?.updatedAt || now };
 }
 
 
@@ -188,23 +199,30 @@ function normalizeSettings(raw: Partial<AppData['settings']> | undefined): AppDa
 
 function normalizeItem(i: GearItem): GearItem {
   const now = new Date().toISOString();
+  const baseName = typeof i?.baseName === 'string' && i.baseName.trim()
+    ? i.baseName.trim()
+    : inferBaseName(typeof i?.name === 'string' ? i.name : '');
+  const stats = {
+    luck: finite(i?.stats?.luck), energy: finite(i?.stats?.energy), tip: finite(i?.stats?.tip), walk: finite(i?.stats?.walk),
+    vehicle: finite(i?.stats?.vehicle), recovery: finite(i?.stats?.recovery), zone: finite(i?.stats?.zone),
+    arrowReduction: finite(i?.stats?.arrowReduction), npc: finite(i?.stats?.npc)
+  };
+  const authenticated = Boolean(i?.authenticated);
+  const authentication = i?.authentication ?? { kind: 'None' as const, effect: '', value: 0 };
   return {
-    ...i,
     id: i?.id || crypto.randomUUID(),
-    name: typeof i?.name === 'string' ? i.name : '',
+    baseName,
+    name: generateGearName(baseName, stats, authenticated, authentication),
     slot: i?.slot,
     favourite: Boolean(i?.favourite),
-    authenticated: Boolean(i?.authenticated),
-    authentication: i?.authentication ?? { kind: 'None', effect: '', value: 0 },
-    stats: {
-      luck: finite(i?.stats?.luck), energy: finite(i?.stats?.energy), tip: finite(i?.stats?.tip), walk: finite(i?.stats?.walk),
-      vehicle: finite(i?.stats?.vehicle), recovery: finite(i?.stats?.recovery), zone: finite(i?.stats?.zone),
-      arrowReduction: finite(i?.stats?.arrowReduction), npc: finite(i?.stats?.npc)
-    },
+    authenticated,
+    authentication,
+    stats,
     createdAt: i?.createdAt || now,
     updatedAt: i?.updatedAt || now
   };
 }
+
 function finite(v: unknown) { const n = Number(v); return Number.isFinite(n) ? n : 0; }
 function errorMessage(error: unknown) { return error instanceof Error ? error.message : String(error ?? 'unknown error'); }
 
@@ -221,7 +239,8 @@ function validateImportedData(raw: AppData): void {
   raw.gear.forEach((item, index) => {
     const prefix = `Gear row ${index + 1}`;
     if (!item || typeof item !== 'object') throw new Error(`${prefix}: invalid item.`);
-    if (typeof item.name !== 'string' || !item.name.trim()) throw new Error(`${prefix}: item name is required.`);
+    const sourceName = typeof item.baseName === 'string' && item.baseName.trim() ? item.baseName : item.name;
+    if (typeof sourceName !== 'string' || !sourceName.trim()) throw new Error(`${prefix}: item name is required.`);
     if (!['Head','Back','Wrist'].includes(item.slot)) throw new Error(`${prefix}: invalid slot.`);
     if (item.id) {
       if (ids.has(item.id)) throw new Error(`${prefix}: duplicate item ID ${item.id}.`);
@@ -255,7 +274,8 @@ function validateImportedData(raw: AppData): void {
   if (raw.vehicleSettings !== undefined) for (const [label,value] of Object.entries(raw.vehicleSettings)) if (!Number.isFinite(Number(value)) || Number(value) < 0) throw new Error(`Vehicle settings: ${label} must be a non-negative finite number.`);
   if (raw.vehicleParts !== undefined && !Array.isArray(raw.vehicleParts)) throw new Error('Vehicle parts must be an array.');
   for (const [index,item] of (raw.vehicleParts ?? []).entries()) {
-    if (!item?.name?.trim()) throw new Error(`Vehicle part row ${index + 1}: name is required.`);
+    const sourceName = item?.baseName?.trim?.() || item?.name?.trim?.();
+    if (!sourceName) throw new Error(`Vehicle part row ${index + 1}: name is required.`);
     if (!['Spoiler','Exhaust','Wheel Stack'].includes(item.slot)) throw new Error(`Vehicle part row ${index + 1}: invalid slot.`);
     for (const [label,value] of [['speedPct',item.speedPct],['accelerationPct',item.accelerationPct],['handlingPct',item.handlingPct],['capacityKg',item.capacityKg]] as const) if (!Number.isFinite(Number(value))) throw new Error(`Vehicle part row ${index + 1}: ${label} is not finite.`);
   }
@@ -266,7 +286,6 @@ function validateImportedData(raw: AppData): void {
   }
   if (raw.trophies !== undefined && !Array.isArray(raw.trophies)) throw new Error('Gavel trophies must be an array.');
   for (const [index,item] of (raw.trophies ?? []).entries()) {
-    if (!item?.name?.trim()) throw new Error(`Gavel Trophy row ${index + 1}: name is required.`);
     if (!Array.isArray(item.modifiers) || item.modifiers.length > 2) throw new Error(`Gavel Trophy row ${index + 1}: modifiers must contain at most two entries.`);
     for (const modifier of item.modifiers) {
       if (!modifier?.mutation?.trim()) throw new Error(`Gavel Trophy row ${index + 1}: mutation is required.`);

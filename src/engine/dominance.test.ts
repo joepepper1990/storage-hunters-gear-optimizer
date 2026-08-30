@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { LOCKED_DEFAULT_SETTINGS } from '../defaults';
 import { findDominator, pairBestCaseAdvantage, pairWorstCaseAdvantage } from './dominance';
 import type { GearItem, GearStats } from '../types';
-function g(id:string,stats:Partial<GearStats>,effect=''):GearItem{const now='2026-08-28T00:00:00Z';return{id,name:id,slot:'Back',stats:{luck:0,energy:0,tip:0,walk:0,vehicle:0,recovery:0,zone:0,arrowReduction:0,npc:0,...stats},authenticated:!!effect,authentication:{kind:effect?'Alien':'None',effect,value:0},favourite:false,createdAt:now,updatedAt:now}}
+function g(id:string,stats:Partial<GearStats>,effect=''):GearItem{const now='2026-08-28T00:00:00Z';return{id,baseName:id,name:id,slot:'Back',stats:{luck:0,energy:0,tip:0,walk:0,vehicle:0,recovery:0,zone:0,arrowReduction:0,npc:0,...stats},authenticated:!!effect,authentication:{kind:effect?'Alien':'None',effect,value:0},favourite:false,createdAt:now,updatedAt:now}}
 
 describe('analytical dominance proof',()=>{
   it('combines exact worst cases across separable stats',()=>{

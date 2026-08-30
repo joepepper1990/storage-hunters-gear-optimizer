@@ -4,7 +4,7 @@ import { arrowEffective, energyEffective, gameArrowToReduction, scoreStandalone,
 import type { GearItem, GearStats } from '../types';
 
 const s = LOCKED_DEFAULT_SETTINGS;
-function item(name:string, stats:Partial<GearStats>, effect='', value=0):GearItem { const now='2026-08-28T00:00:00Z'; return {id:name,name,slot:'Wrist',stats:{luck:0,energy:0,tip:0,walk:0,vehicle:0,recovery:0,zone:0,arrowReduction:0,npc:0,...stats},authenticated:!!effect,authentication:{kind:effect==='Rush'?'Alien':effect?'Normal':'None',effect,value},favourite:false,createdAt:now,updatedAt:now}; }
+function item(name:string, stats:Partial<GearStats>, effect='', value=0):GearItem { const now='2026-08-28T00:00:00Z'; return {id:name,baseName:name,name,slot:'Wrist',stats:{luck:0,energy:0,tip:0,walk:0,vehicle:0,recovery:0,zone:0,arrowReduction:0,npc:0,...stats},authenticated:!!effect,authentication:{kind:effect==='Rush'?'Alien':effect?'Normal':'None',effect,value},favourite:false,createdAt:now,updatedAt:now}; }
 
 describe('locked scoring 1.0',()=>{
   it('scores Arrow transitions including flat 80–100 and the >100 penalty',()=>{

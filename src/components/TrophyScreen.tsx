@@ -1,9 +1,12 @@
 import { useMemo, useState } from 'react';
 import { DEFAULT_TROPHY_SETTINGS } from '../defaults';
 import { analyseTrophies, optimiseTrophies, specialistTrophySet, trophyScore } from '../engine/trophies';
+import { generateTrophyName } from '../naming';
 import type { AppData, GavelTrophy, TrophyCombinationResult, TrophyMutationWeight, TrophyOptimiserSettings } from '../types';
 
 type Section='Overview'|'Trophies'|'Optimise'|'Settings';
+type InventorySort='score'|'name'|'mutation';
+type SortDirection='desc'|'asc';
 const sections:Section[]=['Overview','Trophies','Optimise','Settings'];
 
 export function TrophyScreen({data,setData}:{data:AppData;setData:(d:AppData)=>void}){
@@ -14,10 +17,10 @@ export function TrophyScreen({data,setData}:{data:AppData;setData:(d:AppData)=>v
   const combinations=useMemo(()=>optimiseTrophies(data.trophies,data.trophySettings,100),[data.trophies,data.trophySettings]);
   const best=combinations[0];
   const analyses=useMemo(()=>analyseTrophies(data.trophies,best,data.trophySettings),[data.trophies,best,data.trophySettings]);
-  const openAdd=()=>{setMode('add');setEditor(blankTrophy(data.trophies.length+1));};
+  const openAdd=()=>{setMode('add');setEditor(blankTrophy(data.trophySettings.mutationWeights));};
   const openEdit=(t:GavelTrophy)=>{setMode('edit');setEditor(structuredClone(t));};
-  const clone=(t:GavelTrophy)=>{const c=structuredClone(t);c.id=crypto.randomUUID();c.name=`${t.name} copy`;c.createdAt=c.updatedAt=new Date().toISOString();setMode('add');setEditor(c);};
-  const save=(t:GavelTrophy)=>{const issue=validateTrophy(t);if(issue){alert(issue);return;}const now=new Date().toISOString();t.updatedAt=now;if(!t.createdAt)t.createdAt=now;setData({...data,trophies:mode==='add'?[...data.trophies,t]:data.trophies.map(x=>x.id===t.id?t:x)});setEditor(null);};
+  const clone=(t:GavelTrophy)=>{const c=structuredClone(t);c.id=crypto.randomUUID();c.name=generateTrophyName(c.modifiers);c.createdAt=c.updatedAt=new Date().toISOString();setMode('add');setEditor(c);};
+  const save=(input:GavelTrophy)=>{const t={...input,name:generateTrophyName(input.modifiers)};const issue=validateTrophy(t);if(issue){alert(issue);return;}const now=new Date().toISOString();t.updatedAt=now;if(!t.createdAt)t.createdAt=now;setData({...data,trophies:mode==='add'?[...data.trophies,t]:data.trophies.map(x=>x.id===t.id?t:x)});setEditor(null);};
   const del=(t:GavelTrophy)=>{if(confirm(`Delete ${t.name}?`))setData({...data,trophies:data.trophies.filter(x=>x.id!==t.id)});};
   const fav=(t:GavelTrophy)=>setData({...data,trophies:data.trophies.map(x=>x.id===t.id?{...x,favourite:!x.favourite,updatedAt:new Date().toISOString()}:x)});
   return <section>
@@ -35,17 +38,30 @@ function Overview({data,best,analyses,onGo}:{data:AppData;best:TrophyCombination
   const safe=analyses.filter(a=>a.verdict==='SAFE TO DISCARD').length;
   return <>
     <div className="heroCard trophyHero"><div><span className="eyebrow">BEST POWERED SET</span><div className="heroScore">{best?.score.toFixed(0)??'—'}</div><span>Relative mutation-value score</span></div><button className="primary compact" onClick={()=>onGo('Optimise')}>Inspect set</button></div>
-    {best&&<><div className="trophyLoadout">{best.trophies.map((t,i)=><div className="loadoutCard" key={t.id}><span>Trophy {i+1}</span><strong>{t.name}</strong><small>{modifierText(t)}</small></div>)}</div><div className="sectionTitle"><h2>Combined boosts</h2></div><BoostGrid result={best}/></>}
+    {best&&<><div className="trophyLoadout">{best.trophies.map((t,i)=><div className="loadoutCard" key={t.id}><span>Trophy {i+1}</span><strong>{t.name}</strong></div>)}</div><div className="sectionTitle"><h2>Combined boosts</h2></div><BoostGrid result={best}/></>}
     <div className="notice"><b>Scoring model:</b> each trophy modifier is weighted as boost % × mutation value multiplier, then the best set of up to four trophies is ranked. <b>Discard protection also preserves every enabled mutation-specialist set</b> (for example, your maximum Chrome set), even when a trophy is not in the best overall set. This is a relative comparison score, not a literal expected cash value, because normal mutation base odds are not public.</div>
     <div className="sectionTitle"><h2>Inventory</h2></div><div className="statsGrid three"><Stat label="Trophies" value={data.trophies.length}/><Stat label="Powered slots" value={data.trophySettings.maxActive}/><Stat label="Safe trophies" value={safe}/></div>
   </>;
 }
 
 function Inventory({data,analyses,onAdd,onEdit,onClone,onDelete,onFav}:{data:AppData;analyses:ReturnType<typeof analyseTrophies>;onAdd:()=>void;onEdit:(t:GavelTrophy)=>void;onClone:(t:GavelTrophy)=>void;onDelete:(t:GavelTrophy)=>void;onFav:(t:GavelTrophy)=>void}){
+  const [sortBy,setSortBy]=useState<InventorySort>('score');
+  const [direction,setDirection]=useState<SortDirection>('desc');
+  const enabled=data.trophySettings.mutationWeights.filter(w=>w.enabled);
+  const [mutation,setMutation]=useState(enabled[0]?.mutation??'Silver');
   const map=new Map(analyses.map(a=>[a.item.id,a]));
+  const boost=(t:GavelTrophy,m:string)=>t.modifiers.filter(x=>x.mutation===m).reduce((n,x)=>n+x.boostPct,0);
+  const items=[...data.trophies].sort((a,b)=>{
+    let cmp=0;
+    if(sortBy==='score')cmp=trophyScore(a,data.trophySettings)-trophyScore(b,data.trophySettings);
+    else if(sortBy==='name')cmp=a.name.localeCompare(b.name);
+    else cmp=boost(a,mutation)-boost(b,mutation);
+    return direction==='desc'?-cmp:cmp;
+  });
   return <>
-    {!data.trophies.length&&<div className="empty"><h3>No Gavel Trophies yet</h3><p>Add the mutation boosts exactly as displayed on each trophy.</p><button className="primary" onClick={onAdd}>＋ Add trophy</button></div>}
-    <div className="gearList">{data.trophies.map(t=>{const a=map.get(t.id);return <article className="gearCard" key={t.id}><div className="rowBetween"><div><div className="slotLabel">GAVEL TROPHY · <code>{t.id.slice(0,8)}</code></div><h3>{t.name}</h3></div><button className={`star ${t.favourite?'on':''}`} onClick={()=>onFav(t)}>★</button></div><div className="chipRow"><TrophyStatus status={a?.verdict??'KEEP'}/><span className="chip score">{trophyScore(t,data.trophySettings).toFixed(0)} score</span></div><div className="miniStats">{t.modifiers.map((m,i)=><span key={`${m.mutation}-${i}`}>{m.mutation} <b>+{fmt(m.boostPct)}%</b></span>)}</div><p className="reason">{a?.reason}</p><div className="actions"><button onClick={()=>onEdit(t)}>Edit</button><button onClick={()=>onClone(t)}>Clone</button><button className="textDanger" onClick={()=>onDelete(t)}>Delete</button></div></article>})}</div>
+    <div className="toolbarRow trophyInventorySort"><label className="sortControl">Sort by<select value={sortBy} onChange={e=>setSortBy(e.target.value as InventorySort)}><option value="score">Trophy score</option><option value="name">Name</option><option value="mutation">Specific modifier</option></select></label>{sortBy==='mutation'&&<label className="sortControl">Modifier<select value={mutation} onChange={e=>setMutation(e.target.value)}>{enabled.map(w=><option key={w.mutation}>{w.mutation}</option>)}</select></label>}<label className="sortControl">Order<select value={direction} onChange={e=>setDirection(e.target.value as SortDirection)}><option value="desc">{sortBy==='name'?'Z → A':'Highest → lowest'}</option><option value="asc">{sortBy==='name'?'A → Z':'Lowest → highest'}</option></select></label></div>
+    {!data.trophies.length&&<div className="empty"><h3>No Gavel Trophies yet</h3><p>Add the mutation boosts exactly as displayed on each trophy. The name is generated automatically.</p><button className="primary" onClick={onAdd}>＋ Add trophy</button></div>}
+    <div className="gearList">{items.map(t=>{const a=map.get(t.id);return <article className="gearCard" key={t.id}><div className="rowBetween"><div><div className="slotLabel">GAVEL TROPHY · <code>{t.id.slice(0,8)}</code></div><h3>{t.name}</h3></div><button className={`star ${t.favourite?'on':''}`} onClick={()=>onFav(t)}>★</button></div><div className="chipRow"><TrophyStatus status={a?.verdict??'KEEP'}/><span className="chip score">{trophyScore(t,data.trophySettings).toFixed(0)} score</span></div><div className="miniStats">{t.modifiers.map((m,i)=><span key={`${m.mutation}-${i}`}>{m.mutation} <b>+{fmt(m.boostPct)}%</b></span>)}</div><p className="reason">{a?.reason}</p><div className="actions"><button onClick={()=>onEdit(t)}>Edit</button><button onClick={()=>onClone(t)}>Clone</button><button className="textDanger" onClick={()=>onDelete(t)}>Delete</button></div></article>})}</div>
   </>;
 }
 
@@ -60,7 +76,7 @@ function Optimise({data,combinations,limit,setLimit}:{data:AppData;combinations:
     <div className="pageHeading"><div><h2>Trophy optimisation</h2><p>{data.trophies.length?`${nCr(data.trophies.length,choose).toLocaleString()} possible ${choose}-trophy sets`:'Add trophies to calculate a set'}</p></div></div>
     <div className="toolbarRow"><div className="segmented">{[10,25,100].map(n=><button key={n} className={limit===n?'active':''} onClick={()=>setLimit(n)}>Top {n}</button>)}</div><label className="sortControl">Sort<select value={sort} onChange={e=>setSort(e.target.value)}><option value="score">Overall value score</option>{eligible.map(w=><option key={w.mutation} value={w.mutation}>{w.mutation} boost</option>)}</select></label></div>
     {!combinations.length&&<div className="empty"><h3>No trophy sets yet</h3><p>Add at least one Gavel Trophy.</p></div>}
-    {ranked.map(({c,rank},idx)=><details className={`comboCard trophyCombo ${rank===1?'best':''}`} key={c.trophies.map(t=>t.id).join('-')} open={idx===0}><summary><div><span className="rank">#{rank}</span><strong>{c.score.toFixed(0)}</strong><span>{c.trophies.map(t=>t.name).join(' · ')}</span></div></summary><div className="comboBody"><div className="trophyLoadout">{c.trophies.map((t,i)=><div className="loadoutCard" key={t.id}><span>Trophy {i+1}</span><strong>{t.name}</strong><small>{modifierText(t)}</small></div>)}</div><BoostGrid result={c}/></div></details>)}
+    {ranked.map(({c,rank},idx)=><details className={`comboCard trophyCombo ${rank===1?'best':''}`} key={c.trophies.map(t=>t.id).join('-')} open={idx===0}><summary><div><span className="rank">#{rank}</span><strong>{c.score.toFixed(0)}</strong><span>{c.trophies.map(t=>t.name).join(' · ')}</span></div></summary><div className="comboBody"><div className="trophyLoadout">{c.trophies.map((t,i)=><div className="loadoutCard" key={t.id}><span>Trophy {i+1}</span><strong>{t.name}</strong></div>)}</div><BoostGrid result={c}/></div></details>)}
     <div className="sectionTitle"><h2>Mutation specialist sets</h2></div><div className="specialists trophySpecialists">{specialists.map(([mutation,c])=><div className="card" key={mutation}><strong>Maximum {mutation}</strong>{c?<><div className="specialValue">+{fmt(c.totalBoosts[mutation]??0)}%</div><span>{c.trophies.map(t=>t.name).join(' · ')}</span></>:<span className="muted">No trophies</span>}</div>)}</div>
   </>;
 }
@@ -80,18 +96,18 @@ function Settings({data,setData}:{data:AppData;setData:(d:AppData)=>void}){
 }
 
 function TrophyEditor({item,weights,mode,onClose,onSave}:{item:GavelTrophy;weights:TrophyMutationWeight[];mode:'add'|'edit';onClose:()=>void;onSave:(t:GavelTrophy)=>void}){
-  const [v,setV]=useState(item);
+  const [v,setV]=useState({...item,name:generateTrophyName(item.modifiers)});
   const names=weights.map(w=>w.mutation);
-  const setModifier=(index:number,key:'mutation'|'boostPct',value:string|number)=>{const modifiers=[...v.modifiers];while(modifiers.length<=index)modifiers.push({mutation:names[0]??'Silver',boostPct:0});modifiers[index]={...modifiers[index],[key]:value};setV({...v,modifiers});};
-  const removeSecond=()=>setV({...v,modifiers:v.modifiers.slice(0,1)});
-  return <div className="modalBackdrop"><div className="modal sheet"><div className="modalHeader"><div><span className="eyebrow">{mode==='add'?'NEW GAVEL TROPHY':'EDIT GAVEL TROPHY'}</span><h2>{v.name||'Gavel Trophy'}</h2></div><button className="iconButton" onClick={onClose}>×</button></div><div className="formGrid"><label className="wide">Name / label<input autoFocus value={v.name} onChange={e=>setV({...v,name:e.target.value})}/></label><label className="check"><input type="checkbox" checked={v.favourite} onChange={e=>setV({...v,favourite:e.target.checked})}/> Lock / favourite</label><span></span><label>Modifier 1<select value={v.modifiers[0]?.mutation??names[0]??'Silver'} onChange={e=>setModifier(0,'mutation',e.target.value)}>{names.map(n=><option key={n}>{n}</option>)}</select></label><label>Boost 1 %<input type="number" step="any" min="0" value={v.modifiers[0]?.boostPct??0} onChange={e=>setModifier(0,'boostPct',Number(e.target.value)||0)}/></label><label>Modifier 2<select value={v.modifiers[1]?.mutation??''} onChange={e=>e.target.value?setModifier(1,'mutation',e.target.value):removeSecond()}><option value="">None</option>{names.map(n=><option key={n}>{n}</option>)}</select></label><label>Boost 2 %<input type="number" step="any" min="0" disabled={!v.modifiers[1]} value={v.modifiers[1]?.boostPct??0} onChange={e=>setModifier(1,'boostPct',Number(e.target.value)||0)}/></label><label className="wide">Notes<textarea rows={3} value={v.notes??''} onChange={e=>setV({...v,notes:e.target.value})}/></label><label>Date obtained<input type="date" value={v.obtainedAt??''} onChange={e=>setV({...v,obtainedAt:e.target.value})}/></label></div><div className="notice">Enter the percentage boosts exactly as displayed on the trophy. Multiple boosts for the same mutation stack across your powered trophies.</div><div className="stickyActions"><button className="secondary" onClick={onClose}>Cancel</button><button className="primary" onClick={()=>onSave(v)}>{mode==='add'?'Add trophy':'Save changes'}</button></div></div></div>;
+  const updateModifiers=(modifiers:GavelTrophy['modifiers'])=>setV(current=>({...current,modifiers,name:generateTrophyName(modifiers)}));
+  const setModifier=(index:number,key:'mutation'|'boostPct',value:string|number)=>{const modifiers=[...v.modifiers];while(modifiers.length<=index)modifiers.push({mutation:names[0]??'Silver',boostPct:0});modifiers[index]={...modifiers[index],[key]:value};updateModifiers(modifiers);};
+  const removeSecond=()=>updateModifiers(v.modifiers.slice(0,1));
+  return <div className="modalBackdrop"><div className="modal sheet"><div className="modalHeader"><div><span className="eyebrow">{mode==='add'?'NEW GAVEL TROPHY':'EDIT GAVEL TROPHY'}</span><h2>{v.name}</h2></div><button className="iconButton" onClick={onClose}>×</button></div><div className="formGrid"><div className="wide autoNamePreview"><span>Automatic name</span><strong>{v.name}</strong></div><label className="check"><input type="checkbox" checked={v.favourite} onChange={e=>setV({...v,favourite:e.target.checked})}/> Lock / favourite</label><span></span><label>Modifier 1<select autoFocus value={v.modifiers[0]?.mutation??names[0]??'Silver'} onChange={e=>setModifier(0,'mutation',e.target.value)}>{names.map(n=><option key={n}>{n}</option>)}</select></label><label>Boost 1 %<input type="number" step="any" min="0" value={v.modifiers[0]?.boostPct??0} onChange={e=>setModifier(0,'boostPct',Number(e.target.value)||0)}/></label><label>Modifier 2<select value={v.modifiers[1]?.mutation??''} onChange={e=>e.target.value?setModifier(1,'mutation',e.target.value):removeSecond()}><option value="">None</option>{names.map(n=><option key={n}>{n}</option>)}</select></label><label>Boost 2 %<input type="number" step="any" min="0" disabled={!v.modifiers[1]} value={v.modifiers[1]?.boostPct??0} onChange={e=>setModifier(1,'boostPct',Number(e.target.value)||0)}/></label></div><div className="notice">The trophy name is generated automatically from its one or two modifiers. Enter the percentages exactly as displayed in game.</div><div className="stickyActions"><button className="secondary" onClick={onClose}>Cancel</button><button className="primary" onClick={()=>onSave({...v,name:generateTrophyName(v.modifiers)})}>{mode==='add'?'Add trophy':'Save changes'}</button></div></div></div>;
 }
 
 function BoostGrid({result}:{result:TrophyCombinationResult}){const rows=Object.entries(result.totalBoosts).sort((a,b)=>(result.weightedContributions[b[0]]??0)-(result.weightedContributions[a[0]]??0));return <div className="trophyBoostGrid">{rows.map(([mutation,boost])=><div className="statTile" key={mutation}><span>{mutation}</span><strong>+{fmt(boost)}%</strong><small className="vehicleStatSub">{(result.weightedContributions[mutation]??0).toFixed(0)} weighted pts</small></div>)}</div>}
 function Stat({label,value}:{label:string;value:number}){return <div className="statTile"><span>{label}</span><strong>{fmt(value)}</strong></div>}
 function TrophyStatus({status}:{status:string}){return <span className={`badge status ${status.toLowerCase().replaceAll(' ','-')}`}>{status}</span>}
-function modifierText(t:GavelTrophy){return t.modifiers.map(m=>`${m.mutation} +${fmt(m.boostPct)}%`).join(' · ')||'No modifier';}
-function blankTrophy(n:number):GavelTrophy{const now=new Date().toISOString();return{id:crypto.randomUUID(),name:`Gavel Trophy ${n}`,modifiers:[{mutation:'Silver',boostPct:0}],favourite:false,createdAt:now,updatedAt:now};}
-function validateTrophy(t:GavelTrophy){if(!t.name.trim())return'Trophy name is required.';if(!t.modifiers.length||t.modifiers.length>2)return'Enter one or two trophy modifiers.';for(const m of t.modifiers){if(!m.mutation.trim())return'Mutation name is required.';if(!Number.isFinite(m.boostPct)||m.boostPct<0)return'Boost percentages must be non-negative finite numbers.';}return'';}
+function blankTrophy(weights:TrophyMutationWeight[]):GavelTrophy{const now=new Date().toISOString();const modifiers=[{mutation:weights[0]?.mutation??'Silver',boostPct:0}];return{id:crypto.randomUUID(),name:generateTrophyName(modifiers),modifiers,favourite:false,createdAt:now,updatedAt:now};}
+function validateTrophy(t:GavelTrophy){if(!t.modifiers.length||t.modifiers.length>2)return'Enter one or two trophy modifiers.';for(const m of t.modifiers){if(!m.mutation.trim())return'Mutation name is required.';if(!Number.isFinite(m.boostPct)||m.boostPct<0)return'Boost percentages must be non-negative finite numbers.';}return'';}
 function fmt(v:number){if(!Number.isFinite(v))return'—';return Number.isInteger(v)?String(v):v.toFixed(2).replace(/0+$/,'').replace(/\.$/,'');}
 function nCr(n:number,r:number){if(r<0||r>n)return 0;r=Math.min(r,n-r);let x=1;for(let i=1;i<=r;i++)x=x*(n-r+i)/i;return Math.round(x);}
