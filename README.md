@@ -172,6 +172,8 @@ Version 1.3 speeds up inventory entry. Gavel Trophy names are generated automati
 
 Version 1.3.1 makes trophy retention strict: KEEP applies only to trophies in the best overall powered set, trophies required by an enabled maximum mutation-specialist set, or trophies manually locked/favourited. Every other trophy is marked SAFE TO DISCARD, even if no single trophy directly dominates it.
 
+Version 1.3.2 fixes the regression test for that rule. The failed v1.3.1 test incorrectly expected a lone Silver +1% trophy to be discarded even though it was necessarily part of the maximum Silver specialist set. The test now uses a genuinely surplus Chrome trophy below four stronger Chrome trophies, matching the intended retention rule.
+
 - Maximum active trophies defaults to 4.
 - Top 10 / 25 / 100 powered sets.
 - Per-mutation specialist sets.

@@ -67,8 +67,8 @@ describe('gavel trophy optimiser',()=>{
   it('keeps only overall, specialist, or manually locked trophies',()=>{
     const list=[
       t('Chrome 100',[['Chrome',100]]),t('Chrome 90',[['Chrome',90]]),t('Chrome 80',[['Chrome',80]]),t('Chrome 70',[['Chrome',70]]),
-      t('Weak spare',[['Silver',1]]),
-      t('Locked weak',[['Gold',1]],true),
+      t('Weak spare',[['Chrome',1]]),
+      t('Locked weak',[['Chrome',0.5]],true),
     ];
     const best=optimiseTrophies(list,DEFAULT_TROPHY_SETTINGS,1)[0];
     const analyses=analyseTrophies(list,best,DEFAULT_TROPHY_SETTINGS);
