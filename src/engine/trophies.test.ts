@@ -50,6 +50,32 @@ describe('gavel trophy optimiser',()=>{
     expect(analyses.find(a=>a.item.id==='Chrome 60')?.verdict).toBe('SAFE TO DISCARD');
   });
 
+
+  it('marks undominated mixed trophies safe when they are outside the overall and specialist optimum sets',()=>{
+    const list=[
+      t('Chrome 100',[['Chrome',100]]),t('Chrome 90',[['Chrome',90]]),t('Chrome 80',[['Chrome',80]]),t('Chrome 70',[['Chrome',70]]),
+      t('Gem 100',[['Gem',100]]),t('Gem 90',[['Gem',90]]),t('Gem 80',[['Gem',80]]),t('Gem 70',[['Gem',70]]),
+      t('Mixed spare',[['Chrome',20],['Gem',20]]),
+    ];
+    const best=optimiseTrophies(list,DEFAULT_TROPHY_SETTINGS,1)[0];
+    const analyses=analyseTrophies(list,best,DEFAULT_TROPHY_SETTINGS);
+    const mixed=analyses.find(a=>a.item.id==='Mixed spare');
+    expect(mixed?.verdict).toBe('SAFE TO DISCARD');
+    expect(mixed?.reason).toMatch(/Not used by the best overall/);
+  });
+
+  it('keeps only overall, specialist, or manually locked trophies',()=>{
+    const list=[
+      t('Chrome 100',[['Chrome',100]]),t('Chrome 90',[['Chrome',90]]),t('Chrome 80',[['Chrome',80]]),t('Chrome 70',[['Chrome',70]]),
+      t('Weak spare',[['Silver',1]]),
+      t('Locked weak',[['Gold',1]],true),
+    ];
+    const best=optimiseTrophies(list,DEFAULT_TROPHY_SETTINGS,1)[0];
+    const analyses=analyseTrophies(list,best,DEFAULT_TROPHY_SETTINGS);
+    expect(analyses.find(a=>a.item.id==='Weak spare')?.verdict).toBe('SAFE TO DISCARD');
+    expect(analyses.find(a=>a.item.id==='Locked weak')?.verdict).toBe('KEEP');
+  });
+
   it('still protects favourites from discard when they are outside all optimum sets',()=>{
     const list=[
       t('A',[['Chrome',100]]),t('B',[['Chrome',90]]),t('C',[['Chrome',80]]),t('D',[['Chrome',70]]),

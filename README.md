@@ -170,10 +170,12 @@ Version 1.2.1 strengthens trophy discard protection: a trophy is never marked SA
 
 Version 1.3 speeds up inventory entry. Gavel Trophy names are generated automatically from their modifier rolls (for example `Silver +54%` or `Gem +110% / Silver +50%`). Gear and vehicle parts now keep a short manually entered base name and automatically append every non-zero stat. Trophy inventory can be sorted by score, name, or any specific mutation boost in either direction. Item notes and obtained-date fields have been removed, and Wet is included in the default trophy modifier list.
 
+Version 1.3.1 makes trophy retention strict: KEEP applies only to trophies in the best overall powered set, trophies required by an enabled maximum mutation-specialist set, or trophies manually locked/favourited. Every other trophy is marked SAFE TO DISCARD, even if no single trophy directly dominates it.
+
 - Maximum active trophies defaults to 4.
 - Top 10 / 25 / 100 powered sets.
 - Per-mutation specialist sets.
-- Direct mathematical dominance identifies trophies that can never beat a stronger trophy's raw boost coverage; favourites are protected.
+- Strict retention rule: only best-overall, enabled specialist-set, or manually locked/favourited trophies are kept; all other trophies are SAFE TO DISCARD.
 - Default weights: Silver 2x, Gold 4x, Corrupted 6x, Wet 1.4x, Diamond 8x, Gem 10x, Chrome 12x, Hologram 15x, Void 35x, Secret 50x, Rainbow 100x, Tiny 2x and Huge 2x.
 - All weights are editable. Secret/Rainbow/Huge are visibly confidence-labelled because public sources are less consistent than the established core multipliers.
 - Trophy score is a relative heuristic, not literal expected cash value, because the normal mutation base probabilities remain unpublished.

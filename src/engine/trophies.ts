@@ -81,16 +81,15 @@ export function analyseTrophies(trophies: GavelTrophy[], best: TrophyCombination
       };
     }
 
-    const dominator = trophies.find(other => other.id !== item.id && dominates(other, item));
-    if (dominator && !item.favourite) return {
-      item, verdict: 'SAFE TO DISCARD', score, dominator,
-      reason: `${dominator.name} has equal-or-higher boost for every mutation on this trophy, this trophy is not used by the best overall set or any enabled mutation-specialist set, and it is not locked/favourited.`
+    if (item.favourite) return {
+      item, verdict: 'KEEP', score,
+      reason: 'Manually locked/favourited, so this trophy is protected from discard.'
     };
-    if (dominator && item.favourite) return {
-      item, verdict: 'KEEP', score, dominator,
-      reason: `Dominated by ${dominator.name}, but this trophy is locked/favourited and is therefore protected from discard.`
+
+    return {
+      item, verdict: 'SAFE TO DISCARD', score,
+      reason: 'Not used by the best overall four-trophy set or by any enabled maximum mutation-specialist set, and it is not locked/favourited.'
     };
-    return { item, verdict: 'KEEP', score, reason: 'Not directly dominated by another single trophy; it can still contribute useful mutation coverage in a four-trophy set.' };
   });
 }
 
