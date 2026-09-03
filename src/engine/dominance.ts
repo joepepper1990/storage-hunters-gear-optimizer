@@ -1,18 +1,22 @@
 import type { AlgorithmSettings, DominanceResult, GearItem, GearStats } from '../types';
-import { arrowEffective, effectiveItemStats, energyEffective, isNumericAuth, passiveScore, zoneEffective } from './scoring';
+import { arrowEffective, effectiveItemStats, energyEffective, expectedConditionalLuck, isNumericAuth, luckEffective, npcEffective, passiveScore, zoneEffective } from './scoring';
 
 interface PiecewiseSpec { breakpoints: number[]; fn: (x: number) => number; }
 
 export function pairWorstCaseAdvantage(a: GearItem, b: GearItem, s: AlgorithmSettings): number {
   const ae = effectiveItemStats(a), be = effectiveItemStats(b);
   const linear =
-    (ae.luck - be.luck) * s.luckWeight +
-    (ae.npc - be.npc) * s.npcWeight +
     (ae.tip - be.tip) * s.tipWeight +
     (ae.recovery - be.recovery) * s.recoveryWeight +
     (ae.vehicle - be.vehicle) * s.vehicleWeight +
     (ae.walk - be.walk) * s.walkWeight;
 
+  const luck = minDifference(ae.luck + expectedConditionalLuck(a, s), be.luck + expectedConditionalLuck(b, s), {
+    breakpoints: [s.luckBreakpoint1, s.luckBreakpoint2, s.luckBreakpoint3, s.luckBreakpoint4], fn: x => luckEffective(x, s) * s.luckWeight
+  });
+  const npc = minDifference(ae.npc, be.npc, {
+    breakpoints: [s.npcBreakpoint1, s.npcBreakpoint2], fn: x => npcEffective(x, s) * s.npcWeight
+  });
   const arrow = minDifference(ae.arrowReduction, be.arrowReduction, {
     breakpoints: [s.arrowSweetSpot, s.arrowCeiling, s.arrowPenaltyThreshold], fn: x => arrowEffective(x, s) * s.arrowWeight
   });
@@ -23,23 +27,23 @@ export function pairWorstCaseAdvantage(a: GearItem, b: GearItem, s: AlgorithmSet
     breakpoints: [s.zoneBreakpoint1, s.zoneBreakpoint2], fn: x => zoneEffective(x, s) * s.zoneWeight
   });
   const passive = passiveScore(a, s).score - passiveScore(b, s).score;
-  return linear + arrow + energy + zone + passive;
+  return linear + luck + npc + arrow + energy + zone + passive;
 }
 
 export function pairBestCaseAdvantage(a: GearItem, b: GearItem, s: AlgorithmSettings): number {
   const ae = effectiveItemStats(a), be = effectiveItemStats(b);
   const linear =
-    (ae.luck - be.luck) * s.luckWeight +
-    (ae.npc - be.npc) * s.npcWeight +
     (ae.tip - be.tip) * s.tipWeight +
     (ae.recovery - be.recovery) * s.recoveryWeight +
     (ae.vehicle - be.vehicle) * s.vehicleWeight +
     (ae.walk - be.walk) * s.walkWeight;
+  const luck = maxDifference(ae.luck + expectedConditionalLuck(a, s), be.luck + expectedConditionalLuck(b, s), { breakpoints: [s.luckBreakpoint1, s.luckBreakpoint2, s.luckBreakpoint3, s.luckBreakpoint4], fn: x => luckEffective(x, s) * s.luckWeight });
+  const npc = maxDifference(ae.npc, be.npc, { breakpoints: [s.npcBreakpoint1, s.npcBreakpoint2], fn: x => npcEffective(x, s) * s.npcWeight });
   const arrow = maxDifference(ae.arrowReduction, be.arrowReduction, { breakpoints: [s.arrowSweetSpot, s.arrowCeiling, s.arrowPenaltyThreshold], fn: x => arrowEffective(x, s) * s.arrowWeight });
   const energy = maxDifference(ae.energy, be.energy, { breakpoints: [s.energyTarget, s.energyCeiling], fn: x => energyEffective(x, s) * s.energyWeight });
   const zone = maxDifference(ae.zone, be.zone, { breakpoints: [s.zoneBreakpoint1, s.zoneBreakpoint2], fn: x => zoneEffective(x, s) * s.zoneWeight });
   const passive = passiveScore(a, s).score - passiveScore(b, s).score;
-  return linear + arrow + energy + zone + passive;
+  return linear + luck + npc + arrow + energy + zone + passive;
 }
 
 function candidateXs(a: number, b: number, breakpoints: number[]): number[] {

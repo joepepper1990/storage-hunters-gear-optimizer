@@ -5,9 +5,9 @@ Mobile-first offline PWA for optimising equipment in **Storage Hunters: Open Wor
 ## What it does
 
 - Stores unlimited practical inventory entries locally in IndexedDB; duplicate names are allowed because every item has a unique ID.
-- Calculates every valid Head × Back × Wrist combination and ranks the top 10/25/100 using the locked **Algorithm 1.0** scoring curves.
-- Scores the **combined three-item totals**, so Arrow, Energy and Bid Zone diminishing returns are handled correctly.
-- Provides specialist Maximum Luck, NPC Offers, Bid Zone, useful Bid Arrow and Energy loadouts.
+- Calculates every valid Head × Back × Wrist combination and ranks the top 10/25/100 using the locked **Algorithm 1.1** scoring curves.
+- Scores the **combined three-item totals**, so Arrow, Luck, NPC Offers, Energy and Bid Zone diminishing returns are handled correctly.
+- Provides specialist Maximum Luck, NPC Offers, Bid Zone, best Bid Arrow utility and Energy loadouts.
 - Uses an analytical breakpoint proof, including the 75/90/100 Arrow regions for same-slot global dominance; it does not call an item SAFE TO DISCARD merely because it misses the Top 100.
 - Protects unknown and provisional passives from irreversible discard decisions.
 - Provides certificate targeting focused on estimated likelihood of improving the current best overall set, with explicit `HEURISTIC — official roll odds unknown` labelling.
@@ -26,21 +26,22 @@ Enter **Bid Arrow Speed exactly as the game displays it**.
 
 The editor always shows the conversion before saving.
 
-## Locked Algorithm 1.0 defaults
+## Locked Algorithm 1.1 defaults
 
-- Luck: `1.00`
-- Bid Arrow reduction: `1.25`; full value to 75%, 25% marginal value from 75–90%, flat from 90–100%, then each 1% above 100% subtracts one full unit of effective Arrow by default (a `1.25` point penalty per excess 1%).
-- NPC Offers: `0.75`
+- Bid Arrow reduction: `1.25`; full value to 75%, 25% marginal value from 75–90%, flat from 90–100%, then a gentle 25% penalty rate above 100% (`0.3125` score lost per excess 1%).
+- Luck: `1.00`; marginal value is 1.00 from 0–100%, 0.80 from 100–150%, 0.60 from 150–200%, 0.40 from 200–250%, and 0.20 above 250%. There is no Luck cap.
+- Bid Zone Width: `0.50`; full to 30%, 75% marginal 30–60%, 50% marginal above 60%.
+- NPC Offers: `0.35`; full to 20%, 75% marginal 20–40%, 50% marginal above 40%.
 - Energy Drink Time: `0.55`; full value to 50%, 10% marginal value from 50–100%, zero additional value above 100%.
-- Bid Zone Width: `0.40`; full to 30%, 75% marginal 30–60%, 50% marginal above 60%.
-- Tip Chance: `0.10`
-- Bid Recovery / Vehicle Speed / Walkspeed: `0.01` each.
+- Tip Chance: `0.10`.
+- Bid Recovery: `0.05`.
+- Walkspeed: `0.02`.
+- Vehicle Speed: `0.01`.
 - Legacy Rush remains scoreable at `0.15` per 1% Rush for historical Alien-authenticated gear, but Alien authentication is no longer available for new rolls.
-- Sunny / Nocturnal uptime: `0.50`.
-- Raindrop uptime: `0.25`.
+- Sunny / Nocturnal uptime: `0.50`; Raindrop uptime: `0.25`. Their expected Luck is fed through the same total-Luck diminishing-return curve instead of receiving free linear score.
 - Time Keeper defaults to zero and remains explicitly provisional/protected. Historical Grade Re-Roll data is preserved for legacy compatibility but is no longer an active certificate outcome.
 
-All settings are editable in-app and can be reset to the locked defaults.
+All settings are editable in-app and can be reset to the locked defaults. Existing Algorithm 1.0 browser settings migrate automatically to 1.1 without deleting inventory or history.
 
 ## Authentication handling
 
@@ -106,7 +107,9 @@ Regression coverage includes:
 
 - all scoring curves and thresholds;
 - negative values;
-- Arrow 75%, 80%, 90%, 100%, 101%, 105%, 110% and 120% regressions, including the >100 penalty;
+- Arrow 75%, 80%, 90%, 100%, 101%, 105%, 110%, 120% and 130% regressions, including the gentle >100 penalty;
+- Luck 100/150/200/250 diminishing-return transitions and conditional-Luck passives;
+- NPC 20/40 diminishing-return transitions;
 - Energy 50/100 transition;
 - Zone 30/60 transition;
 - Crab Backpack, Diamond Jellyfish Wristband + Rush, Cobwebbed Race Valk and Reactor Wristband fixtures;

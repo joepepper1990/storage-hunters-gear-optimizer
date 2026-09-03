@@ -1,5 +1,5 @@
 import type { AlgorithmSettings, CombinationResult, GearItem, ItemAnalysis, Slot } from '../types';
-import { combineStats, scoreItemOrCombination, scoreStandalone } from './scoring';
+import { arrowEffective, combineStats, scoreItemOrCombination, scoreStandalone } from './scoring';
 import { findDominator } from './dominance';
 
 export function evaluateCombination(head: GearItem, back: GearItem, wrist: GearItem, settings: AlgorithmSettings): CombinationResult {
@@ -44,8 +44,8 @@ export function specialistLoadout(gear: GearItem[], key: keyof CombinationResult
   let best: CombinationResult | undefined;
   for (const h of heads) for (const b of backs) for (const w of wrists) {
     const c = evaluateCombination(h, b, w, settings);
-    const metric = key === 'arrowReduction' ? Math.min(c.stats.arrowReduction, settings.arrowCeiling) : c.stats[key];
-    const bestMetric = best ? (key === 'arrowReduction' ? Math.min(best.stats.arrowReduction, settings.arrowCeiling) : best.stats[key]) : -Infinity;
+    const metric = key === 'arrowReduction' ? arrowEffective(c.stats.arrowReduction, settings) : c.stats[key];
+    const bestMetric = best ? (key === 'arrowReduction' ? arrowEffective(best.stats.arrowReduction, settings) : best.stats[key]) : -Infinity;
     if (!best || metric > bestMetric || (metric === bestMetric && c.score.total > best.score.total)) best = c;
   }
   return best;

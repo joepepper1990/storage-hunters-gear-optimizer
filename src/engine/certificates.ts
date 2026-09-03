@@ -1,7 +1,7 @@
 import type { AlgorithmSettings, AuthModelEntry, CertificateTarget, CombinationResult, GearItem, LikelihoodClass } from '../types';
 import { removeNumericAuthentication } from './dominance';
 import { evaluateCombination, optimise } from './optimizer';
-import { arrowEffective, passiveScore } from './scoring';
+import { arrowEffective, expectedConditionalLuck, luckEffective, npcEffective } from './scoring';
 
 const NUMERIC_OUTCOMES = new Set(['Luck','Bid Recovery','Bid Arrow Speed','Bid Zone Width','Energy Drink Time','Tip Chance','NPC Offers Bonus','Walkspeed']);
 const MODELED_PASSIVES = new Set(['Sunny','Nocturnal','Raindrop','Overcharged','Time Keeper','Connected','Focused']);
@@ -10,14 +10,11 @@ const RETIRED_ALIEN_OUTCOMES = new Set(['Haggler','Anti-Gravity Field','Safecrac
 
 export function currentAuthMarginalValue(item: GearItem, gear: GearItem[], settings: AlgorithmSettings): number {
   if (!item.authenticated) return 0;
+  // Focused is embedded in the displayed final stat, so its removable contribution cannot
+  // be reconstructed from the stored item alone.
+  if (item.authentication.effect === 'Focused') return 0;
   const withScore = bestScoreContaining(item, gear, settings);
-  const stripped = removeNumericAuthentication(item);
-  if (stripped.authentication.effect === item.authentication.effect) {
-    // Focused is embedded in the displayed final stat, so its removable contribution cannot
-    // be reconstructed from the stored item alone. Other modeled passives are separable.
-    if (item.authentication.effect === 'Focused') return 0;
-    return passiveScore(item, settings).score;
-  }
+  const stripped = removeCurrentAuth(item);
   const strippedGear = gear.map(g => g.id === item.id ? stripped : g);
   const withoutScore = bestScoreContaining(stripped, strippedGear, settings);
   return withScore - withoutScore;
@@ -50,7 +47,7 @@ function makeTarget(item: GearItem, gear: GearItem[], settings: AlgorithmSetting
   const gap = Math.max(0, bestScore - baseline);
   const currentValue = !item.authenticated || focusedRiskUnknown ? 0 : currentContaining - baseline;
   const relevant = model.filter(m => m.enabled && m.certificateType === certificateType && !RETIRED_ALIEN_OUTCOMES.has(m.outcome) && (m.slot === 'Any' || m.slot === item.slot));
-  const outcomeThresholds = relevant.map(m => thresholdForOutcome(baseCombos, settings, bestScore, m.outcome));
+  const outcomeThresholds = relevant.map(m => thresholdForOutcome(baseCombos, settings, bestScore, m.outcome, baseItem.id));
 
   const totalObserved = relevant.reduce((sum, m) => sum + m.observedSampleCount, 0);
   let weightedReachable = 0;
@@ -99,7 +96,7 @@ function removeCurrentAuth(item: GearItem): GearItem {
   return stripped;
 }
 
-function thresholdForOutcome(baseCombos: CombinationResult[], settings: AlgorithmSettings, bestScore: number, outcome: string) {
+function thresholdForOutcome(baseCombos: CombinationResult[], settings: AlgorithmSettings, bestScore: number, outcome: string, targetItemId: string) {
   if (!NUMERIC_OUTCOMES.has(outcome) && !MODELED_PASSIVES.has(outcome)) {
     return { outcome, note: 'Unknown/protected mechanics; no fabricated threshold.' };
   }
@@ -111,34 +108,53 @@ function thresholdForOutcome(baseCombos: CombinationResult[], settings: Algorith
       : { outcome, minimumRoll: -magnitude, unit: '%' };
   }
 
-  const minimumRoll = minimumUsefulPositiveRoll(baseCombos, settings, bestScore, outcome);
+  const minimumRoll = minimumUsefulPositiveRoll(baseCombos, settings, bestScore, outcome, targetItemId);
   return minimumRoll === undefined
     ? { outcome, note: 'No finite useful threshold found under current settings.' }
     : { outcome, minimumRoll, unit: '%' };
 }
 
-function minimumUsefulPositiveRoll(combos: CombinationResult[], s: AlgorithmSettings, targetScore: number, outcome: string): number | undefined {
+function minimumUsefulPositiveRoll(combos: CombinationResult[], s: AlgorithmSettings, targetScore: number, outcome: string, _targetItemId: string): number | undefined {
   let best = Infinity;
   for (const combo of combos) {
     let required: number | undefined;
     switch (outcome) {
-      case 'Luck': required = linearRequired(combo, combo.stats.luck, combo.score.luck, s.luckWeight, targetScore); break;
+      case 'Luck': required = luckRequired(combo, 1, targetScore, s); break;
       case 'Bid Recovery': required = linearRequired(combo, combo.stats.recovery, combo.score.recovery, s.recoveryWeight, targetScore); break;
       case 'Bid Zone Width': required = piecewiseRequired(combo, combo.stats.zone, combo.score.zone, s.zoneWeight, targetScore, s, 'zone'); break;
       case 'Energy Drink Time': required = piecewiseRequired(combo, combo.stats.energy, combo.score.energy, s.energyWeight, targetScore, s, 'energy'); break;
       case 'Tip Chance': required = linearRequired(combo, combo.stats.tip, combo.score.tip, s.tipWeight, targetScore); break;
-      case 'NPC Offers Bonus': required = linearRequired(combo, combo.stats.npc, combo.score.npc, s.npcWeight, targetScore); break;
+      case 'NPC Offers Bonus': required = npcRequired(combo, targetScore, s); break;
       case 'Walkspeed': required = linearRequired(combo, combo.stats.walk, combo.score.walk, s.walkWeight, targetScore); break;
-      case 'Sunny': required = passiveRequired(combo, s.sunnyUptime * s.luckWeight, targetScore); break;
-      case 'Nocturnal': required = passiveRequired(combo, s.nocturnalUptime * s.luckWeight, targetScore); break;
-      case 'Raindrop': required = passiveRequired(combo, s.raindropUptime * s.luckWeight, targetScore); break;
-      case 'Overcharged': required = passiveRequired(combo, s.overchargedMultiplier * s.luckWeight, targetScore); break;
+      case 'Sunny': required = luckRequired(combo, s.sunnyUptime, targetScore, s); break;
+      case 'Nocturnal': required = luckRequired(combo, s.nocturnalUptime, targetScore, s); break;
+      case 'Raindrop': required = luckRequired(combo, s.raindropUptime, targetScore, s); break;
+      case 'Overcharged': required = luckRequired(combo, s.overchargedMultiplier, targetScore, s); break;
       case 'Time Keeper': required = passiveRequired(combo, s.timeKeeperWeight, targetScore); break;
       default: return undefined;
     }
     if (required !== undefined && required < best) best = required;
   }
   return Number.isFinite(best) ? best : undefined;
+}
+
+function luckRequired(combo: CombinationResult, rollToExpectedLuck: number, targetScore: number, s: AlgorithmSettings): number | undefined {
+  if (!Number.isFinite(s.luckWeight) || s.luckWeight <= 0 || !Number.isFinite(rollToExpectedLuck) || rollToExpectedLuck <= 0) return undefined;
+  const items = [combo.head, combo.back, combo.wrist];
+  const existingExpectedLuck = items.reduce((sum, item) => sum + expectedConditionalLuck(item, s), 0);
+  const base = combo.stats.luck + existingExpectedLuck;
+  const currentContribution = luckEffective(base, s) * s.luckWeight;
+  const fixed = combo.score.total - currentContribution;
+  const neededEffective = (targetScore + 1e-9 - fixed) / s.luckWeight;
+  const expectedLuckNeeded = firstPositiveMagnitudeReachingLuck(base, neededEffective, s);
+  return expectedLuckNeeded === undefined ? undefined : expectedLuckNeeded / rollToExpectedLuck;
+}
+
+function npcRequired(combo: CombinationResult, targetScore: number, s: AlgorithmSettings): number | undefined {
+  if (!Number.isFinite(s.npcWeight) || s.npcWeight <= 0) return undefined;
+  const fixed = combo.score.total - combo.score.npc;
+  const neededEffective = (targetScore + 1e-9 - fixed) / s.npcWeight;
+  return firstPositiveMagnitudeReachingNpc(combo.stats.npc, neededEffective, s);
 }
 
 function linearRequired(combo: CombinationResult, currentStat: number, currentContribution: number, weight: number, targetScore: number): number | undefined {
@@ -158,30 +174,61 @@ function piecewiseRequired(combo: CombinationResult, currentStat: number, curren
   const fixed = combo.score.total - currentContribution;
   const neededEffective = (targetScore + 1e-9 - fixed) / weight;
   if (kind === 'zone') return firstPositiveMagnitudeReachingZone(currentStat, neededEffective, s);
-  if (kind === 'energy') return firstPositiveMagnitudeReachingEnergy(currentStat, neededEffective, s);
-  return undefined;
+  return firstPositiveMagnitudeReachingEnergy(currentStat, neededEffective, s);
 }
 
-function firstPositiveMagnitudeReachingZone(base: number, neededEffective: number, s: AlgorithmSettings): number | undefined {
-  const zone = (x: number) => {
-    if (x <= s.zoneBreakpoint1) return x;
-    if (x <= s.zoneBreakpoint2) return s.zoneBreakpoint1 + (x - s.zoneBreakpoint1) * s.zoneMultiplier2;
-    const atSecond = s.zoneBreakpoint1 + (s.zoneBreakpoint2 - s.zoneBreakpoint1) * s.zoneMultiplier2;
-    return atSecond + (x - s.zoneBreakpoint2) * s.zoneMultiplier3;
-  };
-  if (zone(base) > neededEffective) return 0;
-  const boundaries = [0, Math.max(0, s.zoneBreakpoint1 - base), Math.max(0, s.zoneBreakpoint2 - base)].sort((a,b)=>a-b);
+function firstPositiveMagnitudeReachingLuck(base: number, neededEffective: number, s: AlgorithmSettings): number | undefined {
+  return firstPositiveMagnitudeReachingPiecewise(
+    base,
+    neededEffective,
+    [s.luckBreakpoint1, s.luckBreakpoint2, s.luckBreakpoint3, s.luckBreakpoint4],
+    s.luckMultiplier5,
+    x => luckEffective(x, s)
+  );
+}
+
+function firstPositiveMagnitudeReachingNpc(base: number, neededEffective: number, s: AlgorithmSettings): number | undefined {
+  return firstPositiveMagnitudeReachingPiecewise(
+    base,
+    neededEffective,
+    [s.npcBreakpoint1, s.npcBreakpoint2],
+    s.npcMultiplier3,
+    x => npcEffective(x, s)
+  );
+}
+
+function firstPositiveMagnitudeReachingPiecewise(base: number, neededEffective: number, breakpoints: number[], finalSlope: number, fn: (x: number) => number): number | undefined {
+  if (fn(base) > neededEffective) return 0;
+  const boundaries = [0, ...breakpoints.map(bp => Math.max(0, bp - base))].sort((a,b)=>a-b);
   const unique = [...new Set(boundaries)];
   for (let i=0; i<unique.length-1; i++) {
     const lo = unique[i], hi = unique[i+1];
-    const eLo = zone(base + lo), eHi = zone(base + hi);
-    if (eHi > neededEffective && eHi > eLo) return lo + (neededEffective - eLo) / ((eHi - eLo) / (hi - lo || 1)) + 1e-9;
+    const eLo = fn(base + lo), eHi = fn(base + hi);
+    if (eHi > neededEffective && eHi > eLo) {
+      const slope = (eHi - eLo) / (hi - lo || 1);
+      return lo + (neededEffective - eLo) / slope + 1e-9;
+    }
   }
   const lo = unique[unique.length-1] ?? 0;
-  const eLo = zone(base + lo);
+  const eLo = fn(base + lo);
   if (eLo > neededEffective) return lo;
-  if (s.zoneMultiplier3 <= 0) return undefined;
-  return lo + (neededEffective - eLo) / s.zoneMultiplier3 + 1e-9;
+  if (!Number.isFinite(finalSlope) || finalSlope <= 0) return undefined;
+  return lo + (neededEffective - eLo) / finalSlope + 1e-9;
+}
+
+function firstPositiveMagnitudeReachingZone(base: number, neededEffective: number, s: AlgorithmSettings): number | undefined {
+  return firstPositiveMagnitudeReachingPiecewise(
+    base,
+    neededEffective,
+    [s.zoneBreakpoint1, s.zoneBreakpoint2],
+    s.zoneMultiplier3,
+    x => {
+      if (x <= s.zoneBreakpoint1) return x;
+      if (x <= s.zoneBreakpoint2) return s.zoneBreakpoint1 + (x - s.zoneBreakpoint1) * s.zoneMultiplier2;
+      const atSecond = s.zoneBreakpoint1 + (s.zoneBreakpoint2 - s.zoneBreakpoint1) * s.zoneMultiplier2;
+      return atSecond + (x - s.zoneBreakpoint2) * s.zoneMultiplier3;
+    }
+  );
 }
 
 function firstPositiveMagnitudeReachingEnergy(base: number, neededEffective: number, s: AlgorithmSettings): number | undefined {

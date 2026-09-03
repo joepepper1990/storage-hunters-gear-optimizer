@@ -45,7 +45,7 @@ describe('normal certificate heuristic',()=>{
     expect(energy!.minimumRoll!).toBeLessThan(0.00001);
   });
 
-  it('computes exact modeled replacement thresholds without iterative loadout searches',()=>{
+  it('computes modeled replacement thresholds from the exact piecewise scoring curves',()=>{
     const gear=[g('Head','Head',{luck:10}),g('Back','Back',{luck:10}),g('Wrist','Wrist',{luck:10})];
     const target=certificateTargets(gear,LOCKED_DEFAULT_SETTINGS,makeDefaultAuthModel(),'Normal Certificate of Authenticity')[0];
     const luck=target.outcomeThresholds.find(x=>x.outcome==='Luck');
@@ -54,6 +54,33 @@ describe('normal certificate heuristic',()=>{
     expect(luck!.minimumRoll!).toBeLessThan(0.00001);
   });
 
+
+  it('uses the Luck diminishing curve for certificate thresholds at high total Luck',()=>{
+    const gear=[g('Target','Head',{luck:200}),g('Best','Head',{luck:200,tip:50}),g('Back','Back',{}),g('Wrist','Wrist',{})];
+    const target=certificateTargets(gear,LOCKED_DEFAULT_SETTINGS,makeDefaultAuthModel(),'Normal Certificate of Authenticity').find(x=>x.item.id==='Target');
+    const luck=target?.outcomeThresholds.find(x=>x.outcome==='Luck');
+    expect(luck?.minimumRoll).toBeDefined();
+    expect(luck!.minimumRoll!).toBeGreaterThan(12.49);
+    expect(luck!.minimumRoll!).toBeLessThan(12.51);
+  });
+
+  it('uses the NPC diminishing curve for certificate thresholds',()=>{
+    const gear=[g('Target','Head',{npc:30}),g('Best','Head',{npc:30,tip:30}),g('Back','Back',{}),g('Wrist','Wrist',{})];
+    const target=certificateTargets(gear,LOCKED_DEFAULT_SETTINGS,makeDefaultAuthModel(),'Normal Certificate of Authenticity').find(x=>x.item.id==='Target');
+    const npc=target?.outcomeThresholds.find(x=>x.outcome==='NPC Offers Bonus');
+    expect(npc?.minimumRoll).toBeDefined();
+    expect(npc!.minimumRoll!).toBeGreaterThan(12.13);
+    expect(npc!.minimumRoll!).toBeLessThan(12.16);
+  });
+
+  it('routes Nocturnal certificate thresholds through the total Luck curve',()=>{
+    const gear=[g('Target','Head',{luck:200}),g('Best','Head',{luck:200,tip:50}),g('Back','Back',{}),g('Wrist','Wrist',{})];
+    const target=certificateTargets(gear,LOCKED_DEFAULT_SETTINGS,makeDefaultAuthModel(),'Normal Certificate of Authenticity').find(x=>x.item.id==='Target');
+    const nocturnal=target?.outcomeThresholds.find(x=>x.outcome==='Nocturnal');
+    expect(nocturnal?.minimumRoll).toBeDefined();
+    expect(nocturnal!.minimumRoll!).toBeGreaterThan(24.99);
+    expect(nocturnal!.minimumRoll!).toBeLessThan(25.01);
+  });
   it('favours pure-upside first authentication when gear is competitive',()=>{
     const gear=[g('Head','Head',{luck:10}),g('Back','Back',{luck:10}),g('Wrist','Wrist',{luck:10}),g('Wrist2','Wrist',{luck:9},{effect:'Luck',value:1})];
     const targets=certificateTargets(gear,LOCKED_DEFAULT_SETTINGS,makeDefaultAuthModel(),'Normal Certificate of Authenticity');

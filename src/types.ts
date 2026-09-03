@@ -148,8 +148,16 @@ export interface GearItem {
 }
 
 export interface AlgorithmSettings {
-  version: '1.0';
+  version: '1.1';
   luckWeight: number;
+  luckBreakpoint1: number;
+  luckBreakpoint2: number;
+  luckBreakpoint3: number;
+  luckBreakpoint4: number;
+  luckMultiplier2: number;
+  luckMultiplier3: number;
+  luckMultiplier4: number;
+  luckMultiplier5: number;
   arrowWeight: number;
   arrowSweetSpot: number;
   arrowDiminishingMultiplier: number;
@@ -157,6 +165,10 @@ export interface AlgorithmSettings {
   arrowPenaltyThreshold: number;
   arrowOvercapPenaltyMultiplier: number;
   npcWeight: number;
+  npcBreakpoint1: number;
+  npcBreakpoint2: number;
+  npcMultiplier2: number;
+  npcMultiplier3: number;
   energyWeight: number;
   energyTarget: number;
   energySecondStageMultiplier: number;

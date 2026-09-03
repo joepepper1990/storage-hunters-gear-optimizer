@@ -6,7 +6,7 @@ function g(id:string,stats:Partial<GearStats>,effect=''):GearItem{const now='202
 
 describe('analytical dominance proof',()=>{
   it('combines exact worst cases across separable stats',()=>{
-    const a=g('A',{luck:10,arrowReduction:75}); const b=g('B',{arrowReduction:80});
+    const a=g('A',{luck:50,arrowReduction:75}); const b=g('B',{arrowReduction:80});
     expect(pairWorstCaseAdvantage(a,b,LOCKED_DEFAULT_SETTINGS)).toBeGreaterThan(3.7);
     expect(findDominator(b,[a],LOCKED_DEFAULT_SETTINGS).dominated).toBe(true);
   });
@@ -19,9 +19,9 @@ describe('analytical dominance proof',()=>{
     const lower=g('Lower',{arrowReduction:80});
     const overstacked=g('Overstacked',{arrowReduction:120});
     // At a zero complement, 80% beats 120% because 120% is actively penalised.
-    expect(pairBestCaseAdvantage(lower,overstacked,LOCKED_DEFAULT_SETTINGS)).toBeGreaterThan(16.9);
+    expect(pairBestCaseAdvantage(lower,overstacked,LOCKED_DEFAULT_SETTINGS)).toBeGreaterThan(12.4);
     // But an arbitrarily low complementary Arrow total can still reverse that pair, so no false proof is made.
-    expect(pairWorstCaseAdvantage(lower,overstacked,LOCKED_DEFAULT_SETTINGS)).toBeLessThan(-33.9);
+    expect(pairWorstCaseAdvantage(lower,overstacked,LOCKED_DEFAULT_SETTINGS)).toBeLessThan(-49.9);
     expect(findDominator(overstacked,[lower],LOCKED_DEFAULT_SETTINGS).dominated).toBe(false);
   });
 
