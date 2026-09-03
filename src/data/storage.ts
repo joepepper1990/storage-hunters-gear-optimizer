@@ -90,7 +90,7 @@ export function normalizeData(raw: AppData): AppData {
     schemaVersion: 4,
     gear: Array.isArray(raw?.gear) ? raw.gear.map(normalizeItem) : [],
     settings: normalizeSettings(raw?.settings),
-    authModel: Array.isArray(raw?.authModel) && raw.authModel.length ? raw.authModel : initial.authModel,
+    authModel: normalizeAuthModel(raw?.authModel, initial.authModel),
     rollLog: Array.isArray(raw?.rollLog) ? raw.rollLog : [],
     theme: raw?.theme ?? 'system',
     vehicleProfile: normalizeVehicleProfile(raw?.vehicleProfile),
@@ -122,7 +122,7 @@ function normalizeTrophy(item: GavelTrophy): GavelTrophy {
 
 function normalizeTrophySettings(raw: Partial<TrophyOptimiserSettings> | undefined): TrophyOptimiserSettings {
   const defaults = structuredClone(DEFAULT_TROPHY_SETTINGS);
-  const maxActive = Math.max(1, Math.min(4, Math.trunc(finite(raw?.maxActive ?? defaults.maxActive)) || defaults.maxActive));
+  const maxActive = 4; // Current game rule: exactly four powered Gavel slots when available.
   const supplied = Array.isArray(raw?.mutationWeights) ? raw.mutationWeights : [];
   const merged = new Map(defaults.mutationWeights.map(w => [w.mutation, w]));
   for (const w of supplied) {
@@ -137,6 +137,17 @@ function normalizeTrophySettings(raw: Partial<TrophyOptimiserSettings> | undefin
     });
   }
   return { maxActive, mutationWeights: [...merged.values()] };
+}
+
+function normalizeAuthModel(raw: AppData['authModel'] | undefined, defaults: AppData['authModel']): AppData['authModel'] {
+  const supplied = Array.isArray(raw) ? raw.map(entry => ({ ...entry, observedValues: Array.isArray(entry.observedValues) ? [...entry.observedValues] : [] })) : [];
+  const out = [...supplied];
+  const key = (entry: AppData['authModel'][number]) => `${entry.certificateType}|${entry.slot}|${entry.outcome}`;
+  const existing = new Set(out.map(key));
+  // Merge in newly-added NORMAL outcomes (such as Energy Drink Time) without deleting
+  // historical Alien model rows from older backups. Alien rows remain data-only.
+  for (const entry of defaults) if (!existing.has(key(entry))) out.push(entry);
+  return out;
 }
 
 function normalizeVehicleProfile(raw: Partial<AppData['vehicleProfile']> | undefined): AppData['vehicleProfile'] {
@@ -293,7 +304,7 @@ function validateImportedData(raw: AppData): void {
     }
   }
   if (raw.trophySettings !== undefined) {
-    if (!Number.isFinite(Number(raw.trophySettings.maxActive)) || Number(raw.trophySettings.maxActive) < 1 || Number(raw.trophySettings.maxActive) > 4) throw new Error('Trophy settings: maxActive must be between 1 and 4.');
+    if (raw.trophySettings.maxActive !== undefined && !Number.isFinite(Number(raw.trophySettings.maxActive))) throw new Error('Trophy settings: legacy maxActive must be finite when present.');
     if (!Array.isArray(raw.trophySettings.mutationWeights)) throw new Error('Trophy settings: mutation weights must be an array.');
     for (const weight of raw.trophySettings.mutationWeights) if (!weight?.mutation?.trim() || !Number.isFinite(Number(weight.multiplier)) || Number(weight.multiplier) < 0) throw new Error('Trophy settings: every mutation needs a non-negative finite multiplier.');
   }

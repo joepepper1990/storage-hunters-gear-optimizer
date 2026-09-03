@@ -7,7 +7,6 @@ export type Confidence = 'Unknown' | 'Low' | 'Medium' | 'High' | 'Empirical';
 
 export type VehiclePartSlot = 'Spoiler' | 'Exhaust' | 'Wheel Stack';
 export type VehicleVerdict = 'EQUIP' | 'KEEP' | 'SAFE TO DISCARD';
-export type TrophyVerdict = 'EQUIP' | 'KEEP' | 'SAFE TO DISCARD';
 
 export interface TrophyModifier {
   mutation: string;
@@ -40,14 +39,6 @@ export interface TrophyCombinationResult {
   score: number;
   totalBoosts: Record<string, number>;
   weightedContributions: Record<string, number>;
-}
-
-export interface TrophyAnalysis {
-  item: GavelTrophy;
-  verdict: TrophyVerdict;
-  reason: string;
-  score: number;
-  dominator?: GavelTrophy;
 }
 
 export interface VehiclePart {

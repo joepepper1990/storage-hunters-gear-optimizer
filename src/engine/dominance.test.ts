@@ -7,7 +7,7 @@ function g(id:string,stats:Partial<GearStats>,effect=''):GearItem{const now='202
 describe('analytical dominance proof',()=>{
   it('combines exact worst cases across separable stats',()=>{
     const a=g('A',{luck:10,arrowReduction:75}); const b=g('B',{arrowReduction:80});
-    expect(pairWorstCaseAdvantage(a,b,LOCKED_DEFAULT_SETTINGS)).toBeGreaterThan(5.7);
+    expect(pairWorstCaseAdvantage(a,b,LOCKED_DEFAULT_SETTINGS)).toBeGreaterThan(3.7);
     expect(findDominator(b,[a],LOCKED_DEFAULT_SETTINGS).dominated).toBe(true);
   });
   it('does not claim dominance when nonlinear saturation creates a future use case',()=>{

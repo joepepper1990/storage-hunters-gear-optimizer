@@ -112,7 +112,7 @@ export function removeNumericAuthentication(item: GearItem): GearItem {
 export function addOutcomeToItem(item: GearItem, outcome: string, roll: number): GearItem {
   const clone = structuredClone(item);
   clone.authenticated = true;
-  clone.authentication = { kind: outcome === 'Rush' || ['Haggler','Anti-Gravity Field','Safecracker','Grade Re-Roll','Exhibitor'].includes(outcome) ? 'Alien' : 'Normal', effect: outcome, value: roll };
+  clone.authentication = { kind: 'Normal', effect: outcome, value: roll };
   return clone;
 }
 

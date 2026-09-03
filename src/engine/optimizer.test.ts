@@ -15,7 +15,7 @@ describe('combination optimiser',()=>{
     const h=g('H','Head',{arrowReduction:70}); const b=g('B','Back',{arrowReduction:20}); const w=g('W','Wrist',{});
     const result=optimise([h,b,w],LOCKED_DEFAULT_SETTINGS,1)[0];
     expect(result.stats.arrowReduction).toBe(90);
-    expect(result.score.arrow).toBeCloseTo(64.8125,8);
+    expect(result.score.arrow).toBeCloseTo(98.4375,8);
   });
   it('actively avoids >100 Arrow over-stacking when the penalty outweighs other gains',()=>{
     const h=g('H','Head',{arrowReduction:75});
@@ -29,7 +29,7 @@ describe('combination optimiser',()=>{
     const overResult=optimise([h,over,w],LOCKED_DEFAULT_SETTINGS,1)[0];
     expect(overResult.stats.arrowReduction).toBe(105);
     expect(overResult.penalisedArrow).toBe(5);
-    expect(overResult.score.arrow).toBeCloseTo(60.5625,8);
+    expect(overResult.score.arrow).toBeCloseTo(92.1875,8);
   });
   it('protects unknown passives from safe discard',()=>{
     const unknown=g('Unknown','Wrist',{},'Haggler',10); unknown.authentication.kind='Alien';

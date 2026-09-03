@@ -21,8 +21,7 @@ self.onmessage = (event: MessageEvent<Request>) => {
 
     try {
       const normalTargets = certificateTargets(gear, settings, authModel, 'Normal Certificate of Authenticity', 10);
-      const alienTargets = certificateTargets(gear, settings, authModel, 'Certificate of Alienticity', 10);
-      self.postMessage({ id, phase: 'certificates', normalTargets, alienTargets });
+      self.postMessage({ id, phase: 'certificates', normalTargets });
     } catch (error) {
       self.postMessage({ id, phase: 'certificates', error: error instanceof Error ? error.message : String(error) });
     }

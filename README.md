@@ -8,11 +8,11 @@ Mobile-first offline PWA for optimising equipment in **Storage Hunters: Open Wor
 - Calculates every valid Head × Back × Wrist combination and ranks the top 10/25/100 using the locked **Algorithm 1.0** scoring curves.
 - Scores the **combined three-item totals**, so Arrow, Energy and Bid Zone diminishing returns are handled correctly.
 - Provides specialist Maximum Luck, NPC Offers, Bid Zone, useful Bid Arrow and Energy loadouts.
-- Uses an analytical breakpoint proof, including the 75/80/100 Arrow regions for same-slot global dominance; it does not call an item SAFE TO DISCARD merely because it misses the Top 100.
+- Uses an analytical breakpoint proof, including the 75/90/100 Arrow regions for same-slot global dominance; it does not call an item SAFE TO DISCARD merely because it misses the Top 100.
 - Protects unknown and provisional passives from irreversible discard decisions.
 - Provides certificate targeting focused on estimated likelihood of improving the current best overall set, with explicit `HEURISTIC — official roll odds unknown` labelling.
 - Adds a separate vehicle/trailer optimiser using the in-game formulas verified on the Dumpster Truck.
-- Adds a four-slot Gavel Trophy optimiser with editable mutation-value weights and mutation-specialist sets.
+- Adds a four-slot Gavel Trophy optimiser that reports only the best four Gavels to equip, with editable mutation-value weights.
 - Keeps a certificate roll log and editable authentication model so empirical data can replace assumptions over time.
 - Autosaves every change to IndexedDB using ordered writes, keeps an emergency localStorage mirror for recovery, works offline after first load and exports/imports JSON and CSV backups.
 - Runs combination ranking, redundancy proof and certificate targeting in a Web Worker so large inventories do not unnecessarily block the iPhone UI.
@@ -29,24 +29,24 @@ The editor always shows the conversion before saving.
 ## Locked Algorithm 1.0 defaults
 
 - Luck: `1.00`
-- Bid Arrow reduction: `0.85`; full value to 75%, 25% marginal value from 75–80%, flat from 80–100%, then each 1% above 100% subtracts one full unit of effective Arrow by default (a `0.85` point penalty per excess 1%).
+- Bid Arrow reduction: `1.25`; full value to 75%, 25% marginal value from 75–90%, flat from 90–100%, then each 1% above 100% subtracts one full unit of effective Arrow by default (a `1.25` point penalty per excess 1%).
 - NPC Offers: `0.75`
 - Energy Drink Time: `0.55`; full value to 50%, 10% marginal value from 50–100%, zero additional value above 100%.
 - Bid Zone Width: `0.40`; full to 30%, 75% marginal 30–60%, 50% marginal above 60%.
 - Tip Chance: `0.10`
 - Bid Recovery / Vehicle Speed / Walkspeed: `0.01` each.
-- Rush: `0.15` per 1% Rush.
+- Legacy Rush remains scoreable at `0.15` per 1% Rush for historical Alien-authenticated gear, but Alien authentication is no longer available for new rolls.
 - Sunny / Nocturnal uptime: `0.50`.
 - Raindrop uptime: `0.25`.
-- Time Keeper and Grade Re-Roll coefficients default to zero and remain explicitly provisional/protected.
+- Time Keeper defaults to zero and remains explicitly provisional/protected. Historical Grade Re-Roll data is preserved for legacy compatibility but is no longer an active certificate outcome.
 
 All settings are editable in-app and can be reset to the locked defaults.
 
 ## Authentication handling
 
-The nine core fields contain the item's **normal/base accessory stats excluding the separate numeric authentication roll**. Normal numeric authentication is stored separately and automatically added to the effective stats by the scoring engine. This fixes the earlier case where entries such as a Crab Backpack with `-24% Bid Arrow Speed` authentication could otherwise be under-scored if that roll was entered only in the Authentication section.
+The nine core fields contain the item's **normal/base accessory stats excluding the separate numeric authentication roll**. Normal numeric authentication is stored separately and automatically added to the effective stats by the scoring engine. Current normal numeric outcomes are Luck, Bid Recovery, Bid Arrow Speed, Bid Zone Width, **Energy Drink Time**, Tip Chance, NPC Offers Bonus and Walkspeed. Energy Drink Time authentication adds directly to the base Energy value before the existing 0–50 / 50–100 / >100 diminishing-return curve is applied.
 
-Unknown Alien effects (Haggler, Anti-Gravity Field, Safecracker and Exhibitor) are stored as first-class effects but score zero and protect the item from SAFE TO DISCARD.
+The Alien event is retired from active gameplay in the app. New Alien authentication and Alien certificate targeting are disabled. Historical gear and roll-history records with Alien effects such as Rush remain loadable and visible; known legacy effects can continue scoring under their retained legacy coefficients, while unknown legacy effects remain protected from SAFE TO DISCARD.
 
 Event-specific effects such as Fossil Finder, Luck Frenzy, Auto X-Ray, Featherweight, Second Chance and Steady Hand are informational only and score zero.
 
@@ -170,14 +170,13 @@ Version 1.2.1 strengthens trophy discard protection: a trophy is never marked SA
 
 Version 1.3 speeds up inventory entry. Gavel Trophy names are generated automatically from their modifier rolls (for example `Silver +54%` or `Gem +110% / Silver +50%`). Gear and vehicle parts now keep a short manually entered base name and automatically append every non-zero stat. Trophy inventory can be sorted by score, name, or any specific mutation boost in either direction. Item notes and obtained-date fields have been removed, and Wet is included in the default trophy modifier list.
 
-Version 1.3.1 makes trophy retention strict: KEEP applies only to trophies in the best overall powered set, trophies required by an enabled maximum mutation-specialist set, or trophies manually locked/favourited. Every other trophy is marked SAFE TO DISCARD, even if no single trophy directly dominates it.
+Version 1.3.1 introduced stricter trophy retention, and 1.3.2 fixed its regression coverage.
 
-Version 1.3.2 fixes the regression test for that rule. The failed v1.3.1 test incorrectly expected a lone Silver +1% trophy to be discarded even though it was necessarily part of the maximum Silver specialist set. The test now uses a genuinely surplus Chrome trophy below four stronger Chrome trophies, matching the intended retention rule.
+Version 1.3.3 replaces that output with the current-game rule: the Gavel optimiser now reports **only the best four Gavels to equip**. It no longer produces Top 10/25/100 alternate Gavel sets, mutation-specialist Gavel sets, or KEEP / SAFE TO DISCARD verdicts for non-selected Gavels. Inventory management, cloning, editing and mutation-weight controls remain available.
 
-- Maximum active trophies defaults to 4.
-- Top 10 / 25 / 100 powered sets.
-- Per-mutation specialist sets.
-- Strict retention rule: only best-overall, enabled specialist-set, or manually locked/favourited trophies are kept; all other trophies are SAFE TO DISCARD.
+- Equipped Gavel limit is locked to 4 for optimisation (or all owned Gavels when fewer than four exist).
+- Optimiser output is a single **BEST 4 GAVELS** set with each Gavel's modifiers, combined mutation boosts and total relative score.
+- Non-selected Gavels remain in inventory with no optimiser retention/discard verdict.
 - Default weights: Silver 2x, Gold 4x, Corrupted 6x, Wet 1.4x, Diamond 8x, Gem 10x, Chrome 12x, Hologram 15x, Void 35x, Secret 50x, Rainbow 100x, Tiny 2x and Huge 2x.
 - All weights are editable. Secret/Rainbow/Huge are visibly confidence-labelled because public sources are less consistent than the established core multipliers.
 - Trophy score is a relative heuristic, not literal expected cash value, because the normal mutation base probabilities remain unpublished.

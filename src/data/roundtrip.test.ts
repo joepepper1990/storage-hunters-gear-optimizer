@@ -57,6 +57,27 @@ describe('backup round trips',()=>{
     expect(restored.trophySettings.maxActive).toBe(4);
     expect(restored.trophySettings.mutationWeights.find(w=>w.mutation==='Rainbow')?.multiplier).toBe(90);
   });
+
+  it('preserves historical Alien authentication and legacy roll history while adding current normal auth defaults',()=>{
+    const d=makeInitialData() as any;
+    d.gear=[{...gear,id:'legacy-alien',baseName:'Legacy Wrist',slot:'Wrist',authenticated:true,authentication:{kind:'Alien',effect:'Rush',value:10}}];
+    d.authModel=[{id:'old-rush',certificateType:'Certificate of Alienticity',slot:'Any',outcome:'Rush',category:'Alien',assumedLikelihoodClass:'MEDIUM',observedSampleCount:1,observedValues:[10],confidence:'Low',enabled:true}];
+    d.rollLog=[{id:'r1',date:now,certificateType:'Certificate of Alienticity',itemId:'legacy-alien',itemName:'Legacy Wrist',slot:'Wrist',previousAuthentication:'',previousValue:0,newAuthentication:'Rush',newValue:10,improvedBestSet:true,bestScoreBefore:0,bestScoreAfter:1.5}];
+    const restored=importJson(exportJson(d));
+    expect(restored.gear[0].authentication).toEqual({kind:'Alien',effect:'Rush',value:10});
+    expect(restored.rollLog[0].certificateType).toBe('Certificate of Alienticity');
+    expect(restored.authModel.some((m:any)=>m.certificateType==='Certificate of Alienticity'&&m.outcome==='Rush')).toBe(true);
+    expect(restored.authModel.some((m:any)=>m.certificateType==='Normal Certificate of Authenticity'&&m.outcome==='Energy Drink Time')).toBe(true);
+  });
+
+  it('round-trips Energy Drink Time authentication metadata',()=>{
+    const d=makeInitialData();
+    d.gear=[{...gear,id:'energy-auth',baseName:'Energy Helm',slot:'Head',stats:{...gear.stats,energy:40},authentication:{kind:'Normal',effect:'Energy Drink Time',value:20}}];
+    const restored=importJson(exportJson(d));
+    expect(restored.gear[0].stats.energy).toBe(40);
+    expect(restored.gear[0].authentication.effect).toBe('Energy Drink Time');
+    expect(restored.gear[0].authentication.value).toBe(20);
+  });
   it('migrates an older gear-only backup without losing gear',()=>{
     const d=makeInitialData() as any;
     d.schemaVersion=1;

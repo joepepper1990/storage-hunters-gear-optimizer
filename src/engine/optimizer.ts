@@ -82,7 +82,7 @@ function protectionReason(item: GearItem, settings: AlgorithmSettings): string |
 }
 
 function knownOrIgnored(effect: string): boolean {
-  return ['Luck','Bid Recovery','Bid Arrow Speed','Bid Zone Width','Tip Chance','NPC Offers Bonus','Walkspeed','Sunny','Nocturnal','Overcharged','Raindrop','Focused','Time Keeper','Connected','Grade Re-Roll','Rush','Fossil Finder','Luck Frenzy','Auto X-Ray','Featherweight','Second Chance','Steady Hand'].includes(effect);
+  return ['Luck','Bid Recovery','Bid Arrow Speed','Bid Zone Width','Energy Drink Time','Tip Chance','NPC Offers Bonus','Walkspeed','Sunny','Nocturnal','Overcharged','Raindrop','Focused','Time Keeper','Connected','Grade Re-Roll','Rush','Fossil Finder','Luck Frenzy','Auto X-Ray','Featherweight','Second Chance','Steady Hand'].includes(effect);
 }
 
 export function slotItems(gear: GearItem[], slot: Slot) { return gear.filter(g => g.slot === slot); }

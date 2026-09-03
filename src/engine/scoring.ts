@@ -97,6 +97,7 @@ export function effectiveItemStats(item: GearItem): GearStats {
     case 'Bid Recovery': stats.recovery += value; break;
     case 'Bid Arrow Speed': stats.arrowReduction += -value; break;
     case 'Bid Zone Width': stats.zone += value; break;
+    case 'Energy Drink Time': stats.energy += value; break;
     case 'Tip Chance': stats.tip += value; break;
     case 'NPC Offers Bonus': stats.npc += value; break;
     case 'Walkspeed': stats.walk += value; break;
@@ -129,7 +130,7 @@ export function gameArrowToReduction(gameDisplayed: number): number { return gam
 export function reductionToGameArrow(reduction: number): number { return reduction === 0 ? 0 : -reduction; }
 
 export function isNumericAuth(effect: string): boolean {
-  return new Set(['Luck', 'Bid Recovery', 'Bid Arrow Speed', 'Bid Zone Width', 'Tip Chance', 'NPC Offers Bonus', 'Walkspeed']).has(effect);
+  return new Set(['Luck', 'Bid Recovery', 'Bid Arrow Speed', 'Bid Zone Width', 'Energy Drink Time', 'Tip Chance', 'NPC Offers Bonus', 'Walkspeed']).has(effect);
 }
 
 export function finite(value: unknown): number {

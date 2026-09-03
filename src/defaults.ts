@@ -71,10 +71,10 @@ function seededTrailers(): Trailer[] {
 export const LOCKED_DEFAULT_SETTINGS: AlgorithmSettings = {
   version: '1.0',
   luckWeight: 1,
-  arrowWeight: 0.85,
+  arrowWeight: 1.25,
   arrowSweetSpot: 75,
   arrowDiminishingMultiplier: 0.25,
-  arrowCeiling: 80,
+  arrowCeiling: 90,
   arrowPenaltyThreshold: 100,
   arrowOvercapPenaltyMultiplier: 1,
   npcWeight: 0.75,
@@ -100,13 +100,12 @@ export const LOCKED_DEFAULT_SETTINGS: AlgorithmSettings = {
   gradeRerollWeight: 0
 };
 
-const normalOutcomes = ['Luck', 'Bid Recovery', 'Bid Arrow Speed', 'Bid Zone Width', 'Tip Chance', 'NPC Offers Bonus', 'Walkspeed'];
+const normalOutcomes = ['Luck', 'Bid Recovery', 'Bid Arrow Speed', 'Bid Zone Width', 'Energy Drink Time', 'Tip Chance', 'NPC Offers Bonus', 'Walkspeed'];
 const exclusive: Record<'Head' | 'Back' | 'Wrist', string[]> = {
   Head: ['Sunny', 'Nocturnal', 'Overcharged'],
   Back: ['Raindrop', 'Focused'],
   Wrist: ['Time Keeper', 'Connected']
 };
-const alien = ['Haggler', 'Anti-Gravity Field', 'Safecracker', 'Grade Re-Roll', 'Exhibitor', 'Rush'];
 
 export function makeDefaultAuthModel(): AuthModelEntry[] {
   const entries: AuthModelEntry[] = [];
@@ -122,10 +121,6 @@ export function makeDefaultAuthModel(): AuthModelEntry[] {
       category: 'Slot-exclusive', assumedLikelihoodClass: 'LOW', observedSampleCount: 0, observedValues: [], confidence: 'Unknown', enabled: true
     });
   }
-  for (const outcome of alien) entries.push({
-    id: crypto.randomUUID(), certificateType: 'Certificate of Alienticity', slot: 'Any', outcome,
-    category: 'Alien', assumedLikelihoodClass: 'MEDIUM', observedSampleCount: 0, observedValues: [], confidence: 'Unknown', enabled: true
-  });
   return entries;
 }
 

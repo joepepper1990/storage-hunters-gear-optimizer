@@ -1,11 +1,12 @@
 import type { AlgorithmSettings, AuthModelEntry, CertificateTarget, CombinationResult, GearItem, LikelihoodClass } from '../types';
-import { addOutcomeToItem, removeNumericAuthentication } from './dominance';
+import { removeNumericAuthentication } from './dominance';
 import { evaluateCombination, optimise } from './optimizer';
 import { arrowEffective, passiveScore } from './scoring';
 
-const NUMERIC_OUTCOMES = new Set(['Luck','Bid Recovery','Bid Arrow Speed','Bid Zone Width','Tip Chance','NPC Offers Bonus','Walkspeed']);
-const MODELED_PASSIVES = new Set(['Rush','Sunny','Nocturnal','Raindrop','Overcharged','Time Keeper','Grade Re-Roll','Connected','Focused']);
+const NUMERIC_OUTCOMES = new Set(['Luck','Bid Recovery','Bid Arrow Speed','Bid Zone Width','Energy Drink Time','Tip Chance','NPC Offers Bonus','Walkspeed']);
+const MODELED_PASSIVES = new Set(['Sunny','Nocturnal','Raindrop','Overcharged','Time Keeper','Connected','Focused']);
 const UNKNOWN_OUTCOMES = new Set(['Haggler','Anti-Gravity Field','Safecracker','Exhibitor']);
+const RETIRED_ALIEN_OUTCOMES = new Set(['Haggler','Anti-Gravity Field','Safecracker','Grade Re-Roll','Exhibitor','Rush']);
 
 export function currentAuthMarginalValue(item: GearItem, gear: GearItem[], settings: AlgorithmSettings): number {
   if (!item.authenticated) return 0;
@@ -25,6 +26,9 @@ export function currentAuthMarginalValue(item: GearItem, gear: GearItem[], setti
 export function certificateTargets(
   gear: GearItem[], settings: AlgorithmSettings, model: AuthModelEntry[], certificateType: AuthModelEntry['certificateType'], maxTargets = 10
 ): CertificateTarget[] {
+  // Alien certificates are historical only. Keep the union type for old roll logs/imports,
+  // but never generate a current Alien target.
+  if (certificateType !== 'Normal Certificate of Authenticity') return [];
   const best = optimise(gear, settings, 1)[0];
   if (!best) return [];
   const bestScore = best.score.total;
@@ -45,7 +49,7 @@ function makeTarget(item: GearItem, gear: GearItem[], settings: AlgorithmSetting
   const currentContaining = bestScoreContaining(item, gear, settings);
   const gap = Math.max(0, bestScore - baseline);
   const currentValue = !item.authenticated || focusedRiskUnknown ? 0 : currentContaining - baseline;
-  const relevant = model.filter(m => m.enabled && m.certificateType === certificateType && (m.slot === 'Any' || m.slot === item.slot));
+  const relevant = model.filter(m => m.enabled && m.certificateType === certificateType && !RETIRED_ALIEN_OUTCOMES.has(m.outcome) && (m.slot === 'Any' || m.slot === item.slot));
   const outcomeThresholds = relevant.map(m => thresholdForOutcome(baseCombos, settings, bestScore, m.outcome));
 
   const totalObserved = relevant.reduce((sum, m) => sum + m.observedSampleCount, 0);
@@ -80,7 +84,7 @@ function makeTarget(item: GearItem, gear: GearItem[], settings: AlgorithmSetting
   if (unknownRisk) reasons.push(`${item.authentication.effect} has unknown mechanics; its value at risk is not fabricated.`);
   if (gap > 0) reasons.push(`With the current authentication removed, this item needs about ${gap.toFixed(2)} score points to beat the current best set.`);
   if (weightedReachable > 0) reasons.push('Configured roll ranges indicate that one or more modeled outcomes can clear the exact improvement threshold.');
-  if (totalObserved >= 20) reasons.push(`Empirical weighting is active from ${totalObserved} recorded ${certificateType.startsWith('Normal') ? 'Normal' : 'Alien'} rolls relevant to this slot.`);
+  if (totalObserved >= 20) reasons.push(`Empirical weighting is active from ${totalObserved} recorded Normal rolls relevant to this slot.`);
   else reasons.push('Likelihood ranking uses editable heuristic classes because there are not yet enough empirical rolls to replace the assumptions.');
 
   return { item, action, heuristicScore: score, likelihood, currentAuthMarginalValue: currentValue, gapWithoutCurrentAuth: gap, outcomeThresholds, reasons };
@@ -121,16 +125,15 @@ function minimumUsefulPositiveRoll(combos: CombinationResult[], s: AlgorithmSett
       case 'Luck': required = linearRequired(combo, combo.stats.luck, combo.score.luck, s.luckWeight, targetScore); break;
       case 'Bid Recovery': required = linearRequired(combo, combo.stats.recovery, combo.score.recovery, s.recoveryWeight, targetScore); break;
       case 'Bid Zone Width': required = piecewiseRequired(combo, combo.stats.zone, combo.score.zone, s.zoneWeight, targetScore, s, 'zone'); break;
+      case 'Energy Drink Time': required = piecewiseRequired(combo, combo.stats.energy, combo.score.energy, s.energyWeight, targetScore, s, 'energy'); break;
       case 'Tip Chance': required = linearRequired(combo, combo.stats.tip, combo.score.tip, s.tipWeight, targetScore); break;
       case 'NPC Offers Bonus': required = linearRequired(combo, combo.stats.npc, combo.score.npc, s.npcWeight, targetScore); break;
       case 'Walkspeed': required = linearRequired(combo, combo.stats.walk, combo.score.walk, s.walkWeight, targetScore); break;
-      case 'Rush': required = passiveRequired(combo, s.rushWeight, targetScore); break;
       case 'Sunny': required = passiveRequired(combo, s.sunnyUptime * s.luckWeight, targetScore); break;
       case 'Nocturnal': required = passiveRequired(combo, s.nocturnalUptime * s.luckWeight, targetScore); break;
       case 'Raindrop': required = passiveRequired(combo, s.raindropUptime * s.luckWeight, targetScore); break;
       case 'Overcharged': required = passiveRequired(combo, s.overchargedMultiplier * s.luckWeight, targetScore); break;
       case 'Time Keeper': required = passiveRequired(combo, s.timeKeeperWeight, targetScore); break;
-      case 'Grade Re-Roll': required = passiveRequired(combo, s.gradeRerollWeight, targetScore); break;
       default: return undefined;
     }
     if (required !== undefined && required < best) best = required;
@@ -150,11 +153,12 @@ function passiveRequired(combo: CombinationResult, coefficient: number, targetSc
   return Math.max(0, (targetScore + 1e-9 - combo.score.total) / coefficient);
 }
 
-function piecewiseRequired(combo: CombinationResult, currentStat: number, currentContribution: number, weight: number, targetScore: number, s: AlgorithmSettings, kind: 'zone'): number | undefined {
+function piecewiseRequired(combo: CombinationResult, currentStat: number, currentContribution: number, weight: number, targetScore: number, s: AlgorithmSettings, kind: 'zone' | 'energy'): number | undefined {
   if (!Number.isFinite(weight) || weight <= 0) return undefined;
   const fixed = combo.score.total - currentContribution;
   const neededEffective = (targetScore + 1e-9 - fixed) / weight;
   if (kind === 'zone') return firstPositiveMagnitudeReachingZone(currentStat, neededEffective, s);
+  if (kind === 'energy') return firstPositiveMagnitudeReachingEnergy(currentStat, neededEffective, s);
   return undefined;
 }
 
@@ -180,10 +184,31 @@ function firstPositiveMagnitudeReachingZone(base: number, neededEffective: numbe
   return lo + (neededEffective - eLo) / s.zoneMultiplier3 + 1e-9;
 }
 
+function firstPositiveMagnitudeReachingEnergy(base: number, neededEffective: number, s: AlgorithmSettings): number | undefined {
+  const energy = (x: number) => {
+    if (x <= s.energyTarget) return x;
+    if (x <= s.energyCeiling) return s.energyTarget + (x - s.energyTarget) * s.energySecondStageMultiplier;
+    return s.energyTarget + (s.energyCeiling - s.energyTarget) * s.energySecondStageMultiplier;
+  };
+  if (energy(base) > neededEffective) return 0;
+  const boundaries = [0, Math.max(0, s.energyTarget - base), Math.max(0, s.energyCeiling - base)].sort((a,b)=>a-b);
+  const unique = [...new Set(boundaries)];
+  for (let i=0; i<unique.length-1; i++) {
+    const lo = unique[i], hi = unique[i+1];
+    const eLo = energy(base + lo), eHi = energy(base + hi);
+    if (eHi > neededEffective && eHi > eLo) {
+      const slope = (eHi - eLo) / (hi - lo || 1);
+      return lo + (neededEffective - eLo) / slope + 1e-9;
+    }
+  }
+  const lo = unique[unique.length-1] ?? 0;
+  return energy(base + lo) > neededEffective ? lo : undefined;
+}
+
 /**
  * Exact minimum magnitude of a useful negative game-displayed Bid Arrow Speed roll.
  * For a fixed complementary pair every score component except Arrow is constant, and
- * Arrow is piecewise linear at the configured 75/80/100-style breakpoints. We solve
+ * Arrow is piecewise linear at the configured sweet-spot/ceiling/penalty breakpoints. We solve
  * each segment analytically and take the earliest crossing over all complementary pairs.
  */
 export function minimumUsefulArrowMagnitude(baseItem: GearItem, gear: GearItem[], settings: AlgorithmSettings, targetScore: number): number | undefined {
