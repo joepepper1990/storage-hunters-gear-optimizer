@@ -14,8 +14,28 @@ Mobile-first offline PWA for optimising equipment in **Storage Hunters: Open Wor
 - Adds a separate vehicle/trailer optimiser using the in-game formulas verified on the Dumpster Truck.
 - Adds a four-slot Gavel Trophy optimiser that reports only the best four Gavels to equip, with editable mutation-value weights.
 - Keeps a certificate roll log and editable authentication model so empirical data can replace assumptions over time.
-- Autosaves every change to IndexedDB using ordered writes, keeps an emergency localStorage mirror for recovery, works offline after first load and exports/imports JSON and CSV backups.
+- Autosaves every change to IndexedDB using ordered writes, keeps an emergency localStorage mirror for recovery, keeps the main optimiser available offline after first load and exports/imports JSON and CSV backups.
 - Runs combination ranking, redundancy proof and certificate targeting in a Web Worker so large inventories do not unnecessarily block the iPhone UI.
+- Adds an experimental **local gear screenshot scanner**: choose a Storage Hunters screenshot, run OCR on-device, identify the large gear tooltip rather than the tiny TOTAL BONUSES panel, use the game's blue stat text as the authentication signal, then review the draft in the normal Gear editor before saving.
+
+
+## Experimental local gear screenshot scanner
+
+Version 1.5 adds **Gear → Scan screenshot** for fast inventory entry on iPhone. The scanner is deliberately review-first: it never writes a scanned item directly into inventory.
+
+Flow:
+
+1. Choose a Storage Hunters gear screenshot from Photos.
+2. The browser prepares a high-contrast copy locally and lazy-loads Tesseract.js OCR.
+3. OCR line positions are used to prefer the large gear tooltip over small duplicate stat text elsewhere in the screenshot (especially the TOTAL BONUSES panel).
+4. The original screenshot colours are sampled locally. Green tooltip stats are treated as base stats; the blue tooltip stat is treated as the separate authentication roll.
+5. The scanner infers Head / Back / Wrist from the recognised item name where possible.
+6. A confirmation sheet shows the detected item, confidence, warnings, parsed stats and raw OCR text.
+7. **Review in gear editor** opens the normal add-item editor, where every field can be corrected before Analyse & add.
+
+The screenshot and OCR result are **not uploaded to an AI service or app backend**. Tesseract.js runs in the browser. On the first scan, the OCR engine/language assets may need to download before recognition starts; after those browser caches are available, repeated scans avoid that first-load cost.
+
+This is intentionally labelled experimental. OCR can misread small text, unusual screenshots or partially hidden tooltips, so the existing Gear editor and validation remain the authoritative save path.
 
 ## Bid Arrow input convention
 
@@ -99,7 +119,7 @@ If the repository is renamed, update `base`, `scope`, and `start_url` in `vite.c
 
 ## Data and privacy
 
-There is no backend, login, analytics service or remote database. Gear data is stored in the browser's IndexedDB on the device, with an emergency localStorage mirror used only as a recovery fallback. Writes are serialised so a rapid sequence of edits cannot let an older save finish after a newer one. Use **Settings → Download JSON backup** regularly, especially before clearing Safari website data or changing devices. Imports reject malformed/non-finite numeric data instead of allowing `NaN` or `Infinity` into the optimiser.
+There is no app backend, login, analytics service or remote database. Gear data is stored in the browser's IndexedDB on the device, with an emergency localStorage mirror used only as a recovery fallback. Gear screenshots selected for the local scanner are processed in-browser and are not uploaded by the app. Writes are serialised so a rapid sequence of edits cannot let an older save finish after a newer one. Use **Settings → Download JSON backup** regularly, especially before clearing Safari website data or changing devices. Imports reject malformed/non-finite numeric data instead of allowing `NaN` or `Infinity` into the optimiser.
 
 ## Tests
 
@@ -118,7 +138,8 @@ Regression coverage includes:
 - analytical dominance proof;
 - unknown-passive protection;
 - JSON/CSV round trips, blank numeric fields and malformed-data rejection;
-- certificate heuristic determinism.
+- certificate heuristic determinism;
+- local scanner parsing, noisy stat aliases, Arrow sign conversion, tooltip-vs-TOTAL-BONUSES selection and blue authentication separation.
 
 ## Licence
 

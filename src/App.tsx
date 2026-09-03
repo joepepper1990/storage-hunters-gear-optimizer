@@ -8,6 +8,7 @@ import { csvToGear, gearToCsv } from './data/csv';
 import { exportJson, importJson, loadData, saveData, saveEmergencyMirror } from './data/storage';
 import { VehicleScreen } from './components/VehicleScreen';
 import { TrophyScreen } from './components/TrophyScreen';
+import { GearScanner } from './components/GearScanner';
 import { generateGearName } from './naming';
 import { activeAuthenticationOptions, activeCertificateOutcomeOptions, EXCLUSIVE_AUTH_EFFECTS, LEGACY_ALIEN_EFFECTS } from './authentication';
 import type { AlgorithmSettings, AppData, AuthModelEntry, CertificateRollLog, CertificateTarget, CombinationResult, GearItem, GearStats, ItemAnalysis, Slot } from './types';
@@ -28,6 +29,7 @@ export default function App() {
   const [newAnalysis, setNewAnalysis] = useState<null | {name:string;standalone:number;previous:number;next:number;bestChanged:boolean;replaced?:string;verdict?:string;bestCert?:string;combined?:GearStats}>(null);
   const [pendingNewItem,setPendingNewItem]=useState<null|{item:GearItem;previous:number;previousBest?:CombinationResult}>(null);
   const [comboLimit, setComboLimit] = useState(10);
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   useEffect(() => { loadData().then(setData).catch(error=>setLoadError(error instanceof Error?error.message:String(error))); }, []);
   useEffect(() => {
@@ -88,7 +90,7 @@ export default function App() {
 
     <main className="content">
       {tab==='Dashboard' && <Dashboard data={data} best={best} analyses={analyses} bestCert={normalTargets[0]} onGo={setTab} />}
-      {tab==='Gear' && <GearScreen gear={data.gear} analyses={analyses} settings={data.settings} certificateTargets={normalTargets} onAdd={openAdd} onEdit={openEdit} onClone={cloneItem} onDelete={deleteItem} onFav={toggleFav} onBulkDiscard={bulkDiscard} />}
+      {tab==='Gear' && <GearScreen gear={data.gear} analyses={analyses} settings={data.settings} certificateTargets={normalTargets} onAdd={openAdd} onScan={()=>setScannerOpen(true)} onEdit={openEdit} onClone={cloneItem} onDelete={deleteItem} onFav={toggleFav} onBulkDiscard={bulkDiscard} />}
       {tab==='Optimise' && <OptimiseScreen data={data} combinations={top100.slice(0,comboLimit)} limit={comboLimit} setLimit={setComboLimit} />}
       {tab==='Vehicle' && <VehicleScreen data={data} setData={setData} />}
       {tab==='Trophies' && <TrophyScreen data={data} setData={setData} />}
@@ -97,6 +99,7 @@ export default function App() {
     </main>
 
     <nav className="bottomNav">{tabs.map(t=><button key={t} className={tab===t?'active':''} onClick={()=>setTab(t)}><span>{navIcon(t)}</span>{t}</button>)}</nav>
+    {scannerOpen && <GearScanner onClose={()=>setScannerOpen(false)} onConfirm={item=>{setScannerOpen(false);setEditorMode('add');setEditor(item)}} />}
     {editor && <GearEditor item={editor} authModel={data.authModel} mode={editorMode} onClose={()=>setEditor(null)} onSave={commitItem} />}
     {newAnalysis && <NewItemSheet analysis={newAnalysis} onClose={()=>setNewAnalysis(null)} />}
     {toast && <div className="toast">{toast}</div>}
@@ -165,7 +168,7 @@ function Dashboard({data,best,analyses,bestCert,onGo}:{data:AppData;best:any;ana
   </section>;
 }
 
-function GearScreen({gear,analyses,settings,certificateTargets,onAdd,onEdit,onClone,onDelete,onFav,onBulkDiscard}:{gear:GearItem[];analyses:ItemAnalysis[];settings:AlgorithmSettings;certificateTargets:CertificateTarget[];onAdd:()=>void;onEdit:(i:GearItem)=>void;onClone:(i:GearItem)=>void;onDelete:(i:GearItem)=>void;onFav:(i:GearItem)=>void;onBulkDiscard:()=>void}){
+function GearScreen({gear,analyses,settings,certificateTargets,onAdd,onScan,onEdit,onClone,onDelete,onFav,onBulkDiscard}:{gear:GearItem[];analyses:ItemAnalysis[];settings:AlgorithmSettings;certificateTargets:CertificateTarget[];onAdd:()=>void;onScan:()=>void;onEdit:(i:GearItem)=>void;onClone:(i:GearItem)=>void;onDelete:(i:GearItem)=>void;onFav:(i:GearItem)=>void;onBulkDiscard:()=>void}){
   const [q,setQ]=useState(''); const [slot,setSlot]=useState<'All'|Slot>('All'); const [status,setStatus]=useState('All'); const [auth,setAuth]=useState('All'); const [sort,setSort]=useState('scoreDesc');
   const map=new Map(analyses.map(a=>[a.item.id,a]));
   const certMap=new Map<string,CertificateTarget>(); for(const t of certificateTargets){const prior=certMap.get(t.item.id);if(!prior||t.heuristicScore>prior.heuristicScore)certMap.set(t.item.id,t);}
@@ -173,7 +176,7 @@ function GearScreen({gear,analyses,settings,certificateTargets,onAdd,onEdit,onCl
   items=[...items].sort((a,b)=>sort==='nameAsc'?a.name.localeCompare(b.name):sort==='nameDesc'?b.name.localeCompare(a.name):sort==='scoreAsc'?(map.get(a.id)?.standalone.total??0)-(map.get(b.id)?.standalone.total??0):(map.get(b.id)?.standalone.total??0)-(map.get(a.id)?.standalone.total??0));
   const safe=analyses.filter(a=>a.verdict==='SAFE TO DISCARD');
   return <section>
-    <div className="pageHeading"><div><h1>Gear</h1><p>{gear.length} items · duplicates allowed</p></div><button className="primary" onClick={onAdd}>＋ Add gear</button></div>
+    <div className="pageHeading"><div><h1>Gear</h1><p>{gear.length} items · duplicates allowed</p></div><div className="headingActions"><button className="secondary" onClick={onScan}>▣ Scan screenshot</button><button className="primary" onClick={onAdd}>＋ Add gear</button></div></div>
     <div className="filters"><input placeholder="Search name or ID" value={q} onChange={e=>setQ(e.target.value)}/><select value={slot} onChange={e=>setSlot(e.target.value as any)}><option>All</option><option>Head</option><option>Back</option><option>Wrist</option></select><select value={status} onChange={e=>setStatus(e.target.value)}><option>All</option><option>EQUIP</option><option>KEEP</option><option>SAFE TO DISCARD</option><option>PROTECTED / UNKNOWN</option></select><select value={auth} onChange={e=>setAuth(e.target.value)}><option>All</option><option>Unauthenticated</option><option>Normal</option><option value="Alien">Legacy Alien</option></select><select value={sort} onChange={e=>setSort(e.target.value)}><option value="scoreDesc">Score: highest → lowest</option><option value="scoreAsc">Score: lowest → highest</option><option value="nameAsc">Name: A → Z</option><option value="nameDesc">Name: Z → A</option></select></div>
     {safe.length>0 && <details className="dangerPanel"><summary>{safe.length} item{safe.length!==1?'s':''} proven SAFE TO DISCARD</summary><div className="discardList">{safe.map(a=><div key={a.item.id}><strong>{a.item.name}</strong><span>{a.dominance?.reason}</span></div>)}</div><button className="danger" onClick={onBulkDiscard}>Review confirmation & delete all safe items</button></details>}
     <div className="gearList">{items.map(item=>{const a=map.get(item.id);return <article className="gearCard" key={item.id}>
