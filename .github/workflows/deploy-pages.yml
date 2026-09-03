@@ -26,6 +26,9 @@ jobs:
         with:
           node-version: 22
 
+      - name: Use npm 11.6.0
+        run: npm install -g npm@11.6.0 --no-audit --no-fund
+
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
