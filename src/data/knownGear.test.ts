@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { makeInitialData } from '../defaults';
 import { effectiveItemStats, scoreStandalone } from '../engine/scoring';
+import { analyseItems } from '../engine/optimizer';
+import { certificateTargets } from '../engine/certificates';
 import { importJson, exportJson } from './storage';
 import { csvToGear, gearToCsv } from './csv';
 import { makeKnownGear, mergeKnownGear } from './knownGear';
@@ -65,7 +67,17 @@ describe('verified 17 October 2026 inventory', () => {
       const score=scoreStandalone(g,settings);
       expect(score.hasUnknownProtectedPassive).toBe(true);
       expect(score.passive).toBe(0);
+      const verdict=analyseItems([g],undefined,settings)[0];
+      expect(verdict.verdict).toBe('PROTECTED / UNKNOWN');
     }
+  });
+
+  it('does not suggest a Normal certificate reroll on a Premium enchantment',()=>{
+    const data=makeInitialData();
+    const targets=certificateTargets(data.gear,data.settings,data.authModel,'Normal Certificate of Authenticity',100);
+    expect(targets.some(t=>t.item.authentication.kind==='Premium')).toBe(false);
+    expect(targets.some(t=>t.item.baseName==='Reactor Fedora')).toBe(false);
+    expect(targets.some(t=>t.item.baseName==='Jellyfish Wristband')).toBe(false);
   });
 
   it('idempotently merges existing matching gear and enriches missing item metadata',()=>{
