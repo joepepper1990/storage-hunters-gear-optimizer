@@ -100,3 +100,29 @@ function sameRoll(a:GearItem,b:GearItem):boolean {
   return (Object.keys(ZERO_STATS) as Array<keyof GearStats>)
     .every(key => Math.abs((a.stats[key]??0)-(b.stats[key]??0))<0.00001);
 }
+
+
+/**
+ * Screenshot-verified Maple Wristband added after the v1.8 inventory migration.
+ * Only the two displayed stats are known; mutation, condition and authentication are
+ * deliberately not inferred. No effect on any other saved wrist accessory.
+ */
+export function makeMapleWristband(): GearItem {
+  const now='2026-10-17T00:00:00.000Z';
+  const stats={...ZERO_STATS,luck:63,zone:47};
+  const authentication:Authentication={kind:'None',effect:'',value:0};
+  return {
+    id:'verified-20261017-wrist-maple-wristband-l63-z47',
+    baseName:'Maple Wristband',
+    name:generateGearName('Maple Wristband',stats,false,authentication),
+    slot:'Wrist',stats,authenticated:false,authentication,favourite:false,
+    createdAt:now,updatedAt:now
+  };
+}
+
+/** One-time v6->v7 gear addition; preserve existing user-entered matching rolls. */
+export function mergeMapleWristband(existing: GearItem[]): GearItem[] {
+  const incoming=makeMapleWristband();
+  if(existing.some(item=>item.id===incoming.id || sameRoll(item,incoming)))return existing;
+  return [...existing,incoming];
+}

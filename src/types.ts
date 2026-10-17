@@ -298,7 +298,7 @@ export interface OwnedCertificate {
 }
 
 export interface AppData {
-  schemaVersion: 6;
+  schemaVersion: 7;
   gear: GearItem[];
   settings: AlgorithmSettings;
   authModel: AuthModelEntry[];
