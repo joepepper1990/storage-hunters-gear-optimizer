@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { LOCKED_DEFAULT_SETTINGS, makeInitialData, ZERO_STATS } from './defaults';
 import { analyseItems, optimise, specialistLoadout } from './engine/optimizer';
 import { certificateTargets } from './engine/certificates';
+import { assessPremiumUpgrades } from './engine/premiumAdvice';
 import { addOutcomeToItem, removeNumericAuthentication } from './engine/dominance';
 import { effectiveItemStats, gameArrowToReduction, reductionToGameArrow, scoreStandalone } from './engine/scoring';
 import { csvToGear, gearToCsv } from './data/csv';
@@ -235,6 +236,13 @@ function OptimiseScreen({data,combinations,limit,setLimit}:{data:AppData;combina
 function CertificateScreen({data,setData,normal}:{data:AppData;setData:(d:AppData)=>void;normal:any[]}){
   const [logOpen,setLogOpen]=useState(false);
   const [certificateMode,setCertificateMode]=useState<'Normal'|'Premium'>('Normal');
+  const [premiumSlot,setPremiumSlot]=useState<'All'|Slot>('All');
+  const [premiumSearch,setPremiumSearch]=useState('');
+  const premiumAdvice=useMemo(()=>assessPremiumUpgrades(data.gear,data.settings),[data.gear,data.settings]);
+  const premiumVisible=premiumAdvice.filter(a=>(premiumSlot==='All'||a.item.slot===premiumSlot)
+    && (!premiumSearch||a.item.baseName.toLowerCase().includes(premiumSearch.toLowerCase())
+      ||a.item.authentication.effect.toLowerCase().includes(premiumSearch.toLowerCase())));
+  const premiumCandidates=premiumAdvice.filter(a=>a.verdict==='CONSIDER PREMIUM').length;
   const targets=normal;
   const type:AuthModelEntry['certificateType']=certificateMode==='Premium'?'Premium Certificate of Authenticity':'Normal Certificate of Authenticity';
   const [editInventory,setEditInventory]=useState(false);
@@ -245,7 +253,23 @@ function CertificateScreen({data,setData,normal}:{data:AppData;setData:(d:AppDat
     {certificateMode==='Normal'&&<><div className="notice"><b>Recommendation rule:</b> maximise estimated likelihood of improving the current best overall loadout, not jackpot size. Recalculate after every roll. Alien certificates are historical only and are not targeted.</div>
     {targets.length?targets.map((t,idx)=><details className={`certCard ${idx===0?'best':''}`} key={t.item.id} open={idx===0}><summary><div className="certRank">{idx+1}</div><div><strong>{t.item.name}</strong><span>{t.action} · {t.item.slot}</span></div><div className={`likelihood ${t.likelihood.replaceAll(' ','').toLowerCase()}`}>{t.likelihood}</div></summary><div className="comboBody"><div className="statsGrid three"><StatTile label="Heuristic rank" value={t.heuristicScore}/><StatTile label="Auth value at risk" value={t.currentAuthMarginalValue}/><StatTile label="Gap without auth" value={t.gapWithoutCurrentAuth}/></div><ul>{t.reasons.map((r:string)=><li key={r}>{r}</li>)}</ul><details><summary>Minimum replacement roll thresholds</summary><div className="thresholdTable">{t.outcomeThresholds.map((o:any)=><div key={o.outcome}><b>{o.outcome}</b><span>{o.minimumRoll!==undefined?`${o.minimumRoll.toFixed(2)}%`:o.note}</span></div>)}</div></details></div></details>):<EmptyState title="No certificate target yet" text="A complete Head/Back/Wrist inventory is required."/>}
     {targets.length>0&&['LOW','VERY LOW'].includes(targets[0].likelihood)&&<div className="notice warning"><b>HOLD CERTIFICATE</b> — no current target has a convincing heuristic case.</div>}</> }
-    {certificateMode==='Premium'&&<div className="notice"><b>Premium outcomes (slot specific):</b> Head — Mutated Luck; Back — Drought Breaker or Golden Hour; Wrist — Club Pact or Temporal Split. Odds and dynamic Luck values are not verified, so automatic Premium reroll rankings are disabled. Record the actual result below.</div>}
+    {certificateMode==='Premium'&&<>
+      <div className="notice"><b>Wooden → Premium decision guide.</b> {premiumCandidates} current unechanted competitive item{premiumCandidates===1?'':'s'} to consider. The classifications use your current three-slot loadout scoring and existing enchantments, <b>not</b> actual Premium-roll odds. A Premium roll may replace a valuable existing effect; it is not a guaranteed upgrade.</div>
+      <div className="notice"><b>Conversion cost reported by the community:</b> one Wooden Certificate plus 150 Diamonds at the Premium shop. Verify the price and eligibility in game before spending. Owned Wooden Certificates: {data.ownedCertificates.filter(c=>c.type==='Wooden Certificate of Authenticity').reduce((total,c)=>total+c.quantity,0)}. Your Diamond balance is not tracked here.</div>
+      <div className="toolbarRow premiumAdviceFilters"><input aria-label="Search premium upgrade targets" placeholder="Search gear or enchantment" value={premiumSearch} onChange={e=>setPremiumSearch(e.target.value)}/><select aria-label="Filter premium gear by slot" value={premiumSlot} onChange={e=>setPremiumSlot(e.target.value as 'All'|Slot)}><option value="All">All slots</option><option>Head</option><option>Back</option><option>Wrist</option></select></div>
+      <div className="premiumAdviceList">
+        {premiumVisible.map((advice,index)=><details className="certCard premiumAdviceCard" key={advice.item.id} open={index===0}>
+          <summary><div><strong>{advice.item.baseName||advice.item.name}</strong><span>{advice.item.slot} · {advice.item.authenticated?`${advice.item.authentication.kind}: ${advice.item.authentication.effect||'unknown'}`:'Not authenticated'}</span></div><div className="premiumVerdict">{advice.verdict}</div></summary>
+          <div className="comboBody">
+            {advice.gapToBest!==undefined&&<p className="fieldHelp">{advice.inCompetitiveSet?'Competitive in the current best three-slot setup':`Current loadout score gap: ${advice.gapToBest.toFixed(2)} points`}. Unmodelled Premium effects are not counted.</p>}
+            <p><b>Available Premium outcomes for {advice.item.slot}:</b> {advice.premiumOutcomes.join(' / ')}</p>
+            <ul>{advice.reasons.slice(0,-1).map((reason,i)=><li key={i}>{reason}</li>)}</ul>
+          </div>
+        </details>)}
+        {!premiumVisible.length&&<div className="empty">No gear matches these filters.</div>}
+      </div>
+      <div className="notice warning"><b>Evidence boundary:</b> CONSIDER PREMIUM means a sensible candidate, not a promise of better gear. HOLD and PROTECT statuses are conservative because Premium outcomes, probabilities and situational benefits cannot yet be compared numerically with a Wooden roll. Favourited/locked gear stays protected.</div>
+    </>}
     <div className="sectionTitle"><h2>Roll history</h2><button className="secondary compact" onClick={()=>setLogOpen(true)}>＋ Record {certificateMode} roll</button></div>
     <div className="card tableCard">{data.rollLog.length?data.rollLog.slice().reverse().map(r=><div className="logRow" key={r.id}><div><strong>{r.itemName}</strong><span>{new Date(r.date).toLocaleDateString()} · {r.certificateType.startsWith('Normal')?'Normal':r.certificateType.startsWith('Premium')?'Premium':'Legacy Alien'}</span></div><div><b>{r.newAuthentication} {r.newValue}%</b><span>{r.bestScoreBefore.toFixed(2)} → {r.bestScoreAfter.toFixed(2)}</span></div></div>):<p className="muted">No certificate rolls recorded yet.</p>}</div>
     {logOpen&&<RollLogEditor data={data} type={type} onClose={()=>setLogOpen(false)} onSave={(r,updated)=>{const authModel=recordEmpiricalRoll(data.authModel,r);setData({...data,gear:data.gear.map(g=>g.id===updated.id?updated:g),authModel,rollLog:[...data.rollLog,r]});setLogOpen(false)}}/>}

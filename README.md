@@ -213,6 +213,21 @@ Inventory verdicts follow a strict user-requested retention policy: **EQUIP** fo
 
 The trophy value calculation is a **relative community heuristic**, `Σ(boost % × mutation value multiplier)`. It is **not expected auction cash**, because normal mutation base probabilities, trophy-roll odds, and some event effects are not confirmed by the game developer. All mutation weights are editable. Newer event mutation names and Goliath/Megahaul trailer presets are present as selectable options, not assumed owned items.
 
+## Per-item Wooden-to-Premium guidance (v1.9)
+
+Go to **More → Certificates → Premium** to see every owned Head, Back and Wrist item assessed for a possible Wooden Certificate → Premium Certificate conversion. This uses the **existing gear inventory** and current best three-slot gear score, then displays:
+
+- **CONSIDER PREMIUM:** an item competitive in the current best loadout and not yet enchanted. This is a *candidate*, not a guarantee it will outperform a Normal certificate.
+- **REVIEW REPLACEMENT:** competitive gear with a known Normal enchantment. Upgrading risks replacing that effect.
+- **PROTECT ENCHANTMENT:** a conditional, unknown or provisional existing effect (for example Nocturnal, Connected or Focused) whose lost value cannot be safely estimated.
+- **HOLD FOR NOW:** currently weaker alternative relative to the best three-slot gear.
+- **ALREADY PREMIUM / LOCKED:** protect an existing Premium roll or favourite.
+- **COMPLETE LOADOUT FIRST:** a meaningful gear comparison requires at least one Head, Back and Wrist item.
+
+The view shows each item's score gap, available Premium effects for its actual slot and why its category was chosen. Filters support item name, effect and slot. Matching competitive ties are included rather than arbitrarily excluding one equivalent item. The UI also shows how many Wooden Certificates are recorded as owned.
+
+**Do not treat this as a verified success probability or guaranteed financial recommendation.** Premium roll odds and context-dependent effects have not been published authoritatively. The 150 Diamond + Wooden Certificate conversion figure is community-reported and should be checked inside the game. No purchase/conversion is performed by the app, and the user's current Diamond balance is not stored. The Normal certificate analyser remains separate and unchanged.
+
 ## Review and verification
 
 See `docs/reviews/2026-10-17-audit.md` for scope, evidence, risk classifications, outstanding unknowns and deployment checks. GitHub Actions runs tests and a production PWA build for the review pull request without deploying it to the live site. The live site updates only after an approved merge to `main`.
