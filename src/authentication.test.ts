@@ -9,8 +9,11 @@ describe('current authentication options',()=>{
     expect(activeCertificateOutcomeOptions('Wrist',makeDefaultAuthModel())).toContain('Energy Drink Time');
   });
 
-  it('offers only Normal as a current authentication type and no legacy Alien effects',()=>{
-    expect(CURRENT_AUTH_KINDS).toEqual(['Normal']);
+  it('offers Normal and Premium as current authentication types and no legacy Alien effects',()=>{
+    expect(CURRENT_AUTH_KINDS).toEqual(['Normal','Premium']);
+    expect(activeAuthenticationOptions('Head','',makeDefaultAuthModel(),'Premium')).toContain('Mutated Luck');
+    expect(activeAuthenticationOptions('Back','',makeDefaultAuthModel(),'Premium')).toContain('Golden Hour');
+    expect(activeAuthenticationOptions('Wrist','',makeDefaultAuthModel(),'Premium')).toContain('Temporal Split');
     const legacyMisclassified={id:'legacy',certificateType:'Normal Certificate of Authenticity' as const,slot:'Any' as const,outcome:'Rush',category:'legacy',assumedLikelihoodClass:'MEDIUM' as const,observedSampleCount:0,observedValues:[],confidence:'Unknown' as const,enabled:true};
     const model=[...makeDefaultAuthModel(),legacyMisclassified];
     const options=activeAuthenticationOptions('Wrist','',model);
