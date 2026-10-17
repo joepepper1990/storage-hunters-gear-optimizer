@@ -3,7 +3,7 @@ import type { AlgorithmSettings, GearItem, GearStats, ScoreBreakdown } from '../
 export const EVENT_PASSIVES = new Set([
   'Fossil Finder', 'Luck Frenzy', 'Auto X-Ray', 'Featherweight', 'Second Chance', 'Steady Hand'
 ]);
-export const UNKNOWN_PROTECTED_PASSIVES = new Set(['Haggler', 'Anti-Gravity Field', 'Safecracker', 'Exhibitor', 'Mutated Luck', 'Drought Breaker', 'Golden Hour', 'Club Packed', 'Temporal Split', 'Sonic', 'Overcharge', 'Focus', 'Timekeeper']);
+export const UNKNOWN_PROTECTED_PASSIVES = new Set(['Haggler', 'Anti-Gravity Field', 'Safecracker', 'Exhibitor', 'Mutated Luck', 'Drought Breaker', 'Golden Hour', 'Club Packed', 'Temporal Split', 'Sonic', 'Overcharge', 'Focus', 'Timekeeper', 'Connected']);
 export const PROVISIONAL_PASSIVES = new Set(['Time Keeper', 'Grade Re-Roll']);
 
 export function arrowEffective(r: number, s: AlgorithmSettings): number {
@@ -86,7 +86,7 @@ export function passiveScore(item: GearItem, s: AlgorithmSettings) {
   if (!item.authenticated || item.authentication.kind === 'None' || !effect) {
     return { score: 0, details: [], unknown: false, provisional: false };
   }
-  if (EVENT_PASSIVES.has(effect) || effect === 'Focused' || effect === 'Connected' || isNumericAuth(effect)) {
+  if (EVENT_PASSIVES.has(effect) || effect === 'Focused' || isNumericAuth(effect)) {
     return { score: 0, details: [], unknown: false, provisional: false };
   }
   if (['Sunny', 'Nocturnal', 'Raindrop', 'Overcharged'].includes(effect)) {
