@@ -34,8 +34,11 @@ const STAT_DEFINITIONS: StatDefinition[] = [
 
 const AUTH_EFFECTS = [
   'Luck', 'Bid Recovery', 'Bid Arrow Speed', 'Bid Zone Width', 'Energy Drink Time', 'Tip Chance', 'NPC Offers Bonus', 'Walkspeed',
-  'Sunny', 'Nocturnal', 'Overcharged', 'Raindrop', 'Focused', 'Time Keeper', 'Connected'
+  'Sunny', 'Nocturnal', 'Overcharged', 'Raindrop', 'Focused', 'Time Keeper', 'Connected',
+  'Sonic', 'Overcharge', 'Focus', 'Timekeeper',
+  'Mutated Luck', 'Drought Breaker', 'Golden Hour', 'Club Packed', 'Temporal Split'
 ];
+const PREMIUM_EFFECTS = new Set(['Mutated Luck','Drought Breaker','Golden Hour','Club Packed','Temporal Split']);
 const LEGACY_ALIEN_EFFECTS = ['Haggler', 'Anti-Gravity Field', 'Safecracker', 'Grade Re-Roll', 'Exhibitor', 'Rush'];
 const GENERIC_LINES = new Set(['gear', 'stats', 'stat', 'item', 'equipped', 'equip', 'unequip', 'inventory', 'authenticated', 'authentication', 'normal']);
 
@@ -266,7 +269,7 @@ function parseTextOnly(text: string): ParsedGearScan {
     stats,
     authenticated,
     authentication: authenticated && authEffect
-      ? { kind: 'Normal', effect: authEffect, value: authValue }
+      ? { kind: PREMIUM_EFFECTS.has(authEffect) ? 'Premium' : 'Normal', effect: authEffect, value: authValue }
       : { kind: 'None', effect: '', value: 0 },
     confidence,
     warnings,
@@ -386,7 +389,7 @@ function parseVisual(text: string, lines: GearOcrVisualLine[]): ParsedGearScan |
     slotDetected: Boolean(detectedSlot),
     stats,
     authenticated,
-    authentication: authenticated && authEffect ? { kind: 'Normal', effect: authEffect, value: authValue } : { kind: 'None', effect: '', value: 0 },
+    authentication: authenticated && authEffect ? { kind: PREMIUM_EFFECTS.has(authEffect) ? 'Premium' : 'Normal', effect: authEffect, value: authValue } : { kind: 'None', effect: '', value: 0 },
     confidence,
     warnings,
     recognisedFields,
@@ -406,7 +409,7 @@ export function scanToGearDraft(scan: ParsedGearScan, now = new Date().toISOStri
     name: scan.baseName,
     slot: scan.slot,
     stats: { ...scan.stats },
-    authenticated: scan.authenticated && scan.authentication.kind === 'Normal' && Boolean(scan.authentication.effect),
+    authenticated: scan.authenticated && scan.authentication.kind !== 'None' && Boolean(scan.authentication.effect),
     authentication: { ...scan.authentication },
     favourite: false,
     createdAt: now,
