@@ -78,4 +78,15 @@ describe('gavel trophy optimiser',()=>{
     const analyses=analyseTrophyRetention(list,DEFAULT_TROPHY_SETTINGS);
     expect(analyses.find(a=>a.item.name==='Locked spare')?.verdict).toBe('KEEP');
   });
+  it('protects equal fourth-place specialist rolls instead of discarding a usable tie',()=>{
+    const list=[
+      t('A',[['Chrome',99]]),t('B',[['Chrome',90]]),
+      t('C',[['Chrome',80]]),t('D',[['Chrome',70]]),
+      t('E',[['Chrome',70]]),t('F',[['Chrome',1]])
+    ];
+    const result=analyseTrophyRetention(list,DEFAULT_TROPHY_SETTINGS);
+    expect(result.find(r=>r.item.id==='E')?.verdict).toBe('KEEP');
+    expect(result.find(r=>r.item.id==='F')?.verdict).toBe('SAFE TO DISCARD');
+  });
+
 });
