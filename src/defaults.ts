@@ -1,3 +1,4 @@
+import { screenshotVehicleParts, screenshotTrophies, screenshotCertificates } from './data/screenshotEquipment';
 import { makeKnownGear } from './data/knownGear';
 import type { AlgorithmSettings, AppData, AuthModelEntry, GearStats, Trailer, TrophyOptimiserSettings, VehicleOptimiserSettings, VehiclePart, VehicleProfile } from './types';
 
@@ -34,6 +35,10 @@ export const DEFAULT_VEHICLE_SETTINGS: VehicleOptimiserSettings = {
 export const DEFAULT_TROPHY_SETTINGS: TrophyOptimiserSettings = {
   maxActive: 4,
   mutationWeights: [
+    { mutation: 'Dirty', multiplier: 0.8, enabled: false, confidence: 'Community' },
+    { mutation: 'Pure', multiplier: 1.5, enabled: false, confidence: 'Community' },
+    { mutation: 'Spotless', multiplier: 3, enabled: false, confidence: 'Community' },
+    { mutation: 'Fossil', multiplier: 5, enabled: false, confidence: 'Community' },
     { mutation: 'Silver', multiplier: 2, enabled: true, confidence: 'Confirmed' },
     { mutation: 'Gold', multiplier: 4, enabled: true, confidence: 'Confirmed' },
     { mutation: 'Corrupted', multiplier: 6, enabled: true, confidence: 'Confirmed' },
@@ -49,7 +54,7 @@ export const DEFAULT_TROPHY_SETTINGS: TrophyOptimiserSettings = {
     { mutation: 'Huge', multiplier: 2, enabled: true, confidence: 'Uncertain' },
     { mutation: 'Moonlit', multiplier: 1.5, enabled: true, confidence: 'Community' },
     { mutation: 'Firefly', multiplier: 5, enabled: true, confidence: 'Community' },
-    { mutation: 'Wet', multiplier: 1.4, enabled: true, confidence: 'Community' },
+    { mutation: 'Wet', multiplier: 6, enabled: true, confidence: 'Community' },
     { mutation: 'Shocked', multiplier: 6, enabled: true, confidence: 'Community' },
     { mutation: 'Acid', multiplier: 5, enabled: true, confidence: 'Uncertain' },
     { mutation: 'Caustic', multiplier: 30, enabled: true, confidence: 'Uncertain' },
@@ -73,7 +78,9 @@ export const DEFAULT_TROPHY_SETTINGS: TrophyOptimiserSettings = {
     { mutation: 'Cobwebbed', multiplier: 1.2, enabled: true, confidence: 'Community' },
     { mutation: 'Antique', multiplier: 2, enabled: true, confidence: 'Community' },
     { mutation: 'Ancient', multiplier: 5, enabled: true, confidence: 'Community' },
-    { mutation: 'Timeless', multiplier: 12, enabled: true, confidence: 'Community' }
+    { mutation: 'Timeless', multiplier: 12, enabled: true, confidence: 'Community' },
+    { mutation: 'Ruby', multiplier: 110, enabled: false, confidence: 'Uncertain' },
+    { mutation: 'Titanium', multiplier: 7, enabled: false, confidence: 'Uncertain' }
   ]
 };
 
@@ -166,17 +173,18 @@ export function makeDefaultAuthModel(): AuthModelEntry[] {
 
 export function makeInitialData(): AppData {
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     gear: makeKnownGear(),
     settings: { ...LOCKED_DEFAULT_SETTINGS },
     authModel: makeDefaultAuthModel(),
     rollLog: [],
+    ownedCertificates: screenshotCertificates(),
     theme: 'system',
     vehicleProfile: { ...DEFAULT_VEHICLE_PROFILE },
     vehicleSettings: { ...DEFAULT_VEHICLE_SETTINGS },
-    vehicleParts: seededVehicleParts(),
+    vehicleParts: [...seededVehicleParts(),...screenshotVehicleParts()],
     trailers: seededTrailers(),
-    trophies: [],
+    trophies: screenshotTrophies(),
     trophySettings: structuredClone(DEFAULT_TROPHY_SETTINGS)
   };
 }
