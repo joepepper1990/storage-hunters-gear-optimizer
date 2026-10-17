@@ -129,6 +129,19 @@ Condition: 55%`;
     expect(scan.conditionPct).toBe(55);
   });
 
+  it('infers slots for user-provided necklace, fedora, hood, goggles and baton items',()=>{
+    const examples:Array<[string,'Head'|'Wrist']>=[
+      ['Reactor Fedora','Head'],['Gold Crypto Necklace','Head'],
+      ['Diamond Steampunk Goggle','Head'],['Desert Hood','Head'],
+      ['Police Baton','Wrist']
+    ];
+    for(const [name,slot] of examples){
+      const scan=parseGearOcrText(`${name}\\n+5% Luck`);
+      expect(scan.slot).toBe(slot);
+      expect(scan.slotDetected).toBe(true);
+    }
+  });
+
   it('flags legacy Alien text for manual review instead of creating an Alien auth', () => {
     const scan = parseGearOcrText(`
 Jellyfish Wristband
