@@ -70,6 +70,21 @@ Nocturnal +35%
     expect(scan.stats.luck).toBe(100);
   });
 
+  it('recognises a current Premium Certificate perk', () => {
+    const scan = parseGearOcrText(`
+Pearl Dominus
+Head
++100% Luck
+AUTHENTICATED
+Mutated Luck +75%
+`);
+
+    expect(scan.authenticated).toBe(true);
+    expect(scan.authentication.kind).toBe('Premium');
+    expect(scan.authentication.effect).toBe('Mutated Luck');
+    expect(scan.authentication.value).toBe(75);
+  });
+
   it('flags legacy Alien text for manual review instead of creating an Alien auth', () => {
     const scan = parseGearOcrText(`
 Jellyfish Wristband
