@@ -1,6 +1,6 @@
 import type { GavelTrophy, TrophyCombinationResult, TrophyOptimiserSettings } from '../types';
 
-/** Current game rule: a maximum of four Gavel Trophies can be powered. */
+/** Maximum with the Extra Gavel Trophy gamepass; standard capacity is three. */
 export const TROPHY_ACTIVE_LIMIT = 4;
 
 function weightMap(settings: TrophyOptimiserSettings): Map<string, number> {
@@ -38,7 +38,7 @@ export function optimiseTrophies(trophies: GavelTrophy[], settings: TrophyOptimi
   if (!trophies.length) return [];
   const selected = [...trophies]
     .sort((a, b) => trophyScore(b, settings) - trophyScore(a, settings) || a.id.localeCompare(b.id))
-    .slice(0, Math.min(TROPHY_ACTIVE_LIMIT, trophies.length));
+    .slice(0, Math.min(settings.maxActive===3?3:TROPHY_ACTIVE_LIMIT, trophies.length));
   return [evaluateTrophySet(selected, settings)];
 }
 
@@ -66,7 +66,7 @@ export function specialistTrophyLoadout(
       trophyScore(b, settings) - trophyScore(a, settings) ||
       a.id.localeCompare(b.id)
     )
-    .slice(0, TROPHY_ACTIVE_LIMIT);
+    .slice(0, settings.maxActive===3?3:TROPHY_ACTIVE_LIMIT);
   return contributors.length ? evaluateTrophySet(contributors, settings) : undefined;
 }
 
@@ -105,7 +105,7 @@ export function analyseTrophyRetention(
 
   return trophies.map(item => {
     if (equipped.has(item.id)) {
-      return { item, verdict: 'EQUIP', reason: 'Part of the current best overall four-Gavel set.', specialistMutations: specialistMembership.get(item.id) ?? [] };
+      return { item, verdict: 'EQUIP', reason: 'Part of the current best overall powered-Gavel set.', specialistMutations: specialistMembership.get(item.id) ?? [] };
     }
     if (item.favourite) {
       return { item, verdict: 'KEEP', reason: 'Manually locked / favourited.', specialistMutations: specialistMembership.get(item.id) ?? [] };
@@ -122,7 +122,7 @@ export function analyseTrophyRetention(
     return {
       item,
       verdict: 'SAFE TO DISCARD',
-      reason: 'Not used by the best overall four, any enabled maximum modifier set, or a manual lock/favourite.',
+      reason: 'Not used by the best overall powered set, any enabled maximum modifier set, or a manual lock/favourite.',
       specialistMutations: []
     };
   });
