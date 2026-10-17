@@ -1,5 +1,5 @@
 export type Slot = 'Head' | 'Back' | 'Wrist';
-export type AuthKind = 'None' | 'Normal' | 'Alien';
+export type AuthKind = 'None' | 'Normal' | 'Premium' | 'Alien';
 export type ThemeMode = 'system' | 'light' | 'dark';
 export type Verdict = 'EQUIP' | 'KEEP' | 'SAFE TO DISCARD' | 'PROTECTED / UNKNOWN';
 export type LikelihoodClass = 'VERY HIGH' | 'HIGH' | 'MEDIUM' | 'LOW' | 'VERY LOW';
@@ -241,7 +241,7 @@ export interface ItemAnalysis {
 
 export interface AuthModelEntry {
   id: string;
-  certificateType: 'Normal Certificate of Authenticity' | 'Certificate of Alienticity';
+  certificateType: 'Normal Certificate of Authenticity' | 'Premium Certificate of Authenticity' | 'Certificate of Alienticity';
   slot: Slot | 'Any';
   outcome: string;
   category: string;
