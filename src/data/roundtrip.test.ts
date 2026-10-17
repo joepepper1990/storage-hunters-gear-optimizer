@@ -94,6 +94,25 @@ describe('backup round trips',()=>{
     expect(restored.gear[0].authentication.effect).toBe('Energy Drink Time');
     expect(restored.gear[0].authentication.value).toBe(20);
   });
+  it('round-trips Premium certificate metadata without pretending dynamic perks are numeric base stats',()=>{
+    const d=makeInitialData();
+    d.gear=[{...gear,id:'premium',baseName:'Premium Head',slot:'Head',authenticated:true,authentication:{kind:'Premium',effect:'Mutated Luck',value:75}}];
+    const restored=importJson(exportJson(d));
+    expect(restored.gear[0].authentication).toEqual({kind:'Premium',effect:'Mutated Luck',value:75});
+    expect(restored.gear[0].stats.luck).toBe(41);
+  });
+
+  it('preserves three Gavel Trophy modifiers and merges new mutation defaults',()=>{
+    const d=makeInitialData();
+    d.trophies=[{id:'t3',name:'old',modifiers:[{mutation:'Onyx',boostPct:25},{mutation:'Chrome',boostPct:40},{mutation:'Wet',boostPct:10}],favourite:false,createdAt:now,updatedAt:now}];
+    d.trophySettings.mutationWeights=d.trophySettings.mutationWeights.filter(w=>w.mutation!=='Clockwork');
+    const restored=importJson(exportJson(d));
+    expect(restored.trophies[0].modifiers).toHaveLength(3);
+    expect(restored.trophies[0].name).toBe('Onyx +25% / Chrome +40% / Wet +10%');
+    expect(restored.trophySettings.mutationWeights.find(w=>w.mutation==='Onyx')?.multiplier).toBe(175);
+    expect(restored.trophySettings.mutationWeights.find(w=>w.mutation==='Clockwork')?.multiplier).toBe(25);
+  });
+
   it('migrates an older gear-only backup without losing gear',()=>{
     const d=makeInitialData() as any;
     d.schemaVersion=1;
