@@ -3,7 +3,7 @@ import type { AlgorithmSettings, GearItem, GearStats, ScoreBreakdown } from '../
 export const EVENT_PASSIVES = new Set([
   'Fossil Finder', 'Luck Frenzy', 'Auto X-Ray', 'Featherweight', 'Second Chance', 'Steady Hand'
 ]);
-export const UNKNOWN_PROTECTED_PASSIVES = new Set(['Haggler', 'Anti-Gravity Field', 'Safecracker', 'Exhibitor']);
+export const UNKNOWN_PROTECTED_PASSIVES = new Set(['Haggler', 'Anti-Gravity Field', 'Safecracker', 'Exhibitor', 'Mutated Luck', 'Drought Breaker', 'Golden Hour', 'Club Packed', 'Temporal Split', 'Sonic', 'Overcharge', 'Focus', 'Timekeeper']);
 export const PROVISIONAL_PASSIVES = new Set(['Time Keeper', 'Grade Re-Roll']);
 
 export function arrowEffective(r: number, s: AlgorithmSettings): number {
