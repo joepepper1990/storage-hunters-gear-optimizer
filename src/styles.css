@@ -59,3 +59,8 @@
   .quickActions{grid-template-columns:1fr 1fr}.quickActions .primary{grid-column:1/-1;grid-row:1}.quickActions .addAnother{grid-column:2}
   .trophyModifierRow{grid-template-columns:1fr 1fr}
 }
+
+/* Keep inventory cards compact: expand only when explanatory detail is wanted. */
+.gearDetails{margin:6px 0 11px;border-top:1px solid var(--line)}
+.gearDetails>summary{padding:9px 0 5px;cursor:pointer;color:var(--muted);font-size:12px;font-weight:700}
+.gearDetails p{margin:5px 0 8px;font-size:12px;line-height:1.4}
