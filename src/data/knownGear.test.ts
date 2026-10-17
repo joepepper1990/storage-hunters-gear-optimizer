@@ -3,9 +3,9 @@ import { makeInitialData } from '../defaults';
 import { effectiveItemStats, scoreStandalone } from '../engine/scoring';
 import { analyseItems } from '../engine/optimizer';
 import { certificateTargets } from '../engine/certificates';
-import { importJson, exportJson } from './storage';
+import { importJson, exportJson, normalizeData } from './storage';
 import { csvToGear, gearToCsv } from './csv';
-import { makeKnownGear, mergeKnownGear } from './knownGear';
+import { makeKnownGear, mergeKnownGear, makeMapleWristband, mergeMapleWristband } from './knownGear';
 
 describe('verified 17 October 2026 inventory', () => {
   const gear = makeKnownGear();
@@ -102,11 +102,11 @@ describe('verified 17 October 2026 inventory', () => {
     d.schemaVersion=4;
     d.gear=[{...item('Police Vest'),id:'pre-existing-police-vest',mutation:undefined,conditionPct:undefined}];
     const once=importJson(JSON.stringify(d));
-    expect(once.schemaVersion).toBe(6);
-    expect(once.gear).toHaveLength(14);
+    expect(once.schemaVersion).toBe(7);
+    expect(once.gear).toHaveLength(15);
     expect(once.gear.some(g=>g.id==='pre-existing-police-vest'&&g.conditionPct===96)).toBe(true);
     const again=importJson(exportJson(once));
-    expect(again.gear).toHaveLength(14);
+    expect(again.gear).toHaveLength(15);
   });
 
   it('round-trips condition and mutation in both JSON and CSV and keeps old CSV valid',()=>{
@@ -127,4 +127,43 @@ describe('verified 17 October 2026 inventory', () => {
     d.gear=[{...item('Reactor Fedora'),conditionPct:101}];
     expect(()=>importJson(exportJson(d))).toThrow('condition');
   });
+  it('captures Maple Wristband with only screenshot-confirmed stats and no invented metadata',()=>{
+    const maple=makeMapleWristband();
+    expect(maple.baseName).toBe('Maple Wristband');
+    expect(maple.slot).toBe('Wrist');
+    expect(maple.stats).toMatchObject({luck:63,zone:47});
+    expect(Object.entries(maple.stats).filter(([key,value])=>key!=='luck'&&key!=='zone'&&value!==0)).toEqual([]);
+    expect(maple.authenticated).toBe(false);
+    expect(maple.authentication.kind).toBe('None');
+    expect(maple.mutation).toBeUndefined();
+    expect(maple.conditionPct).toBeUndefined();
+    expect(makeInitialData().gear.filter(g=>g.baseName==='Maple Wristband')).toHaveLength(1);
+  });
+
+  it('migrates Maple Wristband once into v6 inventories while preserving all existing gear',()=>{
+    const previous=makeInitialData();
+    const oldGear=previous.gear.filter(g=>g.baseName!=='Maple Wristband');
+    const old={...previous,schemaVersion:6,gear:oldGear} as any;
+    const upgraded=normalizeData(old);
+    expect(upgraded.schemaVersion).toBe(7);
+    expect(upgraded.gear).toHaveLength(oldGear.length+1);
+    expect(upgraded.gear.filter(g=>g.baseName==='Maple Wristband')).toHaveLength(1);
+    expect(upgraded.gear.filter(g=>g.baseName!=='Maple Wristband')).toEqual(oldGear);
+    const saved=importJson(exportJson(upgraded));
+    expect(saved.gear).toHaveLength(oldGear.length+1);
+    expect(saved.gear.filter(g=>g.baseName==='Maple Wristband')).toHaveLength(1);
+    // Deliberate deletion in v7 must not trigger reseeding on subsequent launches.
+    expect(normalizeData({...saved,gear:oldGear}).gear.some(g=>g.baseName==='Maple Wristband')).toBe(false);
+  });
+
+  it('recognises matching user-entered wristband rolls without losing favourites',()=>{
+    const manual={...makeMapleWristband(),id:'user-added-maple',favourite:true};
+    const merged=mergeMapleWristband([manual]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].id).toBe('user-added-maple');
+    expect(merged[0].favourite).toBe(true);
+    const other={...manual,id:'alternate-maple',stats:{...manual.stats,luck:64}};
+    expect(mergeMapleWristband([other])).toHaveLength(2);
+  });
+
 });
