@@ -123,7 +123,7 @@ describe('backup round trips',()=>{
     expect(restored.vehicleProfile.name).toBe('Dumpster Truck');
     expect(restored.vehicleParts.length).toBeGreaterThan(0);
     expect(restored.trailers.find((t:any)=>t.name==='Long Trailer')?.capacityKg).toBe(600);
-    expect(restored.trophies).toEqual([]);
+    expect(restored.trophies).toHaveLength(12); // v1.8 screenshot inventory migration
     expect(restored.trophySettings.maxActive).toBe(4);
   });
 });
