@@ -292,6 +292,7 @@ export interface OwnedCertificate {
   id: string;
   type: 'Wooden Certificate of Authenticity' | 'Ripped Certificate of Authenticity' | 'Premium Certificate of Authenticity';
   quantity: number;
+  displayedValue?: number;
   conditionPct?: number;
   rarity?: string;
 }
