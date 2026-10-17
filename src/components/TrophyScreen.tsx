@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { DEFAULT_TROPHY_SETTINGS } from '../defaults';
 import { analyseTrophyRetention, optimiseTrophies, specialistTrophyLoadout, trophyScore } from '../engine/trophies';
-import { TROPHY_UI_CONTRACT } from './trophyUiContract';
 import { generateTrophyName } from '../naming';
 import type { AppData, GavelTrophy, TrophyCombinationResult, TrophyMutationWeight, TrophyOptimiserSettings } from '../types';
 
@@ -22,7 +21,7 @@ export function TrophyScreen({data,setData}:{data:AppData;setData:(d:AppData)=>v
   const del=(t:GavelTrophy)=>{if(confirm(`Delete ${t.name}?`))setData({...data,trophies:data.trophies.filter(x=>x.id!==t.id)});};
   const fav=(t:GavelTrophy)=>setData({...data,trophies:data.trophies.map(x=>x.id===t.id?{...x,favourite:!x.favourite,updatedAt:new Date().toISOString()}:x)});
   return <section>
-    <div className="pageHeading"><div><h1>Gavel Trophies</h1><p>{data.trophies.length} owned · maximum {TROPHY_UI_CONTRACT.activeLimit} equipped</p></div>{section==='Trophies'&&<button className="primary" onClick={openAdd}>＋ Add trophy</button>}</div>
+    <div className="pageHeading"><div><h1>Gavel Trophies</h1><p>{data.trophies.length} owned · maximum {data.trophySettings.maxActive} equipped</p></div>{section==='Trophies'&&<button className="primary" onClick={openAdd}>＋ Add trophy</button>}</div>
     <div className="segmented trophySections">{sections.map(s=><button key={s} className={section===s?'active':''} onClick={()=>setSection(s)}>{s}</button>)}</div>
     {section==='Overview'&&<Overview data={data} best={best}/>}
     {section==='Trophies'&&<Inventory data={data} best={best} onAdd={openAdd} onEdit={openEdit} onClone={clone} onDelete={del} onFav={fav}/>}
@@ -34,15 +33,15 @@ export function TrophyScreen({data,setData}:{data:AppData;setData:(d:AppData)=>v
 
 function Overview({data,best}:{data:AppData;best:TrophyCombinationResult|undefined}){
   return <>
-    <div className="sectionTitle"><h2>BEST 4 GAVELS</h2></div>
+    <div className="sectionTitle"><h2>BEST {data.trophySettings.maxActive} GAVELS</h2></div>
     {!best&&<div className="empty"><h3>No Gavels yet</h3><p>Add Gavel Trophies and the best set will appear here automatically.</p></div>}
     {best&&<>
-      <div className="heroCard trophyHero"><div><span className="eyebrow">TOTAL RELATIVE SCORE</span><div className="heroScore">{best.score.toFixed(0)}</div><span>{best.trophies.length} of {TROPHY_UI_CONTRACT.activeLimit} available slots filled</span></div></div>
+      <div className="heroCard trophyHero"><div><span className="eyebrow">TOTAL RELATIVE SCORE</span><div className="heroScore">{best.score.toFixed(0)}</div><span>{best.trophies.length} of {data.trophySettings.maxActive} available slots filled</span></div></div>
       <div className="trophyLoadout">{best.trophies.map((t,i)=><div className="loadoutCard" key={t.id}><span>{i+1}. Gavel</span><strong>{t.name}</strong><small>{t.modifiers.map(m=>`${m.mutation} +${fmt(m.boostPct)}%`).join(' · ')}</small></div>)}</div>
       <div className="sectionTitle"><h2>Combined mutation boosts</h2></div><BoostGrid result={best}/>
     </>}
-    <div className="notice"><b>Optimiser rule:</b> equip the four Gavels with the highest combined relative mutation-value score. Retention is conservative by goal: the best overall four are EQUIP; a non-selected trophy is KEEP only when it is manually locked/favourited or needed by a maximum four-trophy specialist set for at least one enabled modifier. Everything else is SAFE TO DISCARD.</div>
-    <div className="sectionTitle"><h2>Inventory</h2></div><div className="statsGrid three"><Stat label="Owned" value={data.trophies.length}/><Stat label="Equipped limit" value={TROPHY_UI_CONTRACT.activeLimit}/><Stat label="Selected" value={best?.trophies.length??0}/></div>
+    <div className="notice"><b>Optimiser rule:</b> equip the {data.trophySettings.maxActive} Gavels with the highest combined relative mutation-value score. Retention is conservative by goal: the best overall four are EQUIP; a non-selected trophy is KEEP only when it is manually locked/favourited or needed by a maximum four-trophy specialist set for at least one enabled modifier. Everything else is SAFE TO DISCARD.</div>
+    <div className="sectionTitle"><h2>Inventory</h2></div><div className="statsGrid three"><Stat label="Owned" value={data.trophies.length}/><Stat label="Equipped limit" value={data.trophySettings.maxActive}/><Stat label="Selected" value={best?.trophies.length??0}/></div>
   </>;
 }
 
@@ -82,11 +81,11 @@ function Specialists({data}:{data:AppData}){
 
 function Settings({data,setData}:{data:AppData;setData:(d:AppData)=>void}){
   const s=data.trophySettings;
-  const setS=(next:TrophyOptimiserSettings)=>setData({...data,trophySettings:{...next,maxActive:TROPHY_UI_CONTRACT.activeLimit}});
+  const setS=(next:TrophyOptimiserSettings)=>setData({...data,trophySettings:next});
   const updateWeight=(mutation:string,patch:Partial<TrophyMutationWeight>)=>setS({...s,mutationWeights:s.mutationWeights.map(w=>w.mutation===mutation?{...w,...patch}:w)});
   const addWeight=()=>{const name=prompt('Mutation name');if(!name?.trim()||s.mutationWeights.some(w=>w.mutation.toLowerCase()===name.trim().toLowerCase()))return;setS({...s,mutationWeights:[...s.mutationWeights,{mutation:name.trim(),multiplier:1,enabled:true,confidence:'Uncertain'}]});};
   return <>
-    <div className="notice"><b>Equipped Gavel limit: {TROPHY_UI_CONTRACT.activeLimit}.</b> This is locked to the current game rule and is not an optimisation setting.</div>
+    <div className="notice"><b>Equipped Gavels:</b> 3 without the Extra Gavel Trophy gamepass, 4 with it. <label>My powered slots <select value={s.maxActive} onChange={e=>setS({...s,maxActive:Number(e.target.value)===3?3:4})}><option value={3}>3 — standard</option><option value={4}>4 — gamepass</option></select></label></div>
     <div className="sectionTitle"><h2>Mutation value weights</h2><div><button className="secondary compact" onClick={addWeight}>＋ Custom</button> <button className="secondary compact" onClick={()=>setS(structuredClone(DEFAULT_TROPHY_SETTINGS))}>Reset defaults</button></div></div>
     <div className="card trophyWeights">{s.mutationWeights.map(w=><div className="trophyWeightRow" key={w.mutation}><label className="check"><input type="checkbox" checked={w.enabled} onChange={e=>updateWeight(w.mutation,{enabled:e.target.checked})}/> {w.mutation}</label><label>Value multiplier<input type="number" step="any" min="0" value={w.multiplier} onChange={e=>updateWeight(w.mutation,{multiplier:Math.max(0,Number(e.target.value)||0)})}/></label><label>Confidence<select value={w.confidence} onChange={e=>updateWeight(w.mutation,{confidence:e.target.value as TrophyMutationWeight['confidence']})}><option>Confirmed</option><option>Community</option><option>Uncertain</option></select></label></div>)}</div>
     <div className="notice warning"><b>These are evidence-backed community values, not a developer-published probability model.</b> Multiplier weights remain editable so the four-Gavel ranking can be corrected immediately if the live game changes.</div>
