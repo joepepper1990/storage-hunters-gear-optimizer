@@ -401,6 +401,7 @@ function parseVisual(text: string, lines: GearOcrVisualLine[]): ParsedGearScan |
     rawText: text,
     baseName,
     slot,
+    ...metadata,
     slotDetected: Boolean(detectedSlot),
     stats,
     authenticated,
