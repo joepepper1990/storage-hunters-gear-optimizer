@@ -152,9 +152,9 @@ function explicitSlot(lines: string[]): Slot | undefined {
 
 function inferSlotFromName(name: string): Slot | undefined {
   const value = normaliseLabel(name);
-  if (/\b(wristband|wrist|bracelet|watch)\b/.test(value)) return 'Wrist';
+  if (/\b(wristband|wrist|bracelet|watch|baton)\b/.test(value)) return 'Wrist';
   if (/\b(backpack|back pack|vest|cape|rucksack)\b/.test(value)) return 'Back';
-  if (/\b(dominus|valk|helm|helmet|hat|crown)\b/.test(value)) return 'Head';
+  if (/\b(dominus|valk|helm|helmet|hat|crown|fedora|necklace|goggles?|hood)\b/.test(value)) return 'Head';
   return undefined;
 }
 
