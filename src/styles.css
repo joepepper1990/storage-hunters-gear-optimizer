@@ -64,3 +64,22 @@
 .gearDetails{margin:6px 0 11px;border-top:1px solid var(--line)}
 .gearDetails>summary{padding:9px 0 5px;cursor:pointer;color:var(--muted);font-size:12px;font-weight:700}
 .gearDetails p{margin:5px 0 8px;font-size:12px;line-height:1.4}
+
+
+/* v1.9 Premium per-gear decision guide */
+.premiumAdviceFilters{display:grid;grid-template-columns:minmax(180px,1fr) 135px;gap:9px;align-items:center;margin:12px 0}
+.premiumAdviceFilters input,.premiumAdviceFilters select{width:100%;min-width:0}
+.premiumAdviceList{display:grid;gap:9px;margin:12px 0 18px}
+.premiumAdviceCard{margin:0}
+.premiumAdviceCard>summary{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.premiumAdviceCard>summary>div:first-child{display:flex;flex-direction:column;min-width:0;gap:4px}
+.premiumAdviceCard>summary>div:first-child span{font-size:11px;color:var(--muted)}
+.premiumVerdict{font-weight:800;text-align:right;max-width:170px;font-size:10px;letter-spacing:.03em;flex-shrink:0}
+.premiumAdviceCard .comboBody{padding-top:4px}
+.premiumAdviceCard .comboBody p{margin:8px 0;font-size:12px}
+.premiumAdviceCard .comboBody ul{padding-left:20px;font-size:12px;line-height:1.55}
+@media(max-width:480px){
+  .premiumAdviceFilters{grid-template-columns:1fr}
+  .premiumAdviceCard>summary{align-items:flex-start}
+  .premiumVerdict{max-width:110px;white-space:normal;font-size:9px}
+}
