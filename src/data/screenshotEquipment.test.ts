@@ -51,7 +51,7 @@ describe('October screenshot inventory — schema 6',()=>{
     expect(result.weightedContributions.Hologram).toBe(311*15);
   });
   it('records Wooden Certificate quantity 1, Epic, 56% condition',()=>{
-    expect(screenshotCertificates()).toEqual([{id:'verified-oct17-cert-wooden-56',type:'Wooden Certificate of Authenticity',quantity:1,conditionPct:56,rarity:'Epic'}]);
+    expect(screenshotCertificates()).toEqual([{id:'verified-oct17-cert-wooden-56',type:'Wooden Certificate of Authenticity',quantity:1,displayedValue:1648,conditionPct:56,rarity:'Epic'}]);
   });
   it('upgrades legacy data once, without destroying older rolls or making duplicate new records',()=>{
     const legacy=makeInitialData() as any;
