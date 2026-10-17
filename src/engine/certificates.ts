@@ -1,7 +1,7 @@
 import type { AlgorithmSettings, AuthModelEntry, CertificateTarget, CombinationResult, GearItem, LikelihoodClass } from '../types';
 import { removeNumericAuthentication } from './dominance';
 import { evaluateCombination, optimise } from './optimizer';
-import { arrowEffective, expectedConditionalLuck, luckEffective, npcEffective } from './scoring';
+import { arrowEffective, expectedConditionalLuck, luckEffective, npcEffective, passiveScore } from './scoring';
 
 const NUMERIC_OUTCOMES = new Set(['Luck','Bid Recovery','Bid Arrow Speed','Bid Zone Width','Energy Drink Time','Tip Chance','NPC Offers Bonus','Walkspeed']);
 const MODELED_PASSIVES = new Set(['Sunny','Nocturnal','Raindrop','Overcharged','Time Keeper','Connected','Focused']);
@@ -29,7 +29,10 @@ export function certificateTargets(
   const best = optimise(gear, settings, 1)[0];
   if (!best) return [];
   const bestScore = best.score.total;
-  return gear.map(item => makeTarget(item, gear, settings, model, certificateType, bestScore))
+  // Premium-enchanted accessories cannot be assumed eligible for a Normal re-roll.
+  // Preserve them in gear optimisation but do not suggest potentially destructive Normal rolls.
+  return gear.filter(item => item.authentication.kind !== 'Premium')
+    .map(item => makeTarget(item, gear, settings, model, certificateType, bestScore))
     .filter((x): x is CertificateTarget => Boolean(x))
     .sort((a,b) => b.heuristicScore - a.heuristicScore || a.item.name.localeCompare(b.item.name))
     .slice(0, maxTargets);
@@ -38,7 +41,7 @@ export function certificateTargets(
 function makeTarget(item: GearItem, gear: GearItem[], settings: AlgorithmSettings, model: AuthModelEntry[], certificateType: AuthModelEntry['certificateType'], bestScore: number): CertificateTarget | undefined {
   const action = item.authenticated ? 'RE-AUTHENTICATE' : 'AUTHENTICATE';
   const focusedRiskUnknown = item.authenticated && item.authentication.effect === 'Focused';
-  const unknownRisk = item.authenticated && UNKNOWN_OUTCOMES.has(item.authentication.effect);
+  const unknownRisk = item.authenticated && (UNKNOWN_OUTCOMES.has(item.authentication.effect) || passiveScore(item,settings).unknown);
   const baseItem = item.authenticated ? removeCurrentAuth(item) : structuredClone(item);
   const baseGear = gear.map(g => g.id === item.id ? baseItem : g);
   const baseCombos = combinationsContaining(baseItem, baseGear, settings);
