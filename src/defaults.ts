@@ -1,3 +1,4 @@
+import { makeKnownGear } from './data/knownGear';
 import type { AlgorithmSettings, AppData, AuthModelEntry, GearStats, Trailer, TrophyOptimiserSettings, VehicleOptimiserSettings, VehiclePart, VehicleProfile } from './types';
 
 export const ZERO_STATS: GearStats = {
@@ -165,8 +166,8 @@ export function makeDefaultAuthModel(): AuthModelEntry[] {
 
 export function makeInitialData(): AppData {
   return {
-    schemaVersion: 4,
-    gear: [],
+    schemaVersion: 5,
+    gear: makeKnownGear(),
     settings: { ...LOCKED_DEFAULT_SETTINGS },
     authModel: makeDefaultAuthModel(),
     rollLog: [],
