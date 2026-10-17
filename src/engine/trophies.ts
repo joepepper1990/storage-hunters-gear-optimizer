@@ -93,13 +93,24 @@ export function analyseTrophyRetention(
   const best = optimiseTrophies(trophies, settings)[0];
   const equipped = new Set(best?.trophies.map(trophy => trophy.id) ?? []);
   const specialistMembership = new Map<string, string[]>();
+  const capacity=settings.maxActive===3?3:4;
+  // Tied fourth-place trophies can participate in some equally optimal overall loadout.
+  // Keep all tied eligible alternatives rather than incorrectly label them as discardable.
+  const ranked=[...trophies].sort((a,b)=>trophyScore(b,settings)-trophyScore(a,settings));
+  const overallCutoff=ranked.length>=capacity ? trophyScore(ranked[capacity-1],settings) : undefined;
+  const overallAlternatives=new Set(overallCutoff!==undefined && overallCutoff>0
+    ? ranked.filter(t=>Math.abs(trophyScore(t,settings)-overallCutoff)<1e-9).map(t=>t.id) : []);
 
-  for (const weight of settings.mutationWeights.filter(weight => weight.enabled)) {
-    const specialist = specialistTrophyLoadout(trophies, weight.mutation, settings);
-    for (const trophy of specialist?.trophies ?? []) {
-      const mutations = specialistMembership.get(trophy.id) ?? [];
+
+  for(const weight of settings.mutationWeights.filter(w=>w.enabled)){
+    const rankedSpecial=[...trophies].filter(t=>trophyMutationBoost(t,weight.mutation)>0)
+      .sort((a,b)=>trophyMutationBoost(b,weight.mutation)-trophyMutationBoost(a,weight.mutation));
+    const cutoff=rankedSpecial[Math.min(capacity,rankedSpecial.length)-1];
+    const threshold=cutoff?trophyMutationBoost(cutoff,weight.mutation):Infinity;
+    for(const trophy of rankedSpecial.filter(t=>trophyMutationBoost(t,weight.mutation)>=threshold-1e-9)){
+      const mutations=specialistMembership.get(trophy.id)??[];
       mutations.push(weight.mutation);
-      specialistMembership.set(trophy.id, mutations);
+      specialistMembership.set(trophy.id,mutations);
     }
   }
 
@@ -110,6 +121,9 @@ export function analyseTrophyRetention(
     if (item.favourite) {
       return { item, verdict: 'KEEP', reason: 'Manually locked / favourited.', specialistMutations: specialistMembership.get(item.id) ?? [] };
     }
+    if(overallAlternatives.has(item.id))return {item,verdict:'KEEP',
+      reason:'Tied with the final selected Gavel; may appear in an equally optimal overall set.',
+      specialistMutations:specialistMembership.get(item.id)??[]};
     const specialistMutations = specialistMembership.get(item.id) ?? [];
     if (specialistMutations.length) {
       return {
