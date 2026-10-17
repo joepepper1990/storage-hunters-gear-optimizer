@@ -89,7 +89,7 @@ function Settings({data,setData}:{data:AppData;setData:(d:AppData)=>void}){
     <div className="notice"><b>Equipped Gavel limit: {TROPHY_UI_CONTRACT.activeLimit}.</b> This is locked to the current game rule and is not an optimisation setting.</div>
     <div className="sectionTitle"><h2>Mutation value weights</h2><div><button className="secondary compact" onClick={addWeight}>＋ Custom</button> <button className="secondary compact" onClick={()=>setS(structuredClone(DEFAULT_TROPHY_SETTINGS))}>Reset defaults</button></div></div>
     <div className="card trophyWeights">{s.mutationWeights.map(w=><div className="trophyWeightRow" key={w.mutation}><label className="check"><input type="checkbox" checked={w.enabled} onChange={e=>updateWeight(w.mutation,{enabled:e.target.checked})}/> {w.mutation}</label><label>Value multiplier<input type="number" step="any" min="0" value={w.multiplier} onChange={e=>updateWeight(w.mutation,{multiplier:Math.max(0,Number(e.target.value)||0)})}/></label><label>Confidence<select value={w.confidence} onChange={e=>updateWeight(w.mutation,{confidence:e.target.value as TrophyMutationWeight['confidence']})}><option>Confirmed</option><option>Community</option><option>Uncertain</option></select></label></div>)}</div>
-    <div className="notice warning"><b>Rainbow and some newer/rarer multipliers are not equally well established across public sources.</b> They remain editable so the four-Gavel ranking recalculates immediately when evidence changes.</div>
+    <div className="notice warning"><b>These are evidence-backed community values, not a developer-published probability model.</b> Multiplier weights remain editable so the four-Gavel ranking can be corrected immediately if the live game changes.</div>
   </>;
 }
 
