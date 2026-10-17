@@ -25,3 +25,14 @@ export function activeCertificateOutcomeOptions(slot:Slot|undefined,model:AuthMo
   const base=slot?[...NORMAL_NUMERIC_AUTH_EFFECTS,...EXCLUSIVE_AUTH_EFFECTS[slot]]:[...NORMAL_NUMERIC_AUTH_EFFECTS];
   return [...new Set([...base,...modeled])];
 }
+
+/** Player-reported enchantment behaviour; informational, not an official score formula. */
+export function enchantmentDescription(effect:string,value:number):string {
+  switch(effect){
+    case 'Mutated Luck': return 'Each worn accessory adds extra Luck based on its mutator. The amount is not yet modelled.';
+    case 'Nocturnal': return `Adds +${value}% Luck at night. The optimiser uses adjustable expected nighttime uptime.`;
+    case 'Temporal Split': return `${value}% chance for an item to instantly mutate when placed in the Time Capsule. Not counted as ordinary gear Luck.`;
+    case 'Connected': return `Each friend grants +${value}% Luck. Friend count is unknown, so this benefit is not added to gear score.`;
+    default: return '';
+  }
+}
