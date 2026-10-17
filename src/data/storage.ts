@@ -215,6 +215,7 @@ function normalizeOwnedCertificate(raw: AppData['ownedCertificates'][number]):Ap
   const quantity=Number(raw?.quantity);
   if(!Number.isSafeInteger(quantity)||quantity<0)throw new Error('Certificate quantity must be a non-negative integer.');
   return {id:raw.id||crypto.randomUUID(),type:raw.type,quantity,
+    displayedValue:raw.displayedValue===undefined?undefined:finite(raw.displayedValue),
     conditionPct:conditionOrUndefined(raw.conditionPct),
     rarity:typeof raw.rarity==='string'?raw.rarity:undefined};
 }
