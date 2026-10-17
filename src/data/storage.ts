@@ -108,7 +108,7 @@ function normalizeTrophy(item: GavelTrophy): GavelTrophy {
   const now = new Date().toISOString();
   const modifiers = Array.isArray(item?.modifiers) ? item.modifiers
     .filter(m => m && typeof m.mutation === 'string' && m.mutation.trim())
-    .slice(0, 2)
+    .slice(0, 3)
     .map(m => ({ mutation: m.mutation.trim(), boostPct: Math.max(0, finite(m.boostPct)) })) : [];
   return {
     id: item?.id || crypto.randomUUID(),
@@ -316,7 +316,7 @@ function validateImportedData(raw: AppData): void {
   }
   if (raw.trophies !== undefined && !Array.isArray(raw.trophies)) throw new Error('Gavel trophies must be an array.');
   for (const [index,item] of (raw.trophies ?? []).entries()) {
-    if (!Array.isArray(item.modifiers) || item.modifiers.length > 2) throw new Error(`Gavel Trophy row ${index + 1}: modifiers must contain at most two entries.`);
+    if (!Array.isArray(item.modifiers) || item.modifiers.length > 3) throw new Error(`Gavel Trophy row ${index + 1}: modifiers must contain at most three entries.`);
     for (const modifier of item.modifiers) {
       if (!modifier?.mutation?.trim()) throw new Error(`Gavel Trophy row ${index + 1}: mutation is required.`);
       if (!Number.isFinite(Number(modifier.boostPct)) || Number(modifier.boostPct) < 0) throw new Error(`Gavel Trophy row ${index + 1}: boost must be a non-negative finite number.`);
