@@ -139,6 +139,10 @@ export interface GearItem {
   baseName: string;
   name: string;
   slot: Slot;
+  /** Visual item mutation/prefix; not automatically a stat multiplier. */
+  mutation?: string;
+  /** Displayed item condition (0-100); metadata only until game impact is verified. */
+  conditionPct?: number;
   stats: GearStats;
   authenticated: boolean;
   authentication: Authentication;
@@ -283,7 +287,7 @@ export interface CertificateTarget {
 }
 
 export interface AppData {
-  schemaVersion: 4;
+  schemaVersion: 5;
   gear: GearItem[];
   settings: AlgorithmSettings;
   authModel: AuthModelEntry[];
