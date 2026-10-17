@@ -10,7 +10,7 @@ import { VehicleScreen } from './components/VehicleScreen';
 import { TrophyScreen } from './components/TrophyScreen';
 import { GearScanner } from './components/GearScanner';
 import { generateGearName } from './naming';
-import { activeAuthenticationOptions, activeCertificateOutcomeOptions, EXCLUSIVE_AUTH_EFFECTS, LEGACY_ALIEN_EFFECTS } from './authentication';
+import { activeAuthenticationOptions, activeCertificateOutcomeOptions, EXCLUSIVE_AUTH_EFFECTS, LEGACY_ALIEN_EFFECTS, PREMIUM_AUTH_EFFECTS } from './authentication';
 import type { AlgorithmSettings, AppData, AuthModelEntry, CertificateRollLog, CertificateTarget, CombinationResult, GearItem, GearStats, ItemAnalysis, Slot } from './types';
 
 type Tab = 'Dashboard' | 'Gear' | 'Optimise' | 'Vehicle' | 'Trophies' | 'Certificates' | 'Settings' | 'More';
@@ -346,6 +346,10 @@ function validateItem(i:GearItem){
   if(!effect)return 'Choose an authentication effect.';
   if(i.authentication.kind==='Normal'&&LEGACY_ALIEN_EFFECTS.includes(effect as never))return `${effect} is a legacy Alien effect and cannot be selected for a new Normal authentication.`;
   if(i.authentication.kind==='Alien')return ''; // Historical Alien gear remains valid and editable as legacy data.
+  if(i.authentication.kind==='Premium'){
+    for(const [slot,effects] of Object.entries(PREMIUM_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
   for(const [slot,effects] of Object.entries(EXCLUSIVE_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
   return '';
 }
