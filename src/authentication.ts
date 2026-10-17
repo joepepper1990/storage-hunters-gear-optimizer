@@ -2,7 +2,7 @@ import type { AuthModelEntry, Slot } from './types';
 
 export const CURRENT_AUTH_KINDS = ['Normal','Premium'] as const;
 export const NORMAL_NUMERIC_AUTH_EFFECTS = ['Luck','Bid Recovery','Bid Arrow Speed','Bid Zone Width','Energy Drink Time','Tip Chance','NPC Offers Bonus','Walkspeed'] as const;
-export const PREMIUM_AUTH_EFFECTS:Record<Slot,readonly string[]>={Head:['Mutated Luck'],Back:['Drought Breaker','Golden Hour'],Wrist:['Club Packed','Temporal Split']};
+export const PREMIUM_AUTH_EFFECTS:Record<Slot,readonly string[]>={Head:['Mutated Luck'],Back:['Drought Breaker','Golden Hour'],Wrist:['Club Pact','Club Packed','Temporal Split']};
 // Current guides use these spellings alongside older in-game/community spellings. Keep both selectable; uncertain aliases stay protected until their exact mechanics are verified.
 export const CURRENT_NAME_ALIASES:Record<Slot,readonly string[]>={Head:['Sonic','Overcharge'],Back:['Focus'],Wrist:['Timekeeper']};
 export const LEGACY_ALIEN_EFFECTS = ['Haggler','Anti-Gravity Field','Safecracker','Grade Re-Roll','Exhibitor','Rush'] as const;
@@ -32,6 +32,8 @@ export function enchantmentDescription(effect:string,value:number):string {
     case 'Mutated Luck': return 'Each worn accessory adds extra Luck based on its mutator. The amount is not yet modelled.';
     case 'Nocturnal': return `Adds +${value}% Luck at night. The optimiser uses adjustable expected nighttime uptime.`;
     case 'Temporal Split': return `${value}% chance for an item to instantly mutate when placed in the Time Capsule. Not counted as ordinary gear Luck.`;
+    case 'Club Pact': return 'Premium wrist enchantment increasing club-associated Luck; the exact added amount depends on club context and is not safely modelled.';
+    case 'Club Packed': return 'Legacy spelling of Club Pact; kept for older saved data.';
     case 'Connected': return `Each friend grants +${value}% Luck. Friend count is unknown, so this benefit is not added to gear score.`;
     default: return '';
   }
