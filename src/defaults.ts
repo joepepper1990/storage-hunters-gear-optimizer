@@ -1,5 +1,5 @@
 import { screenshotVehicleParts, screenshotTrophies, screenshotCertificates } from './data/screenshotEquipment';
-import { makeKnownGear } from './data/knownGear';
+import { makeKnownGear, makeMapleWristband } from './data/knownGear';
 import type { AlgorithmSettings, AppData, AuthModelEntry, GearStats, Trailer, TrophyOptimiserSettings, VehicleOptimiserSettings, VehiclePart, VehicleProfile } from './types';
 
 export const ZERO_STATS: GearStats = {
@@ -184,8 +184,8 @@ export function makeDefaultAuthModel(): AuthModelEntry[] {
 
 export function makeInitialData(): AppData {
   return {
-    schemaVersion: 6,
-    gear: makeKnownGear(),
+    schemaVersion: 7,
+    gear: [...makeKnownGear(),makeMapleWristband()],
     settings: { ...LOCKED_DEFAULT_SETTINGS },
     authModel: makeDefaultAuthModel(),
     rollLog: [],
