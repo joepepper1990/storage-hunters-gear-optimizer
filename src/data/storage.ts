@@ -1,3 +1,4 @@
+import { mergeKnownGear } from './knownGear';
 import { DEFAULT_TROPHY_SETTINGS, DEFAULT_VEHICLE_PROFILE, DEFAULT_VEHICLE_SETTINGS, makeInitialData, LOCKED_DEFAULT_SETTINGS } from '../defaults';
 import type { AppData, GavelTrophy, GearItem, Trailer, TrophyOptimiserSettings, VehiclePart } from '../types';
 import { generateGearName, generateTrophyName, generateVehiclePartName, inferBaseName } from '../naming';
@@ -87,8 +88,10 @@ function request<T = unknown>(req: IDBRequest<T>): Promise<T> {
 export function normalizeData(raw: AppData): AppData {
   const initial = makeInitialData();
   return {
-    schemaVersion: 4,
-    gear: Array.isArray(raw?.gear) ? raw.gear.map(normalizeItem) : [],
+    schemaVersion: 5,
+    gear: Number(raw?.schemaVersion) >= 5
+      ? (Array.isArray(raw?.gear) ? raw.gear.map(normalizeItem) : [])
+      : mergeKnownGear(Array.isArray(raw?.gear) ? raw.gear.map(normalizeItem) : []),
     settings: normalizeSettings(raw?.settings),
     authModel: normalizeAuthModel(raw?.authModel, initial.authModel),
     rollLog: Array.isArray(raw?.rollLog) ? raw.rollLog : [],
@@ -244,6 +247,9 @@ function normalizeItem(i: GearItem): GearItem {
     baseName,
     name: generateGearName(baseName, stats, authenticated, authentication),
     slot: i?.slot,
+    mutation: typeof i?.mutation === 'string' ? i.mutation : undefined,
+    conditionPct: i?.conditionPct === undefined || i?.conditionPct === null
+      ? undefined : finite(i.conditionPct),
     favourite: Boolean(i?.favourite),
     authenticated,
     authentication,
@@ -272,6 +278,9 @@ function validateImportedData(raw: AppData): void {
     const sourceName = typeof item.baseName === 'string' && item.baseName.trim() ? item.baseName : item.name;
     if (typeof sourceName !== 'string' || !sourceName.trim()) throw new Error(`${prefix}: item name is required.`);
     if (!['Head','Back','Wrist'].includes(item.slot)) throw new Error(`${prefix}: invalid slot.`);
+    if (item.mutation !== undefined && typeof item.mutation !== 'string') throw new Error(`${prefix}: invalid mutation label.`);
+    if (item.conditionPct !== undefined && (typeof item.conditionPct !== 'number' || !Number.isFinite(item.conditionPct) || item.conditionPct < 0 || item.conditionPct > 100))
+      throw new Error(`${prefix}: condition must be between 0 and 100%.`);
     if (item.id) {
       if (ids.has(item.id)) throw new Error(`${prefix}: duplicate item ID ${item.id}.`);
       ids.add(item.id);
