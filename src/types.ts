@@ -1,5 +1,5 @@
 export type Slot = 'Head' | 'Back' | 'Wrist';
-export type AuthKind = 'None' | 'Normal' | 'Alien';
+export type AuthKind = 'None' | 'Normal' | 'Premium' | 'Alien';
 export type ThemeMode = 'system' | 'light' | 'dark';
 export type Verdict = 'EQUIP' | 'KEEP' | 'SAFE TO DISCARD' | 'PROTECTED / UNKNOWN';
 export type LikelihoodClass = 'VERY HIGH' | 'HIGH' | 'MEDIUM' | 'LOW' | 'VERY LOW';
@@ -139,6 +139,10 @@ export interface GearItem {
   baseName: string;
   name: string;
   slot: Slot;
+  /** Visual item mutation/prefix; not automatically a stat multiplier. */
+  mutation?: string;
+  /** Displayed item condition (0-100); metadata only until game impact is verified. */
+  conditionPct?: number;
   stats: GearStats;
   authenticated: boolean;
   authentication: Authentication;
@@ -241,7 +245,7 @@ export interface ItemAnalysis {
 
 export interface AuthModelEntry {
   id: string;
-  certificateType: 'Normal Certificate of Authenticity' | 'Certificate of Alienticity';
+  certificateType: 'Normal Certificate of Authenticity' | 'Premium Certificate of Authenticity' | 'Certificate of Alienticity';
   slot: Slot | 'Any';
   outcome: string;
   category: string;
@@ -283,7 +287,7 @@ export interface CertificateTarget {
 }
 
 export interface AppData {
-  schemaVersion: 4;
+  schemaVersion: 5;
   gear: GearItem[];
   settings: AlgorithmSettings;
   authModel: AuthModelEntry[];

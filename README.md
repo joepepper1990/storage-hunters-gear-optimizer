@@ -12,12 +12,31 @@ Mobile-first offline PWA for optimising equipment in **Storage Hunters: Open Wor
 - Protects unknown and provisional passives from irreversible discard decisions.
 - Provides certificate targeting focused on estimated likelihood of improving the current best overall set, with explicit `HEURISTIC — official roll odds unknown` labelling.
 - Adds a separate vehicle/trailer optimiser using the in-game formulas verified on the Dumpster Truck.
-- Adds a four-slot Gavel Trophy optimiser that reports only the best four Gavels to equip, with editable mutation-value weights.
+- Adds a four-slot Gavel Trophy optimiser showing the best four, maximum single-mutation specialist sets and strict retention verdicts, with editable mutation-value weights.
 - Keeps a certificate roll log and editable authentication model so empirical data can replace assumptions over time.
 - Autosaves every change to IndexedDB using ordered writes, keeps an emergency localStorage mirror for recovery, keeps the main optimiser available offline after first load and exports/imports JSON and CSV backups.
 - Runs combination ranking, redundancy proof and certificate targeting in a Web Worker so large inventories do not unnecessarily block the iPhone UI.
+- Includes 14 player-provided October 2026 accessories with exact slot, mutation, condition, signed stats and enchantments; upgrades existing local inventories without overwriting different rolls.
 - Adds an experimental **local gear screenshot scanner**: choose a Storage Hunters screenshot, run OCR on-device, identify the large gear tooltip rather than the tiny TOTAL BONUSES panel, use the game's blue stat text as the authentication signal, then review the draft in the normal Gear editor before saving.
 
+
+## Fast gear entry and verified inventory (October 2026)
+
+The home tab opens on **Gear**, not a dashboard. Five bottom actions are **Gear / Optimise / Trophies / Vehicle / More**; Dashboard, Normal Certificates and Settings are under **More**. Gear search and Head/Back/Wrist filters are immediately visible. Secondary filters and sorting are folded away.
+
+**Add gear** displays the real name and slot first. Tap only the stats present on an item; unselected stats remain zero. Signed Bid Arrow Speed must be entered **as displayed in Roblox**. Mutation, condition, authentication/enchantment and optional lock/favourite are editable. **Save + another** keeps the slot and resets the form, enabling bulk entry without repeated result screens. **Scan screenshot** is an experimental alternative that always requires human review.
+
+This release initially loads the **14 user-provided accessories**: nine Head, two Back, three Wrist. Fields were transcribed exactly from the supplied inventory (not reconstructed from a wiki). All 14 have item condition and mutation metadata; the three confirmed enchantments requiring special handling are:
+
+- **Reactor Fedora:** Mutated Luck, dynamic bonus based on worn accessory mutators. The numeric effect is unknown; the gear is protected, not assigned a fake Luck value.
+- **Jellyfish Wristband:** Temporal Split 12%, a Time Capsule effect. It is retained but not counted as a general gear-score bonus.
+- **Reactor Wristband:** Connected +2% Luck per friend; no friend count was supplied. It is therefore protected from automated SAFE TO DISCARD decisions rather than silently treating it as valueless.
+
+**Pearl Dominus** has Nocturnal +35% Luck at night; Algorithm 1.1 currently scores a configurable 50% expected nighttime uptime. **Race Valk** has +7.7% NPC Offers as a normal base stat, *not* a separate authentication, in this user-provided inventory.
+
+Mutation labels (including Police, Cobwebbed and Exclusive) and condition % are descriptive and do not apply speculative additional stat multipliers. The nine displayed stats are already the basis for scoring. On older PWA installs, schema 5 adds missing known items once, recognises matching exact rolls to avoid duplicates, and retains different existing rolls and past history. Intentional deletions are respected after migration; no repeated reseeding occurs.
+
+Premium enchantments are recorded and protected when their numerical gameplay contribution cannot be established. The Normal certificate optimiser deliberately avoids suggesting Normal rerolls of Premium-enchanted gear until eligibility is verified.
 
 ## Experimental local gear screenshot scanner
 
@@ -188,19 +207,12 @@ The balanced performance score is deliberately labelled as an optimiser model ra
 
 ## Gavel Trophy optimiser
 
-Version 1.2 adds a dedicated Gavel Trophy inventory and four-trophy optimiser. Enter each trophy's one or two mutation chance boosts exactly as displayed in game. The optimiser uses the community Relative Added Value Boost comparison: each boost percentage is multiplied by the editable mutation value multiplier, then all powered trophies are combined.
+The current review build supports **up to three modifier boosts per Gavel** and **up to four powered Gavels**, with a single best-four overall loadout. There is also a **Specialists** tab showing maximum sets for every enabled mutation (including newer mutation names).
 
-Version 1.2.1 strengthens trophy discard protection: a trophy is never marked SAFE TO DISCARD if it is required by the maximum specialist set for any enabled mutation (for example Maximum Chrome), even when it is not part of the best overall weighted set.
+Inventory verdicts follow a strict user-requested retention policy: **EQUIP** for the best four, **KEEP** for trophies used by an enabled maximum mutation-specialist set or manually favourited, and **SAFE TO DISCARD** for other Gavels. Delete actions still require explicit confirmation. This policy optimises *current owned scores*, not future event possibilities; change mutation weights/enabled status before relying on any discard verdict.
 
-Version 1.3 speeds up inventory entry. Gavel Trophy names are generated automatically from their modifier rolls (for example `Silver +54%` or `Gem +110% / Silver +50%`). Gear and vehicle parts now keep a short manually entered base name and automatically append every non-zero stat. Trophy inventory can be sorted by score, name, or any specific mutation boost in either direction. Item notes and obtained-date fields have been removed, and Wet is included in the default trophy modifier list.
+The trophy value calculation is a **relative community heuristic**, `Σ(boost % × mutation value multiplier)`. It is **not expected auction cash**, because normal mutation base probabilities, trophy-roll odds, and some event effects are not confirmed by the game developer. All mutation weights are editable. Newer event mutation names and Goliath/Megahaul trailer presets are present as selectable options, not assumed owned items.
 
-Version 1.3.1 introduced stricter trophy retention, and 1.3.2 fixed its regression coverage.
+## Review and verification
 
-Version 1.3.3 replaces that output with the current-game rule: the Gavel optimiser now reports **only the best four Gavels to equip**. It no longer produces Top 10/25/100 alternate Gavel sets, mutation-specialist Gavel sets, or KEEP / SAFE TO DISCARD verdicts for non-selected Gavels. Inventory management, cloning, editing and mutation-weight controls remain available.
-
-- Equipped Gavel limit is locked to 4 for optimisation (or all owned Gavels when fewer than four exist).
-- Optimiser output is a single **BEST 4 GAVELS** set with each Gavel's modifiers, combined mutation boosts and total relative score.
-- Non-selected Gavels remain in inventory with no optimiser retention/discard verdict.
-- Default weights: Silver 2x, Gold 4x, Corrupted 6x, Wet 1.4x, Diamond 8x, Gem 10x, Chrome 12x, Hologram 15x, Void 35x, Secret 50x, Rainbow 100x, Tiny 2x and Huge 2x.
-- All weights are editable. Secret/Rainbow/Huge are visibly confidence-labelled because public sources are less consistent than the established core multipliers.
-- Trophy score is a relative heuristic, not literal expected cash value, because the normal mutation base probabilities remain unpublished.
+See `docs/reviews/2026-10-17-audit.md` for scope, evidence, risk classifications, outstanding unknowns and deployment checks. GitHub Actions runs tests and a production PWA build for the review pull request without deploying it to the live site. The live site updates only after an approved merge to `main`.

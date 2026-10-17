@@ -28,7 +28,7 @@ export function VehicleScreen({data,setData}:{data:AppData;setData:(d:AppData)=>
   const deletePart=(part:VehiclePart)=>{if(confirm(`Delete ${part.name}?`))setData({...data,vehicleParts:data.vehicleParts.filter(p=>p.id!==part.id)});};
   const togglePartFav=(part:VehiclePart)=>setData({...data,vehicleParts:data.vehicleParts.map(p=>p.id===part.id?{...p,favourite:!p.favourite,updatedAt:new Date().toISOString()}:p)});
 
-  const openAddTrailer=()=>{setTrailerMode('add');setTrailerEditor(blankTrailer());};
+  const openAddTrailer=(preset?:{name:string;capacityKg:number})=>{setTrailerMode('add');setTrailerEditor(preset?{...blankTrailer(),...preset}:blankTrailer());};
   const openEditTrailer=(trailer:Trailer)=>{setTrailerMode('edit');setTrailerEditor(structuredClone(trailer));};
   const saveTrailer=(trailer:Trailer)=>{const issue=validateTrailer(trailer);if(issue){alert(issue);return;}const now=new Date().toISOString();trailer.updatedAt=now;if(!trailer.createdAt)trailer.createdAt=now;setData({...data,trailers:trailerMode==='add'?[...data.trailers,trailer]:data.trailers.map(t=>t.id===trailer.id?trailer:t)});setTrailerEditor(null);};
   const deleteTrailer=(trailer:Trailer)=>{if(confirm(`Delete ${trailer.name}?`))setData({...data,trailers:data.trailers.filter(t=>t.id!==trailer.id)});};
@@ -64,7 +64,7 @@ function VehicleOverview({data,best,partAnalyses,onGo}:{data:AppData;best:Vehicl
   </>;
 }
 
-function VehicleParts(props:{inventory:VehiclePart[];trailers:Trailer[];partAnalyses:ReturnType<typeof analyseVehicleParts>;trailerAnalyses:ReturnType<typeof analyseTrailers>;onAddPart:(s?:VehiclePartSlot)=>void;onEditPart:(p:VehiclePart)=>void;onClonePart:(p:VehiclePart)=>void;onDeletePart:(p:VehiclePart)=>void;onFavPart:(p:VehiclePart)=>void;onAddTrailer:()=>void;onEditTrailer:(t:Trailer)=>void;onDeleteTrailer:(t:Trailer)=>void;onFavTrailer:(t:Trailer)=>void}) {
+function VehicleParts(props:{inventory:VehiclePart[];trailers:Trailer[];partAnalyses:ReturnType<typeof analyseVehicleParts>;trailerAnalyses:ReturnType<typeof analyseTrailers>;onAddPart:(s?:VehiclePartSlot)=>void;onEditPart:(p:VehiclePart)=>void;onClonePart:(p:VehiclePart)=>void;onDeletePart:(p:VehiclePart)=>void;onFavPart:(p:VehiclePart)=>void;onAddTrailer:(preset?:{name:string;capacityKg:number})=>void;onEditTrailer:(t:Trailer)=>void;onDeleteTrailer:(t:Trailer)=>void;onFavTrailer:(t:Trailer)=>void}) {
   const [slot,setSlot]=useState<'All'|VehiclePartSlot>('All');
   const [q,setQ]=useState('');
   const analysisMap=new Map(props.partAnalyses.map(a=>[a.item.id,a]));
@@ -76,7 +76,8 @@ function VehicleParts(props:{inventory:VehiclePart[];trailers:Trailer[];partAnal
     <div className="gearList">{parts.map(p=>{const a=analysisMap.get(p.id);return <article className="gearCard" key={p.id}><div className="rowBetween"><div><div className="slotLabel">{p.slot} · <code>{p.id.slice(0,8)}</code></div><h3>{p.name}</h3></div><button className={`star ${p.favourite?'on':''}`} onClick={()=>props.onFavPart(p)}>★</button></div><div className="chipRow"><VehicleStatus status={a?.verdict??'KEEP'}/>{p.mutation&&<span className="chip">{p.mutation}</span>}{p.rarity&&<span className="chip">{p.rarity}</span>}</div><div className="miniStats"><span>Speed <b>{signed(p.speedPct)}%</b></span><span>Acceleration <b>{signed(p.accelerationPct)}%</b></span>{p.handlingPct!==0&&<span>Handling <b>{signed(p.handlingPct)}%</b></span>}{p.capacityKg!==0&&<span>Capacity <b>{signed(p.capacityKg)} kg</b></span>}</div><p className="reason">{a?.reason}</p><div className="actions"><button onClick={()=>props.onEditPart(p)}>Edit</button><button onClick={()=>props.onClonePart(p)}>Clone</button><button className="textDanger" onClick={()=>props.onDeletePart(p)}>Delete</button></div></article>})}</div>
     {!parts.length&&<div className="empty"><h3>No matching vehicle parts</h3><p>Add a part or change the filters.</p></div>}
 
-    <div className="sectionTitle"><h2>Trailers</h2><button className="secondary compact" onClick={props.onAddTrailer}>＋ Add trailer</button></div>
+    <div className="sectionTitle"><h2>Trailers</h2><button className="secondary compact" onClick={()=>props.onAddTrailer()}>＋ Add trailer</button></div>
+    <div className="quickAddRow"><button className="secondary compact" onClick={()=>props.onAddTrailer({name:'Megahaul Trailer',capacityKg:950})}>＋ Megahaul +950</button><button className="secondary compact" onClick={()=>props.onAddTrailer({name:'Goliath Trailer',capacityKg:1350})}>＋ Goliath +1350</button></div>
     <div className="gearList trailerList">{props.trailers.map(t=>{const a=trailerMap.get(t.id);return <article className="gearCard" key={t.id}><div className="rowBetween"><div><div className="slotLabel">TRAILER · <code>{t.id.slice(0,8)}</code></div><h3>{t.name}</h3></div><button className={`star ${t.favourite?'on':''}`} onClick={()=>props.onFavTrailer(t)}>★</button></div><div className="chipRow"><VehicleStatus status={a?.verdict??'KEEP'}/><span className="chip">+{formatNumber(t.capacityKg)} kg before capacity multiplier</span></div><p className="reason">{a?.reason}</p><div className="actions"><button onClick={()=>props.onEditTrailer(t)}>Edit</button><button className="textDanger" onClick={()=>props.onDeleteTrailer(t)}>Delete</button></div></article>})}</div>
   </>;
 }

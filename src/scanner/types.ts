@@ -15,6 +15,8 @@ export interface ParsedGearScan {
   slot: Slot;
   slotDetected: boolean;
   stats: GearStats;
+  mutation?: string;
+  conditionPct?: number;
   authenticated: boolean;
   authentication: Authentication;
   confidence: ScanConfidence;

@@ -34,10 +34,24 @@ const STAT_DEFINITIONS: StatDefinition[] = [
 
 const AUTH_EFFECTS = [
   'Luck', 'Bid Recovery', 'Bid Arrow Speed', 'Bid Zone Width', 'Energy Drink Time', 'Tip Chance', 'NPC Offers Bonus', 'Walkspeed',
-  'Sunny', 'Nocturnal', 'Overcharged', 'Raindrop', 'Focused', 'Time Keeper', 'Connected'
+  'Sunny', 'Nocturnal', 'Overcharged', 'Raindrop', 'Focused', 'Time Keeper', 'Connected',
+  'Sonic', 'Overcharge', 'Focus', 'Timekeeper',
+  'Mutated Luck', 'Drought Breaker', 'Golden Hour', 'Club Packed', 'Temporal Split'
 ];
+const PREMIUM_EFFECTS = new Set(['Mutated Luck','Drought Breaker','Golden Hour','Club Packed','Temporal Split']);
 const LEGACY_ALIEN_EFFECTS = ['Haggler', 'Anti-Gravity Field', 'Safecracker', 'Grade Re-Roll', 'Exhibitor', 'Rush'];
 const GENERIC_LINES = new Set(['gear', 'stats', 'stat', 'item', 'equipped', 'equip', 'unequip', 'inventory', 'authenticated', 'authentication', 'normal']);
+
+/** Extract metadata only from explicitly labelled screenshot text: do not infer mutation
+ * from an accessory name such as 'Diamond Crypto Necklace'. */
+function extractGearMetadata(text: string): { mutation?: string; conditionPct?: number } {
+  const conditionMatch = text.match(/(?:^|\n)\s*(?:condition|cond\.)\s*:?\s*(\d+(?:[.,]\d+)?)\s*%/i);
+  const parsedCondition = conditionMatch ? Number(conditionMatch[1].replace(',', '.')) : undefined;
+  const conditionPct = parsedCondition !== undefined && Number.isFinite(parsedCondition) && parsedCondition>=0 && parsedCondition<=100 ? parsedCondition : undefined;
+  const mutationMatch = text.match(/(?:^|\n)\s*mutation\s*:\s*([a-z][a-z \-]*)/i);
+  const mutation = mutationMatch?.[1]?.trim();
+  return { mutation: mutation || undefined, conditionPct };
+}
 
 function cleanLine(line: string): string {
   return line.replace(/[|•·]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -138,9 +152,9 @@ function explicitSlot(lines: string[]): Slot | undefined {
 
 function inferSlotFromName(name: string): Slot | undefined {
   const value = normaliseLabel(name);
-  if (/\b(wristband|wrist|bracelet|watch)\b/.test(value)) return 'Wrist';
+  if (/\b(wristband|wrist|bracelet|watch|baton)\b/.test(value)) return 'Wrist';
   if (/\b(backpack|back pack|vest|cape|rucksack)\b/.test(value)) return 'Back';
-  if (/\b(dominus|valk|helm|helmet|hat|crown)\b/.test(value)) return 'Head';
+  if (/\b(dominus|valk|helm|helmet|hat|crown|fedora|necklace|goggles?|hood)\b/.test(value)) return 'Head';
   return undefined;
 }
 
@@ -151,7 +165,7 @@ function isSlotOnlyLine(line: string): boolean {
 function findItemName(lines: string[], authLineIndexes: Set<number>): string {
   for (let index = 0; index < lines.length; index += 1) {
     const line = cleanLine(lines[index]);
-    if (!line || authLineIndexes.has(index) || line.includes('%') || isSlotOnlyLine(line)) continue;
+    if (!line || authLineIndexes.has(index) || line.includes('%') || isSlotOnlyLine(line) || /^(condition|mutation)\s*:/i.test(line)) continue;
     const normalised = normaliseLabel(line);
     if (!normalised || GENERIC_LINES.has(normalised)) continue;
     if (normalised.includes('legacy alien') || normalised === 'alien') continue;
@@ -237,6 +251,7 @@ function parseTextOnly(text: string): ParsedGearScan {
   }
 
   const baseName = findItemName(lines, authLineIndexes);
+  const metadata = extractGearMetadata(text);
   const directSlot = explicitSlot(lines.filter(line => isSlotOnlyLine(line)));
   const hintedSlot = inferSlotFromName(baseName);
   const detectedSlot = directSlot ?? hintedSlot;
@@ -262,11 +277,12 @@ function parseTextOnly(text: string): ParsedGearScan {
     rawText: text,
     baseName,
     slot,
+    ...metadata,
     slotDetected: Boolean(detectedSlot),
     stats,
     authenticated,
     authentication: authenticated && authEffect
-      ? { kind: 'Normal', effect: authEffect, value: authValue }
+      ? { kind: PREMIUM_EFFECTS.has(authEffect) ? 'Premium' : 'Normal', effect: authEffect, value: authValue }
       : { kind: 'None', effect: '', value: 0 },
     confidence,
     warnings,
@@ -296,7 +312,8 @@ function legacyEffectMatch(line: string): string | undefined {
 function parseVisual(text: string, lines: GearOcrVisualLine[]): ParsedGearScan | undefined {
   const candidates = lines
     .map(line => ({ line, stat: bestStatMatch(line.text), auth: bestAuthEffect(line.text), legacy: legacyEffectMatch(line.text), value: extractPercentage(line.text) }))
-    .filter(candidate => candidate.value !== undefined && (candidate.stat || candidate.auth || candidate.legacy));
+    .filter(candidate => (candidate.value !== undefined && (candidate.stat || candidate.auth || candidate.legacy))
+      || (candidate.line.color === 'blue' && candidate.auth && PREMIUM_EFFECTS.has(candidate.auth.effect)));
   if (!candidates.length) return undefined;
 
   const maxHeight = Math.max(...candidates.map(candidate => visualLineHeight(candidate.line)));
@@ -323,7 +340,7 @@ function parseVisual(text: string, lines: GearOcrVisualLine[]): ParsedGearScan |
   let authValue = 0;
 
   for (const candidate of cluster) {
-    const value = candidate.value!;
+    const value = candidate.value ?? 0;
     if (candidate.line.color === 'blue') {
       if (candidate.legacy) {
         warnings.push('Legacy Alien text detected — review this item manually; the scanner will not create a new Alien authentication.');
@@ -339,7 +356,7 @@ function parseVisual(text: string, lines: GearOcrVisualLine[]): ParsedGearScan |
       }
       continue;
     }
-    if (!candidate.stat) continue;
+    if (!candidate.stat || candidate.value === undefined) continue;
     let storedValue = value;
     if (candidate.stat.definition.key === 'arrowReduction') storedValue = candidate.stat.alias.includes('reduction') ? value : -value;
     stats[candidate.stat.definition.key] = storedValue;
@@ -347,10 +364,10 @@ function parseVisual(text: string, lines: GearOcrVisualLine[]): ParsedGearScan |
     fieldConfidence[candidate.stat.definition.key] = candidate.stat.confidence;
   }
 
-  const firstStatLine = cluster[0].line;
-  const statTop = Math.min(...cluster.map(candidate => candidate.line.bbox.y0));
+  const firstStatLine = (cluster.find(candidate => candidate.value !== undefined) ?? cluster[0]).line;
+  const statTop = Math.min(...cluster.filter(candidate => candidate.value !== undefined).map(candidate => candidate.line.bbox.y0));
   const titleCandidates = lines.filter(line => {
-    if (!line.text.trim() || extractPercentage(line.text) !== undefined || isSlotOnlyLine(line.text)) return false;
+    if (!line.text.trim() || extractPercentage(line.text) !== undefined || isSlotOnlyLine(line.text) || /^(condition|mutation)\s*:/i.test(line.text) || (line.color==='blue' && bestAuthEffect(line.text))) return false;
     const height = visualLineHeight(line);
     const gap = statTop - line.bbox.y1;
     if (gap < -anchorHeight * 0.25 || gap > anchorHeight * 2.4) return false;
@@ -364,6 +381,7 @@ function parseVisual(text: string, lines: GearOcrVisualLine[]): ParsedGearScan |
     return visualLineHeight(b) - visualLineHeight(a);
   });
   const baseName = titleCandidates[0]?.text.replace(/^[-–—:]+|[-–—:]+$/g, '').trim() ?? '';
+  const metadata = extractGearMetadata(text);
   const detectedSlot = inferSlotFromName(baseName);
   const slot = detectedSlot ?? 'Head';
 
@@ -383,10 +401,11 @@ function parseVisual(text: string, lines: GearOcrVisualLine[]): ParsedGearScan |
     rawText: text,
     baseName,
     slot,
+    ...metadata,
     slotDetected: Boolean(detectedSlot),
     stats,
     authenticated,
-    authentication: authenticated && authEffect ? { kind: 'Normal', effect: authEffect, value: authValue } : { kind: 'None', effect: '', value: 0 },
+    authentication: authenticated && authEffect ? { kind: PREMIUM_EFFECTS.has(authEffect) ? 'Premium' : 'Normal', effect: authEffect, value: authValue } : { kind: 'None', effect: '', value: 0 },
     confidence,
     warnings,
     recognisedFields,
@@ -405,8 +424,10 @@ export function scanToGearDraft(scan: ParsedGearScan, now = new Date().toISOStri
     baseName: scan.baseName,
     name: scan.baseName,
     slot: scan.slot,
+    mutation: scan.mutation,
+    conditionPct: scan.conditionPct,
     stats: { ...scan.stats },
-    authenticated: scan.authenticated && scan.authentication.kind === 'Normal' && Boolean(scan.authentication.effect),
+    authenticated: scan.authenticated && scan.authentication.kind !== 'None' && Boolean(scan.authentication.effect),
     authentication: { ...scan.authentication },
     favourite: false,
     createdAt: now,

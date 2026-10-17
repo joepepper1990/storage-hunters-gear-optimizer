@@ -14,7 +14,7 @@ function signed(value:number, suffix=''):string {
 export function generateTrophyName(modifiers:TrophyModifier[]):string {
   const parts = modifiers
     .filter(m => m && m.mutation?.trim())
-    .slice(0,2)
+    .slice(0,3)
     .map(m => `${m.mutation.trim()} +${compactNumber(Math.max(0, m.boostPct))}%`);
   return parts.join(' / ') || 'Gavel Trophy';
 }

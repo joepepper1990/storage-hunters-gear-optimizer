@@ -70,6 +70,78 @@ Nocturnal +35%
     expect(scan.stats.luck).toBe(100);
   });
 
+  it('recognises a current Premium Certificate perk', () => {
+    const scan = parseGearOcrText(`
+Pearl Dominus
+Head
++100% Luck
+AUTHENTICATED
+Mutated Luck +75%
+`);
+
+    expect(scan.authenticated).toBe(true);
+    expect(scan.authentication.kind).toBe('Premium');
+    expect(scan.authentication.effect).toBe('Mutated Luck');
+    expect(scan.authentication.value).toBe(75);
+  });
+
+  it('captures explicit mutation and condition labels without guessing from item name',()=>{
+    const scan=parseGearOcrText(`
+Diamond Crypto Necklace
+Head
+Mutation: Diamond
+Condition: 83%
++60% Luck
++46% Bid Zone Width
+-1.5% NPC Offers Bonus
+`);
+    expect(scan.baseName).toBe('Diamond Crypto Necklace');
+    expect(scan.mutation).toBe('Diamond');
+    expect(scan.conditionPct).toBe(83);
+    const draft=scanToGearDraft(scan);
+    expect(draft.mutation).toBe('Diamond');
+    expect(draft.conditionPct).toBe(83);
+
+    const noMetadata=parseGearOcrText('Gold Crypto Necklace\\nHead\\n+46% Luck');
+    expect(noMetadata.mutation).toBeUndefined();
+    expect(noMetadata.conditionPct).toBeUndefined();
+  });
+
+  it('recognises a blue nonnumeric Mutated Luck visual enchantment',()=>{
+    const raw=`Reactor Fedora
++75% Luck
+-45% Bid Arrow Speed
+Mutated Luck
+Mutation: None
+Condition: 55%`;
+    const lines=[
+      {text:'Reactor Fedora',bbox:{x0:500,y0:110,x1:700,y1:140},color:'neutral'},
+      {text:'+75% Luck',bbox:{x0:500,y0:151,x1:720,y1:184},color:'green'},
+      {text:'-45% Bid Arrow Speed',bbox:{x0:500,y0:195,x1:830,y1:228},color:'green'},
+      {text:'Mutated Luck',bbox:{x0:500,y0:240,x1:760,y1:273},color:'blue'},
+      {text:'Mutation: None',bbox:{x0:500,y0:285,x1:730,y1:300},color:'neutral'},
+      {text:'Condition: 55%',bbox:{x0:500,y0:308,x1:740,y1:323},color:'neutral'}
+    ] as const;
+    const scan=parseGearOcrText(raw,lines as any);
+    expect(scan.baseName).toBe('Reactor Fedora');
+    expect(scan.authentication).toMatchObject({kind:'Premium',effect:'Mutated Luck',value:0});
+    expect(scan.mutation).toBe('None');
+    expect(scan.conditionPct).toBe(55);
+  });
+
+  it('infers slots for user-provided necklace, fedora, hood, goggles and baton items',()=>{
+    const examples:Array<[string,'Head'|'Wrist']>=[
+      ['Reactor Fedora','Head'],['Gold Crypto Necklace','Head'],
+      ['Diamond Steampunk Goggle','Head'],['Desert Hood','Head'],
+      ['Police Baton','Wrist']
+    ];
+    for(const [name,slot] of examples){
+      const scan=parseGearOcrText(`${name}\n+5% Luck`);
+      expect(scan.slot).toBe(slot);
+      expect(scan.slotDetected).toBe(true);
+    }
+  });
+
   it('flags legacy Alien text for manual review instead of creating an Alien auth', () => {
     const scan = parseGearOcrText(`
 Jellyfish Wristband

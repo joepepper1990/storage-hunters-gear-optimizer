@@ -79,7 +79,7 @@ export function GearScanner({ onClose, onConfirm }: { onClose: () => void; onCon
       {!busy && !scan && <div className="scannerStart">
         <div className="scannerGlyph">▣</div>
         <h3>Choose a Storage Hunters gear screenshot</h3>
-        <p>The trial reads the item name, slot, stats and authentication, then sends the result to the normal gear editor for you to check.</p>
+        <p>The scanner reads the name, slot, signed stats, enchantments and any clearly labelled condition or mutation. Review before saving.</p>
         <button className="primary" onClick={()=>fileRef.current?.click()}>Choose screenshot</button>
       </div>}
 
@@ -96,7 +96,7 @@ export function GearScanner({ onClose, onConfirm }: { onClose: () => void; onCon
       {scan && !busy && <div className="scannerResult">
         {previewUrl && <img className="scannerPreview" src={previewUrl} alt="Processed gear screenshot" />}
         <div className="scannerResultHeader">
-          <div><span className="eyebrow">DETECTED ITEM</span><h3>{scan.baseName || 'Item name not recognised'}</h3><p>{scan.slotDetected ? scan.slot : 'Slot needs review'}</p></div>
+          <div><span className="eyebrow">DETECTED ITEM</span><h3>{scan.baseName || 'Item name not recognised'}</h3><p>{scan.slotDetected ? scan.slot : 'Slot needs review'}{scan.mutation?` · ${scan.mutation} mutation`:''}{scan.conditionPct!==undefined?` · ${scan.conditionPct}% condition`:''}</p></div>
           <span className={`scanConfidence ${scan.confidence.toLowerCase()}`}>{scan.confidence} confidence</span>
         </div>
 
