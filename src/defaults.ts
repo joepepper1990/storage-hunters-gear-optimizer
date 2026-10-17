@@ -73,6 +73,7 @@ export const DEFAULT_TROPHY_SETTINGS: TrophyOptimiserSettings = {
     { mutation: 'Antique', multiplier: 2, enabled: true, confidence: 'Confirmed' },
     { mutation: 'Ancient', multiplier: 5, enabled: true, confidence: 'Confirmed' },
     { mutation: 'Timeless', multiplier: 12, enabled: true, confidence: 'Confirmed' }
+  ]
 };
 
 
