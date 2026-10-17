@@ -1,5 +1,5 @@
 import { mergeScreenshotParts, mergeScreenshotTrophies, mergeScreenshotCertificates } from './screenshotEquipment';
-import { mergeKnownGear } from './knownGear';
+import { mergeKnownGear, mergeMapleWristband } from './knownGear';
 import { DEFAULT_TROPHY_SETTINGS, DEFAULT_VEHICLE_PROFILE, DEFAULT_VEHICLE_SETTINGS, makeInitialData, LOCKED_DEFAULT_SETTINGS } from '../defaults';
 import type { AppData, GavelTrophy, GearItem, Trailer, TrophyOptimiserSettings, VehiclePart } from '../types';
 import { generateGearName, generateTrophyName, generateVehiclePartName, inferBaseName } from '../naming';
@@ -89,10 +89,12 @@ function request<T = unknown>(req: IDBRequest<T>): Promise<T> {
 export function normalizeData(raw: AppData): AppData {
   const initial = makeInitialData();
   return {
-    schemaVersion: 6,
-    gear: Number(raw?.schemaVersion) >= 5
+    schemaVersion: 7,
+    gear: Number(raw?.schemaVersion) >= 7
       ? (Array.isArray(raw?.gear) ? raw.gear.map(normalizeItem) : [])
-      : mergeKnownGear(Array.isArray(raw?.gear) ? raw.gear.map(normalizeItem) : []),
+      : mergeMapleWristband(Number(raw?.schemaVersion) >= 5
+        ? (Array.isArray(raw?.gear) ? raw.gear.map(normalizeItem) : [])
+        : mergeKnownGear(Array.isArray(raw?.gear) ? raw.gear.map(normalizeItem) : [])),
     settings: normalizeSettings(raw?.settings),
     authModel: normalizeAuthModel(raw?.authModel, initial.authModel),
     rollLog: Array.isArray(raw?.rollLog) ? raw.rollLog : [],
