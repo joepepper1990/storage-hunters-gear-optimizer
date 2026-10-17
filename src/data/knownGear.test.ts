@@ -102,7 +102,7 @@ describe('verified 17 October 2026 inventory', () => {
     d.schemaVersion=4;
     d.gear=[{...item('Police Vest'),id:'pre-existing-police-vest',mutation:undefined,conditionPct:undefined}];
     const once=importJson(JSON.stringify(d));
-    expect(once.schemaVersion).toBe(5);
+    expect(once.schemaVersion).toBe(6);
     expect(once.gear).toHaveLength(14);
     expect(once.gear.some(g=>g.id==='pre-existing-police-vest'&&g.conditionPct===96)).toBe(true);
     const again=importJson(exportJson(once));

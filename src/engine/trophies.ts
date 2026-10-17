@@ -1,6 +1,6 @@
 import type { GavelTrophy, TrophyCombinationResult, TrophyOptimiserSettings } from '../types';
 
-/** Current game rule: a maximum of four Gavel Trophies can be powered. */
+/** Maximum with the Extra Gavel Trophy gamepass; standard capacity is three. */
 export const TROPHY_ACTIVE_LIMIT = 4;
 
 function weightMap(settings: TrophyOptimiserSettings): Map<string, number> {
@@ -38,7 +38,7 @@ export function optimiseTrophies(trophies: GavelTrophy[], settings: TrophyOptimi
   if (!trophies.length) return [];
   const selected = [...trophies]
     .sort((a, b) => trophyScore(b, settings) - trophyScore(a, settings) || a.id.localeCompare(b.id))
-    .slice(0, Math.min(TROPHY_ACTIVE_LIMIT, trophies.length));
+    .slice(0, Math.min(settings.maxActive===3?3:TROPHY_ACTIVE_LIMIT, trophies.length));
   return [evaluateTrophySet(selected, settings)];
 }
 
@@ -66,7 +66,7 @@ export function specialistTrophyLoadout(
       trophyScore(b, settings) - trophyScore(a, settings) ||
       a.id.localeCompare(b.id)
     )
-    .slice(0, TROPHY_ACTIVE_LIMIT);
+    .slice(0, settings.maxActive===3?3:TROPHY_ACTIVE_LIMIT);
   return contributors.length ? evaluateTrophySet(contributors, settings) : undefined;
 }
 
@@ -93,23 +93,37 @@ export function analyseTrophyRetention(
   const best = optimiseTrophies(trophies, settings)[0];
   const equipped = new Set(best?.trophies.map(trophy => trophy.id) ?? []);
   const specialistMembership = new Map<string, string[]>();
+  const capacity=settings.maxActive===3?3:4;
+  // Tied fourth-place trophies can participate in some equally optimal overall loadout.
+  // Keep all tied eligible alternatives rather than incorrectly label them as discardable.
+  const ranked=[...trophies].sort((a,b)=>trophyScore(b,settings)-trophyScore(a,settings));
+  const overallCutoff=ranked.length>=capacity ? trophyScore(ranked[capacity-1],settings) : undefined;
+  const overallAlternatives=new Set(overallCutoff!==undefined && overallCutoff>0
+    ? ranked.filter(t=>Math.abs(trophyScore(t,settings)-overallCutoff)<1e-9).map(t=>t.id) : []);
 
-  for (const weight of settings.mutationWeights.filter(weight => weight.enabled)) {
-    const specialist = specialistTrophyLoadout(trophies, weight.mutation, settings);
-    for (const trophy of specialist?.trophies ?? []) {
-      const mutations = specialistMembership.get(trophy.id) ?? [];
+
+  for(const weight of settings.mutationWeights.filter(w=>w.enabled)){
+    const rankedSpecial=[...trophies].filter(t=>trophyMutationBoost(t,weight.mutation)>0)
+      .sort((a,b)=>trophyMutationBoost(b,weight.mutation)-trophyMutationBoost(a,weight.mutation));
+    const cutoff=rankedSpecial[Math.min(capacity,rankedSpecial.length)-1];
+    const threshold=cutoff?trophyMutationBoost(cutoff,weight.mutation):Infinity;
+    for(const trophy of rankedSpecial.filter(t=>trophyMutationBoost(t,weight.mutation)>=threshold-1e-9)){
+      const mutations=specialistMembership.get(trophy.id)??[];
       mutations.push(weight.mutation);
-      specialistMembership.set(trophy.id, mutations);
+      specialistMembership.set(trophy.id,mutations);
     }
   }
 
   return trophies.map(item => {
     if (equipped.has(item.id)) {
-      return { item, verdict: 'EQUIP', reason: 'Part of the current best overall four-Gavel set.', specialistMutations: specialistMembership.get(item.id) ?? [] };
+      return { item, verdict: 'EQUIP', reason: 'Part of the current best overall powered-Gavel set.', specialistMutations: specialistMembership.get(item.id) ?? [] };
     }
     if (item.favourite) {
       return { item, verdict: 'KEEP', reason: 'Manually locked / favourited.', specialistMutations: specialistMembership.get(item.id) ?? [] };
     }
+    if(overallAlternatives.has(item.id))return {item,verdict:'KEEP',
+      reason:'Tied with the final selected Gavel; may appear in an equally optimal overall set.',
+      specialistMutations:specialistMembership.get(item.id)??[]};
     const specialistMutations = specialistMembership.get(item.id) ?? [];
     if (specialistMutations.length) {
       return {
@@ -122,7 +136,7 @@ export function analyseTrophyRetention(
     return {
       item,
       verdict: 'SAFE TO DISCARD',
-      reason: 'Not used by the best overall four, any enabled maximum modifier set, or a manual lock/favourite.',
+      reason: 'Not used by the best overall powered set, any enabled maximum modifier set, or a manual lock/favourite.',
       specialistMutations: []
     };
   });
