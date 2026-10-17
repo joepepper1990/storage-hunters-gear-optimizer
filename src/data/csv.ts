@@ -32,7 +32,7 @@ export function csvToGear(text: string): GearItem[] {
     const authenticated = /^(true|yes|1)$/i.test(at(r,'Authenticated').trim());
     const kindRaw = at(r,'Authentication Type').trim();
     const kind = (kindRaw || (authenticated ? 'Normal' : 'None')) as GearItem['authentication']['kind'];
-    if (!['None','Normal','Alien'].includes(kind)) throw new Error(`CSV row ${rowNumber}: invalid authentication type ${kind}.`);
+    if (!['None','Normal','Premium','Alien'].includes(kind)) throw new Error(`CSV row ${rowNumber}: invalid authentication type ${kind}.`);
     if (authenticated && kind === 'None') throw new Error(`CSV row ${rowNumber}: authenticated item cannot use authentication type None.`);
     const effect = at(r,'Authentication Effect').trim();
     if (authenticated && !effect) throw new Error(`CSV row ${rowNumber}: authentication effect is required for authenticated gear.`);
