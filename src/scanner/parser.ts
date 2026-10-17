@@ -36,7 +36,7 @@ const AUTH_EFFECTS = [
   'Luck', 'Bid Recovery', 'Bid Arrow Speed', 'Bid Zone Width', 'Energy Drink Time', 'Tip Chance', 'NPC Offers Bonus', 'Walkspeed',
   'Sunny', 'Nocturnal', 'Overcharged', 'Raindrop', 'Focused', 'Time Keeper', 'Connected',
   'Sonic', 'Overcharge', 'Focus', 'Timekeeper',
-  'Mutated Luck', 'Drought Breaker', 'Golden Hour', 'Club Packed', 'Temporal Split'
+  'Mutated Luck', 'Drought Breaker', 'Golden Hour', 'Club Pact', 'Club Packed', 'Temporal Split'
 ];
 const PREMIUM_EFFECTS = new Set(['Mutated Luck','Drought Breaker','Golden Hour','Club Packed','Temporal Split']);
 const LEGACY_ALIEN_EFFECTS = ['Haggler', 'Anti-Gravity Field', 'Safecracker', 'Grade Re-Roll', 'Exhibitor', 'Rush'];
