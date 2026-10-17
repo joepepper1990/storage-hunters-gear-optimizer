@@ -107,7 +107,7 @@ export function normalizeData(raw: AppData): AppData {
     trophies: Number(raw?.schemaVersion)>=6
       ? (Array.isArray(raw?.trophies) ? raw.trophies.map(normalizeTrophy) : [])
       : mergeScreenshotTrophies(Array.isArray(raw?.trophies) ? raw.trophies.map(normalizeTrophy) : []),
-    trophySettings: normalizeTrophySettings(raw?.trophySettings)
+    trophySettings: normalizeTrophySettings(raw?.trophySettings,Number(raw?.schemaVersion)<6)
   };
 }
 
@@ -130,7 +130,7 @@ function normalizeTrophy(item: GavelTrophy): GavelTrophy {
   };
 }
 
-function normalizeTrophySettings(raw: Partial<TrophyOptimiserSettings> | undefined): TrophyOptimiserSettings {
+function normalizeTrophySettings(raw: Partial<TrophyOptimiserSettings> | undefined,upgradeOldWet=false): TrophyOptimiserSettings {
   const defaults = structuredClone(DEFAULT_TROPHY_SETTINGS);
   const maxActive = raw?.maxActive === 3 ? 3 : 4; // 3 standard, 4 with Extra Gavel Trophy gamepass.
   const supplied = Array.isArray(raw?.mutationWeights) ? raw.mutationWeights : [];
@@ -141,7 +141,7 @@ function normalizeTrophySettings(raw: Partial<TrophyOptimiserSettings> | undefin
     const current = merged.get(name);
     merged.set(name, {
       mutation: name,
-      multiplier: Math.max(0, finite(w.multiplier ?? current?.multiplier ?? 0)),
+      multiplier: Math.max(0,finite(upgradeOldWet && name==='Wet' && Number(w.multiplier)===1.4 ? 6 : (w.multiplier ?? current?.multiplier ?? 0))),
       enabled: w.enabled ?? current?.enabled ?? true,
       confidence: ['Confirmed','Community','Uncertain'].includes(String(w.confidence)) ? w.confidence as any : current?.confidence ?? 'Uncertain'
     });
