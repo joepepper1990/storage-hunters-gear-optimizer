@@ -279,7 +279,7 @@ function validateImportedData(raw: AppData): void {
     for (const [key,value] of Object.entries(item.stats ?? {})) {
       if (value !== '' && value !== null && value !== undefined && !Number.isFinite(Number(value))) throw new Error(`${prefix}: ${key} is not a finite number.`);
     }
-    if (item.authentication?.kind !== undefined && !['None','Normal','Alien'].includes(item.authentication.kind)) throw new Error(`${prefix}: invalid authentication type.`);
+    if (item.authentication?.kind !== undefined && !['None','Normal','Premium','Alien'].includes(item.authentication.kind)) throw new Error(`${prefix}: invalid authentication type.`);
     if (item.authentication?.value !== undefined && !Number.isFinite(Number(item.authentication.value))) throw new Error(`${prefix}: authentication value is not finite.`);
   });
   if (raw.settings && typeof raw.settings === 'object') {
