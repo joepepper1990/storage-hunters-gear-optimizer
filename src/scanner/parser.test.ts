@@ -136,7 +136,7 @@ Condition: 55%`;
       ['Police Baton','Wrist']
     ];
     for(const [name,slot] of examples){
-      const scan=parseGearOcrText(`${name}\\n+5% Luck`);
+      const scan=parseGearOcrText(`${name}\n+5% Luck`);
       expect(scan.slot).toBe(slot);
       expect(scan.slotDetected).toBe(true);
     }
