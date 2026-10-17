@@ -20,7 +20,8 @@ export function activeAuthenticationOptions(slot:Slot,current='',model:AuthModel
   return ['',...new Set(current&&!options.includes(current as never)?[current,...options]:options)];
 }
 
-export function activeCertificateOutcomeOptions(slot:Slot|undefined,model:AuthModelEntry[]=[]):string[]{
+export function activeCertificateOutcomeOptions(slot:Slot|undefined,model:AuthModelEntry[]=[],kind:'Normal'|'Premium'='Normal'):string[]{
+  if(kind==='Premium')return slot?activeAuthenticationOptions(slot,'',model,'Premium').filter(Boolean):[...new Set(Object.values(PREMIUM_AUTH_EFFECTS).flat())];
   const modeled=model.filter(m=>m.certificateType==='Normal Certificate of Authenticity'&&(!slot||m.slot==='Any'||m.slot===slot)&&!LEGACY_ALIEN_EFFECTS.includes(m.outcome as never)).map(m=>m.outcome);
   const base=slot?[...NORMAL_NUMERIC_AUTH_EFFECTS,...EXCLUSIVE_AUTH_EFFECTS[slot]]:[...NORMAL_NUMERIC_AUTH_EFFECTS];
   return [...new Set([...base,...modeled])];
