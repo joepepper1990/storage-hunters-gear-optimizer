@@ -2,10 +2,10 @@ import type { GearItem, Slot } from '../types';
 import { gameArrowToReduction, reductionToGameArrow } from '../engine/scoring';
 import { generateGearName, inferBaseName } from '../naming';
 
-const headers = ['ID','Base Name','Slot','Luck','Energy Drink Time','Tip Chance','Walkspeed','Vehicle Speed','Bid Recovery','Bid Zone Width','Bid Arrow Speed (game display)','NPC Offers Bonus','Authenticated','Authentication Type','Authentication Effect','Authentication Value','Favourite'];
+const headers = ['ID','Base Name','Slot','Luck','Energy Drink Time','Tip Chance','Walkspeed','Vehicle Speed','Bid Recovery','Bid Zone Width','Bid Arrow Speed (game display)','NPC Offers Bonus','Authenticated','Authentication Type','Authentication Effect','Authentication Value','Favourite','Mutation','Condition %'];
 
 export function gearToCsv(items: GearItem[]): string {
-  const rows = items.map(i => [i.id,i.baseName,i.slot,i.stats.luck,i.stats.energy,i.stats.tip,i.stats.walk,i.stats.vehicle,i.stats.recovery,i.stats.zone,reductionToGameArrow(i.stats.arrowReduction),i.stats.npc,i.authenticated,i.authentication.kind,i.authentication.effect,i.authentication.value,i.favourite]);
+  const rows = items.map(i => [i.id,i.baseName,i.slot,i.stats.luck,i.stats.energy,i.stats.tip,i.stats.walk,i.stats.vehicle,i.stats.recovery,i.stats.zone,reductionToGameArrow(i.stats.arrowReduction),i.stats.npc,i.authenticated,i.authentication.kind,i.authentication.effect,i.authentication.value,i.favourite,i.mutation??'',i.conditionPct??'']);
   return [headers, ...rows].map(row => row.map(csvCell).join(',')).join('\n');
 }
 
@@ -38,9 +38,12 @@ export function csvToGear(text: string): GearItem[] {
     if (authenticated && !effect) throw new Error(`CSV row ${rowNumber}: authentication effect is required for authenticated gear.`);
     const stats = { luck:num('Luck'), energy:num('Energy Drink Time'), tip:num('Tip Chance'), walk:num('Walkspeed'), vehicle:num('Vehicle Speed'), recovery:num('Bid Recovery'), zone:num('Bid Zone Width'), arrowReduction:gameArrowToReduction(num('Bid Arrow Speed (game display)')), npc:num('NPC Offers Bonus') };
     const authentication = { kind, effect, value:num('Authentication Value') };
+    const conditionText=at(r,'Condition %').trim();
+    const conditionPct=conditionText===''?undefined:finite(conditionText,rowNumber,'Condition %');
+    if(conditionPct!==undefined && (conditionPct<0 || conditionPct>100)) throw new Error(`CSV row ${rowNumber}: condition must be between 0 and 100%.`);
     return {
       id, baseName, name:generateGearName(baseName,stats,authenticated,authentication), slot, stats,
-      authenticated, authentication,
+      authenticated, authentication, mutation:at(r,'Mutation').trim()||undefined, conditionPct,
       favourite:/^(true|yes|1)$/i.test(at(r,'Favourite').trim()), createdAt:now, updatedAt:now
     };
   });
