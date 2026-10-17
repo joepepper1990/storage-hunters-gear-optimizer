@@ -77,12 +77,13 @@ function protectionReason(item: GearItem, settings: AlgorithmSettings): string |
   if (['Haggler', 'Anti-Gravity Field', 'Safecracker', 'Exhibitor'].includes(effect)) return `${effect} has unknown mechanics/value, so this item is protected from irreversible discard classification.`;
   if (effect === 'Time Keeper') return 'Time Keeper has a provisional coefficient and is protected from SAFE TO DISCARD.';
   if (effect === 'Grade Re-Roll') return 'Grade Re-Roll has a provisional coefficient and is protected from SAFE TO DISCARD.';
+  if (effect === 'Connected') return 'Connected depends on the current number of friends; its +2% per friend is not counted without that context, so the item is protected.';
   if (!knownOrIgnored(effect)) return `${effect} is not yet modelled and is therefore protected.`;
   return undefined;
 }
 
 function knownOrIgnored(effect: string): boolean {
-  return ['Luck','Bid Recovery','Bid Arrow Speed','Bid Zone Width','Energy Drink Time','Tip Chance','NPC Offers Bonus','Walkspeed','Sunny','Nocturnal','Overcharged','Raindrop','Focused','Time Keeper','Connected','Grade Re-Roll','Rush','Fossil Finder','Luck Frenzy','Auto X-Ray','Featherweight','Second Chance','Steady Hand'].includes(effect);
+  return ['Luck','Bid Recovery','Bid Arrow Speed','Bid Zone Width','Energy Drink Time','Tip Chance','NPC Offers Bonus','Walkspeed','Sunny','Nocturnal','Overcharged','Raindrop','Focused','Time Keeper','Grade Re-Roll','Rush','Fossil Finder','Luck Frenzy','Auto X-Ray','Featherweight','Second Chance','Steady Hand'].includes(effect);
 }
 
 export function slotItems(gear: GearItem[], slot: Slot) { return gear.filter(g => g.slot === slot); }
