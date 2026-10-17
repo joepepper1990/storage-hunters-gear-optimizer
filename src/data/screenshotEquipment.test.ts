@@ -59,7 +59,7 @@ describe('October screenshot inventory — schema 6',()=>{
     legacy.trophies=[screenshotTrophies()[0]];
     legacy.ownedCertificates=[];
     const first=normalizeData(legacy);
-    expect(first.schemaVersion).toBe(6);
+    expect(first.schemaVersion).toBe(7);
     expect(first.vehicleParts).toHaveLength(10);
     expect(first.trophies).toHaveLength(12);
     expect(first.ownedCertificates).toHaveLength(1);
