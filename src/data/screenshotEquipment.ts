@@ -46,7 +46,7 @@ export function screenshotTrophies():GavelTrophy[]{
   });
 }
 export function screenshotCertificates():OwnedCertificate[]{
-  return [{id:'verified-oct17-cert-wooden-56',type:'Wooden Certificate of Authenticity',quantity:1,conditionPct:56,rarity:'Epic'}];
+  return [{id:'verified-oct17-cert-wooden-56',type:'Wooden Certificate of Authenticity',quantity:1,displayedValue:1648,conditionPct:56,rarity:'Epic'}];
 }
 
 /** Match exact rolls, not just names. Two different stat rolls of Manta Spoiler must coexist. */
