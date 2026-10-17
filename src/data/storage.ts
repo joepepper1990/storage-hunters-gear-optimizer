@@ -1,3 +1,4 @@
+import { mergeScreenshotParts, mergeScreenshotTrophies, mergeScreenshotCertificates } from './screenshotEquipment';
 import { mergeKnownGear } from './knownGear';
 import { DEFAULT_TROPHY_SETTINGS, DEFAULT_VEHICLE_PROFILE, DEFAULT_VEHICLE_SETTINGS, makeInitialData, LOCKED_DEFAULT_SETTINGS } from '../defaults';
 import type { AppData, GavelTrophy, GearItem, Trailer, TrophyOptimiserSettings, VehiclePart } from '../types';
@@ -88,19 +89,24 @@ function request<T = unknown>(req: IDBRequest<T>): Promise<T> {
 export function normalizeData(raw: AppData): AppData {
   const initial = makeInitialData();
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     gear: Number(raw?.schemaVersion) >= 5
       ? (Array.isArray(raw?.gear) ? raw.gear.map(normalizeItem) : [])
       : mergeKnownGear(Array.isArray(raw?.gear) ? raw.gear.map(normalizeItem) : []),
     settings: normalizeSettings(raw?.settings),
     authModel: normalizeAuthModel(raw?.authModel, initial.authModel),
     rollLog: Array.isArray(raw?.rollLog) ? raw.rollLog : [],
+    ownedCertificates: Number(raw?.schemaVersion)>=6 ? (Array.isArray(raw?.ownedCertificates)?raw.ownedCertificates.map(normalizeOwnedCertificate):[]) : mergeScreenshotCertificates(Array.isArray(raw?.ownedCertificates)?raw.ownedCertificates.map(normalizeOwnedCertificate):[]),
     theme: raw?.theme ?? 'system',
     vehicleProfile: normalizeVehicleProfile(raw?.vehicleProfile),
     vehicleSettings: normalizeVehicleSettings(raw?.vehicleSettings),
-    vehicleParts: Array.isArray(raw?.vehicleParts) ? raw.vehicleParts.map(normalizeVehiclePart) : initial.vehicleParts,
+    vehicleParts: Number(raw?.schemaVersion)>=6
+      ? (Array.isArray(raw?.vehicleParts) ? raw.vehicleParts.map(normalizeVehiclePart) : [])
+      : mergeScreenshotParts(Array.isArray(raw?.vehicleParts) ? raw.vehicleParts.map(normalizeVehiclePart) : []),
     trailers: Array.isArray(raw?.trailers) ? raw.trailers.map(normalizeTrailer) : initial.trailers,
-    trophies: Array.isArray(raw?.trophies) ? raw.trophies.map(normalizeTrophy) : [],
+    trophies: Number(raw?.schemaVersion)>=6
+      ? (Array.isArray(raw?.trophies) ? raw.trophies.map(normalizeTrophy) : [])
+      : mergeScreenshotTrophies(Array.isArray(raw?.trophies) ? raw.trophies.map(normalizeTrophy) : []),
     trophySettings: normalizeTrophySettings(raw?.trophySettings)
   };
 }
@@ -117,6 +123,7 @@ function normalizeTrophy(item: GavelTrophy): GavelTrophy {
     id: item?.id || crypto.randomUUID(),
     name: generateTrophyName(modifiers),
     modifiers,
+    conditionPct: conditionOrUndefined(item?.conditionPct),
     favourite: Boolean(item?.favourite),
     createdAt: item?.createdAt || now,
     updatedAt: item?.updatedAt || now
@@ -125,7 +132,7 @@ function normalizeTrophy(item: GavelTrophy): GavelTrophy {
 
 function normalizeTrophySettings(raw: Partial<TrophyOptimiserSettings> | undefined): TrophyOptimiserSettings {
   const defaults = structuredClone(DEFAULT_TROPHY_SETTINGS);
-  const maxActive = 4; // Current game rule: exactly four powered Gavel slots when available.
+  const maxActive = raw?.maxActive === 3 ? 3 : 4; // 3 standard, 4 with Extra Gavel Trophy gamepass.
   const supplied = Array.isArray(raw?.mutationWeights) ? raw.mutationWeights : [];
   const merged = new Map(defaults.mutationWeights.map(w => [w.mutation, w]));
   for (const w of supplied) {
@@ -190,8 +197,26 @@ function normalizeVehiclePart(item: VehiclePart): VehiclePart {
     ...part,
     mutation: typeof item?.mutation === 'string' ? item.mutation : undefined,
     rarity: typeof item?.rarity === 'string' ? item.rarity : undefined,
+    conditionPct: conditionOrUndefined(item?.conditionPct),
     favourite: Boolean(item?.favourite), createdAt: item?.createdAt || now, updatedAt: item?.updatedAt || now
   };
+}
+
+function conditionOrUndefined(value:unknown):number|undefined {
+  if(value===undefined||value===null||value==='')return undefined;
+  const n=Number(value);
+  if(!Number.isFinite(n)||n<0||n>100)throw new Error('Item condition must be between 0 and 100%.');
+  return n;
+}
+
+function normalizeOwnedCertificate(raw: AppData['ownedCertificates'][number]):AppData['ownedCertificates'][number]{
+  const types=['Wooden Certificate of Authenticity','Ripped Certificate of Authenticity','Premium Certificate of Authenticity'];
+  if(!types.includes(raw?.type))throw new Error('Unsupported certificate type.');
+  const quantity=Number(raw?.quantity);
+  if(!Number.isSafeInteger(quantity)||quantity<0)throw new Error('Certificate quantity must be a non-negative integer.');
+  return {id:raw.id||crypto.randomUUID(),type:raw.type,quantity,
+    conditionPct:conditionOrUndefined(raw.conditionPct),
+    rarity:typeof raw.rarity==='string'?raw.rarity:undefined};
 }
 
 function normalizeTrailer(item: Trailer): Trailer {
