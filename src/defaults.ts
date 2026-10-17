@@ -168,6 +168,17 @@ export function makeDefaultAuthModel(): AuthModelEntry[] {
       category: 'Slot-exclusive', assumedLikelihoodClass: 'LOW', observedSampleCount: 0, observedValues: [], confidence: 'Unknown', enabled: true
     });
   }
+  const premiumSlots:Record<'Head'|'Back'|'Wrist',string[]> = {
+    Head:['Mutated Luck'],
+    Back:['Drought Breaker','Golden Hour'],
+    Wrist:['Club Pact','Temporal Split']
+  };
+  for(const [slot,outcomes] of Object.entries(premiumSlots) as Array<['Head'|'Back'|'Wrist',string[]]>)
+    for(const outcome of outcomes)entries.push({
+      id:crypto.randomUUID(),certificateType:'Premium Certificate of Authenticity',slot,outcome,
+      category:'Premium perk — community-documented',assumedLikelihoodClass:'LOW',
+      observedSampleCount:0,observedValues:[],confidence:'Unknown',enabled:true
+    });
   return entries;
 }
 
