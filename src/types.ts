@@ -17,6 +17,7 @@ export interface GavelTrophy {
   id: string;
   name: string;
   modifiers: TrophyModifier[];
+  conditionPct?: number;
   favourite: boolean;
   createdAt: string;
   updatedAt: string;
@@ -52,6 +53,7 @@ export interface VehiclePart {
   capacityKg: number;
   mutation?: string;
   rarity?: string;
+  conditionPct?: number;
   favourite: boolean;
   createdAt: string;
   updatedAt: string;
@@ -286,12 +288,21 @@ export interface CertificateTarget {
   reasons: string[];
 }
 
+export interface OwnedCertificate {
+  id: string;
+  type: 'Wooden Certificate of Authenticity' | 'Ripped Certificate of Authenticity' | 'Premium Certificate of Authenticity';
+  quantity: number;
+  conditionPct?: number;
+  rarity?: string;
+}
+
 export interface AppData {
-  schemaVersion: 5;
+  schemaVersion: 6;
   gear: GearItem[];
   settings: AlgorithmSettings;
   authModel: AuthModelEntry[];
   rollLog: CertificateRollLog[];
+  ownedCertificates: OwnedCertificate[];
   theme: ThemeMode;
   vehicleProfile: VehicleProfile;
   vehicleSettings: VehicleOptimiserSettings;
