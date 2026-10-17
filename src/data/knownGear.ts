@@ -1,6 +1,9 @@
 import type { Authentication, GearItem, GearStats, Slot } from '../types';
 import { generateGearName, inferBaseName } from '../naming';
-import { ZERO_STATS } from '../defaults';
+const ZERO_STATS: GearStats = {
+  luck:0, energy:0, tip:0, walk:0, vehicle:0,
+  recovery:0, zone:0, arrowReduction:0, npc:0
+};
 
 // User-verified inventory captured 17 October 2026. Values are the stats shown on the
 // accessory, excluding a separate coloured authentication / enchantment roll.
