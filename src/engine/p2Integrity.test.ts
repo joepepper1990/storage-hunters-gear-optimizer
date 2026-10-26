@@ -88,6 +88,23 @@ describe('P2 statistical and recovery integrity',()=>{
       Object.defineProperty(globalThis,'indexedDB',{configurable:true,value:oldDb});
     }
   });
+  it('rejects autosave if the IndexedDB transaction aborts and the mirror also fails',async()=>{
+    const oldStorage=globalThis.localStorage,oldDb=globalThis.indexedDB;
+    const db={close:()=>{},transaction:()=>{
+      const tx:any={error:new Error('commit aborted'),objectStore:()=>({put:()=>{
+        const req:any={};
+        queueMicrotask(()=>{req.onsuccess?.();queueMicrotask(()=>tx.onabort?.());});
+        return req;
+      }})};return tx;
+    }};
+    Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:()=>null,setItem:()=>{throw new Error('quota');}}});
+    Object.defineProperty(globalThis,'indexedDB',{configurable:true,value:{open:()=>{const req:any={result:db};queueMicrotask(()=>req.onsuccess?.());return req;}}});
+    try {await expect(saveData(makeEmptyData())).rejects.toThrow('Local autosave failed');}
+    finally {
+      Object.defineProperty(globalThis,'localStorage',{configurable:true,value:oldStorage});
+      Object.defineProperty(globalThis,'indexedDB',{configurable:true,value:oldDb});
+    }
+  });
   it('never presents an unpriced conversion as an economic recommendation',()=>{
     const data=makeInitialData();
     data.gear=[...new Map(data.gear.map(g=>[g.slot,g])).values()];
