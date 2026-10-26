@@ -184,13 +184,15 @@ function normalizeAuthModel(raw: AppData['authModel'] | undefined, defaults: App
     if(schemaVersion>=11)return entry;
     const fallback=defaultsByKey.get(key(entry));
     if(!fallback)return entry;
+    const oldBuiltIn=['Normal numeric','Slot-exclusive','Premium perk — community-documented','Limited passive — exact proc range unverified'].includes(entry.category);
     return {
       ...fallback,
       ...entry,
       certificateInventoryType:entry.certificateInventoryType??fallback.certificateInventoryType,
-      min:entry.min??fallback.min,
-      typical:entry.typical??fallback.typical,
-      max:entry.max??fallback.max
+      category:oldBuiltIn?fallback.category:entry.category,
+      min:oldBuiltIn?fallback.min:(entry.min??fallback.min),
+      typical:oldBuiltIn?fallback.typical:(entry.typical??fallback.typical),
+      max:oldBuiltIn?fallback.max:(entry.max??fallback.max)
     };
   });
   const existing=new Set(out.map(key));
