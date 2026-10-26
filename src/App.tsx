@@ -307,7 +307,7 @@ function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppData)=>voi
   return <section>
     <div className="pageHeading"><div><h1>Certificates</h1><p>Expected-value decisions · Main Auction first · Lucky Grading ON</p></div></div>
 
-    <div className="notice"><b>Decision rule:</b> every certificate is tested against every eligible item. Unknown Luck/Focused magnitude is shown as unresolved probability mass rather than a fake zero roll. Low/central/high dynamic states are sensitivity-tested, and Day/Night/Rain losses count as downside.</div>
+    <div className="notice"><b>Decision rule:</b> every certificate is tested against every eligible item. Main Auction uses the robust zero-state baseline first, with central/high states shown only as sensitivity. Unknown Luck/Focused magnitude is explicit unresolved mass rather than fake zero EV. Specialists are considered only after Main, in the order Drink Prep → Grading → Shop/Idle.</div>
 
     {certificateState.computing&&<div className="notice">Recalculating certificate decisions in the background…</div>}
     {certificateState.error&&<div className="notice dangerNotice"><b>Certificate analysis error:</b> {certificateState.error}</div>}
@@ -331,15 +331,20 @@ function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppData)=>voi
               <div className="statsGrid three">
                 <StatTile label="Robust Main improves" value={target.chanceOfImprovementPct} suffix="%"/>
                 <StatTile label="Potential Main improves" value={target.chanceOfPotentialImprovementPct} suffix="%"/>
-                <StatTile label="Expected Main change" value={target.expectedImprovementPct} suffix="%"/>
-                <StatTile label="Chance Main/context worsens" value={target.chanceOfWorsePct} suffix="%"/>
+                <StatTile label={target.unresolvedOutcomeMassPct>0?"Resolved-branch robust Main EV":"Robust Main EV"} value={target.expectedImprovementPct} suffix="%"/>
+                <StatTile label="Chance Main/context worsens" value={target.chanceMainWorsePct} suffix="%"/>
+                <StatTile label="Chance any relevant loadout worsens" value={target.chanceOfWorsePct} suffix="%"/>
+                <StatTile label="Potential downside incl. unresolved" value={target.chancePotentialWorsePct} suffix="%"/>
                 <StatTile label="Meaningful robust gain ≥1%" value={target.chanceOfMeaningfulImprovementPct} suffix="%"/>
                 <StatTile label="Unresolved outcome mass" value={target.unresolvedOutcomeMassPct} suffix="%"/>
                 <StatTile label="Current Main fit" value={target.mainFitPct} suffix="%"/>
               </div>
 
               <div className="thresholdTable">
-                <div><b>Main sensitivity low / central / high</b><span>{signed(target.expectedImprovementLowPct)} / {signed(target.expectedImprovementPct)} / {signed(target.expectedImprovementHighPct)}</span></div>
+                <div><b>Robust / central / high Main EV</b><span>{signed(target.expectedImprovementPct)} / {signed(target.expectedImprovementCentralPct)} / {signed(target.expectedImprovementHighPct)}</span></div>
+                <div><b>Worst dynamic-state Main EV</b><span>{signed(target.expectedImprovementLowPct)}</span></div>
+                <div><b>Decision basis</b><span>{target.decisionBasis}</span></div>
+                <div><b>Resolved / unresolved probability mass</b><span>{target.resolvedOutcomeMassPct.toFixed(1)}% / {target.unresolvedOutcomeMassPct.toFixed(1)}%</span></div>
                 <div><b>Average robust gain when successful</b><span>{signed(target.averageGainWhenSuccessfulPct)}</span></div>
                 <div><b>Average demonstrated loss when worse</b><span>{signed(target.averageLossWhenWorsePct)}</span></div>
                 <div><b>10th / median / 90th central percentile</b><span>{signed(target.p10Pct)} / {signed(target.medianPct)} / {signed(target.p90Pct)}</span></div>
@@ -353,12 +358,12 @@ function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppData)=>voi
                 <div><b>Worst authentication risk anywhere relevant</b><span>{signed(target.currentAuthenticationValueAtRiskPct)}</span></div>
                 <div><b>Average Day/Night/Rain impact</b><span>{signed(target.expectedContextualMainPct)}</span></div>
                 <div><b>Worst Day/Night/Rain impact</b><span>{signed(target.worstContextualMainPct)}</span></div>
-                <div><b>Expected Drink Prep impact</b><span>{signed(target.expectedDrinkPrepPct)}</span></div>
-                <div><b>Expected Grading impact</b><span>{signed(target.expectedGradingPct)}</span></div>
-                <div><b>Expected Shop/Idle impact</b><span>{signed(target.expectedShopPct)}</span></div>
+                <div><b>Expected Drink Prep impact</b><span>{signed(target.expectedDrinkPrepPct)} · worse {target.chanceDrinkPrepWorsePct.toFixed(1)}%</span></div>
+                <div><b>Expected Grading impact</b><span>{signed(target.expectedGradingPct)} · worse {target.chanceGradingWorsePct.toFixed(1)}%</span></div>
+                <div><b>Expected Shop/Idle impact</b><span>{signed(target.expectedShopPct)} · worse {target.chanceShopWorsePct.toFixed(1)}%</span></div>
               </div>
 
-              {target.unresolvedEffects.length>0&&<div className="notice warning"><b>Unresolved magnitude:</b> {target.unresolvedEffects.join(', ')}. These branches are not treated as zero-value known outcomes and cannot produce a USE verdict until supported by numeric evidence.</div>}
+              {target.unresolvedEffects.length>0&&<div className="notice warning"><b>Unresolved outcome mass:</b> {target.unresolvedEffects.join(', ')}. Those branches are excluded from the numeric EV rather than scored as zero. The displayed EV therefore describes only the resolved {target.resolvedOutcomeMassPct.toFixed(1)}% of the model, and a USE verdict remains blocked.</div>}
               <ul>{target.reasons.map((reason,i)=><li key={i}>{reason}</li>)}</ul>
 
               {decision.conversion&&<div className="notice"><b>Wooden → Premium opportunity cost:</b> {decision.conversion.recommendation}. Direct Wooden EV {signed(decision.conversion.directExpectedMainPct)} vs synthetic Premium EV {signed(decision.conversion.premiumExpectedMainPct)}. Conversion costs {decision.conversion.diamondCost} Diamonds. {decision.conversion.reason}</div>}
@@ -369,7 +374,7 @@ function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppData)=>voi
               </details>
             </>:<p className="muted">A complete Head, Back and Wrist inventory is required.</p>}
 
-            <div className="notice warning"><b>Evidence boundary:</b> these are modelled decision percentages, not hidden Roblox loot odds. Effect selection uses a neutral equal prior until exact-certificate observations exist. Unknown star transforms and unresolved magnitudes reduce confidence instead of being invented.</div>
+            <div className="notice warning"><b>Evidence boundary:</b> these are modelled decision percentages, not hidden Roblox loot odds. The untouched catalogue uses neutral relative weights; exact game effect-selection odds are unpublished. Higher certificate grade/mutation is treated as directionally favourable but its unpublished roll-strength transform is not invented. Unresolved branches remain explicit.</div>
           </div>
         </details>;
       })}
@@ -379,7 +384,7 @@ function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppData)=>voi
     <div className="card">
       <div className="sectionTitle"><h2>Owned certificates</h2><button className="secondary compact" onClick={()=>setEditInventory(!editInventory)}>{editInventory?'Done':'Manual adjustment'}</button></div>
       <div className="gearList">{data.ownedCertificates.map(cert=><div className="gearCard" key={cert.id}><strong>{cert.type}</strong><p>{cert.rarity||'Certificate'}{cert.mutation?' · '+cert.mutation:''}{cert.gradeStars!==undefined?' · '+'★'.repeat(cert.gradeStars):''}{cert.displayedValue!==undefined?' · 
-      <div className="notice">Recording a roll below now consumes the exact selected certificate automatically. Wooden → Premium is compared explicitly against direct Wooden use at the current 150-Diamond conversion cost.</div>
+      <div className="notice">Recording a roll below consumes the exact selected certificate automatically and stores its grade and mutation. Wooden → Premium is compared explicitly against direct Wooden use at the current 150-Diamond conversion cost.</div>
     </div>
 
     <div className="sectionTitle"><h2>Record a result</h2></div>
