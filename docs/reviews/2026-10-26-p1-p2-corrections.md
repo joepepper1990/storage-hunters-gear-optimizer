@@ -11,7 +11,7 @@ Base: `74109ddbf8ad4a693e87961051049bc961b65891` (P1 corrections already merged)
 - Outcome-selection prior strength is a policy assumption, not calibrated game odds. Half/double-strength sensitivity is reported separately from the central estimate.
 - Grade/mutation mismatches do not become legacy model-only evidence merely because exact evidence was downweighted.
 - Wooden conversion remains an indicative gear comparison. No economic recommendation is made without resource affordability, diamond valuation and conversion-grade evidence.
-- Persistence envelopes have backward-compatible monotonic revisions. Revision allocation happens when a snapshot is captured, before queued writes, so delayed IndexedDB writes cannot replace a newer pagehide mirror. Legacy envelopes remain readable.
+- Persistence envelopes have backward-compatible monotonic revisions. Revision allocation happens when a snapshot is captured, before queued writes, so delayed IndexedDB writes cannot replace a newer pagehide mirror. Legacy envelopes remain readable. Autosave only reports IndexedDB success after the transaction completes, not merely after the put request succeeds.
 
 ## Preservation
 

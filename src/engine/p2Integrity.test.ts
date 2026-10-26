@@ -72,7 +72,7 @@ describe('P2 statistical and recovery integrity',()=>{
     const oldStorage=globalThis.localStorage,oldDb=globalThis.indexedDB;
     let stored:unknown;
     const asyncRequest=(result:unknown)=>{const req:any={result};queueMicrotask(()=>req.onsuccess?.());return req;};
-    const db={close:()=>{},transaction:()=>({objectStore:()=>({put:(value:unknown)=>{stored=value;return asyncRequest(undefined);},get:()=>asyncRequest(stored)})})};
+    const db={close:()=>{},transaction:()=>{const tx:any={objectStore:()=>({put:(value:unknown)=>{stored=value;queueMicrotask(()=>tx.oncomplete?.());return asyncRequest(undefined);},get:()=>asyncRequest(stored)})};return tx;}};
     Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:(key:string)=>memory.get(key)??null,setItem:(key:string,value:string)=>memory.set(key,value)}});
     Object.defineProperty(globalThis,'indexedDB',{configurable:true,value:{open:()=>asyncRequest(db)}});
     try {

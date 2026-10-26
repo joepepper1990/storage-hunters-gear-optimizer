@@ -80,8 +80,15 @@ async function writeSnapshot(data: AppData,savedAt:number,revision:number): Prom
   let idbError: unknown;
   try {
     const db = await openDb();
-    await request(db.transaction(STORE, 'readwrite').objectStore(STORE).put(envelope, KEY));
-    db.close();
+    try {
+      const transaction=db.transaction(STORE,'readwrite');
+      await new Promise<void>((resolve,reject)=>{
+        transaction.oncomplete=()=>resolve();
+        transaction.onabort=()=>reject(transaction.error??new Error('IndexedDB transaction aborted.'));
+        transaction.onerror=()=>reject(transaction.error??new Error('IndexedDB transaction failed.'));
+        transaction.objectStore(STORE).put(envelope,KEY);
+      });
+    } finally {db.close();}
     idbSaved = true;
   } catch (error) {
     idbError = error;
