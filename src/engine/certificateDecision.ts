@@ -896,13 +896,11 @@ function withConversionAdvice(
 
   return {
     ...direct,
-    verdict:recommendation==='PREFER PREMIUM CONVERSION'?'HOLD':direct.verdict,
+    verdict:direct.verdict,
     conversion,
     modelNotes:[
       ...direct.modelNotes,
-      recommendation==='PREFER PREMIUM CONVERSION'
-        ?'Direct Wooden use is held because the Premium conversion has the stronger modelled Main opportunity before valuing the 150-Diamond cost.'
-        :'Premium conversion was evaluated as an explicit alternative to direct Wooden use.'
+      'Premium conversion is an indicative alternative only; unknown resource value and converted quality prevent a complete economic recommendation.'
     ]
   };
 }

@@ -78,6 +78,7 @@ const PRESET_STATES: Record<DynamicScenario,DynamicState> = {
 };
 
 export const RETENTION_DYNAMIC_STATES: DynamicState[] = [
+  PRESET_STATES.low,
   ...[0,5].flatMap(droughtbreakerStacks=>
     [0,100].flatMap(goldenHourLuck=>
       [0,1].flatMap(luckFrenzyUptime=>
@@ -271,10 +272,10 @@ function buildMembershipMap(gear:GearItem[],settings:AlgorithmSettings):Map<stri
         if(existing){
           existing.selected=existing.selected||membership.selected;
           existing.tied=existing.tied&&membership.tied;
-          if(state.label===PRESET_STATES.central.label)existing.scenario=undefined;
+          if(state.label===PRESET_STATES.low.label)existing.scenario=undefined;
           else if(existing.scenario&&existing.scenario!==state.label)existing.scenario='dynamic sensitivity';
         }else{
-          list.push({...membership,scenario:state.label===PRESET_STATES.central.label?undefined:state.label});
+          list.push({...membership,scenario:state.label===PRESET_STATES.low.label?undefined:state.label});
         }
         map.set(item.id,list);
       }
@@ -336,3 +337,4 @@ export function analyseGearRetention(gear:GearItem[],settings:AlgorithmSettings)
     };
   });
 }
+
