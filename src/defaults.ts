@@ -106,20 +106,8 @@ function seededTrailers(): Trailer[] {
 export const LOCKED_DEFAULT_SETTINGS: AlgorithmSettings = {
   version: '2.0',
   luckWeight: 1,
-  luckBreakpoint1: 100,
-  luckBreakpoint2: 150,
-  luckBreakpoint3: 200,
-  luckBreakpoint4: 250,
-  luckMultiplier2: 0.8,
-  luckMultiplier3: 0.6,
-  luckMultiplier4: 0.4,
-  luckMultiplier5: 0.2,
   arrowWeight: 0.8,
   arrowSweetSpot: 75,
-  arrowDiminishingMultiplier: 0,
-  arrowCeiling: 75,
-  arrowPenaltyThreshold: 75,
-  arrowOvercapPenaltyMultiplier: 0,
   npcWeight: 0,
   npcBreakpoint1: 20,
   npcBreakpoint2: 40,
@@ -137,14 +125,7 @@ export const LOCKED_DEFAULT_SETTINGS: AlgorithmSettings = {
   tipWeight: 0,
   recoveryWeight: 0.2,
   vehicleWeight: 0,
-  walkWeight: 0,
-  rushWeight: 0.15,
-  sunnyUptime: 0,
-  nocturnalUptime: 0,
-  raindropUptime: 0,
-  overchargedMultiplier: 0,
-  timeKeeperWeight: 0,
-  gradeRerollWeight: 0
+  walkWeight: 0
 };
 
 type ModelSeed={
