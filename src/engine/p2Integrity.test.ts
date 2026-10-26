@@ -1,6 +1,6 @@
 import {describe,it,expect} from 'vitest';
 import {makeInitialData,makeEmptyData} from '../defaults';
-import {selectNewestStoredSnapshot,saveEmergencyMirror} from '../data/storage';
+import {selectNewestStoredSnapshot,saveEmergencyMirror,saveData,loadData} from '../data/storage';
 import {empiricalSupports,compareCertificateTargets,analyseOwnedCertificates,analyseCertificate,certificateOutcomeLikelihoods,certificateEvidenceCoverage} from './certificateDecision';
 
 describe('P2 statistical and recovery integrity',()=>{
@@ -66,6 +66,27 @@ describe('P2 statistical and recovery integrity',()=>{
       expect(second.revision).toBeGreaterThan(first.revision);
       expect(selectNewestStoredSnapshot(first,second)).toBe(second);
     } finally {Object.defineProperty(globalThis,'localStorage',{configurable:true,value:previous});}
+  });
+  it('a delayed autosave cannot overwrite a newer synchronous pagehide mirror',async()=>{
+    const memory=new Map<string,string>();
+    const oldStorage=globalThis.localStorage,oldDb=globalThis.indexedDB;
+    let stored:unknown;
+    const asyncRequest=(result:unknown)=>{const req:any={result};queueMicrotask(()=>req.onsuccess?.());return req;};
+    const db={close:()=>{},transaction:()=>({objectStore:()=>({put:(value:unknown)=>{stored=value;return asyncRequest(undefined);},get:()=>asyncRequest(stored)})})};
+    Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:(key:string)=>memory.get(key)??null,setItem:(key:string,value:string)=>memory.set(key,value)}});
+    Object.defineProperty(globalThis,'indexedDB',{configurable:true,value:{open:()=>asyncRequest(db)}});
+    try {
+      const old=makeEmptyData(),fresh=makeEmptyData();
+      fresh.ownedCertificates=[{id:'newest',type:'Wooden Certificate of Authenticity',quantity:7}];
+      const pending=saveData(old);
+      saveEmergencyMirror(fresh);
+      await pending;
+      expect(JSON.parse([...memory.values()][0]).data.ownedCertificates[0].id).toBe('newest');
+      expect((await loadData()).ownedCertificates[0]).toMatchObject({id:'newest',quantity:7});
+    } finally {
+      Object.defineProperty(globalThis,'localStorage',{configurable:true,value:oldStorage});
+      Object.defineProperty(globalThis,'indexedDB',{configurable:true,value:oldDb});
+    }
   });
   it('never presents an unpriced conversion as an economic recommendation',()=>{
     const data=makeInitialData();

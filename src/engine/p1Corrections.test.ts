@@ -55,6 +55,7 @@ describe('P1 certificate and Main coherence corrections',()=>{
     expect(chosen.back.id).toBe('Bstatic');
     expect(results.find(x=>x.item.id==='Bstatic')?.verdict).toBe('EQUIP');
     expect(results.find(x=>x.item.id==='Bdynamic')?.verdict).toBe('KEEP');
+    expect(results.find(x=>x.item.id==='Bdynamic')?.loadoutMemberships.find(m=>m.loadout==='Main Auction')?.scenario).toBeTruthy();
     expect(results.filter(x=>x.item.slot==='Back'&&x.verdict==='EQUIP').map(x=>x.item.id)).toEqual(['Bstatic']);
   });
 
@@ -120,3 +121,4 @@ describe('P1 certificate and Main coherence corrections',()=>{
     expect(analyseActivePostRoll(data,'session-roll')?.roll.id).toBe('session-roll');
   });
 });
+
