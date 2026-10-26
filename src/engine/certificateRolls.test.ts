@@ -38,4 +38,27 @@ describe('certificate roll inventory integrity',()=>{
     };
     expect(()=>applyRecordedCertificateRoll(data,selected.id,roll,item)).toThrow(/already been used/);
   });
+  it('updates only the exact Wooden/Ripped catalogue row and preserves configured legal ranges',()=>{
+    const data=makeInitialData();
+    const wooden=data.authModel.find(m=>m.certificateInventoryType==='Wooden Certificate of Authenticity'&&m.outcome==='Bid Zone Width'&&m.slot==='Any')!;
+    const ripped=data.authModel.find(m=>m.certificateInventoryType==='Ripped Certificate of Authenticity'&&m.outcome==='Bid Zone Width'&&m.slot==='Any')!;
+    const beforeWooden={min:wooden.min,typical:wooden.typical,max:wooden.max};
+    const beforeRippedCount=ripped.observedSampleCount;
+    const selected=data.ownedCertificates.find(c=>c.type==='Wooden Certificate of Authenticity')!;
+    const item=data.gear.find(g=>g.slot==='Head')!;
+    const updated:GearItem={...item,authenticated:true,authentication:{kind:'Normal',effect:'Bid Zone Width',value:70}};
+    const roll:CertificateRollLog={
+      id:'roll-wooden',date:'2026-10-26T00:00:00Z',certificateType:'Normal Certificate of Authenticity',
+      certificateInventoryType:'Wooden Certificate of Authenticity',itemId:item.id,itemName:item.name,slot:item.slot,
+      previousAuthentication:item.authentication.effect,previousValue:item.authentication.value,
+      newAuthentication:'Bid Zone Width',newValue:70,improvedBestSet:true,bestScoreBefore:100,bestScoreAfter:101
+    };
+    const next=applyRecordedCertificateRoll(data,selected.id,roll,updated);
+    const nextWooden=next.authModel.find(m=>m.id===wooden.id)!;
+    const nextRipped=next.authModel.find(m=>m.id===ripped.id)!;
+    expect(nextWooden.observedValues).toContain(70);
+    expect({min:nextWooden.min,typical:nextWooden.typical,max:nextWooden.max}).toEqual(beforeWooden);
+    expect(nextRipped.observedSampleCount).toBe(beforeRippedCount);
+  });
+
 });
