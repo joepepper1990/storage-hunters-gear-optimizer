@@ -175,11 +175,13 @@ function rollValues(def:CertificateOutcomeDefinition,data:AppData,slot:Slot,cert
       .filter(v=>Number.isFinite(v)&&v>=def.min!&&v<=def.max!);
     if(observed.length>=4){
       const sorted=[...observed].sort((a,b)=>a-b);
-      const quantiles=Array.from({length:21},(_,i)=>sorted[Math.round((sorted.length-1)*(i/20))]);
-      const prior=Array.from({length:21},(_,i)=>def.min!+(def.max!-def.min!)*(i/20));
+      const quantiles=Array.from({length:11},(_,i)=>sorted[Math.round((sorted.length-1)*(i/10))]);
+      const prior=Array.from({length:11},(_,i)=>def.min!+(def.max!-def.min!)*(i/10));
       return [...prior,...quantiles];
     }
-    return Array.from({length:51},(_,i)=>def.min!+(def.max!-def.min!)*(i/50));
+    // Deterministic quadrature over the legal range. 21 support points are enough
+    // to preserve threshold crossings without making full-inventory EV analysis sluggish.
+    return Array.from({length:21},(_,i)=>def.min!+(def.max!-def.min!)*(i/20));
   }
   const kind=cert.type==='Premium Certificate of Authenticity'?'Premium':cert.type==='Limited Certificate of Authenticity'?'Limited':'Normal';
   const observed=[
@@ -195,9 +197,10 @@ function replaceAuthentication(item:GearItem,cert:OwnedCertificate,effect:string
 }
 
 function pct(after:number|undefined,before:number|undefined):number {
-  if(after===undefined||before===undefined)return 0;
-  if(Math.abs(before)<1e-9)return after-before;
-  return (after-before)/Math.abs(before)*100;
+  const a=after??0;
+  const b=before??0;
+  if(Math.abs(b)<1e-9)return a-b;
+  return (a-b)/Math.abs(b)*100;
 }
 
 function contextualGain(before:ReturnType<typeof buildGearLoadouts>,after:ReturnType<typeof buildGearLoadouts>):number {
@@ -223,14 +226,19 @@ function percentile(values:Array<{x:number;p:number}>,q:number):number {
   return sorted.at(-1)?.x??0;
 }
 
-function targetDecision(data:AppData,cert:OwnedCertificate,item:GearItem):CertificateTargetDecision|undefined {
-  const baseline=buildGearLoadouts(data.gear,data.settings,'central');
+function targetDecision(
+  data:AppData,
+  cert:OwnedCertificate,
+  item:GearItem,
+  baseline:ReturnType<typeof buildGearLoadouts>
+):CertificateTargetDecision|undefined {
   if(!baseline.main||baseline.main.utility===0)return undefined;
 
   const containing=bestMainContaining(data,item);
   const bare={...item,authenticated:false,authentication:{kind:'None' as const,effect:'',value:0}};
   const without=buildGearLoadouts(data.gear.map(g=>g.id===item.id?bare:g),data.settings,'central');
-  const authRisk=pct(baseline.main.utility,without.main?.utility);
+  const withoutUtility=without.main?.utility??baseline.main.utility;
+  const authRisk=(baseline.main.utility-withoutUtility)/Math.abs(baseline.main.utility)*100;
   const defs=outcomesFor(cert,item.slot);
   const probs=outcomeProbabilities(defs,observedEffectCounts(data,cert,item.slot));
   const branches:Branch[]=[];
@@ -335,8 +343,12 @@ function targetDecision(data:AppData,cert:OwnedCertificate,item:GearItem):Certif
   };
 }
 
-export function analyseCertificate(data:AppData,cert:OwnedCertificate):OwnedCertificateDecision {
-  const targets=data.gear.map(item=>targetDecision(data,cert,item)).filter((x):x is CertificateTargetDecision=>Boolean(x));
+export function analyseCertificate(
+  data:AppData,
+  cert:OwnedCertificate,
+  sharedBaseline:ReturnType<typeof buildGearLoadouts>=buildGearLoadouts(data.gear,data.settings,'central')
+):OwnedCertificateDecision {
+  const targets=data.gear.map(item=>targetDecision(data,cert,item,sharedBaseline)).filter((x):x is CertificateTargetDecision=>Boolean(x));
   const vr=(v:CertificateDecisionVerdict)=>({USE:0,CONSIDER:1,HOLD:2,'DO NOT USE':3}[v]);
   targets.sort((a,b)=>vr(a.verdict)-vr(b.verdict)||b.expectedImprovementPct-a.expectedImprovementPct||
     b.chanceOfImprovementPct-a.chanceOfImprovementPct||b.mainFitPct-a.mainFitPct);
@@ -357,5 +369,14 @@ export function analyseCertificate(data:AppData,cert:OwnedCertificate):OwnedCert
 }
 
 export function analyseOwnedCertificates(data:AppData):OwnedCertificateDecision[] {
-  return data.ownedCertificates.filter(c=>c.quantity>0).map(c=>analyseCertificate(data,c));
+  const baseline=buildGearLoadouts(data.gear,data.settings,'central');
+  const cache=new Map<string,OwnedCertificateDecision>();
+  return data.ownedCertificates.filter(c=>c.quantity>0).map(cert=>{
+    const key=cert.type+'|'+String(cert.gradeStars??'');
+    const cached=cache.get(key);
+    if(cached)return {...cached,certificate:cert};
+    const decision=analyseCertificate(data,cert,baseline);
+    cache.set(key,decision);
+    return decision;
+  });
 }
