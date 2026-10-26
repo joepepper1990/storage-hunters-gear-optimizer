@@ -1,4 +1,4 @@
-import type { AuthModelEntry, Slot } from './types';
+import type { AuthModelEntry, OwnedCertificate, Slot } from './types';
 
 export const CURRENT_AUTH_KINDS = ['Normal','Premium','Limited'] as const;
 export const NORMAL_NUMERIC_AUTH_EFFECTS = ['Luck','Bid Recovery','Bid Arrow Speed','Bid Zone Width','Energy Drink Time','Tip Chance','NPC Offers Bonus','Walkspeed'] as const;
@@ -22,24 +22,43 @@ export const EXCLUSIVE_AUTH_EFFECTS:Record<Slot,readonly string[]>={Head:['Sunny
 
 export function activeAuthenticationOptions(slot:Slot,current='',model:AuthModelEntry[]=[],kind:'Normal'|'Premium'|'Limited'='Normal'):string[]{
   if(kind==='Premium'){
-    const modeled=model.filter(m=>m.certificateType==='Premium Certificate of Authenticity'&&(m.slot==='Any'||m.slot===slot)).map(m=>m.outcome);
+    const modeled=model.filter(m=>m.enabled&&m.certificateType==='Premium Certificate of Authenticity'&&(m.slot==='Any'||m.slot===slot)).map(m=>m.outcome);
     const options=[...PREMIUM_AUTH_EFFECTS[slot],...modeled];
     return ['',...new Set(current&&!options.includes(current as never)?[current,...options]:options)];
   }
   if(kind==='Limited'){
-    const modeled=model.filter(m=>m.certificateType==='Limited Certificate of Authenticity'&&(m.slot==='Any'||m.slot===slot)).map(m=>m.outcome);
+    const modeled=model.filter(m=>m.enabled&&m.certificateType==='Limited Certificate of Authenticity'&&(m.slot==='Any'||m.slot===slot)).map(m=>m.outcome);
     const options=[...LIMITED_AUTH_EFFECTS[slot],...modeled];
     return ['',...new Set(current&&!options.includes(current as never)?[current,...options]:options)];
   }
-  const modeled=model.filter(m=>m.certificateType==='Normal Certificate of Authenticity'&&(m.slot==='Any'||m.slot===slot)&&!LEGACY_ALIEN_EFFECTS.includes(m.outcome as never)).map(m=>m.outcome);
+  const modeled=model.filter(m=>m.enabled&&m.certificateType==='Normal Certificate of Authenticity'&&(m.slot==='Any'||m.slot===slot)&&!LEGACY_ALIEN_EFFECTS.includes(m.outcome as never)).map(m=>m.outcome);
   const options=[...NORMAL_NUMERIC_AUTH_EFFECTS,...EXCLUSIVE_AUTH_EFFECTS[slot],...CURRENT_NAME_ALIASES[slot],...modeled];
   return ['',...new Set(current&&!options.includes(current as never)?[current,...options]:options)];
 }
 
-export function activeCertificateOutcomeOptions(slot:Slot|undefined,model:AuthModelEntry[]=[],kind:'Normal'|'Premium'|'Limited'='Normal'):string[]{
+export function activeCertificateOutcomeOptions(
+  slot:Slot|undefined,
+  model:AuthModelEntry[]=[],
+  kind:'Normal'|'Premium'|'Limited'='Normal',
+  inventoryType?:OwnedCertificate['type']
+):string[]{
+  const certificateType=
+    kind==='Premium'?'Premium Certificate of Authenticity':
+    kind==='Limited'?'Limited Certificate of Authenticity':
+    'Normal Certificate of Authenticity';
+
+  const exact=model.filter(m=>
+    m.enabled &&
+    m.certificateType===certificateType &&
+    (!slot||m.slot==='Any'||m.slot===slot) &&
+    (!inventoryType||m.certificateInventoryType===inventoryType)
+  );
+  if(exact.length)return [...new Set(exact.map(m=>m.outcome))];
+
   if(kind==='Premium')return slot?activeAuthenticationOptions(slot,'',model,'Premium').filter(Boolean):[...new Set(Object.values(PREMIUM_AUTH_EFFECTS).flat())];
   if(kind==='Limited')return slot?activeAuthenticationOptions(slot,'',model,'Limited').filter(Boolean):[...new Set(Object.values(LIMITED_AUTH_EFFECTS).flat())];
-  const modeled=model.filter(m=>m.certificateType==='Normal Certificate of Authenticity'&&(!slot||m.slot==='Any'||m.slot===slot)&&!LEGACY_ALIEN_EFFECTS.includes(m.outcome as never)).map(m=>m.outcome);
+
+  const modeled=model.filter(m=>m.enabled&&m.certificateType==='Normal Certificate of Authenticity'&&(!slot||m.slot==='Any'||m.slot===slot)&&!LEGACY_ALIEN_EFFECTS.includes(m.outcome as never)).map(m=>m.outcome);
   const base=slot?[...NORMAL_NUMERIC_AUTH_EFFECTS,...EXCLUSIVE_AUTH_EFFECTS[slot]]:[...NORMAL_NUMERIC_AUTH_EFFECTS];
   return [...new Set([...base,...modeled])];
 }
