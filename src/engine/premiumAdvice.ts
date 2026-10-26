@@ -56,6 +56,9 @@ export function assessPremiumUpgrades(gear: GearItem[], settings: AlgorithmSetti
     if (item.authentication.kind === 'Premium' && item.authenticated) {
       verdict = 'ALREADY PREMIUM';
       reasons.push(`Already has a Premium effect: ${effect || 'unspecified'}; do not spend a Wooden Certificate to upgrade this item again.`);
+    } else if (item.authentication.kind === 'Limited' && item.authenticated) {
+      verdict = 'PROTECT ENCHANTMENT';
+      reasons.push(`Already has a Limited passive: ${effect || 'unspecified'}; do not overwrite it with Premium unless that trade is deliberate.`);
     } else if (item.favourite) {
       verdict = 'LOCKED';
       reasons.push('Manually locked/favourited: do not replace an enchantment without explicitly reviewing this item first.');
