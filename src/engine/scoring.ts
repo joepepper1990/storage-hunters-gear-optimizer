@@ -4,7 +4,12 @@ export const EVENT_PASSIVES = new Set([
   'Fossil Finder', 'Luck Frenzy', 'Auto X-Ray', 'Featherweight', 'Second Chance', 'Steady Hand'
 ]);
 export const UNKNOWN_PROTECTED_PASSIVES = new Set(['Safecracker', 'Exhibitor', 'Sonic', 'Overcharge', 'Focus']);
-export const PROVISIONAL_PASSIVES = new Set(['Time Keeper', 'Grade Re-Roll']);
+export const PROVISIONAL_PASSIVES = new Set<string>();
+export const SHARED_MODELED_PASSIVES = new Set([
+  'Mutated Luck','Droughtbreaker','Drought Breaker','Golden Hour','Luck Frenzy',
+  'Club Pact','Club Packed','Temporal Split','Connected','Time Keeper','Timekeeper',
+  'Grade Re-Roll','Auto X-Ray','Featherweight','Second Chance','Steady Hand','Haggler'
+]);
 
 export function arrowEffective(r: number, s: AlgorithmSettings): number {
   // User preference: 75% combined Bid Arrow reduction is the practical sweet spot.
@@ -83,7 +88,7 @@ export function passiveScore(item: GearItem, s: AlgorithmSettings) {
   if (item.authentication.kind === 'Limited') {
     return { score: 0, details: [{ label: `${effect} (Limited utility — not numerically scored)`, score: 0 }], unknown: false, provisional: false };
   }
-  if (EVENT_PASSIVES.has(effect) || effect === 'Focused' || isNumericAuth(effect)) {
+  if (EVENT_PASSIVES.has(effect) || SHARED_MODELED_PASSIVES.has(effect) || effect === 'Focused' || isNumericAuth(effect)) {
     return { score: 0, details: [], unknown: false, provisional: false };
   }
   if (['Sunny', 'Nocturnal', 'Raindrop', 'Overcharged'].includes(effect)) {
