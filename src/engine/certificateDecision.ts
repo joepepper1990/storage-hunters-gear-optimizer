@@ -769,6 +769,72 @@ function targetDecision(
   };
 }
 
+/**
+ * Conditional 199-Robux "Reroll Number" distribution. The effect is fixed:
+ * calculate fresh same-effect numeric outcomes against accepting the current roll.
+ * The caller must exclude the current observation from the training dataset.
+ */
+export function analyseConditionalNumberReroll(
+  data:AppData,
+  roll:AppData['rollLog'][number],
+  cert:OwnedCertificate
+):{
+  expectedMainPct:number;
+  chanceMainWorsePct:number;
+  chanceAnyWorsePct:number;
+  resolvedMassPct:number;
+  unresolvedMassPct:number;
+  expectedContextualMainPct:number;
+  expectedDrinkPrepPct:number;
+  expectedGradingPct:number;
+  expectedShopPct:number;
+  modelNote:string;
+}|undefined {
+  const original=data.gear.find(g=>g.id===roll.itemId);
+  if(!original)return undefined;
+  const def=outcomesFor(data,cert,original.slot).find(d=>d.effect===roll.newAuthentication);
+  if(!def)return undefined;
+  const supports=rollSupports(def,data,original.slot,cert);
+  if(!supports.length)return undefined;
+  const baseline=buildGearLoadouts(data.gear,data.settings,'low');
+  let resolvedMass=0,main=0,mainWorse=0,anyWorse=0,context=0,drink=0,grading=0,shop=0;
+  for(const support of supports){
+    if(support.unresolved)continue;
+    const hypothetical=replaceAuthentication(original,cert,roll.newAuthentication,support.value);
+    const nextGear=data.gear.map(item=>item.id===original.id?hypothetical:item);
+    const result=buildGearLoadouts(nextGear,data.settings,'low');
+    const mainDelta=pct(result.main?.utility,baseline.main?.utility);
+    const day=pct(result.day?.utility,baseline.day?.utility);
+    const night=pct(result.night?.utility,baseline.night?.utility);
+    const rain=pct(result.rain?.utility,baseline.rain?.utility);
+    const drinkDelta=pct(result.drink?.utility,baseline.drink?.utility);
+    const gradingDelta=pct(result.grading?.utility,baseline.grading?.utility);
+    const shopDelta=pct(result.shop?.utility,baseline.shop?.utility);
+    const weight=support.weight;
+    resolvedMass+=weight;
+    main+=weight*mainDelta;
+    context+=weight*(day+night+rain)/3;
+    drink+=weight*drinkDelta;
+    grading+=weight*gradingDelta;
+    shop+=weight*shopDelta;
+    if(mainDelta < -1e-4)mainWorse+=weight;
+    if(Math.min(mainDelta,day,night,rain,drinkDelta,gradingDelta,shopDelta)<-1e-4)anyWorse+=weight;
+  }
+  const divisor=resolvedMass>1e-10?resolvedMass:1;
+  return {
+    expectedMainPct:main/divisor,
+    chanceMainWorsePct:mainWorse*100,
+    chanceAnyWorsePct:anyWorse*100,
+    resolvedMassPct:resolvedMass*100,
+    unresolvedMassPct:Math.max(0,1-resolvedMass)*100,
+    expectedContextualMainPct:context/divisor,
+    expectedDrinkPrepPct:drink/divisor,
+    expectedGradingPct:grading/divisor,
+    expectedShopPct:shop/divisor,
+    modelNote:'Same authentication effect only. Roll strengths are conditioned on this certificate tier, grade and mutation; the current roll is excluded from training. No unknown effect-selection odds are used.'
+  };
+}
+
 function withConversionAdvice(
   direct:OwnedCertificateDecision,
   premium:OwnedCertificateDecision
