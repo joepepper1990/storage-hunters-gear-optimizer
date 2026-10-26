@@ -1,5 +1,5 @@
 export type Slot = 'Head' | 'Back' | 'Wrist';
-export type AuthKind = 'None' | 'Normal' | 'Premium' | 'Alien';
+export type AuthKind = 'None' | 'Normal' | 'Premium' | 'Limited' | 'Alien';
 export type ThemeMode = 'system' | 'light' | 'dark';
 export type Verdict = 'EQUIP' | 'KEEP' | 'SAFE TO DISCARD' | 'PROTECTED / UNKNOWN';
 export type LikelihoodClass = 'VERY HIGH' | 'HIGH' | 'MEDIUM' | 'LOW' | 'VERY LOW';
@@ -247,7 +247,7 @@ export interface ItemAnalysis {
 
 export interface AuthModelEntry {
   id: string;
-  certificateType: 'Normal Certificate of Authenticity' | 'Premium Certificate of Authenticity' | 'Certificate of Alienticity';
+  certificateType: 'Normal Certificate of Authenticity' | 'Premium Certificate of Authenticity' | 'Limited Certificate of Authenticity' | 'Certificate of Alienticity';
   slot: Slot | 'Any';
   outcome: string;
   category: string;
@@ -290,15 +290,17 @@ export interface CertificateTarget {
 
 export interface OwnedCertificate {
   id: string;
-  type: 'Wooden Certificate of Authenticity' | 'Ripped Certificate of Authenticity' | 'Premium Certificate of Authenticity';
+  type: 'Wooden Certificate of Authenticity' | 'Ripped Certificate of Authenticity' | 'Premium Certificate of Authenticity' | 'Limited Certificate of Authenticity';
   quantity: number;
   displayedValue?: number;
   conditionPct?: number;
   rarity?: string;
+  /** Star grade shown on the physical certificate. */
+  gradeStars?: number;
 }
 
 export interface AppData {
-  schemaVersion: 7;
+  schemaVersion: 8;
   gear: GearItem[];
   settings: AlgorithmSettings;
   authModel: AuthModelEntry[];

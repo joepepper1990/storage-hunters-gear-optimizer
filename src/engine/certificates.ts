@@ -29,9 +29,9 @@ export function certificateTargets(
   const best = optimise(gear, settings, 1)[0];
   if (!best) return [];
   const bestScore = best.score.total;
-  // Premium-enchanted accessories cannot be assumed eligible for a Normal re-roll.
-  // Preserve them in gear optimisation but do not suggest potentially destructive Normal rolls.
-  return gear.filter(item => item.authentication.kind !== 'Premium')
+  // Only unauthenticated/Normal accessories are candidates for a current Normal re-roll.
+  // Premium, Limited and legacy Alien effects are preserved rather than destructively targeted.
+  return gear.filter(item => item.authentication.kind === 'None' || item.authentication.kind === 'Normal')
     .map(item => makeTarget(item, gear, settings, model, certificateType, bestScore))
     .filter((x): x is CertificateTarget => Boolean(x))
     .sort((a,b) => b.heuristicScore - a.heuristicScore || a.item.name.localeCompare(b.item.name))

@@ -1,5 +1,5 @@
 import { mergeScreenshotParts, mergeScreenshotTrophies, mergeScreenshotCertificates } from './screenshotEquipment';
-import { mergeKnownGear, mergeMapleWristband } from './knownGear';
+import { mergeKnownGear } from './knownGear';
 import { DEFAULT_TROPHY_SETTINGS, DEFAULT_VEHICLE_PROFILE, DEFAULT_VEHICLE_SETTINGS, makeInitialData, LOCKED_DEFAULT_SETTINGS } from '../defaults';
 import type { AppData, GavelTrophy, GearItem, Trailer, TrophyOptimiserSettings, VehiclePart } from '../types';
 import { generateGearName, generateTrophyName, generateVehiclePartName, inferBaseName } from '../naming';
@@ -89,16 +89,14 @@ function request<T = unknown>(req: IDBRequest<T>): Promise<T> {
 export function normalizeData(raw: AppData): AppData {
   const initial = makeInitialData();
   return {
-    schemaVersion: 7,
-    gear: Number(raw?.schemaVersion) >= 7
+    schemaVersion: 8,
+    gear: Number(raw?.schemaVersion) >= 8
       ? (Array.isArray(raw?.gear) ? raw.gear.map(normalizeItem) : [])
-      : mergeMapleWristband(Number(raw?.schemaVersion) >= 5
-        ? (Array.isArray(raw?.gear) ? raw.gear.map(normalizeItem) : [])
-        : mergeKnownGear(Array.isArray(raw?.gear) ? raw.gear.map(normalizeItem) : [])),
+      : mergeKnownGear(Array.isArray(raw?.gear) ? raw.gear.map(normalizeItem) : []),
     settings: normalizeSettings(raw?.settings),
     authModel: normalizeAuthModel(raw?.authModel, initial.authModel),
     rollLog: Array.isArray(raw?.rollLog) ? raw.rollLog : [],
-    ownedCertificates: Number(raw?.schemaVersion)>=6 ? (Array.isArray(raw?.ownedCertificates)?raw.ownedCertificates.map(normalizeOwnedCertificate):[]) : mergeScreenshotCertificates(Array.isArray(raw?.ownedCertificates)?raw.ownedCertificates.map(normalizeOwnedCertificate):[]),
+    ownedCertificates: Number(raw?.schemaVersion)>=8 ? (Array.isArray(raw?.ownedCertificates)?raw.ownedCertificates.map(normalizeOwnedCertificate):[]) : mergeScreenshotCertificates(Array.isArray(raw?.ownedCertificates)?raw.ownedCertificates.map(normalizeOwnedCertificate):[]),
     theme: raw?.theme ?? 'system',
     vehicleProfile: normalizeVehicleProfile(raw?.vehicleProfile),
     vehicleSettings: normalizeVehicleSettings(raw?.vehicleSettings),
@@ -156,8 +154,7 @@ function normalizeAuthModel(raw: AppData['authModel'] | undefined, defaults: App
   const out = [...supplied];
   const key = (entry: AppData['authModel'][number]) => `${entry.certificateType}|${entry.slot}|${entry.outcome}`;
   const existing = new Set(out.map(key));
-  // Merge in newly-added NORMAL outcomes (such as Energy Drink Time) without deleting
-  // historical Alien model rows from older backups. Alien rows remain data-only.
+  // Merge newly-added current certificate outcomes without deleting historical Alien rows from older backups.
   for (const entry of defaults) if (!existing.has(key(entry))) out.push(entry);
   return out;
 }
@@ -212,14 +209,17 @@ function conditionOrUndefined(value:unknown):number|undefined {
 }
 
 function normalizeOwnedCertificate(raw: AppData['ownedCertificates'][number]):AppData['ownedCertificates'][number]{
-  const types=['Wooden Certificate of Authenticity','Ripped Certificate of Authenticity','Premium Certificate of Authenticity'];
+  const types=['Wooden Certificate of Authenticity','Ripped Certificate of Authenticity','Premium Certificate of Authenticity','Limited Certificate of Authenticity'];
   if(!types.includes(raw?.type))throw new Error('Unsupported certificate type.');
   const quantity=Number(raw?.quantity);
   if(!Number.isSafeInteger(quantity)||quantity<0)throw new Error('Certificate quantity must be a non-negative integer.');
+  const gradeStars=raw.gradeStars===undefined?undefined:Number(raw.gradeStars);
+  if(gradeStars!==undefined&&(!Number.isSafeInteger(gradeStars)||gradeStars<0||gradeStars>5))throw new Error('Certificate star grade must be an integer from 0 to 5.');
   return {id:raw.id||crypto.randomUUID(),type:raw.type,quantity,
     displayedValue:raw.displayedValue===undefined?undefined:finite(raw.displayedValue),
     conditionPct:conditionOrUndefined(raw.conditionPct),
-    rarity:typeof raw.rarity==='string'?raw.rarity:undefined};
+    rarity:typeof raw.rarity==='string'?raw.rarity:undefined,
+    gradeStars};
 }
 
 function normalizeTrailer(item: Trailer): Trailer {
@@ -316,7 +316,7 @@ function validateImportedData(raw: AppData): void {
     for (const [key,value] of Object.entries(item.stats ?? {})) {
       if (value !== '' && value !== null && value !== undefined && !Number.isFinite(Number(value))) throw new Error(`${prefix}: ${key} is not a finite number.`);
     }
-    if (item.authentication?.kind !== undefined && !['None','Normal','Premium','Alien'].includes(item.authentication.kind)) throw new Error(`${prefix}: invalid authentication type.`);
+    if (item.authentication?.kind !== undefined && !['None','Normal','Premium','Limited','Alien'].includes(item.authentication.kind)) throw new Error(`${prefix}: invalid authentication type.`);
     if (item.authentication?.value !== undefined && !Number.isFinite(Number(item.authentication.value))) throw new Error(`${prefix}: authentication value is not finite.`);
   });
   if (raw.settings && typeof raw.settings === 'object') {

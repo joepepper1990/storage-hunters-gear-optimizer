@@ -51,6 +51,13 @@ describe('per-item Wooden-to-Premium decision guide',()=>{
     }
   });
 
+  it('protects existing Limited effects from Premium replacement',()=>{
+    const items=base().map(g=>g.id==='Head strong'?gear('Head strong','Head',100,{kind:'Limited',effect:'Auto X-Ray',value:12}):g);
+    const head=assessPremiumUpgrades(items,LOCKED_DEFAULT_SETTINGS).find(a=>a.item.id==='Head strong')!;
+    expect(head.verdict).toBe('PROTECT ENCHANTMENT');
+    expect(head.reasons.join(' ')).toContain('Limited');
+  });
+
   it('warns before replacing a known Normal enchantment',()=>{
     const items=base().map(g=>g.id==='Head strong'?gear('Head strong','Head',100,{kind:'Normal',effect:'Luck',value:10}):g);
     const advice=assessPremiumUpgrades(items,LOCKED_DEFAULT_SETTINGS);
@@ -74,7 +81,7 @@ describe('per-item Wooden-to-Premium decision guide',()=>{
   it('uses correct Premium slot effects with Club Pact, not the outdated alias',()=>{
     const advice=assessPremiumUpgrades(base(),LOCKED_DEFAULT_SETTINGS);
     expect(advice.find(a=>a.item.slot==='Head')?.premiumOutcomes).toEqual(['Mutated Luck']);
-    expect(advice.find(a=>a.item.slot==='Back')?.premiumOutcomes).toEqual(['Drought Breaker','Golden Hour']);
+    expect(advice.find(a=>a.item.slot==='Back')?.premiumOutcomes).toEqual(['Droughtbreaker','Golden Hour']);
     expect(advice.find(a=>a.item.slot==='Wrist')?.premiumOutcomes).toEqual(['Club Pact','Temporal Split']);
   });
 
@@ -84,7 +91,7 @@ describe('per-item Wooden-to-Premium decision guide',()=>{
     expect(result).toHaveLength(data.gear.length);
     expect(result.some(a=>a.item.baseName==='Maple Wristband')).toBe(true);
     expect(result.find(a=>a.item.baseName==='Jellyfish Wristband')?.verdict).toBe('ALREADY PREMIUM');
-    expect(result.find(a=>a.item.baseName==='Reactor Fedora')?.verdict).toBe('ALREADY PREMIUM');
+    expect(result.find(a=>a.item.baseName==='Reactor Fedora'&&a.item.authentication.effect==='Mutated Luck')?.verdict).toBe('ALREADY PREMIUM');
     expect(result.find(a=>a.item.baseName==='Pearl Dominus')?.verdict).toBe('PROTECT ENCHANTMENT');
   });
 });

@@ -85,6 +85,21 @@ Mutated Luck +75%
     expect(scan.authentication.value).toBe(75);
   });
 
+  it('recognises current Limited passives, including Grade Re-Roll, without misclassifying them as Alien',()=>{
+    for(const [effect,slot] of [['Auto X-Ray','Head'],['Grade Re-Roll','Head'],['Luck Frenzy','Back'],['Featherweight','Back'],['Second Chance','Wrist'],['Steady Hand','Wrist']] as const){
+      const name=slot==='Head'?'Pearl Dominus':slot==='Back'?'Police Vest':'Jellyfish Wristband';
+      const scan=parseGearOcrText(`${name}\n${slot}\n+10% Luck\nAUTHENTICATED\n${effect} +12%`);
+      expect(scan.authentication.kind).toBe('Limited');
+      expect(scan.authentication.effect).toBe(effect);
+      expect(scan.warnings.some(w=>w.includes('Legacy Alien'))).toBe(false);
+    }
+  });
+
+  it('recognises Club Pact as Premium',()=>{
+    const scan=parseGearOcrText('Jellyfish Wristband\nWrist\n+54% Luck\nAUTHENTICATED\nClub Pact +4%');
+    expect(scan.authentication).toMatchObject({kind:'Premium',effect:'Club Pact',value:4});
+  });
+
   it('captures explicit mutation and condition labels without guessing from item name',()=>{
     const scan=parseGearOcrText(`
 Diamond Crypto Necklace

@@ -36,10 +36,13 @@ const AUTH_EFFECTS = [
   'Luck', 'Bid Recovery', 'Bid Arrow Speed', 'Bid Zone Width', 'Energy Drink Time', 'Tip Chance', 'NPC Offers Bonus', 'Walkspeed',
   'Sunny', 'Nocturnal', 'Overcharged', 'Raindrop', 'Focused', 'Time Keeper', 'Connected',
   'Sonic', 'Overcharge', 'Focus', 'Timekeeper',
-  'Mutated Luck', 'Drought Breaker', 'Golden Hour', 'Club Pact', 'Club Packed', 'Temporal Split'
+  'Mutated Luck', 'Droughtbreaker', 'Drought Breaker', 'Golden Hour', 'Club Pact', 'Club Packed', 'Temporal Split',
+  'Auto X-Ray', 'Grade Re-Roll', 'Luck Frenzy', 'Featherweight', 'Second Chance', 'Steady Hand'
 ];
-const PREMIUM_EFFECTS = new Set(['Mutated Luck','Drought Breaker','Golden Hour','Club Packed','Temporal Split']);
-const LEGACY_ALIEN_EFFECTS = ['Haggler', 'Anti-Gravity Field', 'Safecracker', 'Grade Re-Roll', 'Exhibitor', 'Rush'];
+const PREMIUM_EFFECTS = new Set(['Mutated Luck','Droughtbreaker','Drought Breaker','Golden Hour','Club Pact','Club Packed','Temporal Split']);
+const LIMITED_EFFECTS = new Set(['Auto X-Ray','Grade Re-Roll','Luck Frenzy','Featherweight','Second Chance','Steady Hand']);
+// Grade Re-Roll is intentionally excluded here because it is also a current Limited Head effect.
+const LEGACY_ALIEN_EFFECTS = ['Haggler', 'Anti-Gravity Field', 'Safecracker', 'Exhibitor', 'Rush'];
 const GENERIC_LINES = new Set(['gear', 'stats', 'stat', 'item', 'equipped', 'equip', 'unequip', 'inventory', 'authenticated', 'authentication', 'normal']);
 
 /** Extract metadata only from explicitly labelled screenshot text: do not infer mutation
@@ -282,7 +285,7 @@ function parseTextOnly(text: string): ParsedGearScan {
     stats,
     authenticated,
     authentication: authenticated && authEffect
-      ? { kind: PREMIUM_EFFECTS.has(authEffect) ? 'Premium' : 'Normal', effect: authEffect, value: authValue }
+      ? { kind: LIMITED_EFFECTS.has(authEffect) ? 'Limited' : PREMIUM_EFFECTS.has(authEffect) ? 'Premium' : 'Normal', effect: authEffect, value: authValue }
       : { kind: 'None', effect: '', value: 0 },
     confidence,
     warnings,
@@ -405,7 +408,7 @@ function parseVisual(text: string, lines: GearOcrVisualLine[]): ParsedGearScan |
     slotDetected: Boolean(detectedSlot),
     stats,
     authenticated,
-    authentication: authenticated && authEffect ? { kind: PREMIUM_EFFECTS.has(authEffect) ? 'Premium' : 'Normal', effect: authEffect, value: authValue } : { kind: 'None', effect: '', value: 0 },
+    authentication: authenticated && authEffect ? { kind: LIMITED_EFFECTS.has(authEffect) ? 'Limited' : PREMIUM_EFFECTS.has(authEffect) ? 'Premium' : 'Normal', effect: authEffect, value: authValue } : { kind: 'None', effect: '', value: 0 },
     confidence,
     warnings,
     recognisedFields,

@@ -74,6 +74,7 @@ export function analyseItems(gear: GearItem[], best: CombinationResult | undefin
 function protectionReason(item: GearItem, settings: AlgorithmSettings): string | undefined {
   const effect = item.authentication.effect.trim();
   if (!item.authenticated || !effect) return undefined;
+  if (item.authentication.kind === 'Limited') return `${effect} is a Limited passive with unverified proc rates, so it is protected from SAFE TO DISCARD and ranked by the Limited advisor instead.`;
   if (['Haggler', 'Anti-Gravity Field', 'Safecracker', 'Exhibitor'].includes(effect)) return `${effect} has unknown mechanics/value, so this item is protected from irreversible discard classification.`;
   if (effect === 'Time Keeper') return 'Time Keeper has a provisional coefficient and is protected from SAFE TO DISCARD.';
   if (effect === 'Grade Re-Roll') return 'Grade Re-Roll has a provisional coefficient and is protected from SAFE TO DISCARD.';

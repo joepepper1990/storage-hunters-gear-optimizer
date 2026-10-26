@@ -1,5 +1,5 @@
 import { screenshotVehicleParts, screenshotTrophies, screenshotCertificates } from './data/screenshotEquipment';
-import { makeKnownGear, makeMapleWristband } from './data/knownGear';
+import { makeKnownGear } from './data/knownGear';
 import type { AlgorithmSettings, AppData, AuthModelEntry, GearStats, Trailer, TrophyOptimiserSettings, VehicleOptimiserSettings, VehiclePart, VehicleProfile } from './types';
 
 export const ZERO_STATS: GearStats = {
@@ -170,7 +170,7 @@ export function makeDefaultAuthModel(): AuthModelEntry[] {
   }
   const premiumSlots:Record<'Head'|'Back'|'Wrist',string[]> = {
     Head:['Mutated Luck'],
-    Back:['Drought Breaker','Golden Hour'],
+    Back:['Droughtbreaker','Golden Hour'],
     Wrist:['Club Pact','Temporal Split']
   };
   for(const [slot,outcomes] of Object.entries(premiumSlots) as Array<['Head'|'Back'|'Wrist',string[]]>)
@@ -179,13 +179,24 @@ export function makeDefaultAuthModel(): AuthModelEntry[] {
       category:'Premium perk — community-documented',assumedLikelihoodClass:'LOW',
       observedSampleCount:0,observedValues:[],confidence:'Unknown',enabled:true
     });
+  const limitedSlots:Record<'Head'|'Back'|'Wrist',string[]>={
+    Head:['Auto X-Ray','Grade Re-Roll'],
+    Back:['Luck Frenzy','Featherweight'],
+    Wrist:['Second Chance','Steady Hand']
+  };
+  for(const [slot,outcomes] of Object.entries(limitedSlots) as Array<['Head'|'Back'|'Wrist',string[]]>)
+    for(const outcome of outcomes)entries.push({
+      id:crypto.randomUUID(),certificateType:'Limited Certificate of Authenticity',slot,outcome,
+      category:'Limited passive — exact proc range unverified',assumedLikelihoodClass:'MEDIUM',
+      observedSampleCount:0,observedValues:[],confidence:'Low',enabled:true
+    });
   return entries;
 }
 
 export function makeInitialData(): AppData {
   return {
-    schemaVersion: 7,
-    gear: [...makeKnownGear(),makeMapleWristband()],
+    schemaVersion: 8,
+    gear: makeKnownGear(),
     settings: { ...LOCKED_DEFAULT_SETTINGS },
     authModel: makeDefaultAuthModel(),
     rollLog: [],

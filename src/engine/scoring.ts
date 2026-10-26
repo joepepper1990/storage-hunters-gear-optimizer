@@ -86,6 +86,9 @@ export function passiveScore(item: GearItem, s: AlgorithmSettings) {
   if (!item.authenticated || item.authentication.kind === 'None' || !effect) {
     return { score: 0, details: [], unknown: false, provisional: false };
   }
+  if (item.authentication.kind === 'Limited') {
+    return { score: 0, details: [{ label: `${effect} (Limited utility — not numerically scored)`, score: 0 }], unknown: false, provisional: false };
+  }
   if (EVENT_PASSIVES.has(effect) || effect === 'Focused' || isNumericAuth(effect)) {
     return { score: 0, details: [], unknown: false, provisional: false };
   }

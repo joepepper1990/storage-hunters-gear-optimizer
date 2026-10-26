@@ -123,6 +123,16 @@ describe('locked scoring 1.1',()=>{
     expect(scoreStandalone(item('Crab auth',{luck:41},'Bid Arrow Speed',-24),s).core).toBeCloseTo(71,8);
     expect(scoreStandalone(item('Race auth',{arrowReduction:76,energy:64},'NPC Offers Bonus',7.7),s).core).toBeCloseTo(125.0275,8);
   });
+  it('does not invent numeric value for Limited passives even when a legacy weight exists',()=>{
+    const limited=item('Limited head',{luck:50},'Grade Re-Roll',25,'Limited');
+    const custom={...s,gradeRerollWeight:99};
+    const score=scoreStandalone(limited,custom);
+    expect(score.core).toBe(50);
+    expect(score.passive).toBe(0);
+    expect(score.total).toBe(50);
+    expect(score.passiveDetails[0]?.label).toContain('Limited utility');
+  });
+
   it('regresses Diamond Jellyfish core and legacy Rush separately',()=>{
     const jelly=item('Jelly',{luck:54,arrowReduction:32,walk:-1},'Rush',10,'Alien');
     const score=scoreStandalone(jelly,s);

@@ -84,6 +84,7 @@ describe('backup round trips',()=>{
     expect(restored.rollLog[0].certificateType).toBe('Certificate of Alienticity');
     expect(restored.authModel.some((m:any)=>m.certificateType==='Certificate of Alienticity'&&m.outcome==='Rush')).toBe(true);
     expect(restored.authModel.some((m:any)=>m.certificateType==='Normal Certificate of Authenticity'&&m.outcome==='Energy Drink Time')).toBe(true);
+    expect(restored.authModel.some((m:any)=>m.certificateType==='Limited Certificate of Authenticity'&&m.outcome==='Luck Frenzy')).toBe(true);
   });
 
   it('round-trips Energy Drink Time authentication metadata',()=>{
@@ -94,6 +95,18 @@ describe('backup round trips',()=>{
     expect(restored.gear[0].authentication.effect).toBe('Energy Drink Time');
     expect(restored.gear[0].authentication.value).toBe(20);
   });
+  it('round-trips Limited authentication and owned certificate star grade',()=>{
+    const d=makeInitialData();
+    d.gear=[{...gear,id:'limited',baseName:'Limited Head',slot:'Head',authenticated:true,authentication:{kind:'Limited',effect:'Auto X-Ray',value:12}}];
+    d.ownedCertificates=[{id:'limited-cert',type:'Limited Certificate of Authenticity',quantity:2,displayedValue:6291,gradeStars:2,rarity:'Limited'}];
+    const restored=importJson(exportJson(d));
+    expect(restored.gear[0].authentication).toEqual({kind:'Limited',effect:'Auto X-Ray',value:12});
+    expect(restored.ownedCertificates[0]).toMatchObject({type:'Limited Certificate of Authenticity',quantity:2,gradeStars:2});
+    const csv=csvToGear(gearToCsv(d.gear))[0];
+    expect(csv.authentication.kind).toBe('Limited');
+    expect(csv.authentication.effect).toBe('Auto X-Ray');
+  });
+
   it('round-trips Premium certificate metadata without pretending dynamic perks are numeric base stats',()=>{
     const d=makeInitialData();
     d.gear=[{...gear,id:'premium',baseName:'Premium Head',slot:'Head',authenticated:true,authentication:{kind:'Premium',effect:'Mutated Luck',value:75}}];
