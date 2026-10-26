@@ -1,13 +1,25 @@
 import type { AppData, CertificateRollLog, OwnedCertificate } from '../types';
-import { analyseCertificate, type CertificateTargetDecision } from './certificateDecision';
+import {
+  analyseCertificate,
+  analyseConditionalNumberReroll,
+  type CertificateTargetDecision
+} from './certificateDecision';
+import { rebuildEmpiricalModel } from './certificateRolls';
 import { MODEL_ASSUMPTIONS } from './modelAssumptions';
 
 export const AUTHENTICATOR_REROLL_COST_ROBUX=MODEL_ASSUMPTIONS.authenticator.paidRerollRobux;
 
 export interface PostRollOption {
   action:'REROLL EFFECT'|'REROLL NUMBER';
-  target:CertificateTargetDecision;
   recommendable:boolean;
+  expectedMainPct:number;
+  chancePotentialWorsePct:number;
+  unresolvedOutcomeMassPct:number;
+  expectedContextualMainPct:number;
+  expectedDrinkPrepPct:number;
+  expectedGradingPct:number;
+  expectedShopPct:number;
+  expectedPersonalPreferenceDelta:number;
   note:string;
 }
 
@@ -31,82 +43,103 @@ function syntheticCertificate(roll:CertificateRollLog):OwnedCertificate|undefine
   };
 }
 
-function targetFor(data:AppData,roll:CertificateRollLog,cert:OwnedCertificate):CertificateTargetDecision|undefined {
-  return analyseCertificate(data,cert).targets.find(target=>target.item.id===roll.itemId);
-}
-
-function option(action:PostRollOption['action'],target:CertificateTargetDecision|undefined):PostRollOption|undefined {
-  if(!target)return undefined;
-  const recommendable=
-    target.unresolvedOutcomeMassPct<1e-9 &&
-    target.chancePotentialWorsePct<45 &&
-    (target.verdict==='USE'||target.verdict==='CONSIDER') &&
-    (
-      target.expectedImprovementPct>.25 ||
-      target.expectedContextualMainPct>=1 ||
-      target.expectedDrinkPrepPct>=3 ||
-      target.expectedGradingPct>=3 ||
-      target.expectedShopPct>=3 ||
-      target.expectedPersonalPreferenceDelta>=.20
-    );
+function option(
+  action:PostRollOption['action'],
+  values:Pick<PostRollOption,'expectedMainPct'|'chancePotentialWorsePct'|'unresolvedOutcomeMassPct'|'expectedContextualMainPct'|'expectedDrinkPrepPct'|'expectedGradingPct'|'expectedShopPct'|'expectedPersonalPreferenceDelta'>|undefined,
+  extraNote=''
+):PostRollOption|undefined {
+  if(!values)return undefined;
+  const resolved=values.unresolvedOutcomeMassPct<1e-9;
+  const lowDownside=values.chancePotentialWorsePct<45;
+  const benefit=values.expectedMainPct>.25 ||
+    values.expectedContextualMainPct>=1 ||
+    values.expectedDrinkPrepPct>=3 ||
+    values.expectedGradingPct>=3 ||
+    values.expectedShopPct>=3 ||
+    values.expectedPersonalPreferenceDelta>=.20;
   return {
-    action,target,recommendable,
-    note:target.unresolvedOutcomeMassPct>0
-      ?'Unresolved outcome/range evidence prevents a paid reroll recommendation.'
-      :target.chancePotentialWorsePct>=45
-        ?'Modelled downside is too high for a paid reroll recommendation.'
-        :'Compared against accepting the current recorded result.'
+    action,...values,recommendable:resolved&&lowDownside&&benefit,
+    note:!resolved
+      ?'Incomplete same-certificate evidence prevents a paid reroll recommendation. '+extraNote
+      :!lowDownside?'Downside is too high for a paid reroll recommendation. '+extraNote
+      :'Compared directly against accepting the existing roll. '+extraNote
   };
 }
 
 function optionRank(value:PostRollOption|undefined):number {
   if(!value?.recommendable)return -Infinity;
-  const verdict=value.target.verdict==='USE'?2:value.target.verdict==='CONSIDER'?1:0;
   const specialist=Math.max(
-    value.target.expectedContextualMainPct,
-    value.target.expectedDrinkPrepPct,
-    value.target.expectedGradingPct,
-    value.target.expectedShopPct,
-    value.target.expectedPersonalPreferenceDelta
+    value.expectedContextualMainPct,
+    value.expectedDrinkPrepPct,
+    value.expectedGradingPct,
+    value.expectedShopPct,
+    value.expectedPersonalPreferenceDelta
   );
-  return verdict*1_000_000+value.target.expectedImprovementPct*10_000+specialist*100-value.target.chancePotentialWorsePct;
+  return value.expectedMainPct*10_000+specialist*100-value.chancePotentialWorsePct;
 }
 
-/**
- * Models the two temporary 199-Robux buttons shown immediately after authentication.
- * The Robux cost is surfaced but deliberately not converted into gear utility.
+function fromCertificateTarget(target:CertificateTargetDecision|undefined):PostRollOption|undefined {
+  return option('REROLL EFFECT',target&&{
+    expectedMainPct:target.expectedImprovementPct,
+    chancePotentialWorsePct:target.chancePotentialWorsePct,
+    unresolvedOutcomeMassPct:target.unresolvedOutcomeMassPct,
+    expectedContextualMainPct:target.expectedContextualMainPct,
+    expectedDrinkPrepPct:target.expectedDrinkPrepPct,
+    expectedGradingPct:target.expectedGradingPct,
+    expectedShopPct:target.expectedShopPct,
+    expectedPersonalPreferenceDelta:target.expectedPersonalPreferenceDelta
+  },'Authentication effect is selected from the applicable catalogue.');
+}
+
+/** Only use this during a real, user-confirmed open Authenticator prompt.
+ * This is not a property of historical roll evidence and must never be restored
+ * automatically from saved rollLog.
  */
 export function analysePostRollOptions(data:AppData,roll:CertificateRollLog):PostRollDecision|undefined {
   const cert=syntheticCertificate(roll);
-  if(!cert||!data.gear.some(item=>item.id===roll.itemId))return undefined;
+  const item=data.gear.find(g=>g.id===roll.itemId);
+  if(!cert||!item||!item.authenticated||
+    item.authentication.effect!==roll.newAuthentication||
+    Math.abs(item.authentication.value-roll.newValue)>1e-8)return undefined;
 
-  const effectTarget=targetFor(data,roll,cert);
-
-  const numberData:AppData={
+  // Rebuild historical model evidence without the result currently being judged.
+  // It must not train the probability model for its own replacement.
+  const history=data.rollLog.filter(r=>r.id!==roll.id);
+  const trainingData:AppData={
     ...data,
-    authModel:data.authModel.map(row=>{
-      if(row.certificateInventoryType!==cert.type)return row;
-      return {...row,enabled:row.outcome===roll.newAuthentication};
-    })
+    rollLog:history,
+    authModel:rebuildEmpiricalModel(data.authModel,data.rollLog,history)
   };
-  const numberTarget=targetFor(numberData,roll,cert);
 
-  const effectReroll=option('REROLL EFFECT',effectTarget);
-  const numberReroll=option('REROLL NUMBER',numberTarget);
+  const effectTarget=analyseCertificate(trainingData,cert).targets.find(t=>t.item.id===roll.itemId);
+  const effectReroll=fromCertificateTarget(effectTarget);
+
+  // Dedicated conditional number-reroll calculation: retain the existing effect,
+  // sample only values of that same effect, and compare to accepting current gear.
+  const number=analyseConditionalNumberReroll(trainingData,roll,cert);
+  const numberReroll=option('REROLL NUMBER',number&&{
+    expectedMainPct:number.expectedMainPct,
+    chancePotentialWorsePct:number.chanceAnyWorsePct+number.unresolvedMassPct>100
+      ?100:number.chanceAnyWorsePct+number.unresolvedMassPct,
+    unresolvedOutcomeMassPct:number.unresolvedMassPct,
+    expectedContextualMainPct:number.expectedContextualMainPct,
+    expectedDrinkPrepPct:number.expectedDrinkPrepPct,
+    expectedGradingPct:number.expectedGradingPct,
+    expectedShopPct:number.expectedShopPct,
+    expectedPersonalPreferenceDelta:0
+  },number?.modelNote??'');
+
   const effectRank=optionRank(effectReroll);
   const numberRank=optionRank(numberReroll);
-
   let recommendation:PostRollDecision['recommendation']='ACCEPT';
   if(effectRank>0||numberRank>0)recommendation=numberRank>effectRank?'REROLL NUMBER':'REROLL EFFECT';
 
   return {
     roll,
     costRobux:AUTHENTICATOR_REROLL_COST_ROBUX,
-    recommendation,
-    effectReroll,
-    numberReroll,
+    recommendation,effectReroll,numberReroll,
     reason:recommendation==='ACCEPT'
-      ?'No fully-resolved paid reroll option currently clears the modelled benefit/downside threshold. Accept is the conservative gear-only choice.'
-      :'This ranks gear utility only. Both paid options cost the same, but the model does not assign a cash/Robux value to that cost.'
+      ?'Neither paid alternative has a sufficiently supported gain over accepting the current roll. No Robux value has been assumed.'
+      :'Computed against accepting the current result. This recommendation considers gear benefit only, not the personal value of 199 Robux.'
   };
 }
