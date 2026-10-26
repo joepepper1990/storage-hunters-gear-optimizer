@@ -240,12 +240,12 @@ function normalizeSettings(raw: Partial<AppData['settings']> | undefined): AppDa
   const sourceVersion = String(source.version ?? '1.0');
   const merged: Record<string, unknown> = { ...LOCKED_DEFAULT_SETTINGS, ...source };
 
-  // Scoring 1.1 is a deliberate balance-model migration. Old installations may have
+  // Scoring 1.2 is a deliberate balance-model migration. Old installations may have
   // persisted the 1.0 defaults in IndexedDB, so simply changing defaults would leave
-  // those browsers on the obsolete model. Override the fields changed by 1.1 once,
+  // those browsers on the obsolete model. Override the fields changed by 1.2 once,
   // while retaining unrelated user settings and all inventory/history data.
-  if (sourceVersion !== '1.1') {
-    const v11Keys: Array<keyof AppData['settings']> = [
+  if (sourceVersion !== '1.2') {
+    const v12Keys: Array<keyof AppData['settings']> = [
       'luckWeight','luckBreakpoint1','luckBreakpoint2','luckBreakpoint3','luckBreakpoint4',
       'luckMultiplier2','luckMultiplier3','luckMultiplier4','luckMultiplier5',
       'arrowWeight','arrowSweetSpot','arrowDiminishingMultiplier','arrowCeiling','arrowPenaltyThreshold','arrowOvercapPenaltyMultiplier',
@@ -253,10 +253,10 @@ function normalizeSettings(raw: Partial<AppData['settings']> | undefined): AppDa
       'zoneWeight','zoneBreakpoint1','zoneBreakpoint2','zoneMultiplier2','zoneMultiplier3',
       'tipWeight','recoveryWeight','walkWeight','vehicleWeight'
     ];
-    for (const key of v11Keys) merged[key] = LOCKED_DEFAULT_SETTINGS[key];
+    for (const key of v12Keys) merged[key] = LOCKED_DEFAULT_SETTINGS[key];
   }
 
-  const out: Record<string, unknown> = { ...LOCKED_DEFAULT_SETTINGS, version: '1.1' };
+  const out: Record<string, unknown> = { ...LOCKED_DEFAULT_SETTINGS, version: '1.2' };
   for (const [key, defaultValue] of Object.entries(LOCKED_DEFAULT_SETTINGS)) {
     if (key === 'version') continue;
     const n = Number(merged[key]);
