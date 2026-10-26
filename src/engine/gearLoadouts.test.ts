@@ -84,6 +84,16 @@ describe('unified gear loadouts and retention',()=>{
     }
   });
 
+  it('never marks a stateful dynamic item SAFE when static dominance cannot prove its mechanic',()=>{
+    const dynamic=g('Dynamic','Back',{}, {kind:'Premium',effect:'Droughtbreaker',value:1});
+    const strong=g('Strong','Back',{luck:100});
+    const gear=[g('H','Head',{luck:100}),dynamic,strong,g('W','Wrist',{luck:100})];
+    const result=analyseGearRetention(gear,LOCKED_DEFAULT_SETTINGS).find(a=>a.item.id==='Dynamic')!;
+    expect(result.verdict).toBe('KEEP');
+    expect(result.verdict).not.toBe('PROTECTED / UNKNOWN');
+    expect(result.reason).toContain('state- or trio-dependent');
+  });
+
   it('never marks an item SAFE TO DISCARD if it belongs to any relevant loadout',()=>{
     const data=makeInitialData();
     const analyses=analyseGearRetention(data.gear,data.settings);

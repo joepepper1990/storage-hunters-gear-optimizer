@@ -10,6 +10,8 @@ export type GearLoadoutName = 'Main Auction' | 'Day Auction' | 'Night Auction' |
 export interface GearLoadoutMembership {
   loadout: GearLoadoutName;
   context?: MainAuctionContext;
+  /** Dynamic sensitivity state that caused this membership, when not the central state. */
+  scenario?: string;
   selected: boolean;
   tied: boolean;
 }
@@ -287,6 +289,8 @@ export interface CertificateRollLog {
   bestScoreAfter: number;
   certificateId?: string;
   certificateGradeStars?: number;
+  /** Exact owned certificate inventory type used for this roll (Wooden, Ripped, Premium or Limited). */
+  certificateInventoryType?: OwnedCertificate['type'];
   normalizedRollPosition?: number;
 }
 
