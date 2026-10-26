@@ -36,13 +36,13 @@ describe('backup round trips',()=>{
     expect(()=>importJson(JSON.stringify(d))).toThrow();
   });
 
-  it('migrates stored scoring settings to the approved 1.2 Main Auction model',()=>{
+  it('migrates stored scoring settings to the unified 2.0 model',()=>{
     const d=makeInitialData() as any;
     d.settings={...d.settings,version:'1.0',arrowOvercapPenaltyMultiplier:1,zoneWeight:0.4,npcWeight:0.75,recoveryWeight:0.01,walkWeight:0.01};
     delete d.settings.luckBreakpoint1;
     delete d.settings.npcBreakpoint1;
     const restored=importJson(JSON.stringify(d));
-    expect(restored.settings.version).toBe('1.2');
+    expect(restored.settings.version).toBe('2.0');
     expect(restored.settings.arrowOvercapPenaltyMultiplier).toBe(0);
     expect(restored.settings.zoneWeight).toBe(0.6);
     expect(restored.settings.npcWeight).toBe(0);
@@ -126,13 +126,13 @@ describe('backup round trips',()=>{
     expect(restored.trophySettings.mutationWeights.find(w=>w.mutation==='Clockwork')?.multiplier).toBe(25);
   });
 
-  it('migrates an older backup to the verified schema-9 gear/certificate baseline',()=>{
+  it('migrates an older backup to the verified schema-10 gear/certificate baseline',()=>{
     const d=makeInitialData() as any;
     d.schemaVersion=1;
     d.gear=[gear];
     delete d.vehicleProfile; delete d.vehicleSettings; delete d.vehicleParts; delete d.trailers; delete d.trophies; delete d.trophySettings;
     const restored=importJson(JSON.stringify(d));
-    expect(restored.schemaVersion).toBe(9);
+    expect(restored.schemaVersion).toBe(10);
     expect(restored.gear).toHaveLength(22);
     expect(restored.gear.some((g:any)=>g.id==='abc')).toBe(false);
     expect(restored.ownedCertificates).toHaveLength(7);
