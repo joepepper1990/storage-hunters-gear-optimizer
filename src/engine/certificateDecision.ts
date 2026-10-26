@@ -387,7 +387,11 @@ function unresolvedPotential(effect:string,item:GearItem,modeledMechanic:boolean
   if(effect==='Luck')return {main:true,secondary:false};
   if(effect==='Focused')return focusedPotential(item);
   if(!modeledMechanic)return {main:true,secondary:true};
-  return {main:false,secondary:false};
+  const meta=OUTCOME_META[effect];
+  return {
+    main:Boolean(meta?.mainRelevant||['Sunny','Nocturnal','Raindrop'].includes(effect)),
+    secondary:Boolean(meta?.specialist)
+  };
 }
 
 function targetDecision(
