@@ -301,6 +301,7 @@ function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppData)=>voi
   },[data.ownedCertificates,selectedCertificateId]);
   const selectedCertificate=availableCertificates.find(c=>c.id===selectedCertificateId);
   const changeQty=(id:string,amount:number)=>setData({...data,ownedCertificates:data.ownedCertificates.map(x=>x.id===id?{...x,quantity:Math.max(0,x.quantity+amount)}:x)});
+  const patchCertificate=(id:string,patch:Partial<OwnedCertificate>)=>setData({...data,ownedCertificates:data.ownedCertificates.map(x=>x.id===id?{...x,...patch}:x)});
   const signed=(n:number)=>(n>=0?'+':'')+n.toFixed(2)+'%';
 
   return <section>
@@ -319,7 +320,3084 @@ function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppData)=>voi
           <summary>
             <div>
               <strong>{decision.certificate.type}</strong>
-              <span>{decision.certificate.gradeStars!==undefined?'★'.repeat(decision.certificate.gradeStars)+' · ':''}Owned {decision.certificate.quantity}{decision.certificate.displayedValue!==undefined?' · $'+decision.certificate.displayedValue.toLocaleString():''}</span>
+              <span>{decision.certificate.mutation?decision.certificate.mutation+' · ':''}{decision.certificate.gradeStars!==undefined?'★'.repeat(decision.certificate.gradeStars)+' · ':''}Owned {decision.certificate.quantity}{decision.certificate.displayedValue!==undefined?' · 
+            </div>
+            <div className="premiumVerdict">{decision.verdict}</div>
+          </summary>
+          <div className="comboBody">
+            {target?<>
+              <div className="rowBetween"><div><span className="eyebrow">BEST CURRENT TARGET</span><h3>{target.item.baseName||target.item.name}</h3><p>{target.item.slot}{target.item.authenticated?' · replacing '+target.item.authentication.effect:''}</p></div><span className="badge heuristic">{target.confidencePct.toFixed(0)}% CONFIDENCE</span></div>
+
+              <div className="statsGrid three">
+                <StatTile label="Robust Main improves" value={target.chanceOfImprovementPct} suffix="%"/>
+                <StatTile label="Potential Main improves" value={target.chanceOfPotentialImprovementPct} suffix="%"/>
+                <StatTile label="Expected Main change" value={target.expectedImprovementPct} suffix="%"/>
+                <StatTile label="Chance Main/context worsens" value={target.chanceOfWorsePct} suffix="%"/>
+                <StatTile label="Meaningful robust gain ≥1%" value={target.chanceOfMeaningfulImprovementPct} suffix="%"/>
+                <StatTile label="Unresolved outcome mass" value={target.unresolvedOutcomeMassPct} suffix="%"/>
+                <StatTile label="Current Main fit" value={target.mainFitPct} suffix="%"/>
+              </div>
+
+              <div className="thresholdTable">
+                <div><b>Main sensitivity low / central / high</b><span>{signed(target.expectedImprovementLowPct)} / {signed(target.expectedImprovementPct)} / {signed(target.expectedImprovementHighPct)}</span></div>
+                <div><b>Average robust gain when successful</b><span>{signed(target.averageGainWhenSuccessfulPct)}</span></div>
+                <div><b>Average demonstrated loss when worse</b><span>{signed(target.averageLossWhenWorsePct)}</span></div>
+                <div><b>10th / median / 90th central percentile</b><span>{signed(target.p10Pct)} / {signed(target.medianPct)} / {signed(target.p90Pct)}</span></div>
+                <div><b>Best possible modelled branch</b><span>{target.bestPossibleOutcome} · {signed(target.bestCasePct)}</span></div>
+                <div><b>Worst modelled Main/context branch</b><span>{target.worstPossibleOutcome} · {signed(target.worstCasePct)}</span></div>
+                <div><b>Authentication risk — neutral Main</b><span>{signed(target.currentAuthenticationMainRiskPct)}</span></div>
+                <div><b>Authentication risk — Day/Night/Rain</b><span>{signed(target.currentAuthenticationContextRiskPct)}</span></div>
+                <div><b>Authentication risk — Drink Prep</b><span>{signed(target.currentAuthenticationDrinkRiskPct)}</span></div>
+                <div><b>Authentication risk — Grading</b><span>{signed(target.currentAuthenticationGradingRiskPct)}</span></div>
+                <div><b>Authentication risk — Shop/Idle</b><span>{signed(target.currentAuthenticationShopRiskPct)}</span></div>
+                <div><b>Worst authentication risk anywhere relevant</b><span>{signed(target.currentAuthenticationValueAtRiskPct)}</span></div>
+                <div><b>Average Day/Night/Rain impact</b><span>{signed(target.expectedContextualMainPct)}</span></div>
+                <div><b>Worst Day/Night/Rain impact</b><span>{signed(target.worstContextualMainPct)}</span></div>
+                <div><b>Expected Drink Prep impact</b><span>{signed(target.expectedDrinkPrepPct)}</span></div>
+                <div><b>Expected Grading impact</b><span>{signed(target.expectedGradingPct)}</span></div>
+                <div><b>Expected Shop/Idle impact</b><span>{signed(target.expectedShopPct)}</span></div>
+              </div>
+
+              {target.unresolvedEffects.length>0&&<div className="notice warning"><b>Unresolved magnitude:</b> {target.unresolvedEffects.join(', ')}. These branches are not treated as zero-value known outcomes and cannot produce a USE verdict until supported by numeric evidence.</div>}
+              <ul>{target.reasons.map((reason,i)=><li key={i}>{reason}</li>)}</ul>
+
+              {decision.conversion&&<div className="notice"><b>Wooden → Premium opportunity cost:</b> {decision.conversion.recommendation}. Direct Wooden EV {signed(decision.conversion.directExpectedMainPct)} vs synthetic Premium EV {signed(decision.conversion.premiumExpectedMainPct)}. Conversion costs {decision.conversion.diamondCost} Diamonds. {decision.conversion.reason}</div>}
+
+              <details>
+                <summary>Other targets</summary>
+                <div className="thresholdTable">{decision.targets.slice(1,7).map((alt,index)=><div key={alt.item.id}><b>#{index+2} {alt.item.baseName||alt.item.name} · {alt.verdict}</b><span>{alt.chanceOfImprovementPct.toFixed(1)}% robust improve · EV {signed(alt.expectedImprovementPct)}</span></div>)}</div>
+              </details>
+            </>:<p className="muted">A complete Head, Back and Wrist inventory is required.</p>}
+
+            <div className="notice warning"><b>Evidence boundary:</b> these are modelled decision percentages, not hidden Roblox loot odds. Effect selection uses a neutral equal prior until exact-certificate observations exist. Unknown star transforms and unresolved magnitudes reduce confidence instead of being invented.</div>
+          </div>
+        </details>;
+      })}
+      {!certificateState.computing&&!certificateState.error&&!decisions.length&&<p className="muted">No owned certificates are available for analysis.</p>}
+    </div>
+
+    <div className="card">
+      <div className="sectionTitle"><h2>Owned certificates</h2><button className="secondary compact" onClick={()=>setEditInventory(!editInventory)}>{editInventory?'Done':'Manual adjustment'}</button></div>
+      <div className="gearList">{data.ownedCertificates.map(cert=><div className="gearCard" key={cert.id}><strong>{cert.type}</strong><p>{cert.rarity||'Certificate'}{cert.mutation?' · '+cert.mutation:''}{cert.gradeStars!==undefined?' · '+'★'.repeat(cert.gradeStars):''}{cert.displayedValue!==undefined?' · 
+      <div className="notice">Recording a roll below now consumes the exact selected certificate automatically. Wooden → Premium is compared explicitly against direct Wooden use at the current 150-Diamond conversion cost.</div>
+    </div>
+
+    <div className="sectionTitle"><h2>Record a result</h2></div>
+    {availableCertificates.length?<div className="card">
+      <label>Certificate actually used<select value={selectedCertificateId} onChange={e=>setSelectedCertificateId(e.target.value)}>{availableCertificates.map(cert=><option value={cert.id} key={cert.id}>{cert.type} · {cert.mutation?cert.mutation+' · ':''}{cert.gradeStars!==undefined?'★'.repeat(cert.gradeStars)+' · ':''}{cert.displayedValue!==undefined?'</select></label>
+      <button className="secondary" disabled={!selectedCertificate} onClick={()=>setLogOpen(true)}>＋ Record selected certificate roll</button>
+    </div>:<p className="muted">No certificate with quantity remaining is available to record.</p>}
+
+    <div className="sectionTitle"><h2>Roll history</h2></div>
+    <div className="card tableCard">{data.rollLog.length?data.rollLog.slice().reverse().map(r=><div className="logRow" key={r.id}><div><strong>{r.itemName}</strong><span>{new Date(r.date).toLocaleDateString()} · {r.certificateInventoryType??(r.certificateType.startsWith('Normal')?'Legacy Normal':r.certificateType.startsWith('Premium')?'Premium':r.certificateType.startsWith('Limited')?'Limited':'Legacy Alien')}</span></div><div><b>{r.newAuthentication} {r.newValue}%</b><span>{r.bestScoreBefore.toFixed(2)} → {r.bestScoreAfter.toFixed(2)}</span></div></div>):<p className="muted">No certificate rolls recorded yet.</p>}</div>
+
+    {logOpen&&selectedCertificate&&<RollLogEditor data={data} certificate={selectedCertificate} onClose={()=>setLogOpen(false)} onSave={(r,updated)=>{
+      try{
+        setData(applyRecordedCertificateRoll(data,selectedCertificate.id,r,updated));
+        setLogOpen(false);
+      }catch(error){alert(error instanceof Error?error.message:'Could not record certificate roll.')}
+    }}/>}
+  </section>;
+}
+
+function SettingsScreen({data,setData,showToast}:{data:AppData;setData:(d:AppData)=>void;showToast:(s:string)=>void}){
+  const jsonRef=useRef<HTMLInputElement>(null),csvRef=useRef<HTMLInputElement>(null);
+  function setS<K extends keyof AlgorithmSettings>(k:K,v:AlgorithmSettings[K]){setData({...data,settings:{...data.settings,[k]:v}})}
+  const fields:Array<[keyof AlgorithmSettings,string]>=[['luckWeight','Main Auction Luck weight'],['arrowWeight','Main Auction Bid Arrow weight'],['arrowSweetSpot','Bid Arrow sweet spot'],['zoneWeight','Main Auction Bid Zone weight'],['zoneBreakpoint1','Bid Zone breakpoint 1'],['zoneBreakpoint2','Bid Zone breakpoint 2'],['zoneMultiplier2','Bid Zone middle multiplier'],['zoneMultiplier3','Bid Zone upper multiplier'],['recoveryWeight','Main Auction Bid Recovery weight'],['energyTarget','Drink Prep Energy target'],['energyCeiling','Drink Prep Energy ceiling'],['energySecondStageMultiplier','Drink Prep above-target multiplier']];
+  const issues=algorithmIssues(data.settings);
+  return <section><div className="pageHeading"><div><h1>Settings</h1><p>Algorithm Version 2.0</p></div></div>
+    <div className="sectionTitle"><h2>Appearance</h2></div><div className="card"><label>Theme<select value={data.theme} onChange={e=>setData({...data,theme:e.target.value as any})}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label></div>
+    <div className="sectionTitle"><h2>Algorithm editor</h2><button className="secondary compact" onClick={()=>setData({...data,settings:{...LOCKED_DEFAULT_SETTINGS}})}>Reset to locked defaults</button></div>
+    <div className="settingsGrid">{fields.map(([k,label])=><label className="settingField" key={k}><span>{label}</span><input type="number" step="any" value={data.settings[k]} onChange={e=>setS(k,Number(e.target.value) as never)}/></label>)}</div>
+    {issues.length>0&&<div className="notice dangerNotice"><b>Settings need correction:</b> {issues.join(' · ')}</div>}
+    <div className="notice">Algorithm 2.0 uses one shared model for Main Auction, retention and certificate decisions. Displayed Luck is linear. Bid Arrow benefit caps at your 75% sweet spot with no invented over-cap penalty. Drink Prep, Grading and Shop/Idle are separate loadouts and never compensate for a weaker Main Auction result. Day, Night and Rain are evaluated as contextual Main variants instead of fake uptime averages.</div>
+    <div className="sectionTitle"><h2>Authentication outcome catalogue</h2><button className="secondary compact" onClick={()=>setData({...data,authModel:[...data.authModel,newAuthModelEntry()]})}>＋ Add outcome</button></div><div className="card authModel"><p className="muted">This is the live certificate model. Enabled rows, certificate tier, min / typical / max, confidence and relative-weight class all feed directly into certificate EV. MEDIUM is the neutral default because the real per-effect odds are unpublished; changing the class is an explicit user assumption, not a game fact.</p>{data.authModel.filter(m=>m.certificateType!=='Certificate of Alienticity'&&!LEGACY_ALIEN_EFFECTS.includes(m.outcome as never)).slice().sort((a,b)=>(a.certificateInventoryType??'').localeCompare(b.certificateInventoryType??'')||a.slot.localeCompare(b.slot)||a.outcome.localeCompare(b.outcome)).map(m=><AuthModelRow key={m.id} entry={m} onChange={entry=>setData({...data,authModel:data.authModel.map(x=>x.id===entry.id?entry:x)})} onDelete={()=>{if(confirm(`Remove authentication model outcome ${m.outcome}? Roll history is not deleted.`))setData({...data,authModel:data.authModel.filter(x=>x.id!==m.id)})}}/>)}</div>
+    <div className="sectionTitle"><h2>Backup & data safety</h2></div><div className="card buttonStack"><button className="primary" onClick={()=>downloadText(`storage-hunters-backup-${dateStamp()}.json`,exportJson(data),'application/json')}>Download JSON backup</button><button className="secondary" onClick={()=>jsonRef.current?.click()}>Restore JSON backup</button><button className="secondary" onClick={()=>downloadText(`storage-hunters-gear-${dateStamp()}.csv`,gearToCsv(data.gear),'text/csv')}>Export gear CSV</button><button className="secondary" onClick={()=>csvRef.current?.click()}>Import gear CSV</button><input hidden type="file" accept="application/json,.json" ref={jsonRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const d=importJson(await f.text());if(confirm(`Restore backup containing ${d.gear.length} gear items? This replaces current local data.`)){setData(d);showToast('Backup restored')}}catch(err){alert(err instanceof Error?err.message:'Invalid backup')}}}/><input hidden type="file" accept="text/csv,.csv" ref={csvRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const g=csvToGear(await f.text());if(confirm(`Import ${g.length} gear items? They will be added to the current inventory.`)){const imported=prepareImportedGear(data.gear,g);setData({...data,gear:[...data.gear,...imported]});showToast('CSV imported')}}catch(err){alert(err instanceof Error?err.message:'Invalid CSV')}}}/><button className="danger" onClick={()=>{const phrase=prompt('Type RESET ALL DATA to permanently clear all local inventory, certificates, roll history, vehicle parts, trophies and settings back to an empty workspace.');if(phrase==='RESET ALL DATA')setData(makeEmptyData())}}>Clear all local data</button></div>
+  </section>;
+}
+
+function GearEditor({item,authModel,mode,onClose,onSave}:{item:GearItem;authModel:AuthModelEntry[];mode:'add'|'edit';onClose:()=>void;onSave:(i:GearItem,keepAdding?:boolean)=>void}){
+  const [v,setV]=useState({...item,name:generateGearName(item.baseName,item.stats,item.authenticated,item.authentication)});
+  const initialShown=statLabels.filter(([key])=>Math.abs(item.stats[key])>1e-12).map(([key])=>key);
+  const [shownStats,setShownStats]=useState<Array<keyof GearStats>>(initialShown);
+  const patch=(next:Partial<GearItem>)=>setV(current=>{const updated={...current,...next};return {...updated,name:generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication)};});
+  const setStat=(k:keyof GearStats,n:number)=>setV(current=>{const stats={...current.stats,[k]:Number.isFinite(n)?n:0};return {...current,stats,name:generateGearName(current.baseName,stats,current.authenticated,current.authentication)};});
+  const setAuthentication=(next:Partial<GearItem['authentication']>)=>setV(current=>{const authentication={...current.authentication,...next};return {...current,authentication,name:generateGearName(current.baseName,current.stats,current.authenticated,authentication)};});
+  const showStat=(key:keyof GearStats)=>setShownStats(current=>current.includes(key)?current:[...current,key]);
+  const hideStat=(key:keyof GearStats)=>{setStat(key,0);setShownStats(current=>current.filter(k=>k!==key));};
+  const orderedShown=statLabels.filter(([key])=>shownStats.includes(key));
+  const hidden=statLabels.filter(([key])=>!shownStats.includes(key));
+  const displayedArrow=reductionToGameArrow(v.stats.arrowReduction);
+  const legacyAlien=v.authenticated&&v.authentication.kind==='Alien';
+  const currentKind=v.authentication.kind==='Premium'?'Premium':v.authentication.kind==='Limited'?'Limited':'Normal';
+  return <div className="modalBackdrop"><div className="modal sheet"><div className="modalHeader"><div><span className="eyebrow">{mode==='add'?'QUICK ADD GEAR':'EDIT GEAR'}</span><h2>{v.baseName||'New gear'}</h2></div><button className="iconButton" onClick={onClose}>×</button></div>
+    <div className="formGrid quickIdentity"><label className="wide">Actual gear name<input autoFocus value={v.baseName} onChange={e=>patch({baseName:e.target.value})} placeholder="e.g. Pearl Dominus"/></label><label>Slot<select value={v.slot} onChange={e=>patch({slot:e.target.value as Slot})}><option>Head</option><option>Back</option><option>Wrist</option></select></label><label>Mutation<input list={`mutations-${v.id}`} value={v.mutation??''} onChange={e=>patch({mutation:e.target.value})} placeholder="None, Diamond, Gold…"/><datalist id={`mutations-${v.id}`}>{['None','Diamond','Gold','Silver','Cobwebbed','Exclusive','Police','Chrome','Gem','Void','Onyx'].map(m=><option key={m} value={m}/>)}</datalist></label><label>Condition %<input type="number" min="0" max="100" step="any" inputMode="decimal" value={v.conditionPct??''} onChange={e=>patch({conditionPct:e.target.value===''?undefined:Number(e.target.value)})} placeholder="Optional"/></label><label className="check"><input type="checkbox" checked={v.favourite} onChange={e=>patch({favourite:e.target.checked})}/> Lock / favourite</label></div>
+    <div className="autoNamePreview"><span>Automatic name</span><strong>{v.name||'Name updates as stats are entered'}</strong></div>
+    <div className="quickEntrySection"><div className="rowBetween"><div><strong>Stats shown on this item</strong><div className="fieldHelp">Tap only the stats visible in game. Empty fields stay out of the way.</div></div></div>
+      {hidden.length>0&&<div className="statPicker">{hidden.map(([key,label])=><button type="button" key={key} onClick={()=>showStat(key)}>＋ {shortStat(label)}</button>)}</div>}
+      {!orderedShown.length&&<div className="quickEmpty">No stats selected yet.</div>}
+      <div className="quickStatGrid">{orderedShown.map(([key,label])=>key==='arrowReduction'
+        ? <div className="quickStatField arrowQuick" key={key}><label>{label}<input inputMode="decimal" type="number" step="any" value={displayedArrow} onChange={e=>setStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><small>Enter the signed game value, e.g. -24.</small></label><button type="button" className="removeStat" onClick={()=>hideStat(key)}>×</button></div>
+        : <div className="quickStatField" key={key}><label>{label} %<input inputMode="decimal" type="number" step="any" value={v.stats[key]} onChange={e=>setStat(key,Number(e.target.value))}/></label><button type="button" className="removeStat" onClick={()=>hideStat(key)}>×</button></div>)}</div>
+    </div>
+    <details className="finalStatsEditor authQuick" open={v.authenticated}><summary>Authentication {v.authenticated?`— ${v.authentication.kind} · ${v.authentication.effect||'select effect'}`:'— none'}</summary><div className="formGrid"><label className="check wide"><input type="checkbox" checked={v.authenticated} onChange={e=>{const authenticated=e.target.checked;const authentication=authenticated?(v.authenticated?v.authentication:{kind:'Normal' as const,effect:'',value:0}):{kind:'None' as const,effect:'',value:0};setV(current=>({...current,authenticated,authentication,name:generateGearName(current.baseName,current.stats,authenticated,authentication)}));}}/> Authenticated</label>{v.authenticated&&<>{legacyAlien?<><div className="wide notice"><b>Legacy Alien</b> — retained for historical compatibility.</div><label>Type<input value="Legacy Alien" readOnly/></label><label>Legacy effect<input value={v.authentication.effect} readOnly/></label><label>Legacy value %<input type="number" step="any" value={v.authentication.value} onChange={e=>setAuthentication({value:Number(e.target.value)})}/></label></>:<><label>Certificate type<select value={currentKind} onChange={e=>setAuthentication({kind:e.target.value as 'Normal'|'Premium'|'Limited',effect:'',value:0})}><option>Normal</option><option>Premium</option><option>Limited</option></select></label><label>Effect<select value={v.authentication.effect} onChange={e=>setAuthentication({effect:e.target.value})}>{activeAuthenticationOptions(v.slot,v.authentication.effect,authModel,currentKind).map(x=><option value={x} key={x}>{x||'Select effect'}</option>)}</select></label><label>Value %<input type="number" inputMode="decimal" step="any" value={v.authentication.value} onChange={e=>setAuthentication({value:Number(e.target.value)})}/></label><p className="wide fieldHelp">{currentKind==='Premium'?'Premium effects are evaluated by the shared loadout engine where possible; unresolved effects remain protected.':currentKind==='Limited'?'Limited effects are evaluated against your actual Main and specialist loadouts; unknown proc behaviour reduces confidence rather than creating fake certainty.':'Enter the normal/base accessory stats separately. Numeric authentication is added automatically by the optimiser.'}</p></>}</>}</div></details>
+    <div className="stickyActions quickActions"><button className="secondary" onClick={onClose}>Cancel</button>{mode==='add'&&<button className="secondary addAnother" onClick={()=>onSave({...v,name:generateGearName(v.baseName,v.stats,v.authenticated,v.authentication)},true)}>Save + another</button>}<button className="primary" onClick={()=>onSave({...v,name:generateGearName(v.baseName,v.stats,v.authenticated,v.authentication)})}>{mode==='add'?'Analyse & add':'Save changes'}</button></div>
+  </div></div>;
+}
+function NewItemSheet({analysis,onClose}:{analysis:{name:string;standalone:number;previous:number;next:number;bestChanged:boolean;replaced?:string;verdict?:string;bestCert?:string;combined?:GearStats};onClose:()=>void}){const d=analysis.next-analysis.previous;return <div className="modalBackdrop"><div className="modal resultModal"><span className="eyebrow">NEW ITEM ANALYSIS</span><h2>{analysis.name}</h2><div className="resultScore">{analysis.next.toFixed(2)}</div><div className="statsGrid three resultStats"><StatTile label="Standalone" value={analysis.standalone}/><StatTile label="Previous best" value={analysis.previous}/><StatTile label="Improvement" value={d}/></div><p>Best loadout changed: <b>{analysis.bestChanged?'YES':'NO'}</b></p>{analysis.replaced&&<p>Replaces: <b>{analysis.replaced}</b></p>}<StatusBadge status={analysis.verdict??'KEEP'}/>{analysis.combined&&<><div className="sectionTitle"><h3>New combined stats</h3></div><div className="statsGrid">{statLabels.map(([k,l])=><StatTile key={k} label={l} value={analysis.combined![k]} suffix="%"/>)}</div></>}{analysis.bestCert&&<p className="notice">Best certificate targeting: <b>{analysis.bestCert}</b>.</p>}<button className="primary" onClick={onClose}>Done</button></div></div>}
+
+function RollLogEditor({data,certificate,onClose,onSave}:{data:AppData;certificate:OwnedCertificate;onClose:()=>void;onSave:(r:CertificateRollLog,updated:GearItem)=>void}){
+  const type=authModelTypeForOwnedCertificate(certificate);
+  const [itemId,setItemId]=useState(data.gear[0]?.id??'');
+  const item=data.gear.find(g=>g.id===itemId);
+  const [newAuth,setNewAuth]=useState('');
+  const [newValue,setNewValue]=useState(0);
+  const autoPreview=useMemo(()=>item&&newAuth?applyRollToItem(item,newAuth,newValue,type):item,[item,newAuth,newValue,type]);
+  const expectedDisplayedStats=useMemo(()=>autoPreview?effectiveItemStats(autoPreview):undefined,[autoPreview]);
+  const [finalStats,setFinalStats]=useState<GearStats|undefined>(expectedDisplayedStats?{...expectedDisplayedStats}:undefined);
+  useEffect(()=>{setFinalStats(expectedDisplayedStats?{...expectedDisplayedStats}:undefined)},[expectedDisplayedStats]);
+  useEffect(()=>{setNewAuth('');setNewValue(0)},[itemId,type]);
+  const preview=useMemo(()=>{
+    if(!autoPreview||!finalStats)return autoPreview;
+    const observed=withObservedAuthenticationStats(autoPreview,finalStats);
+    return {...observed,name:generateGearName(observed.baseName,observed.stats,observed.authenticated,observed.authentication)};
+  },[autoPreview,finalStats]);
+  const before=optimise(data.gear,data.settings,1)[0]?.score.total??0;
+  const previewGear=preview?data.gear.map(g=>g.id===preview.id?preview:g):data.gear;
+  const after=optimise(previewGear,data.settings,1)[0]?.score.total??before;
+  const setFinalStat=(key:keyof GearStats,value:number)=>setFinalStats(current=>({...ZERO_STATS,...current,[key]:Number.isFinite(value)?value:0}));
+  const authKind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
+  return <div className="modalBackdrop"><div className="modal"><div className="modalHeader"><h2>Record certificate roll</h2><button className="iconButton" onClick={onClose}>×</button></div>
+    <div className="notice"><b>Certificate being consumed:</b> {certificate.type}{certificate.mutation?' · '+certificate.mutation:''}{certificate.gradeStars!==undefined?' · '+'★'.repeat(certificate.gradeStars):''}{certificate.displayedValue!==undefined?' · 
+    <div className="formGrid"><label className="wide">Item<select value={itemId} onChange={e=>setItemId(e.target.value)}>{data.gear.map(g=><option value={g.id} key={g.id}>{g.name} · {g.slot}</option>)}</select></label><label>New authentication<select value={newAuth} onChange={e=>setNewAuth(e.target.value)}><option value="">Select result</option>{activeCertificateOutcomeOptions(item?.slot,data.authModel,authKind,certificate.type).map(a=><option key={a}>{a}</option>)}</select></label><label>New value %<input type="number" step="any" value={newValue} onChange={e=>setNewValue(Number(e.target.value))}/></label><label>Best score before<input type="number" value={before} readOnly/></label><label>Calculated score after<input type="number" value={after} readOnly/></label><p className="wide fieldHelp">These are the final stats displayed in game after the new authentication. Any difference caused by the authentication (especially Focused) is stored on that authentication only; the item's base stats are not overwritten.</p></div>
+    {finalStats&&<details className="finalStatsEditor"><summary>Confirm / correct final displayed stats</summary><div className="formGrid">{statLabels.filter(([k])=>k!=='arrowReduction').map(([k,l])=><label key={k}>{l} %<input type="number" inputMode="decimal" step="any" value={finalStats[k]} onChange={e=>setFinalStat(k,Number(e.target.value))}/></label>)}<label className="wide arrowInput">Bid Arrow Speed — game display %<input type="number" inputMode="decimal" step="any" value={reductionToGameArrow(finalStats.arrowReduction)} onChange={e=>setFinalStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><span>Enter the signed value shown by the game.</span></label></div></details>}
+    <div className="stickyActions"><button className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={!item||!newAuth||!preview||certificate.quantity<1} onClick={()=>{item&&preview&&onSave({id:crypto.randomUUID(),date:new Date().toISOString(),certificateType:type,itemId:item.id,itemName:item.name,slot:item.slot,previousAuthentication:item.authentication.effect,previousValue:item.authentication.value,newAuthentication:newAuth,newValue,improvedBestSet:after>before,bestScoreBefore:before,bestScoreAfter:after,certificateId:certificate.id,certificateGradeStars:certificate.gradeStars,certificateMutation:certificate.mutation,certificateInventoryType:certificate.type},preview)}}>Apply, record & consume</button></div>
+  </div></div>;
+}
+
+function authModelCertificateType(type:OwnedCertificate['type']):AuthModelEntry['certificateType']{
+  return type==='Premium Certificate of Authenticity'
+    ?'Premium Certificate of Authenticity'
+    :type==='Limited Certificate of Authenticity'
+      ?'Limited Certificate of Authenticity'
+      :'Normal Certificate of Authenticity';
+}
+
+function AuthModelRow({entry,onChange,onDelete}:{entry:AuthModelEntry;onChange:(e:AuthModelEntry)=>void;onDelete:()=>void}){
+  const inventoryType=entry.certificateInventoryType??(
+    entry.certificateType==='Premium Certificate of Authenticity'?'Premium Certificate of Authenticity':
+    entry.certificateType==='Limited Certificate of Authenticity'?'Limited Certificate of Authenticity':
+    'Wooden Certificate of Authenticity'
+  );
+  return <details className="modelRow">
+    <summary><span>{entry.outcome}</span><span>{inventoryType.replace(' Certificate of Authenticity','')} · {entry.slot} · {entry.assumedLikelihoodClass}{entry.enabled?'':' · disabled'}</span></summary>
+    <div className="formGrid">
+      <label className="wide">Outcome<input value={entry.outcome} onChange={e=>onChange({...entry,outcome:e.target.value})}/></label>
+      <label>Certificate tier<select value={inventoryType} onChange={e=>{const certificateInventoryType=e.target.value as OwnedCertificate['type'];onChange({...entry,certificateInventoryType,certificateType:authModelCertificateType(certificateInventoryType)})}}><option>Wooden Certificate of Authenticity</option><option>Ripped Certificate of Authenticity</option><option>Premium Certificate of Authenticity</option><option>Limited Certificate of Authenticity</option></select></label>
+      <label>Slot<select value={entry.slot} onChange={e=>onChange({...entry,slot:e.target.value as AuthModelEntry['slot']})}><option>Any</option><option>Head</option><option>Back</option><option>Wrist</option></select></label>
+      <label className="wide">Category<input value={entry.category} onChange={e=>onChange({...entry,category:e.target.value})}/></label>
+      <label>Relative-weight class<select value={entry.assumedLikelihoodClass} onChange={e=>onChange({...entry,assumedLikelihoodClass:e.target.value as AuthModelEntry['assumedLikelihoodClass']})}>{['VERY HIGH','HIGH','MEDIUM','LOW','VERY LOW'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Confidence<select value={entry.confidence} onChange={e=>onChange({...entry,confidence:e.target.value as AuthModelEntry['confidence']})}>{['Unknown','Low','Medium','High','Empirical'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Optional min<input type="number" step="any" value={entry.min??''} onChange={e=>onChange({...entry,min:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label>Optional typical<input type="number" step="any" value={entry.typical??''} onChange={e=>onChange({...entry,typical:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label>Optional max<input type="number" step="any" value={entry.max??''} onChange={e=>onChange({...entry,max:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label className="check"><input type="checkbox" checked={entry.enabled} onChange={e=>onChange({...entry,enabled:e.target.checked})}/> Enabled in live EV</label>
+      <div className="wide fieldHelp">Observed samples: {entry.observedSampleCount}. Values: {entry.observedValues.length?entry.observedValues.join(', '):'none yet'}. As exact-tier samples accumulate, empirical roll strength progressively outweighs the min/typical/max prior.</div>
+      <button className="danger wide" onClick={onDelete}>Delete model outcome</button>
+    </div>
+  </details>;
+}
+
+function LoadoutCard({slot,item}:{slot:string;item:GearItem}){return <div className="loadoutCard"><span>{slot}</span><strong>{item.baseName||item.name}</strong>{item.authentication.effect&&<small>{item.authentication.effect} {item.authentication.value?`${item.authentication.value}%`:''}</small>}</div>}
+function StatTile({label,value,suffix=''}:{label:string;value:number;suffix?:string}){return <div className="statTile"><span>{label}</span><strong>{Number.isFinite(value)?value.toFixed(Math.abs(value)%1?2:0):'—'}{suffix}</strong></div>}
+function ArrowThresholdCard({value,settings}:{value:number;settings:AlgorithmSettings}){const max=Math.max(settings.arrowSweetSpot,100);const pct=Math.min(100,Math.max(0,value/max*100));const excess=Math.max(0,value-settings.arrowSweetSpot);return <div className="thresholdCard"><div className="rowBetween"><strong>Bid Arrow reduction</strong><span>{value.toFixed(1)}% · target {settings.arrowSweetSpot}%</span></div><div className="progress arrowProgress"><i style={{width:`${pct}%`}}/><b style={{left:`${settings.arrowSweetSpot/max*100}%`}}/></div>{excess>0&&<div className="fieldHelp">{excess.toFixed(1)}% is above your 75% sweet spot. It is treated as wasted, not as an invented gameplay penalty.</div>}</div>}
+function ThresholdCard({label,value,target,ceiling}:{label:string;value:number;target:number;ceiling:number}){const pct=Math.min(100,Math.max(0,value/ceiling*100));return <div className="thresholdCard"><div className="rowBetween"><strong>{label}</strong><span>{value.toFixed(1)}% · target {target}% · ceiling {ceiling}%</span></div><div className="progress"><i style={{width:`${pct}%`}}/><b style={{left:`${target/ceiling*100}%`}}/></div></div>}
+function StatusBadge({status}:{status:string}){return <span className={`badge status ${status.toLowerCase().replaceAll(' ','-').replaceAll('/','')}`}>{status}</span>}
+function EmptyState({title,text,action,onClick}:{title:string;text:string;action?:string;onClick?:()=>void}){return <div className="empty"><div className="emptyIcon">⌁</div><h3>{title}</h3><p>{text}</p>{action&&<button className="primary" onClick={onClick}>{action}</button>}</div>}
+
+function algorithmIssues(s:AlgorithmSettings):string[]{const issues:string[]=[];for(const [k,v] of Object.entries(s))if(k!=='version'&&!Number.isFinite(Number(v)))issues.push(`${k} is not finite`);if(s.arrowSweetSpot<0)issues.push('Arrow sweet spot cannot be negative');if(s.energyTarget>s.energyCeiling)issues.push('Energy target must be ≤ Energy ceiling');if(s.zoneBreakpoint1>s.zoneBreakpoint2)issues.push('Zone breakpoint 1 must be ≤ breakpoint 2');for(const [label,value] of [['Luck weight',s.luckWeight],['Arrow weight',s.arrowWeight],['Zone weight',s.zoneWeight],['Recovery weight',s.recoveryWeight],['Zone middle multiplier',s.zoneMultiplier2],['Zone upper multiplier',s.zoneMultiplier3]] as const)if(value<0)issues.push(`${label} cannot be negative`);return issues;}
+function newAuthModelEntry():AuthModelEntry{return{id:crypto.randomUUID(),certificateInventoryType:'Wooden Certificate of Authenticity',certificateType:'Normal Certificate of Authenticity',slot:'Any',outcome:'Custom outcome',category:'Custom / unknown',assumedLikelihoodClass:'MEDIUM',observedSampleCount:0,observedValues:[],confidence:'Unknown',enabled:true}}
+function blankItem(slot:Slot='Head'):GearItem{const now=new Date().toISOString();return{id:crypto.randomUUID(),baseName:'',name:'',slot,stats:{...ZERO_STATS},authenticated:false,authentication:{kind:'None',effect:'',value:0},favourite:false,createdAt:now,updatedAt:now}}
+function applyRollToItem(item:GearItem,effect:string,value:number,type:AuthModelEntry['certificateType']):GearItem{
+  let base=removeNumericAuthentication(item);
+  if(base.authenticated){base=structuredClone(base);base.authenticated=false;base.authentication={kind:'None',effect:'',value:0};}
+  const updated=addOutcomeToItem(base,effect,value);
+  updated.authentication.kind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
+  updated.name=generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication);
+  updated.updatedAt=new Date().toISOString();
+  return updated;
+}
+function prepareImportedGear(existing:GearItem[],incoming:GearItem[]):GearItem[]{const used=new Set(existing.map(x=>x.id));return incoming.map(item=>{const clone=structuredClone(item);if(!clone.id||used.has(clone.id))clone.id=crypto.randomUUID();used.add(clone.id);return clone;});}
+function validateItem(i:GearItem){
+  if(!i.baseName.trim())return 'Item name is required.';
+  if(!['Head','Back','Wrist'].includes(i.slot))return 'Valid slot is required.';
+  if(i.conditionPct!==undefined && (!Number.isFinite(i.conditionPct) || i.conditionPct<0 || i.conditionPct>100))return 'Condition must be between 0 and 100%.';
+  if(i.mutation!==undefined && typeof i.mutation!=='string')return 'Mutation must be text.';
+  for(const [k] of statLabels)if(!Number.isFinite(i.stats[k]))return `${k} must be a finite number.`;
+  if(!Number.isFinite(i.authentication.value))return 'Authentication value must be a finite number.';
+  if(!i.authenticated)return '';
+  if(i.authentication.kind==='None')return 'Choose an authentication type.';
+  const effect=i.authentication.effect.trim();
+  if(!effect)return 'Choose an authentication effect.';
+  if(i.authentication.kind==='Normal'&&LEGACY_ALIEN_EFFECTS.includes(effect as never))return `${effect} is a legacy Alien effect and cannot be selected for a new Normal authentication.`;
+  if(i.authentication.kind==='Alien')return ''; // Historical Alien gear remains valid and editable as legacy data.
+  if(i.authentication.kind==='Premium'){
+    for(const [slot,effects] of Object.entries(PREMIUM_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
+  if(i.authentication.kind==='Limited'){
+    for(const [slot,effects] of Object.entries(LIMITED_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
+  for(const [slot,effects] of Object.entries(EXCLUSIVE_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+  return '';
+}
+function displayStat(k:keyof GearStats,v:number){const n=k==='arrowReduction'?reductionToGameArrow(v):v;return `${n>0?'+':''}${n.toFixed(Math.abs(n)%1?1:0)}%`}
+function shortStat(s:string){return s.replace('Energy Drink Time','Energy').replace('Vehicle Speed','Vehicle').replace('Bid Recovery','Recovery').replace('Bid Zone Width','Zone').replace('Bid Arrow Reduction','Arrow').replace('NPC Offers Bonus','NPC')}
+function replacedName(prev:any,next:any,slot:Slot){const key=slot.toLowerCase() as 'head'|'back'|'wrist';return prev[key].id!==next[key].id?prev[key].name:undefined}
+function dateStamp(){return new Date().toISOString().slice(0,10)}
+function downloadText(name:string,text:string,type:string){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+function applyTheme(theme:AppData['theme']){document.documentElement.dataset.theme=theme;if(theme==='system')delete document.documentElement.dataset.theme}
+function navIcon(t:Tab){return ({Dashboard:'▦',Gear:'◆',Optimise:'◎',Vehicle:'▰',Trophies:'♜',Certificates:'◈',Settings:'⚙',More:'•••'} as Record<Tab,string>)[t]}
++decision.certificate.displayedValue.toLocaleString():''}</span>
+            </div>
+            <div className="premiumVerdict">{decision.verdict}</div>
+          </summary>
+          <div className="comboBody">
+            {target?<>
+              <div className="rowBetween"><div><span className="eyebrow">BEST CURRENT TARGET</span><h3>{target.item.baseName||target.item.name}</h3><p>{target.item.slot}{target.item.authenticated?' · replacing '+target.item.authentication.effect:''}</p></div><span className="badge heuristic">{target.confidencePct.toFixed(0)}% CONFIDENCE</span></div>
+
+              <div className="statsGrid three">
+                <StatTile label="Robust Main improves" value={target.chanceOfImprovementPct} suffix="%"/>
+                <StatTile label="Potential Main improves" value={target.chanceOfPotentialImprovementPct} suffix="%"/>
+                <StatTile label="Expected Main change" value={target.expectedImprovementPct} suffix="%"/>
+                <StatTile label="Chance Main/context worsens" value={target.chanceOfWorsePct} suffix="%"/>
+                <StatTile label="Meaningful robust gain ≥1%" value={target.chanceOfMeaningfulImprovementPct} suffix="%"/>
+                <StatTile label="Unresolved outcome mass" value={target.unresolvedOutcomeMassPct} suffix="%"/>
+                <StatTile label="Current Main fit" value={target.mainFitPct} suffix="%"/>
+              </div>
+
+              <div className="thresholdTable">
+                <div><b>Main sensitivity low / central / high</b><span>{signed(target.expectedImprovementLowPct)} / {signed(target.expectedImprovementPct)} / {signed(target.expectedImprovementHighPct)}</span></div>
+                <div><b>Average robust gain when successful</b><span>{signed(target.averageGainWhenSuccessfulPct)}</span></div>
+                <div><b>Average demonstrated loss when worse</b><span>{signed(target.averageLossWhenWorsePct)}</span></div>
+                <div><b>10th / median / 90th central percentile</b><span>{signed(target.p10Pct)} / {signed(target.medianPct)} / {signed(target.p90Pct)}</span></div>
+                <div><b>Best possible modelled branch</b><span>{target.bestPossibleOutcome} · {signed(target.bestCasePct)}</span></div>
+                <div><b>Worst modelled Main/context branch</b><span>{target.worstPossibleOutcome} · {signed(target.worstCasePct)}</span></div>
+                <div><b>Authentication risk — neutral Main</b><span>{signed(target.currentAuthenticationMainRiskPct)}</span></div>
+                <div><b>Authentication risk — Day/Night/Rain</b><span>{signed(target.currentAuthenticationContextRiskPct)}</span></div>
+                <div><b>Authentication risk — Drink Prep</b><span>{signed(target.currentAuthenticationDrinkRiskPct)}</span></div>
+                <div><b>Authentication risk — Grading</b><span>{signed(target.currentAuthenticationGradingRiskPct)}</span></div>
+                <div><b>Authentication risk — Shop/Idle</b><span>{signed(target.currentAuthenticationShopRiskPct)}</span></div>
+                <div><b>Worst authentication risk anywhere relevant</b><span>{signed(target.currentAuthenticationValueAtRiskPct)}</span></div>
+                <div><b>Average Day/Night/Rain impact</b><span>{signed(target.expectedContextualMainPct)}</span></div>
+                <div><b>Worst Day/Night/Rain impact</b><span>{signed(target.worstContextualMainPct)}</span></div>
+                <div><b>Expected Drink Prep impact</b><span>{signed(target.expectedDrinkPrepPct)}</span></div>
+                <div><b>Expected Grading impact</b><span>{signed(target.expectedGradingPct)}</span></div>
+                <div><b>Expected Shop/Idle impact</b><span>{signed(target.expectedShopPct)}</span></div>
+              </div>
+
+              {target.unresolvedEffects.length>0&&<div className="notice warning"><b>Unresolved magnitude:</b> {target.unresolvedEffects.join(', ')}. These branches are not treated as zero-value known outcomes and cannot produce a USE verdict until supported by numeric evidence.</div>}
+              <ul>{target.reasons.map((reason,i)=><li key={i}>{reason}</li>)}</ul>
+
+              {decision.conversion&&<div className="notice"><b>Wooden → Premium opportunity cost:</b> {decision.conversion.recommendation}. Direct Wooden EV {signed(decision.conversion.directExpectedMainPct)} vs synthetic Premium EV {signed(decision.conversion.premiumExpectedMainPct)}. Conversion costs {decision.conversion.diamondCost} Diamonds. {decision.conversion.reason}</div>}
+
+              <details>
+                <summary>Other targets</summary>
+                <div className="thresholdTable">{decision.targets.slice(1,7).map((alt,index)=><div key={alt.item.id}><b>#{index+2} {alt.item.baseName||alt.item.name} · {alt.verdict}</b><span>{alt.chanceOfImprovementPct.toFixed(1)}% robust improve · EV {signed(alt.expectedImprovementPct)}</span></div>)}</div>
+              </details>
+            </>:<p className="muted">A complete Head, Back and Wrist inventory is required.</p>}
+
+            <div className="notice warning"><b>Evidence boundary:</b> these are modelled decision percentages, not hidden Roblox loot odds. Effect selection uses a neutral equal prior until exact-certificate observations exist. Unknown star transforms and unresolved magnitudes reduce confidence instead of being invented.</div>
+          </div>
+        </details>;
+      })}
+      {!certificateState.computing&&!certificateState.error&&!decisions.length&&<p className="muted">No owned certificates are available for analysis.</p>}
+    </div>
+
+    <div className="card">
+      <div className="sectionTitle"><h2>Owned certificates</h2><button className="secondary compact" onClick={()=>setEditInventory(!editInventory)}>{editInventory?'Done':'Manual adjustment'}</button></div>
+      <div className="gearList">{data.ownedCertificates.map(cert=><div className="gearCard" key={cert.id}><strong>{cert.type}</strong><p>{cert.rarity||'Certificate'}{cert.gradeStars!==undefined?' · '+'★'.repeat(cert.gradeStars):''}{cert.displayedValue!==undefined?' · $'+cert.displayedValue.toLocaleString():''} · Owned: {cert.quantity}</p>{editInventory&&<div className="actions"><button onClick={()=>changeQty(cert.id,-1)} disabled={cert.quantity===0}>− Remove one</button><button onClick={()=>changeQty(cert.id,1)}>＋ Add one</button></div>}</div>)}</div>
+      <div className="notice">Recording a roll below now consumes the exact selected certificate automatically. Wooden → Premium is compared explicitly against direct Wooden use at the current 150-Diamond conversion cost.</div>
+    </div>
+
+    <div className="sectionTitle"><h2>Record a result</h2></div>
+    {availableCertificates.length?<div className="card">
+      <label>Certificate actually used<select value={selectedCertificateId} onChange={e=>setSelectedCertificateId(e.target.value)}>{availableCertificates.map(cert=><option value={cert.id} key={cert.id}>{cert.type} · {cert.gradeStars!==undefined?'★'.repeat(cert.gradeStars)+' · ':''}{cert.displayedValue!==undefined?'$'+cert.displayedValue.toLocaleString()+' · ':''}owned {cert.quantity}</option>)}</select></label>
+      <button className="secondary" disabled={!selectedCertificate} onClick={()=>setLogOpen(true)}>＋ Record selected certificate roll</button>
+    </div>:<p className="muted">No certificate with quantity remaining is available to record.</p>}
+
+    <div className="sectionTitle"><h2>Roll history</h2></div>
+    <div className="card tableCard">{data.rollLog.length?data.rollLog.slice().reverse().map(r=><div className="logRow" key={r.id}><div><strong>{r.itemName}</strong><span>{new Date(r.date).toLocaleDateString()} · {r.certificateInventoryType??(r.certificateType.startsWith('Normal')?'Legacy Normal':r.certificateType.startsWith('Premium')?'Premium':r.certificateType.startsWith('Limited')?'Limited':'Legacy Alien')}</span></div><div><b>{r.newAuthentication} {r.newValue}%</b><span>{r.bestScoreBefore.toFixed(2)} → {r.bestScoreAfter.toFixed(2)}</span></div></div>):<p className="muted">No certificate rolls recorded yet.</p>}</div>
+
+    {logOpen&&selectedCertificate&&<RollLogEditor data={data} certificate={selectedCertificate} onClose={()=>setLogOpen(false)} onSave={(r,updated)=>{
+      try{
+        setData(applyRecordedCertificateRoll(data,selectedCertificate.id,r,updated));
+        setLogOpen(false);
+      }catch(error){alert(error instanceof Error?error.message:'Could not record certificate roll.')}
+    }}/>}
+  </section>;
+}
+
+function SettingsScreen({data,setData,showToast}:{data:AppData;setData:(d:AppData)=>void;showToast:(s:string)=>void}){
+  const jsonRef=useRef<HTMLInputElement>(null),csvRef=useRef<HTMLInputElement>(null);
+  function setS<K extends keyof AlgorithmSettings>(k:K,v:AlgorithmSettings[K]){setData({...data,settings:{...data.settings,[k]:v}})}
+  const fields:Array<[keyof AlgorithmSettings,string]>=[['luckWeight','Main Auction Luck weight'],['arrowWeight','Main Auction Bid Arrow weight'],['arrowSweetSpot','Bid Arrow sweet spot'],['zoneWeight','Main Auction Bid Zone weight'],['zoneBreakpoint1','Bid Zone breakpoint 1'],['zoneBreakpoint2','Bid Zone breakpoint 2'],['zoneMultiplier2','Bid Zone middle multiplier'],['zoneMultiplier3','Bid Zone upper multiplier'],['recoveryWeight','Main Auction Bid Recovery weight'],['energyTarget','Drink Prep Energy target'],['energyCeiling','Drink Prep Energy ceiling'],['energySecondStageMultiplier','Drink Prep above-target multiplier']];
+  const issues=algorithmIssues(data.settings);
+  return <section><div className="pageHeading"><div><h1>Settings</h1><p>Algorithm Version 2.0</p></div></div>
+    <div className="sectionTitle"><h2>Appearance</h2></div><div className="card"><label>Theme<select value={data.theme} onChange={e=>setData({...data,theme:e.target.value as any})}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label></div>
+    <div className="sectionTitle"><h2>Algorithm editor</h2><button className="secondary compact" onClick={()=>setData({...data,settings:{...LOCKED_DEFAULT_SETTINGS}})}>Reset to locked defaults</button></div>
+    <div className="settingsGrid">{fields.map(([k,label])=><label className="settingField" key={k}><span>{label}</span><input type="number" step="any" value={data.settings[k]} onChange={e=>setS(k,Number(e.target.value) as never)}/></label>)}</div>
+    {issues.length>0&&<div className="notice dangerNotice"><b>Settings need correction:</b> {issues.join(' · ')}</div>}
+    <div className="notice">Algorithm 2.0 uses one shared model for Main Auction, retention and certificate decisions. Displayed Luck is linear. Bid Arrow benefit caps at your 75% sweet spot with no invented over-cap penalty. Drink Prep, Grading and Shop/Idle are separate loadouts and never compensate for a weaker Main Auction result. Day, Night and Rain are evaluated as contextual Main variants instead of fake uptime averages.</div>
+    <div className="sectionTitle"><h2>Authentication outcome catalogue</h2><button className="secondary compact" onClick={()=>setData({...data,authModel:[...data.authModel,newAuthModelEntry()]})}>＋ Add outcome</button></div><div className="card authModel"><p className="muted">This is the live certificate model. Enabled rows, certificate tier, min / typical / max, confidence and relative-weight class all feed directly into certificate EV. MEDIUM is the neutral default because the real per-effect odds are unpublished; changing the class is an explicit user assumption, not a game fact.</p>{data.authModel.filter(m=>m.certificateType!=='Certificate of Alienticity'&&!LEGACY_ALIEN_EFFECTS.includes(m.outcome as never)).slice().sort((a,b)=>(a.certificateInventoryType??'').localeCompare(b.certificateInventoryType??'')||a.slot.localeCompare(b.slot)||a.outcome.localeCompare(b.outcome)).map(m=><AuthModelRow key={m.id} entry={m} onChange={entry=>setData({...data,authModel:data.authModel.map(x=>x.id===entry.id?entry:x)})} onDelete={()=>{if(confirm(`Remove authentication model outcome ${m.outcome}? Roll history is not deleted.`))setData({...data,authModel:data.authModel.filter(x=>x.id!==m.id)})}}/>)}</div>
+    <div className="sectionTitle"><h2>Backup & data safety</h2></div><div className="card buttonStack"><button className="primary" onClick={()=>downloadText(`storage-hunters-backup-${dateStamp()}.json`,exportJson(data),'application/json')}>Download JSON backup</button><button className="secondary" onClick={()=>jsonRef.current?.click()}>Restore JSON backup</button><button className="secondary" onClick={()=>downloadText(`storage-hunters-gear-${dateStamp()}.csv`,gearToCsv(data.gear),'text/csv')}>Export gear CSV</button><button className="secondary" onClick={()=>csvRef.current?.click()}>Import gear CSV</button><input hidden type="file" accept="application/json,.json" ref={jsonRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const d=importJson(await f.text());if(confirm(`Restore backup containing ${d.gear.length} gear items? This replaces current local data.`)){setData(d);showToast('Backup restored')}}catch(err){alert(err instanceof Error?err.message:'Invalid backup')}}}/><input hidden type="file" accept="text/csv,.csv" ref={csvRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const g=csvToGear(await f.text());if(confirm(`Import ${g.length} gear items? They will be added to the current inventory.`)){const imported=prepareImportedGear(data.gear,g);setData({...data,gear:[...data.gear,...imported]});showToast('CSV imported')}}catch(err){alert(err instanceof Error?err.message:'Invalid CSV')}}}/><button className="danger" onClick={()=>{const phrase=prompt('Type RESET ALL DATA to permanently clear all local inventory, certificates, roll history, vehicle parts, trophies and settings back to an empty workspace.');if(phrase==='RESET ALL DATA')setData(makeEmptyData())}}>Clear all local data</button></div>
+  </section>;
+}
+
+function GearEditor({item,authModel,mode,onClose,onSave}:{item:GearItem;authModel:AuthModelEntry[];mode:'add'|'edit';onClose:()=>void;onSave:(i:GearItem,keepAdding?:boolean)=>void}){
+  const [v,setV]=useState({...item,name:generateGearName(item.baseName,item.stats,item.authenticated,item.authentication)});
+  const initialShown=statLabels.filter(([key])=>Math.abs(item.stats[key])>1e-12).map(([key])=>key);
+  const [shownStats,setShownStats]=useState<Array<keyof GearStats>>(initialShown);
+  const patch=(next:Partial<GearItem>)=>setV(current=>{const updated={...current,...next};return {...updated,name:generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication)};});
+  const setStat=(k:keyof GearStats,n:number)=>setV(current=>{const stats={...current.stats,[k]:Number.isFinite(n)?n:0};return {...current,stats,name:generateGearName(current.baseName,stats,current.authenticated,current.authentication)};});
+  const setAuthentication=(next:Partial<GearItem['authentication']>)=>setV(current=>{const authentication={...current.authentication,...next};return {...current,authentication,name:generateGearName(current.baseName,current.stats,current.authenticated,authentication)};});
+  const showStat=(key:keyof GearStats)=>setShownStats(current=>current.includes(key)?current:[...current,key]);
+  const hideStat=(key:keyof GearStats)=>{setStat(key,0);setShownStats(current=>current.filter(k=>k!==key));};
+  const orderedShown=statLabels.filter(([key])=>shownStats.includes(key));
+  const hidden=statLabels.filter(([key])=>!shownStats.includes(key));
+  const displayedArrow=reductionToGameArrow(v.stats.arrowReduction);
+  const legacyAlien=v.authenticated&&v.authentication.kind==='Alien';
+  const currentKind=v.authentication.kind==='Premium'?'Premium':v.authentication.kind==='Limited'?'Limited':'Normal';
+  return <div className="modalBackdrop"><div className="modal sheet"><div className="modalHeader"><div><span className="eyebrow">{mode==='add'?'QUICK ADD GEAR':'EDIT GEAR'}</span><h2>{v.baseName||'New gear'}</h2></div><button className="iconButton" onClick={onClose}>×</button></div>
+    <div className="formGrid quickIdentity"><label className="wide">Actual gear name<input autoFocus value={v.baseName} onChange={e=>patch({baseName:e.target.value})} placeholder="e.g. Pearl Dominus"/></label><label>Slot<select value={v.slot} onChange={e=>patch({slot:e.target.value as Slot})}><option>Head</option><option>Back</option><option>Wrist</option></select></label><label>Mutation<input list={`mutations-${v.id}`} value={v.mutation??''} onChange={e=>patch({mutation:e.target.value})} placeholder="None, Diamond, Gold…"/><datalist id={`mutations-${v.id}`}>{['None','Diamond','Gold','Silver','Cobwebbed','Exclusive','Police','Chrome','Gem','Void','Onyx'].map(m=><option key={m} value={m}/>)}</datalist></label><label>Condition %<input type="number" min="0" max="100" step="any" inputMode="decimal" value={v.conditionPct??''} onChange={e=>patch({conditionPct:e.target.value===''?undefined:Number(e.target.value)})} placeholder="Optional"/></label><label className="check"><input type="checkbox" checked={v.favourite} onChange={e=>patch({favourite:e.target.checked})}/> Lock / favourite</label></div>
+    <div className="autoNamePreview"><span>Automatic name</span><strong>{v.name||'Name updates as stats are entered'}</strong></div>
+    <div className="quickEntrySection"><div className="rowBetween"><div><strong>Stats shown on this item</strong><div className="fieldHelp">Tap only the stats visible in game. Empty fields stay out of the way.</div></div></div>
+      {hidden.length>0&&<div className="statPicker">{hidden.map(([key,label])=><button type="button" key={key} onClick={()=>showStat(key)}>＋ {shortStat(label)}</button>)}</div>}
+      {!orderedShown.length&&<div className="quickEmpty">No stats selected yet.</div>}
+      <div className="quickStatGrid">{orderedShown.map(([key,label])=>key==='arrowReduction'
+        ? <div className="quickStatField arrowQuick" key={key}><label>{label}<input inputMode="decimal" type="number" step="any" value={displayedArrow} onChange={e=>setStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><small>Enter the signed game value, e.g. -24.</small></label><button type="button" className="removeStat" onClick={()=>hideStat(key)}>×</button></div>
+        : <div className="quickStatField" key={key}><label>{label} %<input inputMode="decimal" type="number" step="any" value={v.stats[key]} onChange={e=>setStat(key,Number(e.target.value))}/></label><button type="button" className="removeStat" onClick={()=>hideStat(key)}>×</button></div>)}</div>
+    </div>
+    <details className="finalStatsEditor authQuick" open={v.authenticated}><summary>Authentication {v.authenticated?`— ${v.authentication.kind} · ${v.authentication.effect||'select effect'}`:'— none'}</summary><div className="formGrid"><label className="check wide"><input type="checkbox" checked={v.authenticated} onChange={e=>{const authenticated=e.target.checked;const authentication=authenticated?(v.authenticated?v.authentication:{kind:'Normal' as const,effect:'',value:0}):{kind:'None' as const,effect:'',value:0};setV(current=>({...current,authenticated,authentication,name:generateGearName(current.baseName,current.stats,authenticated,authentication)}));}}/> Authenticated</label>{v.authenticated&&<>{legacyAlien?<><div className="wide notice"><b>Legacy Alien</b> — retained for historical compatibility.</div><label>Type<input value="Legacy Alien" readOnly/></label><label>Legacy effect<input value={v.authentication.effect} readOnly/></label><label>Legacy value %<input type="number" step="any" value={v.authentication.value} onChange={e=>setAuthentication({value:Number(e.target.value)})}/></label></>:<><label>Certificate type<select value={currentKind} onChange={e=>setAuthentication({kind:e.target.value as 'Normal'|'Premium'|'Limited',effect:'',value:0})}><option>Normal</option><option>Premium</option><option>Limited</option></select></label><label>Effect<select value={v.authentication.effect} onChange={e=>setAuthentication({effect:e.target.value})}>{activeAuthenticationOptions(v.slot,v.authentication.effect,authModel,currentKind).map(x=><option value={x} key={x}>{x||'Select effect'}</option>)}</select></label><label>Value %<input type="number" inputMode="decimal" step="any" value={v.authentication.value} onChange={e=>setAuthentication({value:Number(e.target.value)})}/></label><p className="wide fieldHelp">{currentKind==='Premium'?'Premium effects are evaluated by the shared loadout engine where possible; unresolved effects remain protected.':currentKind==='Limited'?'Limited effects are evaluated against your actual Main and specialist loadouts; unknown proc behaviour reduces confidence rather than creating fake certainty.':'Enter the normal/base accessory stats separately. Numeric authentication is added automatically by the optimiser.'}</p></>}</>}</div></details>
+    <div className="stickyActions quickActions"><button className="secondary" onClick={onClose}>Cancel</button>{mode==='add'&&<button className="secondary addAnother" onClick={()=>onSave({...v,name:generateGearName(v.baseName,v.stats,v.authenticated,v.authentication)},true)}>Save + another</button>}<button className="primary" onClick={()=>onSave({...v,name:generateGearName(v.baseName,v.stats,v.authenticated,v.authentication)})}>{mode==='add'?'Analyse & add':'Save changes'}</button></div>
+  </div></div>;
+}
+function NewItemSheet({analysis,onClose}:{analysis:{name:string;standalone:number;previous:number;next:number;bestChanged:boolean;replaced?:string;verdict?:string;bestCert?:string;combined?:GearStats};onClose:()=>void}){const d=analysis.next-analysis.previous;return <div className="modalBackdrop"><div className="modal resultModal"><span className="eyebrow">NEW ITEM ANALYSIS</span><h2>{analysis.name}</h2><div className="resultScore">{analysis.next.toFixed(2)}</div><div className="statsGrid three resultStats"><StatTile label="Standalone" value={analysis.standalone}/><StatTile label="Previous best" value={analysis.previous}/><StatTile label="Improvement" value={d}/></div><p>Best loadout changed: <b>{analysis.bestChanged?'YES':'NO'}</b></p>{analysis.replaced&&<p>Replaces: <b>{analysis.replaced}</b></p>}<StatusBadge status={analysis.verdict??'KEEP'}/>{analysis.combined&&<><div className="sectionTitle"><h3>New combined stats</h3></div><div className="statsGrid">{statLabels.map(([k,l])=><StatTile key={k} label={l} value={analysis.combined![k]} suffix="%"/>)}</div></>}{analysis.bestCert&&<p className="notice">Best certificate targeting: <b>{analysis.bestCert}</b>.</p>}<button className="primary" onClick={onClose}>Done</button></div></div>}
+
+function RollLogEditor({data,certificate,onClose,onSave}:{data:AppData;certificate:OwnedCertificate;onClose:()=>void;onSave:(r:CertificateRollLog,updated:GearItem)=>void}){
+  const type=authModelTypeForOwnedCertificate(certificate);
+  const [itemId,setItemId]=useState(data.gear[0]?.id??'');
+  const item=data.gear.find(g=>g.id===itemId);
+  const [newAuth,setNewAuth]=useState('');
+  const [newValue,setNewValue]=useState(0);
+  const autoPreview=useMemo(()=>item&&newAuth?applyRollToItem(item,newAuth,newValue,type):item,[item,newAuth,newValue,type]);
+  const expectedDisplayedStats=useMemo(()=>autoPreview?effectiveItemStats(autoPreview):undefined,[autoPreview]);
+  const [finalStats,setFinalStats]=useState<GearStats|undefined>(expectedDisplayedStats?{...expectedDisplayedStats}:undefined);
+  useEffect(()=>{setFinalStats(expectedDisplayedStats?{...expectedDisplayedStats}:undefined)},[expectedDisplayedStats]);
+  useEffect(()=>{setNewAuth('');setNewValue(0)},[itemId,type]);
+  const preview=useMemo(()=>{
+    if(!autoPreview||!finalStats)return autoPreview;
+    const observed=withObservedAuthenticationStats(autoPreview,finalStats);
+    return {...observed,name:generateGearName(observed.baseName,observed.stats,observed.authenticated,observed.authentication)};
+  },[autoPreview,finalStats]);
+  const before=optimise(data.gear,data.settings,1)[0]?.score.total??0;
+  const previewGear=preview?data.gear.map(g=>g.id===preview.id?preview:g):data.gear;
+  const after=optimise(previewGear,data.settings,1)[0]?.score.total??before;
+  const setFinalStat=(key:keyof GearStats,value:number)=>setFinalStats(current=>({...ZERO_STATS,...current,[key]:Number.isFinite(value)?value:0}));
+  const authKind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
+  return <div className="modalBackdrop"><div className="modal"><div className="modalHeader"><h2>Record certificate roll</h2><button className="iconButton" onClick={onClose}>×</button></div>
+    <div className="notice"><b>Certificate being consumed:</b> {certificate.type}{certificate.gradeStars!==undefined?' · '+'★'.repeat(certificate.gradeStars):''}{certificate.displayedValue!==undefined?' · $'+certificate.displayedValue.toLocaleString():''}. Saving this roll reduces its owned quantity by one.</div>
+    <div className="formGrid"><label className="wide">Item<select value={itemId} onChange={e=>setItemId(e.target.value)}>{data.gear.map(g=><option value={g.id} key={g.id}>{g.name} · {g.slot}</option>)}</select></label><label>New authentication<select value={newAuth} onChange={e=>setNewAuth(e.target.value)}><option value="">Select result</option>{activeCertificateOutcomeOptions(item?.slot,data.authModel,authKind,certificate.type).map(a=><option key={a}>{a}</option>)}</select></label><label>New value %<input type="number" step="any" value={newValue} onChange={e=>setNewValue(Number(e.target.value))}/></label><label>Best score before<input type="number" value={before} readOnly/></label><label>Calculated score after<input type="number" value={after} readOnly/></label><p className="wide fieldHelp">These are the final stats displayed in game after the new authentication. Any difference caused by the authentication (especially Focused) is stored on that authentication only; the item's base stats are not overwritten.</p></div>
+    {finalStats&&<details className="finalStatsEditor"><summary>Confirm / correct final displayed stats</summary><div className="formGrid">{statLabels.filter(([k])=>k!=='arrowReduction').map(([k,l])=><label key={k}>{l} %<input type="number" inputMode="decimal" step="any" value={finalStats[k]} onChange={e=>setFinalStat(k,Number(e.target.value))}/></label>)}<label className="wide arrowInput">Bid Arrow Speed — game display %<input type="number" inputMode="decimal" step="any" value={reductionToGameArrow(finalStats.arrowReduction)} onChange={e=>setFinalStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><span>Enter the signed value shown by the game.</span></label></div></details>}
+    <div className="stickyActions"><button className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={!item||!newAuth||!preview||certificate.quantity<1} onClick={()=>{item&&preview&&onSave({id:crypto.randomUUID(),date:new Date().toISOString(),certificateType:type,itemId:item.id,itemName:item.name,slot:item.slot,previousAuthentication:item.authentication.effect,previousValue:item.authentication.value,newAuthentication:newAuth,newValue,improvedBestSet:after>before,bestScoreBefore:before,bestScoreAfter:after,certificateId:certificate.id,certificateGradeStars:certificate.gradeStars,certificateInventoryType:certificate.type},preview)}}>Apply, record & consume</button></div>
+  </div></div>;
+}
+
+function authModelCertificateType(type:OwnedCertificate['type']):AuthModelEntry['certificateType']{
+  return type==='Premium Certificate of Authenticity'
+    ?'Premium Certificate of Authenticity'
+    :type==='Limited Certificate of Authenticity'
+      ?'Limited Certificate of Authenticity'
+      :'Normal Certificate of Authenticity';
+}
+
+function AuthModelRow({entry,onChange,onDelete}:{entry:AuthModelEntry;onChange:(e:AuthModelEntry)=>void;onDelete:()=>void}){
+  const inventoryType=entry.certificateInventoryType??(
+    entry.certificateType==='Premium Certificate of Authenticity'?'Premium Certificate of Authenticity':
+    entry.certificateType==='Limited Certificate of Authenticity'?'Limited Certificate of Authenticity':
+    'Wooden Certificate of Authenticity'
+  );
+  return <details className="modelRow">
+    <summary><span>{entry.outcome}</span><span>{inventoryType.replace(' Certificate of Authenticity','')} · {entry.slot} · {entry.assumedLikelihoodClass}{entry.enabled?'':' · disabled'}</span></summary>
+    <div className="formGrid">
+      <label className="wide">Outcome<input value={entry.outcome} onChange={e=>onChange({...entry,outcome:e.target.value})}/></label>
+      <label>Certificate tier<select value={inventoryType} onChange={e=>{const certificateInventoryType=e.target.value as OwnedCertificate['type'];onChange({...entry,certificateInventoryType,certificateType:authModelCertificateType(certificateInventoryType)})}}><option>Wooden Certificate of Authenticity</option><option>Ripped Certificate of Authenticity</option><option>Premium Certificate of Authenticity</option><option>Limited Certificate of Authenticity</option></select></label>
+      <label>Slot<select value={entry.slot} onChange={e=>onChange({...entry,slot:e.target.value as AuthModelEntry['slot']})}><option>Any</option><option>Head</option><option>Back</option><option>Wrist</option></select></label>
+      <label className="wide">Category<input value={entry.category} onChange={e=>onChange({...entry,category:e.target.value})}/></label>
+      <label>Relative-weight class<select value={entry.assumedLikelihoodClass} onChange={e=>onChange({...entry,assumedLikelihoodClass:e.target.value as AuthModelEntry['assumedLikelihoodClass']})}>{['VERY HIGH','HIGH','MEDIUM','LOW','VERY LOW'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Confidence<select value={entry.confidence} onChange={e=>onChange({...entry,confidence:e.target.value as AuthModelEntry['confidence']})}>{['Unknown','Low','Medium','High','Empirical'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Optional min<input type="number" step="any" value={entry.min??''} onChange={e=>onChange({...entry,min:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label>Optional typical<input type="number" step="any" value={entry.typical??''} onChange={e=>onChange({...entry,typical:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label>Optional max<input type="number" step="any" value={entry.max??''} onChange={e=>onChange({...entry,max:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label className="check"><input type="checkbox" checked={entry.enabled} onChange={e=>onChange({...entry,enabled:e.target.checked})}/> Enabled in live EV</label>
+      <div className="wide fieldHelp">Observed samples: {entry.observedSampleCount}. Values: {entry.observedValues.length?entry.observedValues.join(', '):'none yet'}. As exact-tier samples accumulate, empirical roll strength progressively outweighs the min/typical/max prior.</div>
+      <button className="danger wide" onClick={onDelete}>Delete model outcome</button>
+    </div>
+  </details>;
+}
+
+function LoadoutCard({slot,item}:{slot:string;item:GearItem}){return <div className="loadoutCard"><span>{slot}</span><strong>{item.baseName||item.name}</strong>{item.authentication.effect&&<small>{item.authentication.effect} {item.authentication.value?`${item.authentication.value}%`:''}</small>}</div>}
+function StatTile({label,value,suffix=''}:{label:string;value:number;suffix?:string}){return <div className="statTile"><span>{label}</span><strong>{Number.isFinite(value)?value.toFixed(Math.abs(value)%1?2:0):'—'}{suffix}</strong></div>}
+function ArrowThresholdCard({value,settings}:{value:number;settings:AlgorithmSettings}){const max=Math.max(settings.arrowSweetSpot,100);const pct=Math.min(100,Math.max(0,value/max*100));const excess=Math.max(0,value-settings.arrowSweetSpot);return <div className="thresholdCard"><div className="rowBetween"><strong>Bid Arrow reduction</strong><span>{value.toFixed(1)}% · target {settings.arrowSweetSpot}%</span></div><div className="progress arrowProgress"><i style={{width:`${pct}%`}}/><b style={{left:`${settings.arrowSweetSpot/max*100}%`}}/></div>{excess>0&&<div className="fieldHelp">{excess.toFixed(1)}% is above your 75% sweet spot. It is treated as wasted, not as an invented gameplay penalty.</div>}</div>}
+function ThresholdCard({label,value,target,ceiling}:{label:string;value:number;target:number;ceiling:number}){const pct=Math.min(100,Math.max(0,value/ceiling*100));return <div className="thresholdCard"><div className="rowBetween"><strong>{label}</strong><span>{value.toFixed(1)}% · target {target}% · ceiling {ceiling}%</span></div><div className="progress"><i style={{width:`${pct}%`}}/><b style={{left:`${target/ceiling*100}%`}}/></div></div>}
+function StatusBadge({status}:{status:string}){return <span className={`badge status ${status.toLowerCase().replaceAll(' ','-').replaceAll('/','')}`}>{status}</span>}
+function EmptyState({title,text,action,onClick}:{title:string;text:string;action?:string;onClick?:()=>void}){return <div className="empty"><div className="emptyIcon">⌁</div><h3>{title}</h3><p>{text}</p>{action&&<button className="primary" onClick={onClick}>{action}</button>}</div>}
+
+function algorithmIssues(s:AlgorithmSettings):string[]{const issues:string[]=[];for(const [k,v] of Object.entries(s))if(k!=='version'&&!Number.isFinite(Number(v)))issues.push(`${k} is not finite`);if(s.arrowSweetSpot<0)issues.push('Arrow sweet spot cannot be negative');if(s.energyTarget>s.energyCeiling)issues.push('Energy target must be ≤ Energy ceiling');if(s.zoneBreakpoint1>s.zoneBreakpoint2)issues.push('Zone breakpoint 1 must be ≤ breakpoint 2');for(const [label,value] of [['Luck weight',s.luckWeight],['Arrow weight',s.arrowWeight],['Zone weight',s.zoneWeight],['Recovery weight',s.recoveryWeight],['Zone middle multiplier',s.zoneMultiplier2],['Zone upper multiplier',s.zoneMultiplier3]] as const)if(value<0)issues.push(`${label} cannot be negative`);return issues;}
+function newAuthModelEntry():AuthModelEntry{return{id:crypto.randomUUID(),certificateInventoryType:'Wooden Certificate of Authenticity',certificateType:'Normal Certificate of Authenticity',slot:'Any',outcome:'Custom outcome',category:'Custom / unknown',assumedLikelihoodClass:'MEDIUM',observedSampleCount:0,observedValues:[],confidence:'Unknown',enabled:true}}
+function blankItem(slot:Slot='Head'):GearItem{const now=new Date().toISOString();return{id:crypto.randomUUID(),baseName:'',name:'',slot,stats:{...ZERO_STATS},authenticated:false,authentication:{kind:'None',effect:'',value:0},favourite:false,createdAt:now,updatedAt:now}}
+function applyRollToItem(item:GearItem,effect:string,value:number,type:AuthModelEntry['certificateType']):GearItem{
+  let base=removeNumericAuthentication(item);
+  if(base.authenticated){base=structuredClone(base);base.authenticated=false;base.authentication={kind:'None',effect:'',value:0};}
+  const updated=addOutcomeToItem(base,effect,value);
+  updated.authentication.kind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
+  updated.name=generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication);
+  updated.updatedAt=new Date().toISOString();
+  return updated;
+}
+function prepareImportedGear(existing:GearItem[],incoming:GearItem[]):GearItem[]{const used=new Set(existing.map(x=>x.id));return incoming.map(item=>{const clone=structuredClone(item);if(!clone.id||used.has(clone.id))clone.id=crypto.randomUUID();used.add(clone.id);return clone;});}
+function validateItem(i:GearItem){
+  if(!i.baseName.trim())return 'Item name is required.';
+  if(!['Head','Back','Wrist'].includes(i.slot))return 'Valid slot is required.';
+  if(i.conditionPct!==undefined && (!Number.isFinite(i.conditionPct) || i.conditionPct<0 || i.conditionPct>100))return 'Condition must be between 0 and 100%.';
+  if(i.mutation!==undefined && typeof i.mutation!=='string')return 'Mutation must be text.';
+  for(const [k] of statLabels)if(!Number.isFinite(i.stats[k]))return `${k} must be a finite number.`;
+  if(!Number.isFinite(i.authentication.value))return 'Authentication value must be a finite number.';
+  if(!i.authenticated)return '';
+  if(i.authentication.kind==='None')return 'Choose an authentication type.';
+  const effect=i.authentication.effect.trim();
+  if(!effect)return 'Choose an authentication effect.';
+  if(i.authentication.kind==='Normal'&&LEGACY_ALIEN_EFFECTS.includes(effect as never))return `${effect} is a legacy Alien effect and cannot be selected for a new Normal authentication.`;
+  if(i.authentication.kind==='Alien')return ''; // Historical Alien gear remains valid and editable as legacy data.
+  if(i.authentication.kind==='Premium'){
+    for(const [slot,effects] of Object.entries(PREMIUM_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
+  if(i.authentication.kind==='Limited'){
+    for(const [slot,effects] of Object.entries(LIMITED_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
+  for(const [slot,effects] of Object.entries(EXCLUSIVE_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+  return '';
+}
+function displayStat(k:keyof GearStats,v:number){const n=k==='arrowReduction'?reductionToGameArrow(v):v;return `${n>0?'+':''}${n.toFixed(Math.abs(n)%1?1:0)}%`}
+function shortStat(s:string){return s.replace('Energy Drink Time','Energy').replace('Vehicle Speed','Vehicle').replace('Bid Recovery','Recovery').replace('Bid Zone Width','Zone').replace('Bid Arrow Reduction','Arrow').replace('NPC Offers Bonus','NPC')}
+function replacedName(prev:any,next:any,slot:Slot){const key=slot.toLowerCase() as 'head'|'back'|'wrist';return prev[key].id!==next[key].id?prev[key].name:undefined}
+function dateStamp(){return new Date().toISOString().slice(0,10)}
+function downloadText(name:string,text:string,type:string){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+function applyTheme(theme:AppData['theme']){document.documentElement.dataset.theme=theme;if(theme==='system')delete document.documentElement.dataset.theme}
+function navIcon(t:Tab){return ({Dashboard:'▦',Gear:'◆',Optimise:'◎',Vehicle:'▰',Trophies:'♜',Certificates:'◈',Settings:'⚙',More:'•••'} as Record<Tab,string>)[t]}
++cert.displayedValue.toLocaleString():''} · Owned: {cert.quantity}</p>{editInventory&&<div className="formGrid"><label>Mutation<input value={cert.mutation??''} placeholder="None / Secret / …" onChange={e=>patchCertificate(cert.id,{mutation:e.target.value.trim()||undefined})}/></label><label>Grade stars<input type="number" min="0" max="5" step="1" value={cert.gradeStars??''} onChange={e=>patchCertificate(cert.id,{gradeStars:e.target.value===''?undefined:Math.max(0,Math.min(5,Math.trunc(Number(e.target.value)||0)))})}/></label><div className="actions wide"><button onClick={()=>changeQty(cert.id,-1)} disabled={cert.quantity===0}>− Remove one</button><button onClick={()=>changeQty(cert.id,1)}>＋ Add one</button></div></div>}</div>)}</div>
+      <div className="notice">Recording a roll below now consumes the exact selected certificate automatically. Wooden → Premium is compared explicitly against direct Wooden use at the current 150-Diamond conversion cost.</div>
+    </div>
+
+    <div className="sectionTitle"><h2>Record a result</h2></div>
+    {availableCertificates.length?<div className="card">
+      <label>Certificate actually used<select value={selectedCertificateId} onChange={e=>setSelectedCertificateId(e.target.value)}>{availableCertificates.map(cert=><option value={cert.id} key={cert.id}>{cert.type} · {cert.gradeStars!==undefined?'★'.repeat(cert.gradeStars)+' · ':''}{cert.displayedValue!==undefined?'$'+cert.displayedValue.toLocaleString()+' · ':''}owned {cert.quantity}</option>)}</select></label>
+      <button className="secondary" disabled={!selectedCertificate} onClick={()=>setLogOpen(true)}>＋ Record selected certificate roll</button>
+    </div>:<p className="muted">No certificate with quantity remaining is available to record.</p>}
+
+    <div className="sectionTitle"><h2>Roll history</h2></div>
+    <div className="card tableCard">{data.rollLog.length?data.rollLog.slice().reverse().map(r=><div className="logRow" key={r.id}><div><strong>{r.itemName}</strong><span>{new Date(r.date).toLocaleDateString()} · {r.certificateInventoryType??(r.certificateType.startsWith('Normal')?'Legacy Normal':r.certificateType.startsWith('Premium')?'Premium':r.certificateType.startsWith('Limited')?'Limited':'Legacy Alien')}</span></div><div><b>{r.newAuthentication} {r.newValue}%</b><span>{r.bestScoreBefore.toFixed(2)} → {r.bestScoreAfter.toFixed(2)}</span></div></div>):<p className="muted">No certificate rolls recorded yet.</p>}</div>
+
+    {logOpen&&selectedCertificate&&<RollLogEditor data={data} certificate={selectedCertificate} onClose={()=>setLogOpen(false)} onSave={(r,updated)=>{
+      try{
+        setData(applyRecordedCertificateRoll(data,selectedCertificate.id,r,updated));
+        setLogOpen(false);
+      }catch(error){alert(error instanceof Error?error.message:'Could not record certificate roll.')}
+    }}/>}
+  </section>;
+}
+
+function SettingsScreen({data,setData,showToast}:{data:AppData;setData:(d:AppData)=>void;showToast:(s:string)=>void}){
+  const jsonRef=useRef<HTMLInputElement>(null),csvRef=useRef<HTMLInputElement>(null);
+  function setS<K extends keyof AlgorithmSettings>(k:K,v:AlgorithmSettings[K]){setData({...data,settings:{...data.settings,[k]:v}})}
+  const fields:Array<[keyof AlgorithmSettings,string]>=[['luckWeight','Main Auction Luck weight'],['arrowWeight','Main Auction Bid Arrow weight'],['arrowSweetSpot','Bid Arrow sweet spot'],['zoneWeight','Main Auction Bid Zone weight'],['zoneBreakpoint1','Bid Zone breakpoint 1'],['zoneBreakpoint2','Bid Zone breakpoint 2'],['zoneMultiplier2','Bid Zone middle multiplier'],['zoneMultiplier3','Bid Zone upper multiplier'],['recoveryWeight','Main Auction Bid Recovery weight'],['energyTarget','Drink Prep Energy target'],['energyCeiling','Drink Prep Energy ceiling'],['energySecondStageMultiplier','Drink Prep above-target multiplier']];
+  const issues=algorithmIssues(data.settings);
+  return <section><div className="pageHeading"><div><h1>Settings</h1><p>Algorithm Version 2.0</p></div></div>
+    <div className="sectionTitle"><h2>Appearance</h2></div><div className="card"><label>Theme<select value={data.theme} onChange={e=>setData({...data,theme:e.target.value as any})}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label></div>
+    <div className="sectionTitle"><h2>Algorithm editor</h2><button className="secondary compact" onClick={()=>setData({...data,settings:{...LOCKED_DEFAULT_SETTINGS}})}>Reset to locked defaults</button></div>
+    <div className="settingsGrid">{fields.map(([k,label])=><label className="settingField" key={k}><span>{label}</span><input type="number" step="any" value={data.settings[k]} onChange={e=>setS(k,Number(e.target.value) as never)}/></label>)}</div>
+    {issues.length>0&&<div className="notice dangerNotice"><b>Settings need correction:</b> {issues.join(' · ')}</div>}
+    <div className="notice">Algorithm 2.0 uses one shared model for Main Auction, retention and certificate decisions. Displayed Luck is linear. Bid Arrow benefit caps at your 75% sweet spot with no invented over-cap penalty. Drink Prep, Grading and Shop/Idle are separate loadouts and never compensate for a weaker Main Auction result. Day, Night and Rain are evaluated as contextual Main variants instead of fake uptime averages.</div>
+    <div className="sectionTitle"><h2>Authentication outcome catalogue</h2><button className="secondary compact" onClick={()=>setData({...data,authModel:[...data.authModel,newAuthModelEntry()]})}>＋ Add outcome</button></div><div className="card authModel"><p className="muted">This is the live certificate model. Enabled rows, certificate tier, min / typical / max, confidence and relative-weight class all feed directly into certificate EV. MEDIUM is the neutral default because the real per-effect odds are unpublished; changing the class is an explicit user assumption, not a game fact.</p>{data.authModel.filter(m=>m.certificateType!=='Certificate of Alienticity'&&!LEGACY_ALIEN_EFFECTS.includes(m.outcome as never)).slice().sort((a,b)=>(a.certificateInventoryType??'').localeCompare(b.certificateInventoryType??'')||a.slot.localeCompare(b.slot)||a.outcome.localeCompare(b.outcome)).map(m=><AuthModelRow key={m.id} entry={m} onChange={entry=>setData({...data,authModel:data.authModel.map(x=>x.id===entry.id?entry:x)})} onDelete={()=>{if(confirm(`Remove authentication model outcome ${m.outcome}? Roll history is not deleted.`))setData({...data,authModel:data.authModel.filter(x=>x.id!==m.id)})}}/>)}</div>
+    <div className="sectionTitle"><h2>Backup & data safety</h2></div><div className="card buttonStack"><button className="primary" onClick={()=>downloadText(`storage-hunters-backup-${dateStamp()}.json`,exportJson(data),'application/json')}>Download JSON backup</button><button className="secondary" onClick={()=>jsonRef.current?.click()}>Restore JSON backup</button><button className="secondary" onClick={()=>downloadText(`storage-hunters-gear-${dateStamp()}.csv`,gearToCsv(data.gear),'text/csv')}>Export gear CSV</button><button className="secondary" onClick={()=>csvRef.current?.click()}>Import gear CSV</button><input hidden type="file" accept="application/json,.json" ref={jsonRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const d=importJson(await f.text());if(confirm(`Restore backup containing ${d.gear.length} gear items? This replaces current local data.`)){setData(d);showToast('Backup restored')}}catch(err){alert(err instanceof Error?err.message:'Invalid backup')}}}/><input hidden type="file" accept="text/csv,.csv" ref={csvRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const g=csvToGear(await f.text());if(confirm(`Import ${g.length} gear items? They will be added to the current inventory.`)){const imported=prepareImportedGear(data.gear,g);setData({...data,gear:[...data.gear,...imported]});showToast('CSV imported')}}catch(err){alert(err instanceof Error?err.message:'Invalid CSV')}}}/><button className="danger" onClick={()=>{const phrase=prompt('Type RESET ALL DATA to permanently clear all local inventory, certificates, roll history, vehicle parts, trophies and settings back to an empty workspace.');if(phrase==='RESET ALL DATA')setData(makeEmptyData())}}>Clear all local data</button></div>
+  </section>;
+}
+
+function GearEditor({item,authModel,mode,onClose,onSave}:{item:GearItem;authModel:AuthModelEntry[];mode:'add'|'edit';onClose:()=>void;onSave:(i:GearItem,keepAdding?:boolean)=>void}){
+  const [v,setV]=useState({...item,name:generateGearName(item.baseName,item.stats,item.authenticated,item.authentication)});
+  const initialShown=statLabels.filter(([key])=>Math.abs(item.stats[key])>1e-12).map(([key])=>key);
+  const [shownStats,setShownStats]=useState<Array<keyof GearStats>>(initialShown);
+  const patch=(next:Partial<GearItem>)=>setV(current=>{const updated={...current,...next};return {...updated,name:generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication)};});
+  const setStat=(k:keyof GearStats,n:number)=>setV(current=>{const stats={...current.stats,[k]:Number.isFinite(n)?n:0};return {...current,stats,name:generateGearName(current.baseName,stats,current.authenticated,current.authentication)};});
+  const setAuthentication=(next:Partial<GearItem['authentication']>)=>setV(current=>{const authentication={...current.authentication,...next};return {...current,authentication,name:generateGearName(current.baseName,current.stats,current.authenticated,authentication)};});
+  const showStat=(key:keyof GearStats)=>setShownStats(current=>current.includes(key)?current:[...current,key]);
+  const hideStat=(key:keyof GearStats)=>{setStat(key,0);setShownStats(current=>current.filter(k=>k!==key));};
+  const orderedShown=statLabels.filter(([key])=>shownStats.includes(key));
+  const hidden=statLabels.filter(([key])=>!shownStats.includes(key));
+  const displayedArrow=reductionToGameArrow(v.stats.arrowReduction);
+  const legacyAlien=v.authenticated&&v.authentication.kind==='Alien';
+  const currentKind=v.authentication.kind==='Premium'?'Premium':v.authentication.kind==='Limited'?'Limited':'Normal';
+  return <div className="modalBackdrop"><div className="modal sheet"><div className="modalHeader"><div><span className="eyebrow">{mode==='add'?'QUICK ADD GEAR':'EDIT GEAR'}</span><h2>{v.baseName||'New gear'}</h2></div><button className="iconButton" onClick={onClose}>×</button></div>
+    <div className="formGrid quickIdentity"><label className="wide">Actual gear name<input autoFocus value={v.baseName} onChange={e=>patch({baseName:e.target.value})} placeholder="e.g. Pearl Dominus"/></label><label>Slot<select value={v.slot} onChange={e=>patch({slot:e.target.value as Slot})}><option>Head</option><option>Back</option><option>Wrist</option></select></label><label>Mutation<input list={`mutations-${v.id}`} value={v.mutation??''} onChange={e=>patch({mutation:e.target.value})} placeholder="None, Diamond, Gold…"/><datalist id={`mutations-${v.id}`}>{['None','Diamond','Gold','Silver','Cobwebbed','Exclusive','Police','Chrome','Gem','Void','Onyx'].map(m=><option key={m} value={m}/>)}</datalist></label><label>Condition %<input type="number" min="0" max="100" step="any" inputMode="decimal" value={v.conditionPct??''} onChange={e=>patch({conditionPct:e.target.value===''?undefined:Number(e.target.value)})} placeholder="Optional"/></label><label className="check"><input type="checkbox" checked={v.favourite} onChange={e=>patch({favourite:e.target.checked})}/> Lock / favourite</label></div>
+    <div className="autoNamePreview"><span>Automatic name</span><strong>{v.name||'Name updates as stats are entered'}</strong></div>
+    <div className="quickEntrySection"><div className="rowBetween"><div><strong>Stats shown on this item</strong><div className="fieldHelp">Tap only the stats visible in game. Empty fields stay out of the way.</div></div></div>
+      {hidden.length>0&&<div className="statPicker">{hidden.map(([key,label])=><button type="button" key={key} onClick={()=>showStat(key)}>＋ {shortStat(label)}</button>)}</div>}
+      {!orderedShown.length&&<div className="quickEmpty">No stats selected yet.</div>}
+      <div className="quickStatGrid">{orderedShown.map(([key,label])=>key==='arrowReduction'
+        ? <div className="quickStatField arrowQuick" key={key}><label>{label}<input inputMode="decimal" type="number" step="any" value={displayedArrow} onChange={e=>setStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><small>Enter the signed game value, e.g. -24.</small></label><button type="button" className="removeStat" onClick={()=>hideStat(key)}>×</button></div>
+        : <div className="quickStatField" key={key}><label>{label} %<input inputMode="decimal" type="number" step="any" value={v.stats[key]} onChange={e=>setStat(key,Number(e.target.value))}/></label><button type="button" className="removeStat" onClick={()=>hideStat(key)}>×</button></div>)}</div>
+    </div>
+    <details className="finalStatsEditor authQuick" open={v.authenticated}><summary>Authentication {v.authenticated?`— ${v.authentication.kind} · ${v.authentication.effect||'select effect'}`:'— none'}</summary><div className="formGrid"><label className="check wide"><input type="checkbox" checked={v.authenticated} onChange={e=>{const authenticated=e.target.checked;const authentication=authenticated?(v.authenticated?v.authentication:{kind:'Normal' as const,effect:'',value:0}):{kind:'None' as const,effect:'',value:0};setV(current=>({...current,authenticated,authentication,name:generateGearName(current.baseName,current.stats,authenticated,authentication)}));}}/> Authenticated</label>{v.authenticated&&<>{legacyAlien?<><div className="wide notice"><b>Legacy Alien</b> — retained for historical compatibility.</div><label>Type<input value="Legacy Alien" readOnly/></label><label>Legacy effect<input value={v.authentication.effect} readOnly/></label><label>Legacy value %<input type="number" step="any" value={v.authentication.value} onChange={e=>setAuthentication({value:Number(e.target.value)})}/></label></>:<><label>Certificate type<select value={currentKind} onChange={e=>setAuthentication({kind:e.target.value as 'Normal'|'Premium'|'Limited',effect:'',value:0})}><option>Normal</option><option>Premium</option><option>Limited</option></select></label><label>Effect<select value={v.authentication.effect} onChange={e=>setAuthentication({effect:e.target.value})}>{activeAuthenticationOptions(v.slot,v.authentication.effect,authModel,currentKind).map(x=><option value={x} key={x}>{x||'Select effect'}</option>)}</select></label><label>Value %<input type="number" inputMode="decimal" step="any" value={v.authentication.value} onChange={e=>setAuthentication({value:Number(e.target.value)})}/></label><p className="wide fieldHelp">{currentKind==='Premium'?'Premium effects are evaluated by the shared loadout engine where possible; unresolved effects remain protected.':currentKind==='Limited'?'Limited effects are evaluated against your actual Main and specialist loadouts; unknown proc behaviour reduces confidence rather than creating fake certainty.':'Enter the normal/base accessory stats separately. Numeric authentication is added automatically by the optimiser.'}</p></>}</>}</div></details>
+    <div className="stickyActions quickActions"><button className="secondary" onClick={onClose}>Cancel</button>{mode==='add'&&<button className="secondary addAnother" onClick={()=>onSave({...v,name:generateGearName(v.baseName,v.stats,v.authenticated,v.authentication)},true)}>Save + another</button>}<button className="primary" onClick={()=>onSave({...v,name:generateGearName(v.baseName,v.stats,v.authenticated,v.authentication)})}>{mode==='add'?'Analyse & add':'Save changes'}</button></div>
+  </div></div>;
+}
+function NewItemSheet({analysis,onClose}:{analysis:{name:string;standalone:number;previous:number;next:number;bestChanged:boolean;replaced?:string;verdict?:string;bestCert?:string;combined?:GearStats};onClose:()=>void}){const d=analysis.next-analysis.previous;return <div className="modalBackdrop"><div className="modal resultModal"><span className="eyebrow">NEW ITEM ANALYSIS</span><h2>{analysis.name}</h2><div className="resultScore">{analysis.next.toFixed(2)}</div><div className="statsGrid three resultStats"><StatTile label="Standalone" value={analysis.standalone}/><StatTile label="Previous best" value={analysis.previous}/><StatTile label="Improvement" value={d}/></div><p>Best loadout changed: <b>{analysis.bestChanged?'YES':'NO'}</b></p>{analysis.replaced&&<p>Replaces: <b>{analysis.replaced}</b></p>}<StatusBadge status={analysis.verdict??'KEEP'}/>{analysis.combined&&<><div className="sectionTitle"><h3>New combined stats</h3></div><div className="statsGrid">{statLabels.map(([k,l])=><StatTile key={k} label={l} value={analysis.combined![k]} suffix="%"/>)}</div></>}{analysis.bestCert&&<p className="notice">Best certificate targeting: <b>{analysis.bestCert}</b>.</p>}<button className="primary" onClick={onClose}>Done</button></div></div>}
+
+function RollLogEditor({data,certificate,onClose,onSave}:{data:AppData;certificate:OwnedCertificate;onClose:()=>void;onSave:(r:CertificateRollLog,updated:GearItem)=>void}){
+  const type=authModelTypeForOwnedCertificate(certificate);
+  const [itemId,setItemId]=useState(data.gear[0]?.id??'');
+  const item=data.gear.find(g=>g.id===itemId);
+  const [newAuth,setNewAuth]=useState('');
+  const [newValue,setNewValue]=useState(0);
+  const autoPreview=useMemo(()=>item&&newAuth?applyRollToItem(item,newAuth,newValue,type):item,[item,newAuth,newValue,type]);
+  const expectedDisplayedStats=useMemo(()=>autoPreview?effectiveItemStats(autoPreview):undefined,[autoPreview]);
+  const [finalStats,setFinalStats]=useState<GearStats|undefined>(expectedDisplayedStats?{...expectedDisplayedStats}:undefined);
+  useEffect(()=>{setFinalStats(expectedDisplayedStats?{...expectedDisplayedStats}:undefined)},[expectedDisplayedStats]);
+  useEffect(()=>{setNewAuth('');setNewValue(0)},[itemId,type]);
+  const preview=useMemo(()=>{
+    if(!autoPreview||!finalStats)return autoPreview;
+    const observed=withObservedAuthenticationStats(autoPreview,finalStats);
+    return {...observed,name:generateGearName(observed.baseName,observed.stats,observed.authenticated,observed.authentication)};
+  },[autoPreview,finalStats]);
+  const before=optimise(data.gear,data.settings,1)[0]?.score.total??0;
+  const previewGear=preview?data.gear.map(g=>g.id===preview.id?preview:g):data.gear;
+  const after=optimise(previewGear,data.settings,1)[0]?.score.total??before;
+  const setFinalStat=(key:keyof GearStats,value:number)=>setFinalStats(current=>({...ZERO_STATS,...current,[key]:Number.isFinite(value)?value:0}));
+  const authKind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
+  return <div className="modalBackdrop"><div className="modal"><div className="modalHeader"><h2>Record certificate roll</h2><button className="iconButton" onClick={onClose}>×</button></div>
+    <div className="notice"><b>Certificate being consumed:</b> {certificate.type}{certificate.gradeStars!==undefined?' · '+'★'.repeat(certificate.gradeStars):''}{certificate.displayedValue!==undefined?' · $'+certificate.displayedValue.toLocaleString():''}. Saving this roll reduces its owned quantity by one.</div>
+    <div className="formGrid"><label className="wide">Item<select value={itemId} onChange={e=>setItemId(e.target.value)}>{data.gear.map(g=><option value={g.id} key={g.id}>{g.name} · {g.slot}</option>)}</select></label><label>New authentication<select value={newAuth} onChange={e=>setNewAuth(e.target.value)}><option value="">Select result</option>{activeCertificateOutcomeOptions(item?.slot,data.authModel,authKind,certificate.type).map(a=><option key={a}>{a}</option>)}</select></label><label>New value %<input type="number" step="any" value={newValue} onChange={e=>setNewValue(Number(e.target.value))}/></label><label>Best score before<input type="number" value={before} readOnly/></label><label>Calculated score after<input type="number" value={after} readOnly/></label><p className="wide fieldHelp">These are the final stats displayed in game after the new authentication. Any difference caused by the authentication (especially Focused) is stored on that authentication only; the item's base stats are not overwritten.</p></div>
+    {finalStats&&<details className="finalStatsEditor"><summary>Confirm / correct final displayed stats</summary><div className="formGrid">{statLabels.filter(([k])=>k!=='arrowReduction').map(([k,l])=><label key={k}>{l} %<input type="number" inputMode="decimal" step="any" value={finalStats[k]} onChange={e=>setFinalStat(k,Number(e.target.value))}/></label>)}<label className="wide arrowInput">Bid Arrow Speed — game display %<input type="number" inputMode="decimal" step="any" value={reductionToGameArrow(finalStats.arrowReduction)} onChange={e=>setFinalStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><span>Enter the signed value shown by the game.</span></label></div></details>}
+    <div className="stickyActions"><button className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={!item||!newAuth||!preview||certificate.quantity<1} onClick={()=>{item&&preview&&onSave({id:crypto.randomUUID(),date:new Date().toISOString(),certificateType:type,itemId:item.id,itemName:item.name,slot:item.slot,previousAuthentication:item.authentication.effect,previousValue:item.authentication.value,newAuthentication:newAuth,newValue,improvedBestSet:after>before,bestScoreBefore:before,bestScoreAfter:after,certificateId:certificate.id,certificateGradeStars:certificate.gradeStars,certificateInventoryType:certificate.type},preview)}}>Apply, record & consume</button></div>
+  </div></div>;
+}
+
+function authModelCertificateType(type:OwnedCertificate['type']):AuthModelEntry['certificateType']{
+  return type==='Premium Certificate of Authenticity'
+    ?'Premium Certificate of Authenticity'
+    :type==='Limited Certificate of Authenticity'
+      ?'Limited Certificate of Authenticity'
+      :'Normal Certificate of Authenticity';
+}
+
+function AuthModelRow({entry,onChange,onDelete}:{entry:AuthModelEntry;onChange:(e:AuthModelEntry)=>void;onDelete:()=>void}){
+  const inventoryType=entry.certificateInventoryType??(
+    entry.certificateType==='Premium Certificate of Authenticity'?'Premium Certificate of Authenticity':
+    entry.certificateType==='Limited Certificate of Authenticity'?'Limited Certificate of Authenticity':
+    'Wooden Certificate of Authenticity'
+  );
+  return <details className="modelRow">
+    <summary><span>{entry.outcome}</span><span>{inventoryType.replace(' Certificate of Authenticity','')} · {entry.slot} · {entry.assumedLikelihoodClass}{entry.enabled?'':' · disabled'}</span></summary>
+    <div className="formGrid">
+      <label className="wide">Outcome<input value={entry.outcome} onChange={e=>onChange({...entry,outcome:e.target.value})}/></label>
+      <label>Certificate tier<select value={inventoryType} onChange={e=>{const certificateInventoryType=e.target.value as OwnedCertificate['type'];onChange({...entry,certificateInventoryType,certificateType:authModelCertificateType(certificateInventoryType)})}}><option>Wooden Certificate of Authenticity</option><option>Ripped Certificate of Authenticity</option><option>Premium Certificate of Authenticity</option><option>Limited Certificate of Authenticity</option></select></label>
+      <label>Slot<select value={entry.slot} onChange={e=>onChange({...entry,slot:e.target.value as AuthModelEntry['slot']})}><option>Any</option><option>Head</option><option>Back</option><option>Wrist</option></select></label>
+      <label className="wide">Category<input value={entry.category} onChange={e=>onChange({...entry,category:e.target.value})}/></label>
+      <label>Relative-weight class<select value={entry.assumedLikelihoodClass} onChange={e=>onChange({...entry,assumedLikelihoodClass:e.target.value as AuthModelEntry['assumedLikelihoodClass']})}>{['VERY HIGH','HIGH','MEDIUM','LOW','VERY LOW'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Confidence<select value={entry.confidence} onChange={e=>onChange({...entry,confidence:e.target.value as AuthModelEntry['confidence']})}>{['Unknown','Low','Medium','High','Empirical'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Optional min<input type="number" step="any" value={entry.min??''} onChange={e=>onChange({...entry,min:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label>Optional typical<input type="number" step="any" value={entry.typical??''} onChange={e=>onChange({...entry,typical:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label>Optional max<input type="number" step="any" value={entry.max??''} onChange={e=>onChange({...entry,max:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label className="check"><input type="checkbox" checked={entry.enabled} onChange={e=>onChange({...entry,enabled:e.target.checked})}/> Enabled in live EV</label>
+      <div className="wide fieldHelp">Observed samples: {entry.observedSampleCount}. Values: {entry.observedValues.length?entry.observedValues.join(', '):'none yet'}. As exact-tier samples accumulate, empirical roll strength progressively outweighs the min/typical/max prior.</div>
+      <button className="danger wide" onClick={onDelete}>Delete model outcome</button>
+    </div>
+  </details>;
+}
+
+function LoadoutCard({slot,item}:{slot:string;item:GearItem}){return <div className="loadoutCard"><span>{slot}</span><strong>{item.baseName||item.name}</strong>{item.authentication.effect&&<small>{item.authentication.effect} {item.authentication.value?`${item.authentication.value}%`:''}</small>}</div>}
+function StatTile({label,value,suffix=''}:{label:string;value:number;suffix?:string}){return <div className="statTile"><span>{label}</span><strong>{Number.isFinite(value)?value.toFixed(Math.abs(value)%1?2:0):'—'}{suffix}</strong></div>}
+function ArrowThresholdCard({value,settings}:{value:number;settings:AlgorithmSettings}){const max=Math.max(settings.arrowSweetSpot,100);const pct=Math.min(100,Math.max(0,value/max*100));const excess=Math.max(0,value-settings.arrowSweetSpot);return <div className="thresholdCard"><div className="rowBetween"><strong>Bid Arrow reduction</strong><span>{value.toFixed(1)}% · target {settings.arrowSweetSpot}%</span></div><div className="progress arrowProgress"><i style={{width:`${pct}%`}}/><b style={{left:`${settings.arrowSweetSpot/max*100}%`}}/></div>{excess>0&&<div className="fieldHelp">{excess.toFixed(1)}% is above your 75% sweet spot. It is treated as wasted, not as an invented gameplay penalty.</div>}</div>}
+function ThresholdCard({label,value,target,ceiling}:{label:string;value:number;target:number;ceiling:number}){const pct=Math.min(100,Math.max(0,value/ceiling*100));return <div className="thresholdCard"><div className="rowBetween"><strong>{label}</strong><span>{value.toFixed(1)}% · target {target}% · ceiling {ceiling}%</span></div><div className="progress"><i style={{width:`${pct}%`}}/><b style={{left:`${target/ceiling*100}%`}}/></div></div>}
+function StatusBadge({status}:{status:string}){return <span className={`badge status ${status.toLowerCase().replaceAll(' ','-').replaceAll('/','')}`}>{status}</span>}
+function EmptyState({title,text,action,onClick}:{title:string;text:string;action?:string;onClick?:()=>void}){return <div className="empty"><div className="emptyIcon">⌁</div><h3>{title}</h3><p>{text}</p>{action&&<button className="primary" onClick={onClick}>{action}</button>}</div>}
+
+function algorithmIssues(s:AlgorithmSettings):string[]{const issues:string[]=[];for(const [k,v] of Object.entries(s))if(k!=='version'&&!Number.isFinite(Number(v)))issues.push(`${k} is not finite`);if(s.arrowSweetSpot<0)issues.push('Arrow sweet spot cannot be negative');if(s.energyTarget>s.energyCeiling)issues.push('Energy target must be ≤ Energy ceiling');if(s.zoneBreakpoint1>s.zoneBreakpoint2)issues.push('Zone breakpoint 1 must be ≤ breakpoint 2');for(const [label,value] of [['Luck weight',s.luckWeight],['Arrow weight',s.arrowWeight],['Zone weight',s.zoneWeight],['Recovery weight',s.recoveryWeight],['Zone middle multiplier',s.zoneMultiplier2],['Zone upper multiplier',s.zoneMultiplier3]] as const)if(value<0)issues.push(`${label} cannot be negative`);return issues;}
+function newAuthModelEntry():AuthModelEntry{return{id:crypto.randomUUID(),certificateInventoryType:'Wooden Certificate of Authenticity',certificateType:'Normal Certificate of Authenticity',slot:'Any',outcome:'Custom outcome',category:'Custom / unknown',assumedLikelihoodClass:'MEDIUM',observedSampleCount:0,observedValues:[],confidence:'Unknown',enabled:true}}
+function blankItem(slot:Slot='Head'):GearItem{const now=new Date().toISOString();return{id:crypto.randomUUID(),baseName:'',name:'',slot,stats:{...ZERO_STATS},authenticated:false,authentication:{kind:'None',effect:'',value:0},favourite:false,createdAt:now,updatedAt:now}}
+function applyRollToItem(item:GearItem,effect:string,value:number,type:AuthModelEntry['certificateType']):GearItem{
+  let base=removeNumericAuthentication(item);
+  if(base.authenticated){base=structuredClone(base);base.authenticated=false;base.authentication={kind:'None',effect:'',value:0};}
+  const updated=addOutcomeToItem(base,effect,value);
+  updated.authentication.kind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
+  updated.name=generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication);
+  updated.updatedAt=new Date().toISOString();
+  return updated;
+}
+function prepareImportedGear(existing:GearItem[],incoming:GearItem[]):GearItem[]{const used=new Set(existing.map(x=>x.id));return incoming.map(item=>{const clone=structuredClone(item);if(!clone.id||used.has(clone.id))clone.id=crypto.randomUUID();used.add(clone.id);return clone;});}
+function validateItem(i:GearItem){
+  if(!i.baseName.trim())return 'Item name is required.';
+  if(!['Head','Back','Wrist'].includes(i.slot))return 'Valid slot is required.';
+  if(i.conditionPct!==undefined && (!Number.isFinite(i.conditionPct) || i.conditionPct<0 || i.conditionPct>100))return 'Condition must be between 0 and 100%.';
+  if(i.mutation!==undefined && typeof i.mutation!=='string')return 'Mutation must be text.';
+  for(const [k] of statLabels)if(!Number.isFinite(i.stats[k]))return `${k} must be a finite number.`;
+  if(!Number.isFinite(i.authentication.value))return 'Authentication value must be a finite number.';
+  if(!i.authenticated)return '';
+  if(i.authentication.kind==='None')return 'Choose an authentication type.';
+  const effect=i.authentication.effect.trim();
+  if(!effect)return 'Choose an authentication effect.';
+  if(i.authentication.kind==='Normal'&&LEGACY_ALIEN_EFFECTS.includes(effect as never))return `${effect} is a legacy Alien effect and cannot be selected for a new Normal authentication.`;
+  if(i.authentication.kind==='Alien')return ''; // Historical Alien gear remains valid and editable as legacy data.
+  if(i.authentication.kind==='Premium'){
+    for(const [slot,effects] of Object.entries(PREMIUM_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
+  if(i.authentication.kind==='Limited'){
+    for(const [slot,effects] of Object.entries(LIMITED_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
+  for(const [slot,effects] of Object.entries(EXCLUSIVE_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+  return '';
+}
+function displayStat(k:keyof GearStats,v:number){const n=k==='arrowReduction'?reductionToGameArrow(v):v;return `${n>0?'+':''}${n.toFixed(Math.abs(n)%1?1:0)}%`}
+function shortStat(s:string){return s.replace('Energy Drink Time','Energy').replace('Vehicle Speed','Vehicle').replace('Bid Recovery','Recovery').replace('Bid Zone Width','Zone').replace('Bid Arrow Reduction','Arrow').replace('NPC Offers Bonus','NPC')}
+function replacedName(prev:any,next:any,slot:Slot){const key=slot.toLowerCase() as 'head'|'back'|'wrist';return prev[key].id!==next[key].id?prev[key].name:undefined}
+function dateStamp(){return new Date().toISOString().slice(0,10)}
+function downloadText(name:string,text:string,type:string){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+function applyTheme(theme:AppData['theme']){document.documentElement.dataset.theme=theme;if(theme==='system')delete document.documentElement.dataset.theme}
+function navIcon(t:Tab){return ({Dashboard:'▦',Gear:'◆',Optimise:'◎',Vehicle:'▰',Trophies:'♜',Certificates:'◈',Settings:'⚙',More:'•••'} as Record<Tab,string>)[t]}
++decision.certificate.displayedValue.toLocaleString():''}</span>
+            </div>
+            <div className="premiumVerdict">{decision.verdict}</div>
+          </summary>
+          <div className="comboBody">
+            {target?<>
+              <div className="rowBetween"><div><span className="eyebrow">BEST CURRENT TARGET</span><h3>{target.item.baseName||target.item.name}</h3><p>{target.item.slot}{target.item.authenticated?' · replacing '+target.item.authentication.effect:''}</p></div><span className="badge heuristic">{target.confidencePct.toFixed(0)}% CONFIDENCE</span></div>
+
+              <div className="statsGrid three">
+                <StatTile label="Robust Main improves" value={target.chanceOfImprovementPct} suffix="%"/>
+                <StatTile label="Potential Main improves" value={target.chanceOfPotentialImprovementPct} suffix="%"/>
+                <StatTile label="Expected Main change" value={target.expectedImprovementPct} suffix="%"/>
+                <StatTile label="Chance Main/context worsens" value={target.chanceOfWorsePct} suffix="%"/>
+                <StatTile label="Meaningful robust gain ≥1%" value={target.chanceOfMeaningfulImprovementPct} suffix="%"/>
+                <StatTile label="Unresolved outcome mass" value={target.unresolvedOutcomeMassPct} suffix="%"/>
+                <StatTile label="Current Main fit" value={target.mainFitPct} suffix="%"/>
+              </div>
+
+              <div className="thresholdTable">
+                <div><b>Main sensitivity low / central / high</b><span>{signed(target.expectedImprovementLowPct)} / {signed(target.expectedImprovementPct)} / {signed(target.expectedImprovementHighPct)}</span></div>
+                <div><b>Average robust gain when successful</b><span>{signed(target.averageGainWhenSuccessfulPct)}</span></div>
+                <div><b>Average demonstrated loss when worse</b><span>{signed(target.averageLossWhenWorsePct)}</span></div>
+                <div><b>10th / median / 90th central percentile</b><span>{signed(target.p10Pct)} / {signed(target.medianPct)} / {signed(target.p90Pct)}</span></div>
+                <div><b>Best possible modelled branch</b><span>{target.bestPossibleOutcome} · {signed(target.bestCasePct)}</span></div>
+                <div><b>Worst modelled Main/context branch</b><span>{target.worstPossibleOutcome} · {signed(target.worstCasePct)}</span></div>
+                <div><b>Authentication risk — neutral Main</b><span>{signed(target.currentAuthenticationMainRiskPct)}</span></div>
+                <div><b>Authentication risk — Day/Night/Rain</b><span>{signed(target.currentAuthenticationContextRiskPct)}</span></div>
+                <div><b>Authentication risk — Drink Prep</b><span>{signed(target.currentAuthenticationDrinkRiskPct)}</span></div>
+                <div><b>Authentication risk — Grading</b><span>{signed(target.currentAuthenticationGradingRiskPct)}</span></div>
+                <div><b>Authentication risk — Shop/Idle</b><span>{signed(target.currentAuthenticationShopRiskPct)}</span></div>
+                <div><b>Worst authentication risk anywhere relevant</b><span>{signed(target.currentAuthenticationValueAtRiskPct)}</span></div>
+                <div><b>Average Day/Night/Rain impact</b><span>{signed(target.expectedContextualMainPct)}</span></div>
+                <div><b>Worst Day/Night/Rain impact</b><span>{signed(target.worstContextualMainPct)}</span></div>
+                <div><b>Expected Drink Prep impact</b><span>{signed(target.expectedDrinkPrepPct)}</span></div>
+                <div><b>Expected Grading impact</b><span>{signed(target.expectedGradingPct)}</span></div>
+                <div><b>Expected Shop/Idle impact</b><span>{signed(target.expectedShopPct)}</span></div>
+              </div>
+
+              {target.unresolvedEffects.length>0&&<div className="notice warning"><b>Unresolved magnitude:</b> {target.unresolvedEffects.join(', ')}. These branches are not treated as zero-value known outcomes and cannot produce a USE verdict until supported by numeric evidence.</div>}
+              <ul>{target.reasons.map((reason,i)=><li key={i}>{reason}</li>)}</ul>
+
+              {decision.conversion&&<div className="notice"><b>Wooden → Premium opportunity cost:</b> {decision.conversion.recommendation}. Direct Wooden EV {signed(decision.conversion.directExpectedMainPct)} vs synthetic Premium EV {signed(decision.conversion.premiumExpectedMainPct)}. Conversion costs {decision.conversion.diamondCost} Diamonds. {decision.conversion.reason}</div>}
+
+              <details>
+                <summary>Other targets</summary>
+                <div className="thresholdTable">{decision.targets.slice(1,7).map((alt,index)=><div key={alt.item.id}><b>#{index+2} {alt.item.baseName||alt.item.name} · {alt.verdict}</b><span>{alt.chanceOfImprovementPct.toFixed(1)}% robust improve · EV {signed(alt.expectedImprovementPct)}</span></div>)}</div>
+              </details>
+            </>:<p className="muted">A complete Head, Back and Wrist inventory is required.</p>}
+
+            <div className="notice warning"><b>Evidence boundary:</b> these are modelled decision percentages, not hidden Roblox loot odds. Effect selection uses a neutral equal prior until exact-certificate observations exist. Unknown star transforms and unresolved magnitudes reduce confidence instead of being invented.</div>
+          </div>
+        </details>;
+      })}
+      {!certificateState.computing&&!certificateState.error&&!decisions.length&&<p className="muted">No owned certificates are available for analysis.</p>}
+    </div>
+
+    <div className="card">
+      <div className="sectionTitle"><h2>Owned certificates</h2><button className="secondary compact" onClick={()=>setEditInventory(!editInventory)}>{editInventory?'Done':'Manual adjustment'}</button></div>
+      <div className="gearList">{data.ownedCertificates.map(cert=><div className="gearCard" key={cert.id}><strong>{cert.type}</strong><p>{cert.rarity||'Certificate'}{cert.gradeStars!==undefined?' · '+'★'.repeat(cert.gradeStars):''}{cert.displayedValue!==undefined?' · $'+cert.displayedValue.toLocaleString():''} · Owned: {cert.quantity}</p>{editInventory&&<div className="actions"><button onClick={()=>changeQty(cert.id,-1)} disabled={cert.quantity===0}>− Remove one</button><button onClick={()=>changeQty(cert.id,1)}>＋ Add one</button></div>}</div>)}</div>
+      <div className="notice">Recording a roll below now consumes the exact selected certificate automatically. Wooden → Premium is compared explicitly against direct Wooden use at the current 150-Diamond conversion cost.</div>
+    </div>
+
+    <div className="sectionTitle"><h2>Record a result</h2></div>
+    {availableCertificates.length?<div className="card">
+      <label>Certificate actually used<select value={selectedCertificateId} onChange={e=>setSelectedCertificateId(e.target.value)}>{availableCertificates.map(cert=><option value={cert.id} key={cert.id}>{cert.type} · {cert.gradeStars!==undefined?'★'.repeat(cert.gradeStars)+' · ':''}{cert.displayedValue!==undefined?'$'+cert.displayedValue.toLocaleString()+' · ':''}owned {cert.quantity}</option>)}</select></label>
+      <button className="secondary" disabled={!selectedCertificate} onClick={()=>setLogOpen(true)}>＋ Record selected certificate roll</button>
+    </div>:<p className="muted">No certificate with quantity remaining is available to record.</p>}
+
+    <div className="sectionTitle"><h2>Roll history</h2></div>
+    <div className="card tableCard">{data.rollLog.length?data.rollLog.slice().reverse().map(r=><div className="logRow" key={r.id}><div><strong>{r.itemName}</strong><span>{new Date(r.date).toLocaleDateString()} · {r.certificateInventoryType??(r.certificateType.startsWith('Normal')?'Legacy Normal':r.certificateType.startsWith('Premium')?'Premium':r.certificateType.startsWith('Limited')?'Limited':'Legacy Alien')}</span></div><div><b>{r.newAuthentication} {r.newValue}%</b><span>{r.bestScoreBefore.toFixed(2)} → {r.bestScoreAfter.toFixed(2)}</span></div></div>):<p className="muted">No certificate rolls recorded yet.</p>}</div>
+
+    {logOpen&&selectedCertificate&&<RollLogEditor data={data} certificate={selectedCertificate} onClose={()=>setLogOpen(false)} onSave={(r,updated)=>{
+      try{
+        setData(applyRecordedCertificateRoll(data,selectedCertificate.id,r,updated));
+        setLogOpen(false);
+      }catch(error){alert(error instanceof Error?error.message:'Could not record certificate roll.')}
+    }}/>}
+  </section>;
+}
+
+function SettingsScreen({data,setData,showToast}:{data:AppData;setData:(d:AppData)=>void;showToast:(s:string)=>void}){
+  const jsonRef=useRef<HTMLInputElement>(null),csvRef=useRef<HTMLInputElement>(null);
+  function setS<K extends keyof AlgorithmSettings>(k:K,v:AlgorithmSettings[K]){setData({...data,settings:{...data.settings,[k]:v}})}
+  const fields:Array<[keyof AlgorithmSettings,string]>=[['luckWeight','Main Auction Luck weight'],['arrowWeight','Main Auction Bid Arrow weight'],['arrowSweetSpot','Bid Arrow sweet spot'],['zoneWeight','Main Auction Bid Zone weight'],['zoneBreakpoint1','Bid Zone breakpoint 1'],['zoneBreakpoint2','Bid Zone breakpoint 2'],['zoneMultiplier2','Bid Zone middle multiplier'],['zoneMultiplier3','Bid Zone upper multiplier'],['recoveryWeight','Main Auction Bid Recovery weight'],['energyTarget','Drink Prep Energy target'],['energyCeiling','Drink Prep Energy ceiling'],['energySecondStageMultiplier','Drink Prep above-target multiplier']];
+  const issues=algorithmIssues(data.settings);
+  return <section><div className="pageHeading"><div><h1>Settings</h1><p>Algorithm Version 2.0</p></div></div>
+    <div className="sectionTitle"><h2>Appearance</h2></div><div className="card"><label>Theme<select value={data.theme} onChange={e=>setData({...data,theme:e.target.value as any})}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label></div>
+    <div className="sectionTitle"><h2>Algorithm editor</h2><button className="secondary compact" onClick={()=>setData({...data,settings:{...LOCKED_DEFAULT_SETTINGS}})}>Reset to locked defaults</button></div>
+    <div className="settingsGrid">{fields.map(([k,label])=><label className="settingField" key={k}><span>{label}</span><input type="number" step="any" value={data.settings[k]} onChange={e=>setS(k,Number(e.target.value) as never)}/></label>)}</div>
+    {issues.length>0&&<div className="notice dangerNotice"><b>Settings need correction:</b> {issues.join(' · ')}</div>}
+    <div className="notice">Algorithm 2.0 uses one shared model for Main Auction, retention and certificate decisions. Displayed Luck is linear. Bid Arrow benefit caps at your 75% sweet spot with no invented over-cap penalty. Drink Prep, Grading and Shop/Idle are separate loadouts and never compensate for a weaker Main Auction result. Day, Night and Rain are evaluated as contextual Main variants instead of fake uptime averages.</div>
+    <div className="sectionTitle"><h2>Authentication outcome catalogue</h2><button className="secondary compact" onClick={()=>setData({...data,authModel:[...data.authModel,newAuthModelEntry()]})}>＋ Add outcome</button></div><div className="card authModel"><p className="muted">This is the live certificate model. Enabled rows, certificate tier, min / typical / max, confidence and relative-weight class all feed directly into certificate EV. MEDIUM is the neutral default because the real per-effect odds are unpublished; changing the class is an explicit user assumption, not a game fact.</p>{data.authModel.filter(m=>m.certificateType!=='Certificate of Alienticity'&&!LEGACY_ALIEN_EFFECTS.includes(m.outcome as never)).slice().sort((a,b)=>(a.certificateInventoryType??'').localeCompare(b.certificateInventoryType??'')||a.slot.localeCompare(b.slot)||a.outcome.localeCompare(b.outcome)).map(m=><AuthModelRow key={m.id} entry={m} onChange={entry=>setData({...data,authModel:data.authModel.map(x=>x.id===entry.id?entry:x)})} onDelete={()=>{if(confirm(`Remove authentication model outcome ${m.outcome}? Roll history is not deleted.`))setData({...data,authModel:data.authModel.filter(x=>x.id!==m.id)})}}/>)}</div>
+    <div className="sectionTitle"><h2>Backup & data safety</h2></div><div className="card buttonStack"><button className="primary" onClick={()=>downloadText(`storage-hunters-backup-${dateStamp()}.json`,exportJson(data),'application/json')}>Download JSON backup</button><button className="secondary" onClick={()=>jsonRef.current?.click()}>Restore JSON backup</button><button className="secondary" onClick={()=>downloadText(`storage-hunters-gear-${dateStamp()}.csv`,gearToCsv(data.gear),'text/csv')}>Export gear CSV</button><button className="secondary" onClick={()=>csvRef.current?.click()}>Import gear CSV</button><input hidden type="file" accept="application/json,.json" ref={jsonRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const d=importJson(await f.text());if(confirm(`Restore backup containing ${d.gear.length} gear items? This replaces current local data.`)){setData(d);showToast('Backup restored')}}catch(err){alert(err instanceof Error?err.message:'Invalid backup')}}}/><input hidden type="file" accept="text/csv,.csv" ref={csvRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const g=csvToGear(await f.text());if(confirm(`Import ${g.length} gear items? They will be added to the current inventory.`)){const imported=prepareImportedGear(data.gear,g);setData({...data,gear:[...data.gear,...imported]});showToast('CSV imported')}}catch(err){alert(err instanceof Error?err.message:'Invalid CSV')}}}/><button className="danger" onClick={()=>{const phrase=prompt('Type RESET ALL DATA to permanently clear all local inventory, certificates, roll history, vehicle parts, trophies and settings back to an empty workspace.');if(phrase==='RESET ALL DATA')setData(makeEmptyData())}}>Clear all local data</button></div>
+  </section>;
+}
+
+function GearEditor({item,authModel,mode,onClose,onSave}:{item:GearItem;authModel:AuthModelEntry[];mode:'add'|'edit';onClose:()=>void;onSave:(i:GearItem,keepAdding?:boolean)=>void}){
+  const [v,setV]=useState({...item,name:generateGearName(item.baseName,item.stats,item.authenticated,item.authentication)});
+  const initialShown=statLabels.filter(([key])=>Math.abs(item.stats[key])>1e-12).map(([key])=>key);
+  const [shownStats,setShownStats]=useState<Array<keyof GearStats>>(initialShown);
+  const patch=(next:Partial<GearItem>)=>setV(current=>{const updated={...current,...next};return {...updated,name:generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication)};});
+  const setStat=(k:keyof GearStats,n:number)=>setV(current=>{const stats={...current.stats,[k]:Number.isFinite(n)?n:0};return {...current,stats,name:generateGearName(current.baseName,stats,current.authenticated,current.authentication)};});
+  const setAuthentication=(next:Partial<GearItem['authentication']>)=>setV(current=>{const authentication={...current.authentication,...next};return {...current,authentication,name:generateGearName(current.baseName,current.stats,current.authenticated,authentication)};});
+  const showStat=(key:keyof GearStats)=>setShownStats(current=>current.includes(key)?current:[...current,key]);
+  const hideStat=(key:keyof GearStats)=>{setStat(key,0);setShownStats(current=>current.filter(k=>k!==key));};
+  const orderedShown=statLabels.filter(([key])=>shownStats.includes(key));
+  const hidden=statLabels.filter(([key])=>!shownStats.includes(key));
+  const displayedArrow=reductionToGameArrow(v.stats.arrowReduction);
+  const legacyAlien=v.authenticated&&v.authentication.kind==='Alien';
+  const currentKind=v.authentication.kind==='Premium'?'Premium':v.authentication.kind==='Limited'?'Limited':'Normal';
+  return <div className="modalBackdrop"><div className="modal sheet"><div className="modalHeader"><div><span className="eyebrow">{mode==='add'?'QUICK ADD GEAR':'EDIT GEAR'}</span><h2>{v.baseName||'New gear'}</h2></div><button className="iconButton" onClick={onClose}>×</button></div>
+    <div className="formGrid quickIdentity"><label className="wide">Actual gear name<input autoFocus value={v.baseName} onChange={e=>patch({baseName:e.target.value})} placeholder="e.g. Pearl Dominus"/></label><label>Slot<select value={v.slot} onChange={e=>patch({slot:e.target.value as Slot})}><option>Head</option><option>Back</option><option>Wrist</option></select></label><label>Mutation<input list={`mutations-${v.id}`} value={v.mutation??''} onChange={e=>patch({mutation:e.target.value})} placeholder="None, Diamond, Gold…"/><datalist id={`mutations-${v.id}`}>{['None','Diamond','Gold','Silver','Cobwebbed','Exclusive','Police','Chrome','Gem','Void','Onyx'].map(m=><option key={m} value={m}/>)}</datalist></label><label>Condition %<input type="number" min="0" max="100" step="any" inputMode="decimal" value={v.conditionPct??''} onChange={e=>patch({conditionPct:e.target.value===''?undefined:Number(e.target.value)})} placeholder="Optional"/></label><label className="check"><input type="checkbox" checked={v.favourite} onChange={e=>patch({favourite:e.target.checked})}/> Lock / favourite</label></div>
+    <div className="autoNamePreview"><span>Automatic name</span><strong>{v.name||'Name updates as stats are entered'}</strong></div>
+    <div className="quickEntrySection"><div className="rowBetween"><div><strong>Stats shown on this item</strong><div className="fieldHelp">Tap only the stats visible in game. Empty fields stay out of the way.</div></div></div>
+      {hidden.length>0&&<div className="statPicker">{hidden.map(([key,label])=><button type="button" key={key} onClick={()=>showStat(key)}>＋ {shortStat(label)}</button>)}</div>}
+      {!orderedShown.length&&<div className="quickEmpty">No stats selected yet.</div>}
+      <div className="quickStatGrid">{orderedShown.map(([key,label])=>key==='arrowReduction'
+        ? <div className="quickStatField arrowQuick" key={key}><label>{label}<input inputMode="decimal" type="number" step="any" value={displayedArrow} onChange={e=>setStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><small>Enter the signed game value, e.g. -24.</small></label><button type="button" className="removeStat" onClick={()=>hideStat(key)}>×</button></div>
+        : <div className="quickStatField" key={key}><label>{label} %<input inputMode="decimal" type="number" step="any" value={v.stats[key]} onChange={e=>setStat(key,Number(e.target.value))}/></label><button type="button" className="removeStat" onClick={()=>hideStat(key)}>×</button></div>)}</div>
+    </div>
+    <details className="finalStatsEditor authQuick" open={v.authenticated}><summary>Authentication {v.authenticated?`— ${v.authentication.kind} · ${v.authentication.effect||'select effect'}`:'— none'}</summary><div className="formGrid"><label className="check wide"><input type="checkbox" checked={v.authenticated} onChange={e=>{const authenticated=e.target.checked;const authentication=authenticated?(v.authenticated?v.authentication:{kind:'Normal' as const,effect:'',value:0}):{kind:'None' as const,effect:'',value:0};setV(current=>({...current,authenticated,authentication,name:generateGearName(current.baseName,current.stats,authenticated,authentication)}));}}/> Authenticated</label>{v.authenticated&&<>{legacyAlien?<><div className="wide notice"><b>Legacy Alien</b> — retained for historical compatibility.</div><label>Type<input value="Legacy Alien" readOnly/></label><label>Legacy effect<input value={v.authentication.effect} readOnly/></label><label>Legacy value %<input type="number" step="any" value={v.authentication.value} onChange={e=>setAuthentication({value:Number(e.target.value)})}/></label></>:<><label>Certificate type<select value={currentKind} onChange={e=>setAuthentication({kind:e.target.value as 'Normal'|'Premium'|'Limited',effect:'',value:0})}><option>Normal</option><option>Premium</option><option>Limited</option></select></label><label>Effect<select value={v.authentication.effect} onChange={e=>setAuthentication({effect:e.target.value})}>{activeAuthenticationOptions(v.slot,v.authentication.effect,authModel,currentKind).map(x=><option value={x} key={x}>{x||'Select effect'}</option>)}</select></label><label>Value %<input type="number" inputMode="decimal" step="any" value={v.authentication.value} onChange={e=>setAuthentication({value:Number(e.target.value)})}/></label><p className="wide fieldHelp">{currentKind==='Premium'?'Premium effects are evaluated by the shared loadout engine where possible; unresolved effects remain protected.':currentKind==='Limited'?'Limited effects are evaluated against your actual Main and specialist loadouts; unknown proc behaviour reduces confidence rather than creating fake certainty.':'Enter the normal/base accessory stats separately. Numeric authentication is added automatically by the optimiser.'}</p></>}</>}</div></details>
+    <div className="stickyActions quickActions"><button className="secondary" onClick={onClose}>Cancel</button>{mode==='add'&&<button className="secondary addAnother" onClick={()=>onSave({...v,name:generateGearName(v.baseName,v.stats,v.authenticated,v.authentication)},true)}>Save + another</button>}<button className="primary" onClick={()=>onSave({...v,name:generateGearName(v.baseName,v.stats,v.authenticated,v.authentication)})}>{mode==='add'?'Analyse & add':'Save changes'}</button></div>
+  </div></div>;
+}
+function NewItemSheet({analysis,onClose}:{analysis:{name:string;standalone:number;previous:number;next:number;bestChanged:boolean;replaced?:string;verdict?:string;bestCert?:string;combined?:GearStats};onClose:()=>void}){const d=analysis.next-analysis.previous;return <div className="modalBackdrop"><div className="modal resultModal"><span className="eyebrow">NEW ITEM ANALYSIS</span><h2>{analysis.name}</h2><div className="resultScore">{analysis.next.toFixed(2)}</div><div className="statsGrid three resultStats"><StatTile label="Standalone" value={analysis.standalone}/><StatTile label="Previous best" value={analysis.previous}/><StatTile label="Improvement" value={d}/></div><p>Best loadout changed: <b>{analysis.bestChanged?'YES':'NO'}</b></p>{analysis.replaced&&<p>Replaces: <b>{analysis.replaced}</b></p>}<StatusBadge status={analysis.verdict??'KEEP'}/>{analysis.combined&&<><div className="sectionTitle"><h3>New combined stats</h3></div><div className="statsGrid">{statLabels.map(([k,l])=><StatTile key={k} label={l} value={analysis.combined![k]} suffix="%"/>)}</div></>}{analysis.bestCert&&<p className="notice">Best certificate targeting: <b>{analysis.bestCert}</b>.</p>}<button className="primary" onClick={onClose}>Done</button></div></div>}
+
+function RollLogEditor({data,certificate,onClose,onSave}:{data:AppData;certificate:OwnedCertificate;onClose:()=>void;onSave:(r:CertificateRollLog,updated:GearItem)=>void}){
+  const type=authModelTypeForOwnedCertificate(certificate);
+  const [itemId,setItemId]=useState(data.gear[0]?.id??'');
+  const item=data.gear.find(g=>g.id===itemId);
+  const [newAuth,setNewAuth]=useState('');
+  const [newValue,setNewValue]=useState(0);
+  const autoPreview=useMemo(()=>item&&newAuth?applyRollToItem(item,newAuth,newValue,type):item,[item,newAuth,newValue,type]);
+  const expectedDisplayedStats=useMemo(()=>autoPreview?effectiveItemStats(autoPreview):undefined,[autoPreview]);
+  const [finalStats,setFinalStats]=useState<GearStats|undefined>(expectedDisplayedStats?{...expectedDisplayedStats}:undefined);
+  useEffect(()=>{setFinalStats(expectedDisplayedStats?{...expectedDisplayedStats}:undefined)},[expectedDisplayedStats]);
+  useEffect(()=>{setNewAuth('');setNewValue(0)},[itemId,type]);
+  const preview=useMemo(()=>{
+    if(!autoPreview||!finalStats)return autoPreview;
+    const observed=withObservedAuthenticationStats(autoPreview,finalStats);
+    return {...observed,name:generateGearName(observed.baseName,observed.stats,observed.authenticated,observed.authentication)};
+  },[autoPreview,finalStats]);
+  const before=optimise(data.gear,data.settings,1)[0]?.score.total??0;
+  const previewGear=preview?data.gear.map(g=>g.id===preview.id?preview:g):data.gear;
+  const after=optimise(previewGear,data.settings,1)[0]?.score.total??before;
+  const setFinalStat=(key:keyof GearStats,value:number)=>setFinalStats(current=>({...ZERO_STATS,...current,[key]:Number.isFinite(value)?value:0}));
+  const authKind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
+  return <div className="modalBackdrop"><div className="modal"><div className="modalHeader"><h2>Record certificate roll</h2><button className="iconButton" onClick={onClose}>×</button></div>
+    <div className="notice"><b>Certificate being consumed:</b> {certificate.type}{certificate.gradeStars!==undefined?' · '+'★'.repeat(certificate.gradeStars):''}{certificate.displayedValue!==undefined?' · $'+certificate.displayedValue.toLocaleString():''}. Saving this roll reduces its owned quantity by one.</div>
+    <div className="formGrid"><label className="wide">Item<select value={itemId} onChange={e=>setItemId(e.target.value)}>{data.gear.map(g=><option value={g.id} key={g.id}>{g.name} · {g.slot}</option>)}</select></label><label>New authentication<select value={newAuth} onChange={e=>setNewAuth(e.target.value)}><option value="">Select result</option>{activeCertificateOutcomeOptions(item?.slot,data.authModel,authKind,certificate.type).map(a=><option key={a}>{a}</option>)}</select></label><label>New value %<input type="number" step="any" value={newValue} onChange={e=>setNewValue(Number(e.target.value))}/></label><label>Best score before<input type="number" value={before} readOnly/></label><label>Calculated score after<input type="number" value={after} readOnly/></label><p className="wide fieldHelp">These are the final stats displayed in game after the new authentication. Any difference caused by the authentication (especially Focused) is stored on that authentication only; the item's base stats are not overwritten.</p></div>
+    {finalStats&&<details className="finalStatsEditor"><summary>Confirm / correct final displayed stats</summary><div className="formGrid">{statLabels.filter(([k])=>k!=='arrowReduction').map(([k,l])=><label key={k}>{l} %<input type="number" inputMode="decimal" step="any" value={finalStats[k]} onChange={e=>setFinalStat(k,Number(e.target.value))}/></label>)}<label className="wide arrowInput">Bid Arrow Speed — game display %<input type="number" inputMode="decimal" step="any" value={reductionToGameArrow(finalStats.arrowReduction)} onChange={e=>setFinalStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><span>Enter the signed value shown by the game.</span></label></div></details>}
+    <div className="stickyActions"><button className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={!item||!newAuth||!preview||certificate.quantity<1} onClick={()=>{item&&preview&&onSave({id:crypto.randomUUID(),date:new Date().toISOString(),certificateType:type,itemId:item.id,itemName:item.name,slot:item.slot,previousAuthentication:item.authentication.effect,previousValue:item.authentication.value,newAuthentication:newAuth,newValue,improvedBestSet:after>before,bestScoreBefore:before,bestScoreAfter:after,certificateId:certificate.id,certificateGradeStars:certificate.gradeStars,certificateInventoryType:certificate.type},preview)}}>Apply, record & consume</button></div>
+  </div></div>;
+}
+
+function authModelCertificateType(type:OwnedCertificate['type']):AuthModelEntry['certificateType']{
+  return type==='Premium Certificate of Authenticity'
+    ?'Premium Certificate of Authenticity'
+    :type==='Limited Certificate of Authenticity'
+      ?'Limited Certificate of Authenticity'
+      :'Normal Certificate of Authenticity';
+}
+
+function AuthModelRow({entry,onChange,onDelete}:{entry:AuthModelEntry;onChange:(e:AuthModelEntry)=>void;onDelete:()=>void}){
+  const inventoryType=entry.certificateInventoryType??(
+    entry.certificateType==='Premium Certificate of Authenticity'?'Premium Certificate of Authenticity':
+    entry.certificateType==='Limited Certificate of Authenticity'?'Limited Certificate of Authenticity':
+    'Wooden Certificate of Authenticity'
+  );
+  return <details className="modelRow">
+    <summary><span>{entry.outcome}</span><span>{inventoryType.replace(' Certificate of Authenticity','')} · {entry.slot} · {entry.assumedLikelihoodClass}{entry.enabled?'':' · disabled'}</span></summary>
+    <div className="formGrid">
+      <label className="wide">Outcome<input value={entry.outcome} onChange={e=>onChange({...entry,outcome:e.target.value})}/></label>
+      <label>Certificate tier<select value={inventoryType} onChange={e=>{const certificateInventoryType=e.target.value as OwnedCertificate['type'];onChange({...entry,certificateInventoryType,certificateType:authModelCertificateType(certificateInventoryType)})}}><option>Wooden Certificate of Authenticity</option><option>Ripped Certificate of Authenticity</option><option>Premium Certificate of Authenticity</option><option>Limited Certificate of Authenticity</option></select></label>
+      <label>Slot<select value={entry.slot} onChange={e=>onChange({...entry,slot:e.target.value as AuthModelEntry['slot']})}><option>Any</option><option>Head</option><option>Back</option><option>Wrist</option></select></label>
+      <label className="wide">Category<input value={entry.category} onChange={e=>onChange({...entry,category:e.target.value})}/></label>
+      <label>Relative-weight class<select value={entry.assumedLikelihoodClass} onChange={e=>onChange({...entry,assumedLikelihoodClass:e.target.value as AuthModelEntry['assumedLikelihoodClass']})}>{['VERY HIGH','HIGH','MEDIUM','LOW','VERY LOW'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Confidence<select value={entry.confidence} onChange={e=>onChange({...entry,confidence:e.target.value as AuthModelEntry['confidence']})}>{['Unknown','Low','Medium','High','Empirical'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Optional min<input type="number" step="any" value={entry.min??''} onChange={e=>onChange({...entry,min:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label>Optional typical<input type="number" step="any" value={entry.typical??''} onChange={e=>onChange({...entry,typical:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label>Optional max<input type="number" step="any" value={entry.max??''} onChange={e=>onChange({...entry,max:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label className="check"><input type="checkbox" checked={entry.enabled} onChange={e=>onChange({...entry,enabled:e.target.checked})}/> Enabled in live EV</label>
+      <div className="wide fieldHelp">Observed samples: {entry.observedSampleCount}. Values: {entry.observedValues.length?entry.observedValues.join(', '):'none yet'}. As exact-tier samples accumulate, empirical roll strength progressively outweighs the min/typical/max prior.</div>
+      <button className="danger wide" onClick={onDelete}>Delete model outcome</button>
+    </div>
+  </details>;
+}
+
+function LoadoutCard({slot,item}:{slot:string;item:GearItem}){return <div className="loadoutCard"><span>{slot}</span><strong>{item.baseName||item.name}</strong>{item.authentication.effect&&<small>{item.authentication.effect} {item.authentication.value?`${item.authentication.value}%`:''}</small>}</div>}
+function StatTile({label,value,suffix=''}:{label:string;value:number;suffix?:string}){return <div className="statTile"><span>{label}</span><strong>{Number.isFinite(value)?value.toFixed(Math.abs(value)%1?2:0):'—'}{suffix}</strong></div>}
+function ArrowThresholdCard({value,settings}:{value:number;settings:AlgorithmSettings}){const max=Math.max(settings.arrowSweetSpot,100);const pct=Math.min(100,Math.max(0,value/max*100));const excess=Math.max(0,value-settings.arrowSweetSpot);return <div className="thresholdCard"><div className="rowBetween"><strong>Bid Arrow reduction</strong><span>{value.toFixed(1)}% · target {settings.arrowSweetSpot}%</span></div><div className="progress arrowProgress"><i style={{width:`${pct}%`}}/><b style={{left:`${settings.arrowSweetSpot/max*100}%`}}/></div>{excess>0&&<div className="fieldHelp">{excess.toFixed(1)}% is above your 75% sweet spot. It is treated as wasted, not as an invented gameplay penalty.</div>}</div>}
+function ThresholdCard({label,value,target,ceiling}:{label:string;value:number;target:number;ceiling:number}){const pct=Math.min(100,Math.max(0,value/ceiling*100));return <div className="thresholdCard"><div className="rowBetween"><strong>{label}</strong><span>{value.toFixed(1)}% · target {target}% · ceiling {ceiling}%</span></div><div className="progress"><i style={{width:`${pct}%`}}/><b style={{left:`${target/ceiling*100}%`}}/></div></div>}
+function StatusBadge({status}:{status:string}){return <span className={`badge status ${status.toLowerCase().replaceAll(' ','-').replaceAll('/','')}`}>{status}</span>}
+function EmptyState({title,text,action,onClick}:{title:string;text:string;action?:string;onClick?:()=>void}){return <div className="empty"><div className="emptyIcon">⌁</div><h3>{title}</h3><p>{text}</p>{action&&<button className="primary" onClick={onClick}>{action}</button>}</div>}
+
+function algorithmIssues(s:AlgorithmSettings):string[]{const issues:string[]=[];for(const [k,v] of Object.entries(s))if(k!=='version'&&!Number.isFinite(Number(v)))issues.push(`${k} is not finite`);if(s.arrowSweetSpot<0)issues.push('Arrow sweet spot cannot be negative');if(s.energyTarget>s.energyCeiling)issues.push('Energy target must be ≤ Energy ceiling');if(s.zoneBreakpoint1>s.zoneBreakpoint2)issues.push('Zone breakpoint 1 must be ≤ breakpoint 2');for(const [label,value] of [['Luck weight',s.luckWeight],['Arrow weight',s.arrowWeight],['Zone weight',s.zoneWeight],['Recovery weight',s.recoveryWeight],['Zone middle multiplier',s.zoneMultiplier2],['Zone upper multiplier',s.zoneMultiplier3]] as const)if(value<0)issues.push(`${label} cannot be negative`);return issues;}
+function newAuthModelEntry():AuthModelEntry{return{id:crypto.randomUUID(),certificateInventoryType:'Wooden Certificate of Authenticity',certificateType:'Normal Certificate of Authenticity',slot:'Any',outcome:'Custom outcome',category:'Custom / unknown',assumedLikelihoodClass:'MEDIUM',observedSampleCount:0,observedValues:[],confidence:'Unknown',enabled:true}}
+function blankItem(slot:Slot='Head'):GearItem{const now=new Date().toISOString();return{id:crypto.randomUUID(),baseName:'',name:'',slot,stats:{...ZERO_STATS},authenticated:false,authentication:{kind:'None',effect:'',value:0},favourite:false,createdAt:now,updatedAt:now}}
+function applyRollToItem(item:GearItem,effect:string,value:number,type:AuthModelEntry['certificateType']):GearItem{
+  let base=removeNumericAuthentication(item);
+  if(base.authenticated){base=structuredClone(base);base.authenticated=false;base.authentication={kind:'None',effect:'',value:0};}
+  const updated=addOutcomeToItem(base,effect,value);
+  updated.authentication.kind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
+  updated.name=generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication);
+  updated.updatedAt=new Date().toISOString();
+  return updated;
+}
+function prepareImportedGear(existing:GearItem[],incoming:GearItem[]):GearItem[]{const used=new Set(existing.map(x=>x.id));return incoming.map(item=>{const clone=structuredClone(item);if(!clone.id||used.has(clone.id))clone.id=crypto.randomUUID();used.add(clone.id);return clone;});}
+function validateItem(i:GearItem){
+  if(!i.baseName.trim())return 'Item name is required.';
+  if(!['Head','Back','Wrist'].includes(i.slot))return 'Valid slot is required.';
+  if(i.conditionPct!==undefined && (!Number.isFinite(i.conditionPct) || i.conditionPct<0 || i.conditionPct>100))return 'Condition must be between 0 and 100%.';
+  if(i.mutation!==undefined && typeof i.mutation!=='string')return 'Mutation must be text.';
+  for(const [k] of statLabels)if(!Number.isFinite(i.stats[k]))return `${k} must be a finite number.`;
+  if(!Number.isFinite(i.authentication.value))return 'Authentication value must be a finite number.';
+  if(!i.authenticated)return '';
+  if(i.authentication.kind==='None')return 'Choose an authentication type.';
+  const effect=i.authentication.effect.trim();
+  if(!effect)return 'Choose an authentication effect.';
+  if(i.authentication.kind==='Normal'&&LEGACY_ALIEN_EFFECTS.includes(effect as never))return `${effect} is a legacy Alien effect and cannot be selected for a new Normal authentication.`;
+  if(i.authentication.kind==='Alien')return ''; // Historical Alien gear remains valid and editable as legacy data.
+  if(i.authentication.kind==='Premium'){
+    for(const [slot,effects] of Object.entries(PREMIUM_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
+  if(i.authentication.kind==='Limited'){
+    for(const [slot,effects] of Object.entries(LIMITED_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
+  for(const [slot,effects] of Object.entries(EXCLUSIVE_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+  return '';
+}
+function displayStat(k:keyof GearStats,v:number){const n=k==='arrowReduction'?reductionToGameArrow(v):v;return `${n>0?'+':''}${n.toFixed(Math.abs(n)%1?1:0)}%`}
+function shortStat(s:string){return s.replace('Energy Drink Time','Energy').replace('Vehicle Speed','Vehicle').replace('Bid Recovery','Recovery').replace('Bid Zone Width','Zone').replace('Bid Arrow Reduction','Arrow').replace('NPC Offers Bonus','NPC')}
+function replacedName(prev:any,next:any,slot:Slot){const key=slot.toLowerCase() as 'head'|'back'|'wrist';return prev[key].id!==next[key].id?prev[key].name:undefined}
+function dateStamp(){return new Date().toISOString().slice(0,10)}
+function downloadText(name:string,text:string,type:string){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+function applyTheme(theme:AppData['theme']){document.documentElement.dataset.theme=theme;if(theme==='system')delete document.documentElement.dataset.theme}
+function navIcon(t:Tab){return ({Dashboard:'▦',Gear:'◆',Optimise:'◎',Vehicle:'▰',Trophies:'♜',Certificates:'◈',Settings:'⚙',More:'•••'} as Record<Tab,string>)[t]}
++cert.displayedValue.toLocaleString()+' · ':''}owned {cert.quantity}</option>)}</select></label>
+      <button className="secondary" disabled={!selectedCertificate} onClick={()=>setLogOpen(true)}>＋ Record selected certificate roll</button>
+    </div>:<p className="muted">No certificate with quantity remaining is available to record.</p>}
+
+    <div className="sectionTitle"><h2>Roll history</h2></div>
+    <div className="card tableCard">{data.rollLog.length?data.rollLog.slice().reverse().map(r=><div className="logRow" key={r.id}><div><strong>{r.itemName}</strong><span>{new Date(r.date).toLocaleDateString()} · {r.certificateInventoryType??(r.certificateType.startsWith('Normal')?'Legacy Normal':r.certificateType.startsWith('Premium')?'Premium':r.certificateType.startsWith('Limited')?'Limited':'Legacy Alien')}</span></div><div><b>{r.newAuthentication} {r.newValue}%</b><span>{r.bestScoreBefore.toFixed(2)} → {r.bestScoreAfter.toFixed(2)}</span></div></div>):<p className="muted">No certificate rolls recorded yet.</p>}</div>
+
+    {logOpen&&selectedCertificate&&<RollLogEditor data={data} certificate={selectedCertificate} onClose={()=>setLogOpen(false)} onSave={(r,updated)=>{
+      try{
+        setData(applyRecordedCertificateRoll(data,selectedCertificate.id,r,updated));
+        setLogOpen(false);
+      }catch(error){alert(error instanceof Error?error.message:'Could not record certificate roll.')}
+    }}/>}
+  </section>;
+}
+
+function SettingsScreen({data,setData,showToast}:{data:AppData;setData:(d:AppData)=>void;showToast:(s:string)=>void}){
+  const jsonRef=useRef<HTMLInputElement>(null),csvRef=useRef<HTMLInputElement>(null);
+  function setS<K extends keyof AlgorithmSettings>(k:K,v:AlgorithmSettings[K]){setData({...data,settings:{...data.settings,[k]:v}})}
+  const fields:Array<[keyof AlgorithmSettings,string]>=[['luckWeight','Main Auction Luck weight'],['arrowWeight','Main Auction Bid Arrow weight'],['arrowSweetSpot','Bid Arrow sweet spot'],['zoneWeight','Main Auction Bid Zone weight'],['zoneBreakpoint1','Bid Zone breakpoint 1'],['zoneBreakpoint2','Bid Zone breakpoint 2'],['zoneMultiplier2','Bid Zone middle multiplier'],['zoneMultiplier3','Bid Zone upper multiplier'],['recoveryWeight','Main Auction Bid Recovery weight'],['energyTarget','Drink Prep Energy target'],['energyCeiling','Drink Prep Energy ceiling'],['energySecondStageMultiplier','Drink Prep above-target multiplier']];
+  const issues=algorithmIssues(data.settings);
+  return <section><div className="pageHeading"><div><h1>Settings</h1><p>Algorithm Version 2.0</p></div></div>
+    <div className="sectionTitle"><h2>Appearance</h2></div><div className="card"><label>Theme<select value={data.theme} onChange={e=>setData({...data,theme:e.target.value as any})}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label></div>
+    <div className="sectionTitle"><h2>Algorithm editor</h2><button className="secondary compact" onClick={()=>setData({...data,settings:{...LOCKED_DEFAULT_SETTINGS}})}>Reset to locked defaults</button></div>
+    <div className="settingsGrid">{fields.map(([k,label])=><label className="settingField" key={k}><span>{label}</span><input type="number" step="any" value={data.settings[k]} onChange={e=>setS(k,Number(e.target.value) as never)}/></label>)}</div>
+    {issues.length>0&&<div className="notice dangerNotice"><b>Settings need correction:</b> {issues.join(' · ')}</div>}
+    <div className="notice">Algorithm 2.0 uses one shared model for Main Auction, retention and certificate decisions. Displayed Luck is linear. Bid Arrow benefit caps at your 75% sweet spot with no invented over-cap penalty. Drink Prep, Grading and Shop/Idle are separate loadouts and never compensate for a weaker Main Auction result. Day, Night and Rain are evaluated as contextual Main variants instead of fake uptime averages.</div>
+    <div className="sectionTitle"><h2>Authentication outcome catalogue</h2><button className="secondary compact" onClick={()=>setData({...data,authModel:[...data.authModel,newAuthModelEntry()]})}>＋ Add outcome</button></div><div className="card authModel"><p className="muted">This is the live certificate model. Enabled rows, certificate tier, min / typical / max, confidence and relative-weight class all feed directly into certificate EV. MEDIUM is the neutral default because the real per-effect odds are unpublished; changing the class is an explicit user assumption, not a game fact.</p>{data.authModel.filter(m=>m.certificateType!=='Certificate of Alienticity'&&!LEGACY_ALIEN_EFFECTS.includes(m.outcome as never)).slice().sort((a,b)=>(a.certificateInventoryType??'').localeCompare(b.certificateInventoryType??'')||a.slot.localeCompare(b.slot)||a.outcome.localeCompare(b.outcome)).map(m=><AuthModelRow key={m.id} entry={m} onChange={entry=>setData({...data,authModel:data.authModel.map(x=>x.id===entry.id?entry:x)})} onDelete={()=>{if(confirm(`Remove authentication model outcome ${m.outcome}? Roll history is not deleted.`))setData({...data,authModel:data.authModel.filter(x=>x.id!==m.id)})}}/>)}</div>
+    <div className="sectionTitle"><h2>Backup & data safety</h2></div><div className="card buttonStack"><button className="primary" onClick={()=>downloadText(`storage-hunters-backup-${dateStamp()}.json`,exportJson(data),'application/json')}>Download JSON backup</button><button className="secondary" onClick={()=>jsonRef.current?.click()}>Restore JSON backup</button><button className="secondary" onClick={()=>downloadText(`storage-hunters-gear-${dateStamp()}.csv`,gearToCsv(data.gear),'text/csv')}>Export gear CSV</button><button className="secondary" onClick={()=>csvRef.current?.click()}>Import gear CSV</button><input hidden type="file" accept="application/json,.json" ref={jsonRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const d=importJson(await f.text());if(confirm(`Restore backup containing ${d.gear.length} gear items? This replaces current local data.`)){setData(d);showToast('Backup restored')}}catch(err){alert(err instanceof Error?err.message:'Invalid backup')}}}/><input hidden type="file" accept="text/csv,.csv" ref={csvRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const g=csvToGear(await f.text());if(confirm(`Import ${g.length} gear items? They will be added to the current inventory.`)){const imported=prepareImportedGear(data.gear,g);setData({...data,gear:[...data.gear,...imported]});showToast('CSV imported')}}catch(err){alert(err instanceof Error?err.message:'Invalid CSV')}}}/><button className="danger" onClick={()=>{const phrase=prompt('Type RESET ALL DATA to permanently clear all local inventory, certificates, roll history, vehicle parts, trophies and settings back to an empty workspace.');if(phrase==='RESET ALL DATA')setData(makeEmptyData())}}>Clear all local data</button></div>
+  </section>;
+}
+
+function GearEditor({item,authModel,mode,onClose,onSave}:{item:GearItem;authModel:AuthModelEntry[];mode:'add'|'edit';onClose:()=>void;onSave:(i:GearItem,keepAdding?:boolean)=>void}){
+  const [v,setV]=useState({...item,name:generateGearName(item.baseName,item.stats,item.authenticated,item.authentication)});
+  const initialShown=statLabels.filter(([key])=>Math.abs(item.stats[key])>1e-12).map(([key])=>key);
+  const [shownStats,setShownStats]=useState<Array<keyof GearStats>>(initialShown);
+  const patch=(next:Partial<GearItem>)=>setV(current=>{const updated={...current,...next};return {...updated,name:generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication)};});
+  const setStat=(k:keyof GearStats,n:number)=>setV(current=>{const stats={...current.stats,[k]:Number.isFinite(n)?n:0};return {...current,stats,name:generateGearName(current.baseName,stats,current.authenticated,current.authentication)};});
+  const setAuthentication=(next:Partial<GearItem['authentication']>)=>setV(current=>{const authentication={...current.authentication,...next};return {...current,authentication,name:generateGearName(current.baseName,current.stats,current.authenticated,authentication)};});
+  const showStat=(key:keyof GearStats)=>setShownStats(current=>current.includes(key)?current:[...current,key]);
+  const hideStat=(key:keyof GearStats)=>{setStat(key,0);setShownStats(current=>current.filter(k=>k!==key));};
+  const orderedShown=statLabels.filter(([key])=>shownStats.includes(key));
+  const hidden=statLabels.filter(([key])=>!shownStats.includes(key));
+  const displayedArrow=reductionToGameArrow(v.stats.arrowReduction);
+  const legacyAlien=v.authenticated&&v.authentication.kind==='Alien';
+  const currentKind=v.authentication.kind==='Premium'?'Premium':v.authentication.kind==='Limited'?'Limited':'Normal';
+  return <div className="modalBackdrop"><div className="modal sheet"><div className="modalHeader"><div><span className="eyebrow">{mode==='add'?'QUICK ADD GEAR':'EDIT GEAR'}</span><h2>{v.baseName||'New gear'}</h2></div><button className="iconButton" onClick={onClose}>×</button></div>
+    <div className="formGrid quickIdentity"><label className="wide">Actual gear name<input autoFocus value={v.baseName} onChange={e=>patch({baseName:e.target.value})} placeholder="e.g. Pearl Dominus"/></label><label>Slot<select value={v.slot} onChange={e=>patch({slot:e.target.value as Slot})}><option>Head</option><option>Back</option><option>Wrist</option></select></label><label>Mutation<input list={`mutations-${v.id}`} value={v.mutation??''} onChange={e=>patch({mutation:e.target.value})} placeholder="None, Diamond, Gold…"/><datalist id={`mutations-${v.id}`}>{['None','Diamond','Gold','Silver','Cobwebbed','Exclusive','Police','Chrome','Gem','Void','Onyx'].map(m=><option key={m} value={m}/>)}</datalist></label><label>Condition %<input type="number" min="0" max="100" step="any" inputMode="decimal" value={v.conditionPct??''} onChange={e=>patch({conditionPct:e.target.value===''?undefined:Number(e.target.value)})} placeholder="Optional"/></label><label className="check"><input type="checkbox" checked={v.favourite} onChange={e=>patch({favourite:e.target.checked})}/> Lock / favourite</label></div>
+    <div className="autoNamePreview"><span>Automatic name</span><strong>{v.name||'Name updates as stats are entered'}</strong></div>
+    <div className="quickEntrySection"><div className="rowBetween"><div><strong>Stats shown on this item</strong><div className="fieldHelp">Tap only the stats visible in game. Empty fields stay out of the way.</div></div></div>
+      {hidden.length>0&&<div className="statPicker">{hidden.map(([key,label])=><button type="button" key={key} onClick={()=>showStat(key)}>＋ {shortStat(label)}</button>)}</div>}
+      {!orderedShown.length&&<div className="quickEmpty">No stats selected yet.</div>}
+      <div className="quickStatGrid">{orderedShown.map(([key,label])=>key==='arrowReduction'
+        ? <div className="quickStatField arrowQuick" key={key}><label>{label}<input inputMode="decimal" type="number" step="any" value={displayedArrow} onChange={e=>setStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><small>Enter the signed game value, e.g. -24.</small></label><button type="button" className="removeStat" onClick={()=>hideStat(key)}>×</button></div>
+        : <div className="quickStatField" key={key}><label>{label} %<input inputMode="decimal" type="number" step="any" value={v.stats[key]} onChange={e=>setStat(key,Number(e.target.value))}/></label><button type="button" className="removeStat" onClick={()=>hideStat(key)}>×</button></div>)}</div>
+    </div>
+    <details className="finalStatsEditor authQuick" open={v.authenticated}><summary>Authentication {v.authenticated?`— ${v.authentication.kind} · ${v.authentication.effect||'select effect'}`:'— none'}</summary><div className="formGrid"><label className="check wide"><input type="checkbox" checked={v.authenticated} onChange={e=>{const authenticated=e.target.checked;const authentication=authenticated?(v.authenticated?v.authentication:{kind:'Normal' as const,effect:'',value:0}):{kind:'None' as const,effect:'',value:0};setV(current=>({...current,authenticated,authentication,name:generateGearName(current.baseName,current.stats,authenticated,authentication)}));}}/> Authenticated</label>{v.authenticated&&<>{legacyAlien?<><div className="wide notice"><b>Legacy Alien</b> — retained for historical compatibility.</div><label>Type<input value="Legacy Alien" readOnly/></label><label>Legacy effect<input value={v.authentication.effect} readOnly/></label><label>Legacy value %<input type="number" step="any" value={v.authentication.value} onChange={e=>setAuthentication({value:Number(e.target.value)})}/></label></>:<><label>Certificate type<select value={currentKind} onChange={e=>setAuthentication({kind:e.target.value as 'Normal'|'Premium'|'Limited',effect:'',value:0})}><option>Normal</option><option>Premium</option><option>Limited</option></select></label><label>Effect<select value={v.authentication.effect} onChange={e=>setAuthentication({effect:e.target.value})}>{activeAuthenticationOptions(v.slot,v.authentication.effect,authModel,currentKind).map(x=><option value={x} key={x}>{x||'Select effect'}</option>)}</select></label><label>Value %<input type="number" inputMode="decimal" step="any" value={v.authentication.value} onChange={e=>setAuthentication({value:Number(e.target.value)})}/></label><p className="wide fieldHelp">{currentKind==='Premium'?'Premium effects are evaluated by the shared loadout engine where possible; unresolved effects remain protected.':currentKind==='Limited'?'Limited effects are evaluated against your actual Main and specialist loadouts; unknown proc behaviour reduces confidence rather than creating fake certainty.':'Enter the normal/base accessory stats separately. Numeric authentication is added automatically by the optimiser.'}</p></>}</>}</div></details>
+    <div className="stickyActions quickActions"><button className="secondary" onClick={onClose}>Cancel</button>{mode==='add'&&<button className="secondary addAnother" onClick={()=>onSave({...v,name:generateGearName(v.baseName,v.stats,v.authenticated,v.authentication)},true)}>Save + another</button>}<button className="primary" onClick={()=>onSave({...v,name:generateGearName(v.baseName,v.stats,v.authenticated,v.authentication)})}>{mode==='add'?'Analyse & add':'Save changes'}</button></div>
+  </div></div>;
+}
+function NewItemSheet({analysis,onClose}:{analysis:{name:string;standalone:number;previous:number;next:number;bestChanged:boolean;replaced?:string;verdict?:string;bestCert?:string;combined?:GearStats};onClose:()=>void}){const d=analysis.next-analysis.previous;return <div className="modalBackdrop"><div className="modal resultModal"><span className="eyebrow">NEW ITEM ANALYSIS</span><h2>{analysis.name}</h2><div className="resultScore">{analysis.next.toFixed(2)}</div><div className="statsGrid three resultStats"><StatTile label="Standalone" value={analysis.standalone}/><StatTile label="Previous best" value={analysis.previous}/><StatTile label="Improvement" value={d}/></div><p>Best loadout changed: <b>{analysis.bestChanged?'YES':'NO'}</b></p>{analysis.replaced&&<p>Replaces: <b>{analysis.replaced}</b></p>}<StatusBadge status={analysis.verdict??'KEEP'}/>{analysis.combined&&<><div className="sectionTitle"><h3>New combined stats</h3></div><div className="statsGrid">{statLabels.map(([k,l])=><StatTile key={k} label={l} value={analysis.combined![k]} suffix="%"/>)}</div></>}{analysis.bestCert&&<p className="notice">Best certificate targeting: <b>{analysis.bestCert}</b>.</p>}<button className="primary" onClick={onClose}>Done</button></div></div>}
+
+function RollLogEditor({data,certificate,onClose,onSave}:{data:AppData;certificate:OwnedCertificate;onClose:()=>void;onSave:(r:CertificateRollLog,updated:GearItem)=>void}){
+  const type=authModelTypeForOwnedCertificate(certificate);
+  const [itemId,setItemId]=useState(data.gear[0]?.id??'');
+  const item=data.gear.find(g=>g.id===itemId);
+  const [newAuth,setNewAuth]=useState('');
+  const [newValue,setNewValue]=useState(0);
+  const autoPreview=useMemo(()=>item&&newAuth?applyRollToItem(item,newAuth,newValue,type):item,[item,newAuth,newValue,type]);
+  const expectedDisplayedStats=useMemo(()=>autoPreview?effectiveItemStats(autoPreview):undefined,[autoPreview]);
+  const [finalStats,setFinalStats]=useState<GearStats|undefined>(expectedDisplayedStats?{...expectedDisplayedStats}:undefined);
+  useEffect(()=>{setFinalStats(expectedDisplayedStats?{...expectedDisplayedStats}:undefined)},[expectedDisplayedStats]);
+  useEffect(()=>{setNewAuth('');setNewValue(0)},[itemId,type]);
+  const preview=useMemo(()=>{
+    if(!autoPreview||!finalStats)return autoPreview;
+    const observed=withObservedAuthenticationStats(autoPreview,finalStats);
+    return {...observed,name:generateGearName(observed.baseName,observed.stats,observed.authenticated,observed.authentication)};
+  },[autoPreview,finalStats]);
+  const before=optimise(data.gear,data.settings,1)[0]?.score.total??0;
+  const previewGear=preview?data.gear.map(g=>g.id===preview.id?preview:g):data.gear;
+  const after=optimise(previewGear,data.settings,1)[0]?.score.total??before;
+  const setFinalStat=(key:keyof GearStats,value:number)=>setFinalStats(current=>({...ZERO_STATS,...current,[key]:Number.isFinite(value)?value:0}));
+  const authKind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
+  return <div className="modalBackdrop"><div className="modal"><div className="modalHeader"><h2>Record certificate roll</h2><button className="iconButton" onClick={onClose}>×</button></div>
+    <div className="notice"><b>Certificate being consumed:</b> {certificate.type}{certificate.gradeStars!==undefined?' · '+'★'.repeat(certificate.gradeStars):''}{certificate.displayedValue!==undefined?' · $'+certificate.displayedValue.toLocaleString():''}. Saving this roll reduces its owned quantity by one.</div>
+    <div className="formGrid"><label className="wide">Item<select value={itemId} onChange={e=>setItemId(e.target.value)}>{data.gear.map(g=><option value={g.id} key={g.id}>{g.name} · {g.slot}</option>)}</select></label><label>New authentication<select value={newAuth} onChange={e=>setNewAuth(e.target.value)}><option value="">Select result</option>{activeCertificateOutcomeOptions(item?.slot,data.authModel,authKind,certificate.type).map(a=><option key={a}>{a}</option>)}</select></label><label>New value %<input type="number" step="any" value={newValue} onChange={e=>setNewValue(Number(e.target.value))}/></label><label>Best score before<input type="number" value={before} readOnly/></label><label>Calculated score after<input type="number" value={after} readOnly/></label><p className="wide fieldHelp">These are the final stats displayed in game after the new authentication. Any difference caused by the authentication (especially Focused) is stored on that authentication only; the item's base stats are not overwritten.</p></div>
+    {finalStats&&<details className="finalStatsEditor"><summary>Confirm / correct final displayed stats</summary><div className="formGrid">{statLabels.filter(([k])=>k!=='arrowReduction').map(([k,l])=><label key={k}>{l} %<input type="number" inputMode="decimal" step="any" value={finalStats[k]} onChange={e=>setFinalStat(k,Number(e.target.value))}/></label>)}<label className="wide arrowInput">Bid Arrow Speed — game display %<input type="number" inputMode="decimal" step="any" value={reductionToGameArrow(finalStats.arrowReduction)} onChange={e=>setFinalStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><span>Enter the signed value shown by the game.</span></label></div></details>}
+    <div className="stickyActions"><button className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={!item||!newAuth||!preview||certificate.quantity<1} onClick={()=>{item&&preview&&onSave({id:crypto.randomUUID(),date:new Date().toISOString(),certificateType:type,itemId:item.id,itemName:item.name,slot:item.slot,previousAuthentication:item.authentication.effect,previousValue:item.authentication.value,newAuthentication:newAuth,newValue,improvedBestSet:after>before,bestScoreBefore:before,bestScoreAfter:after,certificateId:certificate.id,certificateGradeStars:certificate.gradeStars,certificateInventoryType:certificate.type},preview)}}>Apply, record & consume</button></div>
+  </div></div>;
+}
+
+function authModelCertificateType(type:OwnedCertificate['type']):AuthModelEntry['certificateType']{
+  return type==='Premium Certificate of Authenticity'
+    ?'Premium Certificate of Authenticity'
+    :type==='Limited Certificate of Authenticity'
+      ?'Limited Certificate of Authenticity'
+      :'Normal Certificate of Authenticity';
+}
+
+function AuthModelRow({entry,onChange,onDelete}:{entry:AuthModelEntry;onChange:(e:AuthModelEntry)=>void;onDelete:()=>void}){
+  const inventoryType=entry.certificateInventoryType??(
+    entry.certificateType==='Premium Certificate of Authenticity'?'Premium Certificate of Authenticity':
+    entry.certificateType==='Limited Certificate of Authenticity'?'Limited Certificate of Authenticity':
+    'Wooden Certificate of Authenticity'
+  );
+  return <details className="modelRow">
+    <summary><span>{entry.outcome}</span><span>{inventoryType.replace(' Certificate of Authenticity','')} · {entry.slot} · {entry.assumedLikelihoodClass}{entry.enabled?'':' · disabled'}</span></summary>
+    <div className="formGrid">
+      <label className="wide">Outcome<input value={entry.outcome} onChange={e=>onChange({...entry,outcome:e.target.value})}/></label>
+      <label>Certificate tier<select value={inventoryType} onChange={e=>{const certificateInventoryType=e.target.value as OwnedCertificate['type'];onChange({...entry,certificateInventoryType,certificateType:authModelCertificateType(certificateInventoryType)})}}><option>Wooden Certificate of Authenticity</option><option>Ripped Certificate of Authenticity</option><option>Premium Certificate of Authenticity</option><option>Limited Certificate of Authenticity</option></select></label>
+      <label>Slot<select value={entry.slot} onChange={e=>onChange({...entry,slot:e.target.value as AuthModelEntry['slot']})}><option>Any</option><option>Head</option><option>Back</option><option>Wrist</option></select></label>
+      <label className="wide">Category<input value={entry.category} onChange={e=>onChange({...entry,category:e.target.value})}/></label>
+      <label>Relative-weight class<select value={entry.assumedLikelihoodClass} onChange={e=>onChange({...entry,assumedLikelihoodClass:e.target.value as AuthModelEntry['assumedLikelihoodClass']})}>{['VERY HIGH','HIGH','MEDIUM','LOW','VERY LOW'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Confidence<select value={entry.confidence} onChange={e=>onChange({...entry,confidence:e.target.value as AuthModelEntry['confidence']})}>{['Unknown','Low','Medium','High','Empirical'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Optional min<input type="number" step="any" value={entry.min??''} onChange={e=>onChange({...entry,min:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label>Optional typical<input type="number" step="any" value={entry.typical??''} onChange={e=>onChange({...entry,typical:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label>Optional max<input type="number" step="any" value={entry.max??''} onChange={e=>onChange({...entry,max:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label className="check"><input type="checkbox" checked={entry.enabled} onChange={e=>onChange({...entry,enabled:e.target.checked})}/> Enabled in live EV</label>
+      <div className="wide fieldHelp">Observed samples: {entry.observedSampleCount}. Values: {entry.observedValues.length?entry.observedValues.join(', '):'none yet'}. As exact-tier samples accumulate, empirical roll strength progressively outweighs the min/typical/max prior.</div>
+      <button className="danger wide" onClick={onDelete}>Delete model outcome</button>
+    </div>
+  </details>;
+}
+
+function LoadoutCard({slot,item}:{slot:string;item:GearItem}){return <div className="loadoutCard"><span>{slot}</span><strong>{item.baseName||item.name}</strong>{item.authentication.effect&&<small>{item.authentication.effect} {item.authentication.value?`${item.authentication.value}%`:''}</small>}</div>}
+function StatTile({label,value,suffix=''}:{label:string;value:number;suffix?:string}){return <div className="statTile"><span>{label}</span><strong>{Number.isFinite(value)?value.toFixed(Math.abs(value)%1?2:0):'—'}{suffix}</strong></div>}
+function ArrowThresholdCard({value,settings}:{value:number;settings:AlgorithmSettings}){const max=Math.max(settings.arrowSweetSpot,100);const pct=Math.min(100,Math.max(0,value/max*100));const excess=Math.max(0,value-settings.arrowSweetSpot);return <div className="thresholdCard"><div className="rowBetween"><strong>Bid Arrow reduction</strong><span>{value.toFixed(1)}% · target {settings.arrowSweetSpot}%</span></div><div className="progress arrowProgress"><i style={{width:`${pct}%`}}/><b style={{left:`${settings.arrowSweetSpot/max*100}%`}}/></div>{excess>0&&<div className="fieldHelp">{excess.toFixed(1)}% is above your 75% sweet spot. It is treated as wasted, not as an invented gameplay penalty.</div>}</div>}
+function ThresholdCard({label,value,target,ceiling}:{label:string;value:number;target:number;ceiling:number}){const pct=Math.min(100,Math.max(0,value/ceiling*100));return <div className="thresholdCard"><div className="rowBetween"><strong>{label}</strong><span>{value.toFixed(1)}% · target {target}% · ceiling {ceiling}%</span></div><div className="progress"><i style={{width:`${pct}%`}}/><b style={{left:`${target/ceiling*100}%`}}/></div></div>}
+function StatusBadge({status}:{status:string}){return <span className={`badge status ${status.toLowerCase().replaceAll(' ','-').replaceAll('/','')}`}>{status}</span>}
+function EmptyState({title,text,action,onClick}:{title:string;text:string;action?:string;onClick?:()=>void}){return <div className="empty"><div className="emptyIcon">⌁</div><h3>{title}</h3><p>{text}</p>{action&&<button className="primary" onClick={onClick}>{action}</button>}</div>}
+
+function algorithmIssues(s:AlgorithmSettings):string[]{const issues:string[]=[];for(const [k,v] of Object.entries(s))if(k!=='version'&&!Number.isFinite(Number(v)))issues.push(`${k} is not finite`);if(s.arrowSweetSpot<0)issues.push('Arrow sweet spot cannot be negative');if(s.energyTarget>s.energyCeiling)issues.push('Energy target must be ≤ Energy ceiling');if(s.zoneBreakpoint1>s.zoneBreakpoint2)issues.push('Zone breakpoint 1 must be ≤ breakpoint 2');for(const [label,value] of [['Luck weight',s.luckWeight],['Arrow weight',s.arrowWeight],['Zone weight',s.zoneWeight],['Recovery weight',s.recoveryWeight],['Zone middle multiplier',s.zoneMultiplier2],['Zone upper multiplier',s.zoneMultiplier3]] as const)if(value<0)issues.push(`${label} cannot be negative`);return issues;}
+function newAuthModelEntry():AuthModelEntry{return{id:crypto.randomUUID(),certificateInventoryType:'Wooden Certificate of Authenticity',certificateType:'Normal Certificate of Authenticity',slot:'Any',outcome:'Custom outcome',category:'Custom / unknown',assumedLikelihoodClass:'MEDIUM',observedSampleCount:0,observedValues:[],confidence:'Unknown',enabled:true}}
+function blankItem(slot:Slot='Head'):GearItem{const now=new Date().toISOString();return{id:crypto.randomUUID(),baseName:'',name:'',slot,stats:{...ZERO_STATS},authenticated:false,authentication:{kind:'None',effect:'',value:0},favourite:false,createdAt:now,updatedAt:now}}
+function applyRollToItem(item:GearItem,effect:string,value:number,type:AuthModelEntry['certificateType']):GearItem{
+  let base=removeNumericAuthentication(item);
+  if(base.authenticated){base=structuredClone(base);base.authenticated=false;base.authentication={kind:'None',effect:'',value:0};}
+  const updated=addOutcomeToItem(base,effect,value);
+  updated.authentication.kind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
+  updated.name=generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication);
+  updated.updatedAt=new Date().toISOString();
+  return updated;
+}
+function prepareImportedGear(existing:GearItem[],incoming:GearItem[]):GearItem[]{const used=new Set(existing.map(x=>x.id));return incoming.map(item=>{const clone=structuredClone(item);if(!clone.id||used.has(clone.id))clone.id=crypto.randomUUID();used.add(clone.id);return clone;});}
+function validateItem(i:GearItem){
+  if(!i.baseName.trim())return 'Item name is required.';
+  if(!['Head','Back','Wrist'].includes(i.slot))return 'Valid slot is required.';
+  if(i.conditionPct!==undefined && (!Number.isFinite(i.conditionPct) || i.conditionPct<0 || i.conditionPct>100))return 'Condition must be between 0 and 100%.';
+  if(i.mutation!==undefined && typeof i.mutation!=='string')return 'Mutation must be text.';
+  for(const [k] of statLabels)if(!Number.isFinite(i.stats[k]))return `${k} must be a finite number.`;
+  if(!Number.isFinite(i.authentication.value))return 'Authentication value must be a finite number.';
+  if(!i.authenticated)return '';
+  if(i.authentication.kind==='None')return 'Choose an authentication type.';
+  const effect=i.authentication.effect.trim();
+  if(!effect)return 'Choose an authentication effect.';
+  if(i.authentication.kind==='Normal'&&LEGACY_ALIEN_EFFECTS.includes(effect as never))return `${effect} is a legacy Alien effect and cannot be selected for a new Normal authentication.`;
+  if(i.authentication.kind==='Alien')return ''; // Historical Alien gear remains valid and editable as legacy data.
+  if(i.authentication.kind==='Premium'){
+    for(const [slot,effects] of Object.entries(PREMIUM_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
+  if(i.authentication.kind==='Limited'){
+    for(const [slot,effects] of Object.entries(LIMITED_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
+  for(const [slot,effects] of Object.entries(EXCLUSIVE_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+  return '';
+}
+function displayStat(k:keyof GearStats,v:number){const n=k==='arrowReduction'?reductionToGameArrow(v):v;return `${n>0?'+':''}${n.toFixed(Math.abs(n)%1?1:0)}%`}
+function shortStat(s:string){return s.replace('Energy Drink Time','Energy').replace('Vehicle Speed','Vehicle').replace('Bid Recovery','Recovery').replace('Bid Zone Width','Zone').replace('Bid Arrow Reduction','Arrow').replace('NPC Offers Bonus','NPC')}
+function replacedName(prev:any,next:any,slot:Slot){const key=slot.toLowerCase() as 'head'|'back'|'wrist';return prev[key].id!==next[key].id?prev[key].name:undefined}
+function dateStamp(){return new Date().toISOString().slice(0,10)}
+function downloadText(name:string,text:string,type:string){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+function applyTheme(theme:AppData['theme']){document.documentElement.dataset.theme=theme;if(theme==='system')delete document.documentElement.dataset.theme}
+function navIcon(t:Tab){return ({Dashboard:'▦',Gear:'◆',Optimise:'◎',Vehicle:'▰',Trophies:'♜',Certificates:'◈',Settings:'⚙',More:'•••'} as Record<Tab,string>)[t]}
++decision.certificate.displayedValue.toLocaleString():''}</span>
+            </div>
+            <div className="premiumVerdict">{decision.verdict}</div>
+          </summary>
+          <div className="comboBody">
+            {target?<>
+              <div className="rowBetween"><div><span className="eyebrow">BEST CURRENT TARGET</span><h3>{target.item.baseName||target.item.name}</h3><p>{target.item.slot}{target.item.authenticated?' · replacing '+target.item.authentication.effect:''}</p></div><span className="badge heuristic">{target.confidencePct.toFixed(0)}% CONFIDENCE</span></div>
+
+              <div className="statsGrid three">
+                <StatTile label="Robust Main improves" value={target.chanceOfImprovementPct} suffix="%"/>
+                <StatTile label="Potential Main improves" value={target.chanceOfPotentialImprovementPct} suffix="%"/>
+                <StatTile label="Expected Main change" value={target.expectedImprovementPct} suffix="%"/>
+                <StatTile label="Chance Main/context worsens" value={target.chanceOfWorsePct} suffix="%"/>
+                <StatTile label="Meaningful robust gain ≥1%" value={target.chanceOfMeaningfulImprovementPct} suffix="%"/>
+                <StatTile label="Unresolved outcome mass" value={target.unresolvedOutcomeMassPct} suffix="%"/>
+                <StatTile label="Current Main fit" value={target.mainFitPct} suffix="%"/>
+              </div>
+
+              <div className="thresholdTable">
+                <div><b>Main sensitivity low / central / high</b><span>{signed(target.expectedImprovementLowPct)} / {signed(target.expectedImprovementPct)} / {signed(target.expectedImprovementHighPct)}</span></div>
+                <div><b>Average robust gain when successful</b><span>{signed(target.averageGainWhenSuccessfulPct)}</span></div>
+                <div><b>Average demonstrated loss when worse</b><span>{signed(target.averageLossWhenWorsePct)}</span></div>
+                <div><b>10th / median / 90th central percentile</b><span>{signed(target.p10Pct)} / {signed(target.medianPct)} / {signed(target.p90Pct)}</span></div>
+                <div><b>Best possible modelled branch</b><span>{target.bestPossibleOutcome} · {signed(target.bestCasePct)}</span></div>
+                <div><b>Worst modelled Main/context branch</b><span>{target.worstPossibleOutcome} · {signed(target.worstCasePct)}</span></div>
+                <div><b>Authentication risk — neutral Main</b><span>{signed(target.currentAuthenticationMainRiskPct)}</span></div>
+                <div><b>Authentication risk — Day/Night/Rain</b><span>{signed(target.currentAuthenticationContextRiskPct)}</span></div>
+                <div><b>Authentication risk — Drink Prep</b><span>{signed(target.currentAuthenticationDrinkRiskPct)}</span></div>
+                <div><b>Authentication risk — Grading</b><span>{signed(target.currentAuthenticationGradingRiskPct)}</span></div>
+                <div><b>Authentication risk — Shop/Idle</b><span>{signed(target.currentAuthenticationShopRiskPct)}</span></div>
+                <div><b>Worst authentication risk anywhere relevant</b><span>{signed(target.currentAuthenticationValueAtRiskPct)}</span></div>
+                <div><b>Average Day/Night/Rain impact</b><span>{signed(target.expectedContextualMainPct)}</span></div>
+                <div><b>Worst Day/Night/Rain impact</b><span>{signed(target.worstContextualMainPct)}</span></div>
+                <div><b>Expected Drink Prep impact</b><span>{signed(target.expectedDrinkPrepPct)}</span></div>
+                <div><b>Expected Grading impact</b><span>{signed(target.expectedGradingPct)}</span></div>
+                <div><b>Expected Shop/Idle impact</b><span>{signed(target.expectedShopPct)}</span></div>
+              </div>
+
+              {target.unresolvedEffects.length>0&&<div className="notice warning"><b>Unresolved magnitude:</b> {target.unresolvedEffects.join(', ')}. These branches are not treated as zero-value known outcomes and cannot produce a USE verdict until supported by numeric evidence.</div>}
+              <ul>{target.reasons.map((reason,i)=><li key={i}>{reason}</li>)}</ul>
+
+              {decision.conversion&&<div className="notice"><b>Wooden → Premium opportunity cost:</b> {decision.conversion.recommendation}. Direct Wooden EV {signed(decision.conversion.directExpectedMainPct)} vs synthetic Premium EV {signed(decision.conversion.premiumExpectedMainPct)}. Conversion costs {decision.conversion.diamondCost} Diamonds. {decision.conversion.reason}</div>}
+
+              <details>
+                <summary>Other targets</summary>
+                <div className="thresholdTable">{decision.targets.slice(1,7).map((alt,index)=><div key={alt.item.id}><b>#{index+2} {alt.item.baseName||alt.item.name} · {alt.verdict}</b><span>{alt.chanceOfImprovementPct.toFixed(1)}% robust improve · EV {signed(alt.expectedImprovementPct)}</span></div>)}</div>
+              </details>
+            </>:<p className="muted">A complete Head, Back and Wrist inventory is required.</p>}
+
+            <div className="notice warning"><b>Evidence boundary:</b> these are modelled decision percentages, not hidden Roblox loot odds. Effect selection uses a neutral equal prior until exact-certificate observations exist. Unknown star transforms and unresolved magnitudes reduce confidence instead of being invented.</div>
+          </div>
+        </details>;
+      })}
+      {!certificateState.computing&&!certificateState.error&&!decisions.length&&<p className="muted">No owned certificates are available for analysis.</p>}
+    </div>
+
+    <div className="card">
+      <div className="sectionTitle"><h2>Owned certificates</h2><button className="secondary compact" onClick={()=>setEditInventory(!editInventory)}>{editInventory?'Done':'Manual adjustment'}</button></div>
+      <div className="gearList">{data.ownedCertificates.map(cert=><div className="gearCard" key={cert.id}><strong>{cert.type}</strong><p>{cert.rarity||'Certificate'}{cert.gradeStars!==undefined?' · '+'★'.repeat(cert.gradeStars):''}{cert.displayedValue!==undefined?' · $'+cert.displayedValue.toLocaleString():''} · Owned: {cert.quantity}</p>{editInventory&&<div className="actions"><button onClick={()=>changeQty(cert.id,-1)} disabled={cert.quantity===0}>− Remove one</button><button onClick={()=>changeQty(cert.id,1)}>＋ Add one</button></div>}</div>)}</div>
+      <div className="notice">Recording a roll below now consumes the exact selected certificate automatically. Wooden → Premium is compared explicitly against direct Wooden use at the current 150-Diamond conversion cost.</div>
+    </div>
+
+    <div className="sectionTitle"><h2>Record a result</h2></div>
+    {availableCertificates.length?<div className="card">
+      <label>Certificate actually used<select value={selectedCertificateId} onChange={e=>setSelectedCertificateId(e.target.value)}>{availableCertificates.map(cert=><option value={cert.id} key={cert.id}>{cert.type} · {cert.gradeStars!==undefined?'★'.repeat(cert.gradeStars)+' · ':''}{cert.displayedValue!==undefined?'$'+cert.displayedValue.toLocaleString()+' · ':''}owned {cert.quantity}</option>)}</select></label>
+      <button className="secondary" disabled={!selectedCertificate} onClick={()=>setLogOpen(true)}>＋ Record selected certificate roll</button>
+    </div>:<p className="muted">No certificate with quantity remaining is available to record.</p>}
+
+    <div className="sectionTitle"><h2>Roll history</h2></div>
+    <div className="card tableCard">{data.rollLog.length?data.rollLog.slice().reverse().map(r=><div className="logRow" key={r.id}><div><strong>{r.itemName}</strong><span>{new Date(r.date).toLocaleDateString()} · {r.certificateInventoryType??(r.certificateType.startsWith('Normal')?'Legacy Normal':r.certificateType.startsWith('Premium')?'Premium':r.certificateType.startsWith('Limited')?'Limited':'Legacy Alien')}</span></div><div><b>{r.newAuthentication} {r.newValue}%</b><span>{r.bestScoreBefore.toFixed(2)} → {r.bestScoreAfter.toFixed(2)}</span></div></div>):<p className="muted">No certificate rolls recorded yet.</p>}</div>
+
+    {logOpen&&selectedCertificate&&<RollLogEditor data={data} certificate={selectedCertificate} onClose={()=>setLogOpen(false)} onSave={(r,updated)=>{
+      try{
+        setData(applyRecordedCertificateRoll(data,selectedCertificate.id,r,updated));
+        setLogOpen(false);
+      }catch(error){alert(error instanceof Error?error.message:'Could not record certificate roll.')}
+    }}/>}
+  </section>;
+}
+
+function SettingsScreen({data,setData,showToast}:{data:AppData;setData:(d:AppData)=>void;showToast:(s:string)=>void}){
+  const jsonRef=useRef<HTMLInputElement>(null),csvRef=useRef<HTMLInputElement>(null);
+  function setS<K extends keyof AlgorithmSettings>(k:K,v:AlgorithmSettings[K]){setData({...data,settings:{...data.settings,[k]:v}})}
+  const fields:Array<[keyof AlgorithmSettings,string]>=[['luckWeight','Main Auction Luck weight'],['arrowWeight','Main Auction Bid Arrow weight'],['arrowSweetSpot','Bid Arrow sweet spot'],['zoneWeight','Main Auction Bid Zone weight'],['zoneBreakpoint1','Bid Zone breakpoint 1'],['zoneBreakpoint2','Bid Zone breakpoint 2'],['zoneMultiplier2','Bid Zone middle multiplier'],['zoneMultiplier3','Bid Zone upper multiplier'],['recoveryWeight','Main Auction Bid Recovery weight'],['energyTarget','Drink Prep Energy target'],['energyCeiling','Drink Prep Energy ceiling'],['energySecondStageMultiplier','Drink Prep above-target multiplier']];
+  const issues=algorithmIssues(data.settings);
+  return <section><div className="pageHeading"><div><h1>Settings</h1><p>Algorithm Version 2.0</p></div></div>
+    <div className="sectionTitle"><h2>Appearance</h2></div><div className="card"><label>Theme<select value={data.theme} onChange={e=>setData({...data,theme:e.target.value as any})}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label></div>
+    <div className="sectionTitle"><h2>Algorithm editor</h2><button className="secondary compact" onClick={()=>setData({...data,settings:{...LOCKED_DEFAULT_SETTINGS}})}>Reset to locked defaults</button></div>
+    <div className="settingsGrid">{fields.map(([k,label])=><label className="settingField" key={k}><span>{label}</span><input type="number" step="any" value={data.settings[k]} onChange={e=>setS(k,Number(e.target.value) as never)}/></label>)}</div>
+    {issues.length>0&&<div className="notice dangerNotice"><b>Settings need correction:</b> {issues.join(' · ')}</div>}
+    <div className="notice">Algorithm 2.0 uses one shared model for Main Auction, retention and certificate decisions. Displayed Luck is linear. Bid Arrow benefit caps at your 75% sweet spot with no invented over-cap penalty. Drink Prep, Grading and Shop/Idle are separate loadouts and never compensate for a weaker Main Auction result. Day, Night and Rain are evaluated as contextual Main variants instead of fake uptime averages.</div>
+    <div className="sectionTitle"><h2>Authentication outcome catalogue</h2><button className="secondary compact" onClick={()=>setData({...data,authModel:[...data.authModel,newAuthModelEntry()]})}>＋ Add outcome</button></div><div className="card authModel"><p className="muted">This is the live certificate model. Enabled rows, certificate tier, min / typical / max, confidence and relative-weight class all feed directly into certificate EV. MEDIUM is the neutral default because the real per-effect odds are unpublished; changing the class is an explicit user assumption, not a game fact.</p>{data.authModel.filter(m=>m.certificateType!=='Certificate of Alienticity'&&!LEGACY_ALIEN_EFFECTS.includes(m.outcome as never)).slice().sort((a,b)=>(a.certificateInventoryType??'').localeCompare(b.certificateInventoryType??'')||a.slot.localeCompare(b.slot)||a.outcome.localeCompare(b.outcome)).map(m=><AuthModelRow key={m.id} entry={m} onChange={entry=>setData({...data,authModel:data.authModel.map(x=>x.id===entry.id?entry:x)})} onDelete={()=>{if(confirm(`Remove authentication model outcome ${m.outcome}? Roll history is not deleted.`))setData({...data,authModel:data.authModel.filter(x=>x.id!==m.id)})}}/>)}</div>
+    <div className="sectionTitle"><h2>Backup & data safety</h2></div><div className="card buttonStack"><button className="primary" onClick={()=>downloadText(`storage-hunters-backup-${dateStamp()}.json`,exportJson(data),'application/json')}>Download JSON backup</button><button className="secondary" onClick={()=>jsonRef.current?.click()}>Restore JSON backup</button><button className="secondary" onClick={()=>downloadText(`storage-hunters-gear-${dateStamp()}.csv`,gearToCsv(data.gear),'text/csv')}>Export gear CSV</button><button className="secondary" onClick={()=>csvRef.current?.click()}>Import gear CSV</button><input hidden type="file" accept="application/json,.json" ref={jsonRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const d=importJson(await f.text());if(confirm(`Restore backup containing ${d.gear.length} gear items? This replaces current local data.`)){setData(d);showToast('Backup restored')}}catch(err){alert(err instanceof Error?err.message:'Invalid backup')}}}/><input hidden type="file" accept="text/csv,.csv" ref={csvRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const g=csvToGear(await f.text());if(confirm(`Import ${g.length} gear items? They will be added to the current inventory.`)){const imported=prepareImportedGear(data.gear,g);setData({...data,gear:[...data.gear,...imported]});showToast('CSV imported')}}catch(err){alert(err instanceof Error?err.message:'Invalid CSV')}}}/><button className="danger" onClick={()=>{const phrase=prompt('Type RESET ALL DATA to permanently clear all local inventory, certificates, roll history, vehicle parts, trophies and settings back to an empty workspace.');if(phrase==='RESET ALL DATA')setData(makeEmptyData())}}>Clear all local data</button></div>
+  </section>;
+}
+
+function GearEditor({item,authModel,mode,onClose,onSave}:{item:GearItem;authModel:AuthModelEntry[];mode:'add'|'edit';onClose:()=>void;onSave:(i:GearItem,keepAdding?:boolean)=>void}){
+  const [v,setV]=useState({...item,name:generateGearName(item.baseName,item.stats,item.authenticated,item.authentication)});
+  const initialShown=statLabels.filter(([key])=>Math.abs(item.stats[key])>1e-12).map(([key])=>key);
+  const [shownStats,setShownStats]=useState<Array<keyof GearStats>>(initialShown);
+  const patch=(next:Partial<GearItem>)=>setV(current=>{const updated={...current,...next};return {...updated,name:generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication)};});
+  const setStat=(k:keyof GearStats,n:number)=>setV(current=>{const stats={...current.stats,[k]:Number.isFinite(n)?n:0};return {...current,stats,name:generateGearName(current.baseName,stats,current.authenticated,current.authentication)};});
+  const setAuthentication=(next:Partial<GearItem['authentication']>)=>setV(current=>{const authentication={...current.authentication,...next};return {...current,authentication,name:generateGearName(current.baseName,current.stats,current.authenticated,authentication)};});
+  const showStat=(key:keyof GearStats)=>setShownStats(current=>current.includes(key)?current:[...current,key]);
+  const hideStat=(key:keyof GearStats)=>{setStat(key,0);setShownStats(current=>current.filter(k=>k!==key));};
+  const orderedShown=statLabels.filter(([key])=>shownStats.includes(key));
+  const hidden=statLabels.filter(([key])=>!shownStats.includes(key));
+  const displayedArrow=reductionToGameArrow(v.stats.arrowReduction);
+  const legacyAlien=v.authenticated&&v.authentication.kind==='Alien';
+  const currentKind=v.authentication.kind==='Premium'?'Premium':v.authentication.kind==='Limited'?'Limited':'Normal';
+  return <div className="modalBackdrop"><div className="modal sheet"><div className="modalHeader"><div><span className="eyebrow">{mode==='add'?'QUICK ADD GEAR':'EDIT GEAR'}</span><h2>{v.baseName||'New gear'}</h2></div><button className="iconButton" onClick={onClose}>×</button></div>
+    <div className="formGrid quickIdentity"><label className="wide">Actual gear name<input autoFocus value={v.baseName} onChange={e=>patch({baseName:e.target.value})} placeholder="e.g. Pearl Dominus"/></label><label>Slot<select value={v.slot} onChange={e=>patch({slot:e.target.value as Slot})}><option>Head</option><option>Back</option><option>Wrist</option></select></label><label>Mutation<input list={`mutations-${v.id}`} value={v.mutation??''} onChange={e=>patch({mutation:e.target.value})} placeholder="None, Diamond, Gold…"/><datalist id={`mutations-${v.id}`}>{['None','Diamond','Gold','Silver','Cobwebbed','Exclusive','Police','Chrome','Gem','Void','Onyx'].map(m=><option key={m} value={m}/>)}</datalist></label><label>Condition %<input type="number" min="0" max="100" step="any" inputMode="decimal" value={v.conditionPct??''} onChange={e=>patch({conditionPct:e.target.value===''?undefined:Number(e.target.value)})} placeholder="Optional"/></label><label className="check"><input type="checkbox" checked={v.favourite} onChange={e=>patch({favourite:e.target.checked})}/> Lock / favourite</label></div>
+    <div className="autoNamePreview"><span>Automatic name</span><strong>{v.name||'Name updates as stats are entered'}</strong></div>
+    <div className="quickEntrySection"><div className="rowBetween"><div><strong>Stats shown on this item</strong><div className="fieldHelp">Tap only the stats visible in game. Empty fields stay out of the way.</div></div></div>
+      {hidden.length>0&&<div className="statPicker">{hidden.map(([key,label])=><button type="button" key={key} onClick={()=>showStat(key)}>＋ {shortStat(label)}</button>)}</div>}
+      {!orderedShown.length&&<div className="quickEmpty">No stats selected yet.</div>}
+      <div className="quickStatGrid">{orderedShown.map(([key,label])=>key==='arrowReduction'
+        ? <div className="quickStatField arrowQuick" key={key}><label>{label}<input inputMode="decimal" type="number" step="any" value={displayedArrow} onChange={e=>setStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><small>Enter the signed game value, e.g. -24.</small></label><button type="button" className="removeStat" onClick={()=>hideStat(key)}>×</button></div>
+        : <div className="quickStatField" key={key}><label>{label} %<input inputMode="decimal" type="number" step="any" value={v.stats[key]} onChange={e=>setStat(key,Number(e.target.value))}/></label><button type="button" className="removeStat" onClick={()=>hideStat(key)}>×</button></div>)}</div>
+    </div>
+    <details className="finalStatsEditor authQuick" open={v.authenticated}><summary>Authentication {v.authenticated?`— ${v.authentication.kind} · ${v.authentication.effect||'select effect'}`:'— none'}</summary><div className="formGrid"><label className="check wide"><input type="checkbox" checked={v.authenticated} onChange={e=>{const authenticated=e.target.checked;const authentication=authenticated?(v.authenticated?v.authentication:{kind:'Normal' as const,effect:'',value:0}):{kind:'None' as const,effect:'',value:0};setV(current=>({...current,authenticated,authentication,name:generateGearName(current.baseName,current.stats,authenticated,authentication)}));}}/> Authenticated</label>{v.authenticated&&<>{legacyAlien?<><div className="wide notice"><b>Legacy Alien</b> — retained for historical compatibility.</div><label>Type<input value="Legacy Alien" readOnly/></label><label>Legacy effect<input value={v.authentication.effect} readOnly/></label><label>Legacy value %<input type="number" step="any" value={v.authentication.value} onChange={e=>setAuthentication({value:Number(e.target.value)})}/></label></>:<><label>Certificate type<select value={currentKind} onChange={e=>setAuthentication({kind:e.target.value as 'Normal'|'Premium'|'Limited',effect:'',value:0})}><option>Normal</option><option>Premium</option><option>Limited</option></select></label><label>Effect<select value={v.authentication.effect} onChange={e=>setAuthentication({effect:e.target.value})}>{activeAuthenticationOptions(v.slot,v.authentication.effect,authModel,currentKind).map(x=><option value={x} key={x}>{x||'Select effect'}</option>)}</select></label><label>Value %<input type="number" inputMode="decimal" step="any" value={v.authentication.value} onChange={e=>setAuthentication({value:Number(e.target.value)})}/></label><p className="wide fieldHelp">{currentKind==='Premium'?'Premium effects are evaluated by the shared loadout engine where possible; unresolved effects remain protected.':currentKind==='Limited'?'Limited effects are evaluated against your actual Main and specialist loadouts; unknown proc behaviour reduces confidence rather than creating fake certainty.':'Enter the normal/base accessory stats separately. Numeric authentication is added automatically by the optimiser.'}</p></>}</>}</div></details>
+    <div className="stickyActions quickActions"><button className="secondary" onClick={onClose}>Cancel</button>{mode==='add'&&<button className="secondary addAnother" onClick={()=>onSave({...v,name:generateGearName(v.baseName,v.stats,v.authenticated,v.authentication)},true)}>Save + another</button>}<button className="primary" onClick={()=>onSave({...v,name:generateGearName(v.baseName,v.stats,v.authenticated,v.authentication)})}>{mode==='add'?'Analyse & add':'Save changes'}</button></div>
+  </div></div>;
+}
+function NewItemSheet({analysis,onClose}:{analysis:{name:string;standalone:number;previous:number;next:number;bestChanged:boolean;replaced?:string;verdict?:string;bestCert?:string;combined?:GearStats};onClose:()=>void}){const d=analysis.next-analysis.previous;return <div className="modalBackdrop"><div className="modal resultModal"><span className="eyebrow">NEW ITEM ANALYSIS</span><h2>{analysis.name}</h2><div className="resultScore">{analysis.next.toFixed(2)}</div><div className="statsGrid three resultStats"><StatTile label="Standalone" value={analysis.standalone}/><StatTile label="Previous best" value={analysis.previous}/><StatTile label="Improvement" value={d}/></div><p>Best loadout changed: <b>{analysis.bestChanged?'YES':'NO'}</b></p>{analysis.replaced&&<p>Replaces: <b>{analysis.replaced}</b></p>}<StatusBadge status={analysis.verdict??'KEEP'}/>{analysis.combined&&<><div className="sectionTitle"><h3>New combined stats</h3></div><div className="statsGrid">{statLabels.map(([k,l])=><StatTile key={k} label={l} value={analysis.combined![k]} suffix="%"/>)}</div></>}{analysis.bestCert&&<p className="notice">Best certificate targeting: <b>{analysis.bestCert}</b>.</p>}<button className="primary" onClick={onClose}>Done</button></div></div>}
+
+function RollLogEditor({data,certificate,onClose,onSave}:{data:AppData;certificate:OwnedCertificate;onClose:()=>void;onSave:(r:CertificateRollLog,updated:GearItem)=>void}){
+  const type=authModelTypeForOwnedCertificate(certificate);
+  const [itemId,setItemId]=useState(data.gear[0]?.id??'');
+  const item=data.gear.find(g=>g.id===itemId);
+  const [newAuth,setNewAuth]=useState('');
+  const [newValue,setNewValue]=useState(0);
+  const autoPreview=useMemo(()=>item&&newAuth?applyRollToItem(item,newAuth,newValue,type):item,[item,newAuth,newValue,type]);
+  const expectedDisplayedStats=useMemo(()=>autoPreview?effectiveItemStats(autoPreview):undefined,[autoPreview]);
+  const [finalStats,setFinalStats]=useState<GearStats|undefined>(expectedDisplayedStats?{...expectedDisplayedStats}:undefined);
+  useEffect(()=>{setFinalStats(expectedDisplayedStats?{...expectedDisplayedStats}:undefined)},[expectedDisplayedStats]);
+  useEffect(()=>{setNewAuth('');setNewValue(0)},[itemId,type]);
+  const preview=useMemo(()=>{
+    if(!autoPreview||!finalStats)return autoPreview;
+    const observed=withObservedAuthenticationStats(autoPreview,finalStats);
+    return {...observed,name:generateGearName(observed.baseName,observed.stats,observed.authenticated,observed.authentication)};
+  },[autoPreview,finalStats]);
+  const before=optimise(data.gear,data.settings,1)[0]?.score.total??0;
+  const previewGear=preview?data.gear.map(g=>g.id===preview.id?preview:g):data.gear;
+  const after=optimise(previewGear,data.settings,1)[0]?.score.total??before;
+  const setFinalStat=(key:keyof GearStats,value:number)=>setFinalStats(current=>({...ZERO_STATS,...current,[key]:Number.isFinite(value)?value:0}));
+  const authKind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
+  return <div className="modalBackdrop"><div className="modal"><div className="modalHeader"><h2>Record certificate roll</h2><button className="iconButton" onClick={onClose}>×</button></div>
+    <div className="notice"><b>Certificate being consumed:</b> {certificate.type}{certificate.gradeStars!==undefined?' · '+'★'.repeat(certificate.gradeStars):''}{certificate.displayedValue!==undefined?' · $'+certificate.displayedValue.toLocaleString():''}. Saving this roll reduces its owned quantity by one.</div>
+    <div className="formGrid"><label className="wide">Item<select value={itemId} onChange={e=>setItemId(e.target.value)}>{data.gear.map(g=><option value={g.id} key={g.id}>{g.name} · {g.slot}</option>)}</select></label><label>New authentication<select value={newAuth} onChange={e=>setNewAuth(e.target.value)}><option value="">Select result</option>{activeCertificateOutcomeOptions(item?.slot,data.authModel,authKind,certificate.type).map(a=><option key={a}>{a}</option>)}</select></label><label>New value %<input type="number" step="any" value={newValue} onChange={e=>setNewValue(Number(e.target.value))}/></label><label>Best score before<input type="number" value={before} readOnly/></label><label>Calculated score after<input type="number" value={after} readOnly/></label><p className="wide fieldHelp">These are the final stats displayed in game after the new authentication. Any difference caused by the authentication (especially Focused) is stored on that authentication only; the item's base stats are not overwritten.</p></div>
+    {finalStats&&<details className="finalStatsEditor"><summary>Confirm / correct final displayed stats</summary><div className="formGrid">{statLabels.filter(([k])=>k!=='arrowReduction').map(([k,l])=><label key={k}>{l} %<input type="number" inputMode="decimal" step="any" value={finalStats[k]} onChange={e=>setFinalStat(k,Number(e.target.value))}/></label>)}<label className="wide arrowInput">Bid Arrow Speed — game display %<input type="number" inputMode="decimal" step="any" value={reductionToGameArrow(finalStats.arrowReduction)} onChange={e=>setFinalStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><span>Enter the signed value shown by the game.</span></label></div></details>}
+    <div className="stickyActions"><button className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={!item||!newAuth||!preview||certificate.quantity<1} onClick={()=>{item&&preview&&onSave({id:crypto.randomUUID(),date:new Date().toISOString(),certificateType:type,itemId:item.id,itemName:item.name,slot:item.slot,previousAuthentication:item.authentication.effect,previousValue:item.authentication.value,newAuthentication:newAuth,newValue,improvedBestSet:after>before,bestScoreBefore:before,bestScoreAfter:after,certificateId:certificate.id,certificateGradeStars:certificate.gradeStars,certificateInventoryType:certificate.type},preview)}}>Apply, record & consume</button></div>
+  </div></div>;
+}
+
+function authModelCertificateType(type:OwnedCertificate['type']):AuthModelEntry['certificateType']{
+  return type==='Premium Certificate of Authenticity'
+    ?'Premium Certificate of Authenticity'
+    :type==='Limited Certificate of Authenticity'
+      ?'Limited Certificate of Authenticity'
+      :'Normal Certificate of Authenticity';
+}
+
+function AuthModelRow({entry,onChange,onDelete}:{entry:AuthModelEntry;onChange:(e:AuthModelEntry)=>void;onDelete:()=>void}){
+  const inventoryType=entry.certificateInventoryType??(
+    entry.certificateType==='Premium Certificate of Authenticity'?'Premium Certificate of Authenticity':
+    entry.certificateType==='Limited Certificate of Authenticity'?'Limited Certificate of Authenticity':
+    'Wooden Certificate of Authenticity'
+  );
+  return <details className="modelRow">
+    <summary><span>{entry.outcome}</span><span>{inventoryType.replace(' Certificate of Authenticity','')} · {entry.slot} · {entry.assumedLikelihoodClass}{entry.enabled?'':' · disabled'}</span></summary>
+    <div className="formGrid">
+      <label className="wide">Outcome<input value={entry.outcome} onChange={e=>onChange({...entry,outcome:e.target.value})}/></label>
+      <label>Certificate tier<select value={inventoryType} onChange={e=>{const certificateInventoryType=e.target.value as OwnedCertificate['type'];onChange({...entry,certificateInventoryType,certificateType:authModelCertificateType(certificateInventoryType)})}}><option>Wooden Certificate of Authenticity</option><option>Ripped Certificate of Authenticity</option><option>Premium Certificate of Authenticity</option><option>Limited Certificate of Authenticity</option></select></label>
+      <label>Slot<select value={entry.slot} onChange={e=>onChange({...entry,slot:e.target.value as AuthModelEntry['slot']})}><option>Any</option><option>Head</option><option>Back</option><option>Wrist</option></select></label>
+      <label className="wide">Category<input value={entry.category} onChange={e=>onChange({...entry,category:e.target.value})}/></label>
+      <label>Relative-weight class<select value={entry.assumedLikelihoodClass} onChange={e=>onChange({...entry,assumedLikelihoodClass:e.target.value as AuthModelEntry['assumedLikelihoodClass']})}>{['VERY HIGH','HIGH','MEDIUM','LOW','VERY LOW'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Confidence<select value={entry.confidence} onChange={e=>onChange({...entry,confidence:e.target.value as AuthModelEntry['confidence']})}>{['Unknown','Low','Medium','High','Empirical'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Optional min<input type="number" step="any" value={entry.min??''} onChange={e=>onChange({...entry,min:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label>Optional typical<input type="number" step="any" value={entry.typical??''} onChange={e=>onChange({...entry,typical:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label>Optional max<input type="number" step="any" value={entry.max??''} onChange={e=>onChange({...entry,max:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label className="check"><input type="checkbox" checked={entry.enabled} onChange={e=>onChange({...entry,enabled:e.target.checked})}/> Enabled in live EV</label>
+      <div className="wide fieldHelp">Observed samples: {entry.observedSampleCount}. Values: {entry.observedValues.length?entry.observedValues.join(', '):'none yet'}. As exact-tier samples accumulate, empirical roll strength progressively outweighs the min/typical/max prior.</div>
+      <button className="danger wide" onClick={onDelete}>Delete model outcome</button>
+    </div>
+  </details>;
+}
+
+function LoadoutCard({slot,item}:{slot:string;item:GearItem}){return <div className="loadoutCard"><span>{slot}</span><strong>{item.baseName||item.name}</strong>{item.authentication.effect&&<small>{item.authentication.effect} {item.authentication.value?`${item.authentication.value}%`:''}</small>}</div>}
+function StatTile({label,value,suffix=''}:{label:string;value:number;suffix?:string}){return <div className="statTile"><span>{label}</span><strong>{Number.isFinite(value)?value.toFixed(Math.abs(value)%1?2:0):'—'}{suffix}</strong></div>}
+function ArrowThresholdCard({value,settings}:{value:number;settings:AlgorithmSettings}){const max=Math.max(settings.arrowSweetSpot,100);const pct=Math.min(100,Math.max(0,value/max*100));const excess=Math.max(0,value-settings.arrowSweetSpot);return <div className="thresholdCard"><div className="rowBetween"><strong>Bid Arrow reduction</strong><span>{value.toFixed(1)}% · target {settings.arrowSweetSpot}%</span></div><div className="progress arrowProgress"><i style={{width:`${pct}%`}}/><b style={{left:`${settings.arrowSweetSpot/max*100}%`}}/></div>{excess>0&&<div className="fieldHelp">{excess.toFixed(1)}% is above your 75% sweet spot. It is treated as wasted, not as an invented gameplay penalty.</div>}</div>}
+function ThresholdCard({label,value,target,ceiling}:{label:string;value:number;target:number;ceiling:number}){const pct=Math.min(100,Math.max(0,value/ceiling*100));return <div className="thresholdCard"><div className="rowBetween"><strong>{label}</strong><span>{value.toFixed(1)}% · target {target}% · ceiling {ceiling}%</span></div><div className="progress"><i style={{width:`${pct}%`}}/><b style={{left:`${target/ceiling*100}%`}}/></div></div>}
+function StatusBadge({status}:{status:string}){return <span className={`badge status ${status.toLowerCase().replaceAll(' ','-').replaceAll('/','')}`}>{status}</span>}
+function EmptyState({title,text,action,onClick}:{title:string;text:string;action?:string;onClick?:()=>void}){return <div className="empty"><div className="emptyIcon">⌁</div><h3>{title}</h3><p>{text}</p>{action&&<button className="primary" onClick={onClick}>{action}</button>}</div>}
+
+function algorithmIssues(s:AlgorithmSettings):string[]{const issues:string[]=[];for(const [k,v] of Object.entries(s))if(k!=='version'&&!Number.isFinite(Number(v)))issues.push(`${k} is not finite`);if(s.arrowSweetSpot<0)issues.push('Arrow sweet spot cannot be negative');if(s.energyTarget>s.energyCeiling)issues.push('Energy target must be ≤ Energy ceiling');if(s.zoneBreakpoint1>s.zoneBreakpoint2)issues.push('Zone breakpoint 1 must be ≤ breakpoint 2');for(const [label,value] of [['Luck weight',s.luckWeight],['Arrow weight',s.arrowWeight],['Zone weight',s.zoneWeight],['Recovery weight',s.recoveryWeight],['Zone middle multiplier',s.zoneMultiplier2],['Zone upper multiplier',s.zoneMultiplier3]] as const)if(value<0)issues.push(`${label} cannot be negative`);return issues;}
+function newAuthModelEntry():AuthModelEntry{return{id:crypto.randomUUID(),certificateInventoryType:'Wooden Certificate of Authenticity',certificateType:'Normal Certificate of Authenticity',slot:'Any',outcome:'Custom outcome',category:'Custom / unknown',assumedLikelihoodClass:'MEDIUM',observedSampleCount:0,observedValues:[],confidence:'Unknown',enabled:true}}
+function blankItem(slot:Slot='Head'):GearItem{const now=new Date().toISOString();return{id:crypto.randomUUID(),baseName:'',name:'',slot,stats:{...ZERO_STATS},authenticated:false,authentication:{kind:'None',effect:'',value:0},favourite:false,createdAt:now,updatedAt:now}}
+function applyRollToItem(item:GearItem,effect:string,value:number,type:AuthModelEntry['certificateType']):GearItem{
+  let base=removeNumericAuthentication(item);
+  if(base.authenticated){base=structuredClone(base);base.authenticated=false;base.authentication={kind:'None',effect:'',value:0};}
+  const updated=addOutcomeToItem(base,effect,value);
+  updated.authentication.kind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
+  updated.name=generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication);
+  updated.updatedAt=new Date().toISOString();
+  return updated;
+}
+function prepareImportedGear(existing:GearItem[],incoming:GearItem[]):GearItem[]{const used=new Set(existing.map(x=>x.id));return incoming.map(item=>{const clone=structuredClone(item);if(!clone.id||used.has(clone.id))clone.id=crypto.randomUUID();used.add(clone.id);return clone;});}
+function validateItem(i:GearItem){
+  if(!i.baseName.trim())return 'Item name is required.';
+  if(!['Head','Back','Wrist'].includes(i.slot))return 'Valid slot is required.';
+  if(i.conditionPct!==undefined && (!Number.isFinite(i.conditionPct) || i.conditionPct<0 || i.conditionPct>100))return 'Condition must be between 0 and 100%.';
+  if(i.mutation!==undefined && typeof i.mutation!=='string')return 'Mutation must be text.';
+  for(const [k] of statLabels)if(!Number.isFinite(i.stats[k]))return `${k} must be a finite number.`;
+  if(!Number.isFinite(i.authentication.value))return 'Authentication value must be a finite number.';
+  if(!i.authenticated)return '';
+  if(i.authentication.kind==='None')return 'Choose an authentication type.';
+  const effect=i.authentication.effect.trim();
+  if(!effect)return 'Choose an authentication effect.';
+  if(i.authentication.kind==='Normal'&&LEGACY_ALIEN_EFFECTS.includes(effect as never))return `${effect} is a legacy Alien effect and cannot be selected for a new Normal authentication.`;
+  if(i.authentication.kind==='Alien')return ''; // Historical Alien gear remains valid and editable as legacy data.
+  if(i.authentication.kind==='Premium'){
+    for(const [slot,effects] of Object.entries(PREMIUM_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
+  if(i.authentication.kind==='Limited'){
+    for(const [slot,effects] of Object.entries(LIMITED_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
+  for(const [slot,effects] of Object.entries(EXCLUSIVE_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+  return '';
+}
+function displayStat(k:keyof GearStats,v:number){const n=k==='arrowReduction'?reductionToGameArrow(v):v;return `${n>0?'+':''}${n.toFixed(Math.abs(n)%1?1:0)}%`}
+function shortStat(s:string){return s.replace('Energy Drink Time','Energy').replace('Vehicle Speed','Vehicle').replace('Bid Recovery','Recovery').replace('Bid Zone Width','Zone').replace('Bid Arrow Reduction','Arrow').replace('NPC Offers Bonus','NPC')}
+function replacedName(prev:any,next:any,slot:Slot){const key=slot.toLowerCase() as 'head'|'back'|'wrist';return prev[key].id!==next[key].id?prev[key].name:undefined}
+function dateStamp(){return new Date().toISOString().slice(0,10)}
+function downloadText(name:string,text:string,type:string){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+function applyTheme(theme:AppData['theme']){document.documentElement.dataset.theme=theme;if(theme==='system')delete document.documentElement.dataset.theme}
+function navIcon(t:Tab){return ({Dashboard:'▦',Gear:'◆',Optimise:'◎',Vehicle:'▰',Trophies:'♜',Certificates:'◈',Settings:'⚙',More:'•••'} as Record<Tab,string>)[t]}
++cert.displayedValue.toLocaleString():''} · Owned: {cert.quantity}</p>{editInventory&&<div className="formGrid"><label>Mutation<input value={cert.mutation??''} placeholder="None / Secret / …" onChange={e=>patchCertificate(cert.id,{mutation:e.target.value.trim()||undefined})}/></label><label>Grade stars<input type="number" min="0" max="5" step="1" value={cert.gradeStars??''} onChange={e=>patchCertificate(cert.id,{gradeStars:e.target.value===''?undefined:Math.max(0,Math.min(5,Math.trunc(Number(e.target.value)||0)))})}/></label><div className="actions wide"><button onClick={()=>changeQty(cert.id,-1)} disabled={cert.quantity===0}>− Remove one</button><button onClick={()=>changeQty(cert.id,1)}>＋ Add one</button></div></div>}</div>)}</div>
+      <div className="notice">Recording a roll below now consumes the exact selected certificate automatically. Wooden → Premium is compared explicitly against direct Wooden use at the current 150-Diamond conversion cost.</div>
+    </div>
+
+    <div className="sectionTitle"><h2>Record a result</h2></div>
+    {availableCertificates.length?<div className="card">
+      <label>Certificate actually used<select value={selectedCertificateId} onChange={e=>setSelectedCertificateId(e.target.value)}>{availableCertificates.map(cert=><option value={cert.id} key={cert.id}>{cert.type} · {cert.gradeStars!==undefined?'★'.repeat(cert.gradeStars)+' · ':''}{cert.displayedValue!==undefined?'$'+cert.displayedValue.toLocaleString()+' · ':''}owned {cert.quantity}</option>)}</select></label>
+      <button className="secondary" disabled={!selectedCertificate} onClick={()=>setLogOpen(true)}>＋ Record selected certificate roll</button>
+    </div>:<p className="muted">No certificate with quantity remaining is available to record.</p>}
+
+    <div className="sectionTitle"><h2>Roll history</h2></div>
+    <div className="card tableCard">{data.rollLog.length?data.rollLog.slice().reverse().map(r=><div className="logRow" key={r.id}><div><strong>{r.itemName}</strong><span>{new Date(r.date).toLocaleDateString()} · {r.certificateInventoryType??(r.certificateType.startsWith('Normal')?'Legacy Normal':r.certificateType.startsWith('Premium')?'Premium':r.certificateType.startsWith('Limited')?'Limited':'Legacy Alien')}</span></div><div><b>{r.newAuthentication} {r.newValue}%</b><span>{r.bestScoreBefore.toFixed(2)} → {r.bestScoreAfter.toFixed(2)}</span></div></div>):<p className="muted">No certificate rolls recorded yet.</p>}</div>
+
+    {logOpen&&selectedCertificate&&<RollLogEditor data={data} certificate={selectedCertificate} onClose={()=>setLogOpen(false)} onSave={(r,updated)=>{
+      try{
+        setData(applyRecordedCertificateRoll(data,selectedCertificate.id,r,updated));
+        setLogOpen(false);
+      }catch(error){alert(error instanceof Error?error.message:'Could not record certificate roll.')}
+    }}/>}
+  </section>;
+}
+
+function SettingsScreen({data,setData,showToast}:{data:AppData;setData:(d:AppData)=>void;showToast:(s:string)=>void}){
+  const jsonRef=useRef<HTMLInputElement>(null),csvRef=useRef<HTMLInputElement>(null);
+  function setS<K extends keyof AlgorithmSettings>(k:K,v:AlgorithmSettings[K]){setData({...data,settings:{...data.settings,[k]:v}})}
+  const fields:Array<[keyof AlgorithmSettings,string]>=[['luckWeight','Main Auction Luck weight'],['arrowWeight','Main Auction Bid Arrow weight'],['arrowSweetSpot','Bid Arrow sweet spot'],['zoneWeight','Main Auction Bid Zone weight'],['zoneBreakpoint1','Bid Zone breakpoint 1'],['zoneBreakpoint2','Bid Zone breakpoint 2'],['zoneMultiplier2','Bid Zone middle multiplier'],['zoneMultiplier3','Bid Zone upper multiplier'],['recoveryWeight','Main Auction Bid Recovery weight'],['energyTarget','Drink Prep Energy target'],['energyCeiling','Drink Prep Energy ceiling'],['energySecondStageMultiplier','Drink Prep above-target multiplier']];
+  const issues=algorithmIssues(data.settings);
+  return <section><div className="pageHeading"><div><h1>Settings</h1><p>Algorithm Version 2.0</p></div></div>
+    <div className="sectionTitle"><h2>Appearance</h2></div><div className="card"><label>Theme<select value={data.theme} onChange={e=>setData({...data,theme:e.target.value as any})}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label></div>
+    <div className="sectionTitle"><h2>Algorithm editor</h2><button className="secondary compact" onClick={()=>setData({...data,settings:{...LOCKED_DEFAULT_SETTINGS}})}>Reset to locked defaults</button></div>
+    <div className="settingsGrid">{fields.map(([k,label])=><label className="settingField" key={k}><span>{label}</span><input type="number" step="any" value={data.settings[k]} onChange={e=>setS(k,Number(e.target.value) as never)}/></label>)}</div>
+    {issues.length>0&&<div className="notice dangerNotice"><b>Settings need correction:</b> {issues.join(' · ')}</div>}
+    <div className="notice">Algorithm 2.0 uses one shared model for Main Auction, retention and certificate decisions. Displayed Luck is linear. Bid Arrow benefit caps at your 75% sweet spot with no invented over-cap penalty. Drink Prep, Grading and Shop/Idle are separate loadouts and never compensate for a weaker Main Auction result. Day, Night and Rain are evaluated as contextual Main variants instead of fake uptime averages.</div>
+    <div className="sectionTitle"><h2>Authentication outcome catalogue</h2><button className="secondary compact" onClick={()=>setData({...data,authModel:[...data.authModel,newAuthModelEntry()]})}>＋ Add outcome</button></div><div className="card authModel"><p className="muted">This is the live certificate model. Enabled rows, certificate tier, min / typical / max, confidence and relative-weight class all feed directly into certificate EV. MEDIUM is the neutral default because the real per-effect odds are unpublished; changing the class is an explicit user assumption, not a game fact.</p>{data.authModel.filter(m=>m.certificateType!=='Certificate of Alienticity'&&!LEGACY_ALIEN_EFFECTS.includes(m.outcome as never)).slice().sort((a,b)=>(a.certificateInventoryType??'').localeCompare(b.certificateInventoryType??'')||a.slot.localeCompare(b.slot)||a.outcome.localeCompare(b.outcome)).map(m=><AuthModelRow key={m.id} entry={m} onChange={entry=>setData({...data,authModel:data.authModel.map(x=>x.id===entry.id?entry:x)})} onDelete={()=>{if(confirm(`Remove authentication model outcome ${m.outcome}? Roll history is not deleted.`))setData({...data,authModel:data.authModel.filter(x=>x.id!==m.id)})}}/>)}</div>
+    <div className="sectionTitle"><h2>Backup & data safety</h2></div><div className="card buttonStack"><button className="primary" onClick={()=>downloadText(`storage-hunters-backup-${dateStamp()}.json`,exportJson(data),'application/json')}>Download JSON backup</button><button className="secondary" onClick={()=>jsonRef.current?.click()}>Restore JSON backup</button><button className="secondary" onClick={()=>downloadText(`storage-hunters-gear-${dateStamp()}.csv`,gearToCsv(data.gear),'text/csv')}>Export gear CSV</button><button className="secondary" onClick={()=>csvRef.current?.click()}>Import gear CSV</button><input hidden type="file" accept="application/json,.json" ref={jsonRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const d=importJson(await f.text());if(confirm(`Restore backup containing ${d.gear.length} gear items? This replaces current local data.`)){setData(d);showToast('Backup restored')}}catch(err){alert(err instanceof Error?err.message:'Invalid backup')}}}/><input hidden type="file" accept="text/csv,.csv" ref={csvRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const g=csvToGear(await f.text());if(confirm(`Import ${g.length} gear items? They will be added to the current inventory.`)){const imported=prepareImportedGear(data.gear,g);setData({...data,gear:[...data.gear,...imported]});showToast('CSV imported')}}catch(err){alert(err instanceof Error?err.message:'Invalid CSV')}}}/><button className="danger" onClick={()=>{const phrase=prompt('Type RESET ALL DATA to permanently clear all local inventory, certificates, roll history, vehicle parts, trophies and settings back to an empty workspace.');if(phrase==='RESET ALL DATA')setData(makeEmptyData())}}>Clear all local data</button></div>
+  </section>;
+}
+
+function GearEditor({item,authModel,mode,onClose,onSave}:{item:GearItem;authModel:AuthModelEntry[];mode:'add'|'edit';onClose:()=>void;onSave:(i:GearItem,keepAdding?:boolean)=>void}){
+  const [v,setV]=useState({...item,name:generateGearName(item.baseName,item.stats,item.authenticated,item.authentication)});
+  const initialShown=statLabels.filter(([key])=>Math.abs(item.stats[key])>1e-12).map(([key])=>key);
+  const [shownStats,setShownStats]=useState<Array<keyof GearStats>>(initialShown);
+  const patch=(next:Partial<GearItem>)=>setV(current=>{const updated={...current,...next};return {...updated,name:generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication)};});
+  const setStat=(k:keyof GearStats,n:number)=>setV(current=>{const stats={...current.stats,[k]:Number.isFinite(n)?n:0};return {...current,stats,name:generateGearName(current.baseName,stats,current.authenticated,current.authentication)};});
+  const setAuthentication=(next:Partial<GearItem['authentication']>)=>setV(current=>{const authentication={...current.authentication,...next};return {...current,authentication,name:generateGearName(current.baseName,current.stats,current.authenticated,authentication)};});
+  const showStat=(key:keyof GearStats)=>setShownStats(current=>current.includes(key)?current:[...current,key]);
+  const hideStat=(key:keyof GearStats)=>{setStat(key,0);setShownStats(current=>current.filter(k=>k!==key));};
+  const orderedShown=statLabels.filter(([key])=>shownStats.includes(key));
+  const hidden=statLabels.filter(([key])=>!shownStats.includes(key));
+  const displayedArrow=reductionToGameArrow(v.stats.arrowReduction);
+  const legacyAlien=v.authenticated&&v.authentication.kind==='Alien';
+  const currentKind=v.authentication.kind==='Premium'?'Premium':v.authentication.kind==='Limited'?'Limited':'Normal';
+  return <div className="modalBackdrop"><div className="modal sheet"><div className="modalHeader"><div><span className="eyebrow">{mode==='add'?'QUICK ADD GEAR':'EDIT GEAR'}</span><h2>{v.baseName||'New gear'}</h2></div><button className="iconButton" onClick={onClose}>×</button></div>
+    <div className="formGrid quickIdentity"><label className="wide">Actual gear name<input autoFocus value={v.baseName} onChange={e=>patch({baseName:e.target.value})} placeholder="e.g. Pearl Dominus"/></label><label>Slot<select value={v.slot} onChange={e=>patch({slot:e.target.value as Slot})}><option>Head</option><option>Back</option><option>Wrist</option></select></label><label>Mutation<input list={`mutations-${v.id}`} value={v.mutation??''} onChange={e=>patch({mutation:e.target.value})} placeholder="None, Diamond, Gold…"/><datalist id={`mutations-${v.id}`}>{['None','Diamond','Gold','Silver','Cobwebbed','Exclusive','Police','Chrome','Gem','Void','Onyx'].map(m=><option key={m} value={m}/>)}</datalist></label><label>Condition %<input type="number" min="0" max="100" step="any" inputMode="decimal" value={v.conditionPct??''} onChange={e=>patch({conditionPct:e.target.value===''?undefined:Number(e.target.value)})} placeholder="Optional"/></label><label className="check"><input type="checkbox" checked={v.favourite} onChange={e=>patch({favourite:e.target.checked})}/> Lock / favourite</label></div>
+    <div className="autoNamePreview"><span>Automatic name</span><strong>{v.name||'Name updates as stats are entered'}</strong></div>
+    <div className="quickEntrySection"><div className="rowBetween"><div><strong>Stats shown on this item</strong><div className="fieldHelp">Tap only the stats visible in game. Empty fields stay out of the way.</div></div></div>
+      {hidden.length>0&&<div className="statPicker">{hidden.map(([key,label])=><button type="button" key={key} onClick={()=>showStat(key)}>＋ {shortStat(label)}</button>)}</div>}
+      {!orderedShown.length&&<div className="quickEmpty">No stats selected yet.</div>}
+      <div className="quickStatGrid">{orderedShown.map(([key,label])=>key==='arrowReduction'
+        ? <div className="quickStatField arrowQuick" key={key}><label>{label}<input inputMode="decimal" type="number" step="any" value={displayedArrow} onChange={e=>setStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><small>Enter the signed game value, e.g. -24.</small></label><button type="button" className="removeStat" onClick={()=>hideStat(key)}>×</button></div>
+        : <div className="quickStatField" key={key}><label>{label} %<input inputMode="decimal" type="number" step="any" value={v.stats[key]} onChange={e=>setStat(key,Number(e.target.value))}/></label><button type="button" className="removeStat" onClick={()=>hideStat(key)}>×</button></div>)}</div>
+    </div>
+    <details className="finalStatsEditor authQuick" open={v.authenticated}><summary>Authentication {v.authenticated?`— ${v.authentication.kind} · ${v.authentication.effect||'select effect'}`:'— none'}</summary><div className="formGrid"><label className="check wide"><input type="checkbox" checked={v.authenticated} onChange={e=>{const authenticated=e.target.checked;const authentication=authenticated?(v.authenticated?v.authentication:{kind:'Normal' as const,effect:'',value:0}):{kind:'None' as const,effect:'',value:0};setV(current=>({...current,authenticated,authentication,name:generateGearName(current.baseName,current.stats,authenticated,authentication)}));}}/> Authenticated</label>{v.authenticated&&<>{legacyAlien?<><div className="wide notice"><b>Legacy Alien</b> — retained for historical compatibility.</div><label>Type<input value="Legacy Alien" readOnly/></label><label>Legacy effect<input value={v.authentication.effect} readOnly/></label><label>Legacy value %<input type="number" step="any" value={v.authentication.value} onChange={e=>setAuthentication({value:Number(e.target.value)})}/></label></>:<><label>Certificate type<select value={currentKind} onChange={e=>setAuthentication({kind:e.target.value as 'Normal'|'Premium'|'Limited',effect:'',value:0})}><option>Normal</option><option>Premium</option><option>Limited</option></select></label><label>Effect<select value={v.authentication.effect} onChange={e=>setAuthentication({effect:e.target.value})}>{activeAuthenticationOptions(v.slot,v.authentication.effect,authModel,currentKind).map(x=><option value={x} key={x}>{x||'Select effect'}</option>)}</select></label><label>Value %<input type="number" inputMode="decimal" step="any" value={v.authentication.value} onChange={e=>setAuthentication({value:Number(e.target.value)})}/></label><p className="wide fieldHelp">{currentKind==='Premium'?'Premium effects are evaluated by the shared loadout engine where possible; unresolved effects remain protected.':currentKind==='Limited'?'Limited effects are evaluated against your actual Main and specialist loadouts; unknown proc behaviour reduces confidence rather than creating fake certainty.':'Enter the normal/base accessory stats separately. Numeric authentication is added automatically by the optimiser.'}</p></>}</>}</div></details>
+    <div className="stickyActions quickActions"><button className="secondary" onClick={onClose}>Cancel</button>{mode==='add'&&<button className="secondary addAnother" onClick={()=>onSave({...v,name:generateGearName(v.baseName,v.stats,v.authenticated,v.authentication)},true)}>Save + another</button>}<button className="primary" onClick={()=>onSave({...v,name:generateGearName(v.baseName,v.stats,v.authenticated,v.authentication)})}>{mode==='add'?'Analyse & add':'Save changes'}</button></div>
+  </div></div>;
+}
+function NewItemSheet({analysis,onClose}:{analysis:{name:string;standalone:number;previous:number;next:number;bestChanged:boolean;replaced?:string;verdict?:string;bestCert?:string;combined?:GearStats};onClose:()=>void}){const d=analysis.next-analysis.previous;return <div className="modalBackdrop"><div className="modal resultModal"><span className="eyebrow">NEW ITEM ANALYSIS</span><h2>{analysis.name}</h2><div className="resultScore">{analysis.next.toFixed(2)}</div><div className="statsGrid three resultStats"><StatTile label="Standalone" value={analysis.standalone}/><StatTile label="Previous best" value={analysis.previous}/><StatTile label="Improvement" value={d}/></div><p>Best loadout changed: <b>{analysis.bestChanged?'YES':'NO'}</b></p>{analysis.replaced&&<p>Replaces: <b>{analysis.replaced}</b></p>}<StatusBadge status={analysis.verdict??'KEEP'}/>{analysis.combined&&<><div className="sectionTitle"><h3>New combined stats</h3></div><div className="statsGrid">{statLabels.map(([k,l])=><StatTile key={k} label={l} value={analysis.combined![k]} suffix="%"/>)}</div></>}{analysis.bestCert&&<p className="notice">Best certificate targeting: <b>{analysis.bestCert}</b>.</p>}<button className="primary" onClick={onClose}>Done</button></div></div>}
+
+function RollLogEditor({data,certificate,onClose,onSave}:{data:AppData;certificate:OwnedCertificate;onClose:()=>void;onSave:(r:CertificateRollLog,updated:GearItem)=>void}){
+  const type=authModelTypeForOwnedCertificate(certificate);
+  const [itemId,setItemId]=useState(data.gear[0]?.id??'');
+  const item=data.gear.find(g=>g.id===itemId);
+  const [newAuth,setNewAuth]=useState('');
+  const [newValue,setNewValue]=useState(0);
+  const autoPreview=useMemo(()=>item&&newAuth?applyRollToItem(item,newAuth,newValue,type):item,[item,newAuth,newValue,type]);
+  const expectedDisplayedStats=useMemo(()=>autoPreview?effectiveItemStats(autoPreview):undefined,[autoPreview]);
+  const [finalStats,setFinalStats]=useState<GearStats|undefined>(expectedDisplayedStats?{...expectedDisplayedStats}:undefined);
+  useEffect(()=>{setFinalStats(expectedDisplayedStats?{...expectedDisplayedStats}:undefined)},[expectedDisplayedStats]);
+  useEffect(()=>{setNewAuth('');setNewValue(0)},[itemId,type]);
+  const preview=useMemo(()=>{
+    if(!autoPreview||!finalStats)return autoPreview;
+    const observed=withObservedAuthenticationStats(autoPreview,finalStats);
+    return {...observed,name:generateGearName(observed.baseName,observed.stats,observed.authenticated,observed.authentication)};
+  },[autoPreview,finalStats]);
+  const before=optimise(data.gear,data.settings,1)[0]?.score.total??0;
+  const previewGear=preview?data.gear.map(g=>g.id===preview.id?preview:g):data.gear;
+  const after=optimise(previewGear,data.settings,1)[0]?.score.total??before;
+  const setFinalStat=(key:keyof GearStats,value:number)=>setFinalStats(current=>({...ZERO_STATS,...current,[key]:Number.isFinite(value)?value:0}));
+  const authKind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
+  return <div className="modalBackdrop"><div className="modal"><div className="modalHeader"><h2>Record certificate roll</h2><button className="iconButton" onClick={onClose}>×</button></div>
+    <div className="notice"><b>Certificate being consumed:</b> {certificate.type}{certificate.gradeStars!==undefined?' · '+'★'.repeat(certificate.gradeStars):''}{certificate.displayedValue!==undefined?' · $'+certificate.displayedValue.toLocaleString():''}. Saving this roll reduces its owned quantity by one.</div>
+    <div className="formGrid"><label className="wide">Item<select value={itemId} onChange={e=>setItemId(e.target.value)}>{data.gear.map(g=><option value={g.id} key={g.id}>{g.name} · {g.slot}</option>)}</select></label><label>New authentication<select value={newAuth} onChange={e=>setNewAuth(e.target.value)}><option value="">Select result</option>{activeCertificateOutcomeOptions(item?.slot,data.authModel,authKind,certificate.type).map(a=><option key={a}>{a}</option>)}</select></label><label>New value %<input type="number" step="any" value={newValue} onChange={e=>setNewValue(Number(e.target.value))}/></label><label>Best score before<input type="number" value={before} readOnly/></label><label>Calculated score after<input type="number" value={after} readOnly/></label><p className="wide fieldHelp">These are the final stats displayed in game after the new authentication. Any difference caused by the authentication (especially Focused) is stored on that authentication only; the item's base stats are not overwritten.</p></div>
+    {finalStats&&<details className="finalStatsEditor"><summary>Confirm / correct final displayed stats</summary><div className="formGrid">{statLabels.filter(([k])=>k!=='arrowReduction').map(([k,l])=><label key={k}>{l} %<input type="number" inputMode="decimal" step="any" value={finalStats[k]} onChange={e=>setFinalStat(k,Number(e.target.value))}/></label>)}<label className="wide arrowInput">Bid Arrow Speed — game display %<input type="number" inputMode="decimal" step="any" value={reductionToGameArrow(finalStats.arrowReduction)} onChange={e=>setFinalStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><span>Enter the signed value shown by the game.</span></label></div></details>}
+    <div className="stickyActions"><button className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={!item||!newAuth||!preview||certificate.quantity<1} onClick={()=>{item&&preview&&onSave({id:crypto.randomUUID(),date:new Date().toISOString(),certificateType:type,itemId:item.id,itemName:item.name,slot:item.slot,previousAuthentication:item.authentication.effect,previousValue:item.authentication.value,newAuthentication:newAuth,newValue,improvedBestSet:after>before,bestScoreBefore:before,bestScoreAfter:after,certificateId:certificate.id,certificateGradeStars:certificate.gradeStars,certificateInventoryType:certificate.type},preview)}}>Apply, record & consume</button></div>
+  </div></div>;
+}
+
+function authModelCertificateType(type:OwnedCertificate['type']):AuthModelEntry['certificateType']{
+  return type==='Premium Certificate of Authenticity'
+    ?'Premium Certificate of Authenticity'
+    :type==='Limited Certificate of Authenticity'
+      ?'Limited Certificate of Authenticity'
+      :'Normal Certificate of Authenticity';
+}
+
+function AuthModelRow({entry,onChange,onDelete}:{entry:AuthModelEntry;onChange:(e:AuthModelEntry)=>void;onDelete:()=>void}){
+  const inventoryType=entry.certificateInventoryType??(
+    entry.certificateType==='Premium Certificate of Authenticity'?'Premium Certificate of Authenticity':
+    entry.certificateType==='Limited Certificate of Authenticity'?'Limited Certificate of Authenticity':
+    'Wooden Certificate of Authenticity'
+  );
+  return <details className="modelRow">
+    <summary><span>{entry.outcome}</span><span>{inventoryType.replace(' Certificate of Authenticity','')} · {entry.slot} · {entry.assumedLikelihoodClass}{entry.enabled?'':' · disabled'}</span></summary>
+    <div className="formGrid">
+      <label className="wide">Outcome<input value={entry.outcome} onChange={e=>onChange({...entry,outcome:e.target.value})}/></label>
+      <label>Certificate tier<select value={inventoryType} onChange={e=>{const certificateInventoryType=e.target.value as OwnedCertificate['type'];onChange({...entry,certificateInventoryType,certificateType:authModelCertificateType(certificateInventoryType)})}}><option>Wooden Certificate of Authenticity</option><option>Ripped Certificate of Authenticity</option><option>Premium Certificate of Authenticity</option><option>Limited Certificate of Authenticity</option></select></label>
+      <label>Slot<select value={entry.slot} onChange={e=>onChange({...entry,slot:e.target.value as AuthModelEntry['slot']})}><option>Any</option><option>Head</option><option>Back</option><option>Wrist</option></select></label>
+      <label className="wide">Category<input value={entry.category} onChange={e=>onChange({...entry,category:e.target.value})}/></label>
+      <label>Relative-weight class<select value={entry.assumedLikelihoodClass} onChange={e=>onChange({...entry,assumedLikelihoodClass:e.target.value as AuthModelEntry['assumedLikelihoodClass']})}>{['VERY HIGH','HIGH','MEDIUM','LOW','VERY LOW'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Confidence<select value={entry.confidence} onChange={e=>onChange({...entry,confidence:e.target.value as AuthModelEntry['confidence']})}>{['Unknown','Low','Medium','High','Empirical'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Optional min<input type="number" step="any" value={entry.min??''} onChange={e=>onChange({...entry,min:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label>Optional typical<input type="number" step="any" value={entry.typical??''} onChange={e=>onChange({...entry,typical:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label>Optional max<input type="number" step="any" value={entry.max??''} onChange={e=>onChange({...entry,max:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label className="check"><input type="checkbox" checked={entry.enabled} onChange={e=>onChange({...entry,enabled:e.target.checked})}/> Enabled in live EV</label>
+      <div className="wide fieldHelp">Observed samples: {entry.observedSampleCount}. Values: {entry.observedValues.length?entry.observedValues.join(', '):'none yet'}. As exact-tier samples accumulate, empirical roll strength progressively outweighs the min/typical/max prior.</div>
+      <button className="danger wide" onClick={onDelete}>Delete model outcome</button>
+    </div>
+  </details>;
+}
+
+function LoadoutCard({slot,item}:{slot:string;item:GearItem}){return <div className="loadoutCard"><span>{slot}</span><strong>{item.baseName||item.name}</strong>{item.authentication.effect&&<small>{item.authentication.effect} {item.authentication.value?`${item.authentication.value}%`:''}</small>}</div>}
+function StatTile({label,value,suffix=''}:{label:string;value:number;suffix?:string}){return <div className="statTile"><span>{label}</span><strong>{Number.isFinite(value)?value.toFixed(Math.abs(value)%1?2:0):'—'}{suffix}</strong></div>}
+function ArrowThresholdCard({value,settings}:{value:number;settings:AlgorithmSettings}){const max=Math.max(settings.arrowSweetSpot,100);const pct=Math.min(100,Math.max(0,value/max*100));const excess=Math.max(0,value-settings.arrowSweetSpot);return <div className="thresholdCard"><div className="rowBetween"><strong>Bid Arrow reduction</strong><span>{value.toFixed(1)}% · target {settings.arrowSweetSpot}%</span></div><div className="progress arrowProgress"><i style={{width:`${pct}%`}}/><b style={{left:`${settings.arrowSweetSpot/max*100}%`}}/></div>{excess>0&&<div className="fieldHelp">{excess.toFixed(1)}% is above your 75% sweet spot. It is treated as wasted, not as an invented gameplay penalty.</div>}</div>}
+function ThresholdCard({label,value,target,ceiling}:{label:string;value:number;target:number;ceiling:number}){const pct=Math.min(100,Math.max(0,value/ceiling*100));return <div className="thresholdCard"><div className="rowBetween"><strong>{label}</strong><span>{value.toFixed(1)}% · target {target}% · ceiling {ceiling}%</span></div><div className="progress"><i style={{width:`${pct}%`}}/><b style={{left:`${target/ceiling*100}%`}}/></div></div>}
+function StatusBadge({status}:{status:string}){return <span className={`badge status ${status.toLowerCase().replaceAll(' ','-').replaceAll('/','')}`}>{status}</span>}
+function EmptyState({title,text,action,onClick}:{title:string;text:string;action?:string;onClick?:()=>void}){return <div className="empty"><div className="emptyIcon">⌁</div><h3>{title}</h3><p>{text}</p>{action&&<button className="primary" onClick={onClick}>{action}</button>}</div>}
+
+function algorithmIssues(s:AlgorithmSettings):string[]{const issues:string[]=[];for(const [k,v] of Object.entries(s))if(k!=='version'&&!Number.isFinite(Number(v)))issues.push(`${k} is not finite`);if(s.arrowSweetSpot<0)issues.push('Arrow sweet spot cannot be negative');if(s.energyTarget>s.energyCeiling)issues.push('Energy target must be ≤ Energy ceiling');if(s.zoneBreakpoint1>s.zoneBreakpoint2)issues.push('Zone breakpoint 1 must be ≤ breakpoint 2');for(const [label,value] of [['Luck weight',s.luckWeight],['Arrow weight',s.arrowWeight],['Zone weight',s.zoneWeight],['Recovery weight',s.recoveryWeight],['Zone middle multiplier',s.zoneMultiplier2],['Zone upper multiplier',s.zoneMultiplier3]] as const)if(value<0)issues.push(`${label} cannot be negative`);return issues;}
+function newAuthModelEntry():AuthModelEntry{return{id:crypto.randomUUID(),certificateInventoryType:'Wooden Certificate of Authenticity',certificateType:'Normal Certificate of Authenticity',slot:'Any',outcome:'Custom outcome',category:'Custom / unknown',assumedLikelihoodClass:'MEDIUM',observedSampleCount:0,observedValues:[],confidence:'Unknown',enabled:true}}
+function blankItem(slot:Slot='Head'):GearItem{const now=new Date().toISOString();return{id:crypto.randomUUID(),baseName:'',name:'',slot,stats:{...ZERO_STATS},authenticated:false,authentication:{kind:'None',effect:'',value:0},favourite:false,createdAt:now,updatedAt:now}}
+function applyRollToItem(item:GearItem,effect:string,value:number,type:AuthModelEntry['certificateType']):GearItem{
+  let base=removeNumericAuthentication(item);
+  if(base.authenticated){base=structuredClone(base);base.authenticated=false;base.authentication={kind:'None',effect:'',value:0};}
+  const updated=addOutcomeToItem(base,effect,value);
+  updated.authentication.kind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
+  updated.name=generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication);
+  updated.updatedAt=new Date().toISOString();
+  return updated;
+}
+function prepareImportedGear(existing:GearItem[],incoming:GearItem[]):GearItem[]{const used=new Set(existing.map(x=>x.id));return incoming.map(item=>{const clone=structuredClone(item);if(!clone.id||used.has(clone.id))clone.id=crypto.randomUUID();used.add(clone.id);return clone;});}
+function validateItem(i:GearItem){
+  if(!i.baseName.trim())return 'Item name is required.';
+  if(!['Head','Back','Wrist'].includes(i.slot))return 'Valid slot is required.';
+  if(i.conditionPct!==undefined && (!Number.isFinite(i.conditionPct) || i.conditionPct<0 || i.conditionPct>100))return 'Condition must be between 0 and 100%.';
+  if(i.mutation!==undefined && typeof i.mutation!=='string')return 'Mutation must be text.';
+  for(const [k] of statLabels)if(!Number.isFinite(i.stats[k]))return `${k} must be a finite number.`;
+  if(!Number.isFinite(i.authentication.value))return 'Authentication value must be a finite number.';
+  if(!i.authenticated)return '';
+  if(i.authentication.kind==='None')return 'Choose an authentication type.';
+  const effect=i.authentication.effect.trim();
+  if(!effect)return 'Choose an authentication effect.';
+  if(i.authentication.kind==='Normal'&&LEGACY_ALIEN_EFFECTS.includes(effect as never))return `${effect} is a legacy Alien effect and cannot be selected for a new Normal authentication.`;
+  if(i.authentication.kind==='Alien')return ''; // Historical Alien gear remains valid and editable as legacy data.
+  if(i.authentication.kind==='Premium'){
+    for(const [slot,effects] of Object.entries(PREMIUM_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
+  if(i.authentication.kind==='Limited'){
+    for(const [slot,effects] of Object.entries(LIMITED_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
+  for(const [slot,effects] of Object.entries(EXCLUSIVE_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+  return '';
+}
+function displayStat(k:keyof GearStats,v:number){const n=k==='arrowReduction'?reductionToGameArrow(v):v;return `${n>0?'+':''}${n.toFixed(Math.abs(n)%1?1:0)}%`}
+function shortStat(s:string){return s.replace('Energy Drink Time','Energy').replace('Vehicle Speed','Vehicle').replace('Bid Recovery','Recovery').replace('Bid Zone Width','Zone').replace('Bid Arrow Reduction','Arrow').replace('NPC Offers Bonus','NPC')}
+function replacedName(prev:any,next:any,slot:Slot){const key=slot.toLowerCase() as 'head'|'back'|'wrist';return prev[key].id!==next[key].id?prev[key].name:undefined}
+function dateStamp(){return new Date().toISOString().slice(0,10)}
+function downloadText(name:string,text:string,type:string){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+function applyTheme(theme:AppData['theme']){document.documentElement.dataset.theme=theme;if(theme==='system')delete document.documentElement.dataset.theme}
+function navIcon(t:Tab){return ({Dashboard:'▦',Gear:'◆',Optimise:'◎',Vehicle:'▰',Trophies:'♜',Certificates:'◈',Settings:'⚙',More:'•••'} as Record<Tab,string>)[t]}
++decision.certificate.displayedValue.toLocaleString():''}</span>
+            </div>
+            <div className="premiumVerdict">{decision.verdict}</div>
+          </summary>
+          <div className="comboBody">
+            {target?<>
+              <div className="rowBetween"><div><span className="eyebrow">BEST CURRENT TARGET</span><h3>{target.item.baseName||target.item.name}</h3><p>{target.item.slot}{target.item.authenticated?' · replacing '+target.item.authentication.effect:''}</p></div><span className="badge heuristic">{target.confidencePct.toFixed(0)}% CONFIDENCE</span></div>
+
+              <div className="statsGrid three">
+                <StatTile label="Robust Main improves" value={target.chanceOfImprovementPct} suffix="%"/>
+                <StatTile label="Potential Main improves" value={target.chanceOfPotentialImprovementPct} suffix="%"/>
+                <StatTile label="Expected Main change" value={target.expectedImprovementPct} suffix="%"/>
+                <StatTile label="Chance Main/context worsens" value={target.chanceOfWorsePct} suffix="%"/>
+                <StatTile label="Meaningful robust gain ≥1%" value={target.chanceOfMeaningfulImprovementPct} suffix="%"/>
+                <StatTile label="Unresolved outcome mass" value={target.unresolvedOutcomeMassPct} suffix="%"/>
+                <StatTile label="Current Main fit" value={target.mainFitPct} suffix="%"/>
+              </div>
+
+              <div className="thresholdTable">
+                <div><b>Main sensitivity low / central / high</b><span>{signed(target.expectedImprovementLowPct)} / {signed(target.expectedImprovementPct)} / {signed(target.expectedImprovementHighPct)}</span></div>
+                <div><b>Average robust gain when successful</b><span>{signed(target.averageGainWhenSuccessfulPct)}</span></div>
+                <div><b>Average demonstrated loss when worse</b><span>{signed(target.averageLossWhenWorsePct)}</span></div>
+                <div><b>10th / median / 90th central percentile</b><span>{signed(target.p10Pct)} / {signed(target.medianPct)} / {signed(target.p90Pct)}</span></div>
+                <div><b>Best possible modelled branch</b><span>{target.bestPossibleOutcome} · {signed(target.bestCasePct)}</span></div>
+                <div><b>Worst modelled Main/context branch</b><span>{target.worstPossibleOutcome} · {signed(target.worstCasePct)}</span></div>
+                <div><b>Authentication risk — neutral Main</b><span>{signed(target.currentAuthenticationMainRiskPct)}</span></div>
+                <div><b>Authentication risk — Day/Night/Rain</b><span>{signed(target.currentAuthenticationContextRiskPct)}</span></div>
+                <div><b>Authentication risk — Drink Prep</b><span>{signed(target.currentAuthenticationDrinkRiskPct)}</span></div>
+                <div><b>Authentication risk — Grading</b><span>{signed(target.currentAuthenticationGradingRiskPct)}</span></div>
+                <div><b>Authentication risk — Shop/Idle</b><span>{signed(target.currentAuthenticationShopRiskPct)}</span></div>
+                <div><b>Worst authentication risk anywhere relevant</b><span>{signed(target.currentAuthenticationValueAtRiskPct)}</span></div>
+                <div><b>Average Day/Night/Rain impact</b><span>{signed(target.expectedContextualMainPct)}</span></div>
+                <div><b>Worst Day/Night/Rain impact</b><span>{signed(target.worstContextualMainPct)}</span></div>
+                <div><b>Expected Drink Prep impact</b><span>{signed(target.expectedDrinkPrepPct)}</span></div>
+                <div><b>Expected Grading impact</b><span>{signed(target.expectedGradingPct)}</span></div>
+                <div><b>Expected Shop/Idle impact</b><span>{signed(target.expectedShopPct)}</span></div>
+              </div>
+
+              {target.unresolvedEffects.length>0&&<div className="notice warning"><b>Unresolved magnitude:</b> {target.unresolvedEffects.join(', ')}. These branches are not treated as zero-value known outcomes and cannot produce a USE verdict until supported by numeric evidence.</div>}
+              <ul>{target.reasons.map((reason,i)=><li key={i}>{reason}</li>)}</ul>
+
+              {decision.conversion&&<div className="notice"><b>Wooden → Premium opportunity cost:</b> {decision.conversion.recommendation}. Direct Wooden EV {signed(decision.conversion.directExpectedMainPct)} vs synthetic Premium EV {signed(decision.conversion.premiumExpectedMainPct)}. Conversion costs {decision.conversion.diamondCost} Diamonds. {decision.conversion.reason}</div>}
+
+              <details>
+                <summary>Other targets</summary>
+                <div className="thresholdTable">{decision.targets.slice(1,7).map((alt,index)=><div key={alt.item.id}><b>#{index+2} {alt.item.baseName||alt.item.name} · {alt.verdict}</b><span>{alt.chanceOfImprovementPct.toFixed(1)}% robust improve · EV {signed(alt.expectedImprovementPct)}</span></div>)}</div>
+              </details>
+            </>:<p className="muted">A complete Head, Back and Wrist inventory is required.</p>}
+
+            <div className="notice warning"><b>Evidence boundary:</b> these are modelled decision percentages, not hidden Roblox loot odds. Effect selection uses a neutral equal prior until exact-certificate observations exist. Unknown star transforms and unresolved magnitudes reduce confidence instead of being invented.</div>
+          </div>
+        </details>;
+      })}
+      {!certificateState.computing&&!certificateState.error&&!decisions.length&&<p className="muted">No owned certificates are available for analysis.</p>}
+    </div>
+
+    <div className="card">
+      <div className="sectionTitle"><h2>Owned certificates</h2><button className="secondary compact" onClick={()=>setEditInventory(!editInventory)}>{editInventory?'Done':'Manual adjustment'}</button></div>
+      <div className="gearList">{data.ownedCertificates.map(cert=><div className="gearCard" key={cert.id}><strong>{cert.type}</strong><p>{cert.rarity||'Certificate'}{cert.gradeStars!==undefined?' · '+'★'.repeat(cert.gradeStars):''}{cert.displayedValue!==undefined?' · $'+cert.displayedValue.toLocaleString():''} · Owned: {cert.quantity}</p>{editInventory&&<div className="actions"><button onClick={()=>changeQty(cert.id,-1)} disabled={cert.quantity===0}>− Remove one</button><button onClick={()=>changeQty(cert.id,1)}>＋ Add one</button></div>}</div>)}</div>
+      <div className="notice">Recording a roll below now consumes the exact selected certificate automatically. Wooden → Premium is compared explicitly against direct Wooden use at the current 150-Diamond conversion cost.</div>
+    </div>
+
+    <div className="sectionTitle"><h2>Record a result</h2></div>
+    {availableCertificates.length?<div className="card">
+      <label>Certificate actually used<select value={selectedCertificateId} onChange={e=>setSelectedCertificateId(e.target.value)}>{availableCertificates.map(cert=><option value={cert.id} key={cert.id}>{cert.type} · {cert.gradeStars!==undefined?'★'.repeat(cert.gradeStars)+' · ':''}{cert.displayedValue!==undefined?'$'+cert.displayedValue.toLocaleString()+' · ':''}owned {cert.quantity}</option>)}</select></label>
+      <button className="secondary" disabled={!selectedCertificate} onClick={()=>setLogOpen(true)}>＋ Record selected certificate roll</button>
+    </div>:<p className="muted">No certificate with quantity remaining is available to record.</p>}
+
+    <div className="sectionTitle"><h2>Roll history</h2></div>
+    <div className="card tableCard">{data.rollLog.length?data.rollLog.slice().reverse().map(r=><div className="logRow" key={r.id}><div><strong>{r.itemName}</strong><span>{new Date(r.date).toLocaleDateString()} · {r.certificateInventoryType??(r.certificateType.startsWith('Normal')?'Legacy Normal':r.certificateType.startsWith('Premium')?'Premium':r.certificateType.startsWith('Limited')?'Limited':'Legacy Alien')}</span></div><div><b>{r.newAuthentication} {r.newValue}%</b><span>{r.bestScoreBefore.toFixed(2)} → {r.bestScoreAfter.toFixed(2)}</span></div></div>):<p className="muted">No certificate rolls recorded yet.</p>}</div>
+
+    {logOpen&&selectedCertificate&&<RollLogEditor data={data} certificate={selectedCertificate} onClose={()=>setLogOpen(false)} onSave={(r,updated)=>{
+      try{
+        setData(applyRecordedCertificateRoll(data,selectedCertificate.id,r,updated));
+        setLogOpen(false);
+      }catch(error){alert(error instanceof Error?error.message:'Could not record certificate roll.')}
+    }}/>}
+  </section>;
+}
+
+function SettingsScreen({data,setData,showToast}:{data:AppData;setData:(d:AppData)=>void;showToast:(s:string)=>void}){
+  const jsonRef=useRef<HTMLInputElement>(null),csvRef=useRef<HTMLInputElement>(null);
+  function setS<K extends keyof AlgorithmSettings>(k:K,v:AlgorithmSettings[K]){setData({...data,settings:{...data.settings,[k]:v}})}
+  const fields:Array<[keyof AlgorithmSettings,string]>=[['luckWeight','Main Auction Luck weight'],['arrowWeight','Main Auction Bid Arrow weight'],['arrowSweetSpot','Bid Arrow sweet spot'],['zoneWeight','Main Auction Bid Zone weight'],['zoneBreakpoint1','Bid Zone breakpoint 1'],['zoneBreakpoint2','Bid Zone breakpoint 2'],['zoneMultiplier2','Bid Zone middle multiplier'],['zoneMultiplier3','Bid Zone upper multiplier'],['recoveryWeight','Main Auction Bid Recovery weight'],['energyTarget','Drink Prep Energy target'],['energyCeiling','Drink Prep Energy ceiling'],['energySecondStageMultiplier','Drink Prep above-target multiplier']];
+  const issues=algorithmIssues(data.settings);
+  return <section><div className="pageHeading"><div><h1>Settings</h1><p>Algorithm Version 2.0</p></div></div>
+    <div className="sectionTitle"><h2>Appearance</h2></div><div className="card"><label>Theme<select value={data.theme} onChange={e=>setData({...data,theme:e.target.value as any})}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label></div>
+    <div className="sectionTitle"><h2>Algorithm editor</h2><button className="secondary compact" onClick={()=>setData({...data,settings:{...LOCKED_DEFAULT_SETTINGS}})}>Reset to locked defaults</button></div>
+    <div className="settingsGrid">{fields.map(([k,label])=><label className="settingField" key={k}><span>{label}</span><input type="number" step="any" value={data.settings[k]} onChange={e=>setS(k,Number(e.target.value) as never)}/></label>)}</div>
+    {issues.length>0&&<div className="notice dangerNotice"><b>Settings need correction:</b> {issues.join(' · ')}</div>}
+    <div className="notice">Algorithm 2.0 uses one shared model for Main Auction, retention and certificate decisions. Displayed Luck is linear. Bid Arrow benefit caps at your 75% sweet spot with no invented over-cap penalty. Drink Prep, Grading and Shop/Idle are separate loadouts and never compensate for a weaker Main Auction result. Day, Night and Rain are evaluated as contextual Main variants instead of fake uptime averages.</div>
+    <div className="sectionTitle"><h2>Authentication outcome catalogue</h2><button className="secondary compact" onClick={()=>setData({...data,authModel:[...data.authModel,newAuthModelEntry()]})}>＋ Add outcome</button></div><div className="card authModel"><p className="muted">This is the live certificate model. Enabled rows, certificate tier, min / typical / max, confidence and relative-weight class all feed directly into certificate EV. MEDIUM is the neutral default because the real per-effect odds are unpublished; changing the class is an explicit user assumption, not a game fact.</p>{data.authModel.filter(m=>m.certificateType!=='Certificate of Alienticity'&&!LEGACY_ALIEN_EFFECTS.includes(m.outcome as never)).slice().sort((a,b)=>(a.certificateInventoryType??'').localeCompare(b.certificateInventoryType??'')||a.slot.localeCompare(b.slot)||a.outcome.localeCompare(b.outcome)).map(m=><AuthModelRow key={m.id} entry={m} onChange={entry=>setData({...data,authModel:data.authModel.map(x=>x.id===entry.id?entry:x)})} onDelete={()=>{if(confirm(`Remove authentication model outcome ${m.outcome}? Roll history is not deleted.`))setData({...data,authModel:data.authModel.filter(x=>x.id!==m.id)})}}/>)}</div>
+    <div className="sectionTitle"><h2>Backup & data safety</h2></div><div className="card buttonStack"><button className="primary" onClick={()=>downloadText(`storage-hunters-backup-${dateStamp()}.json`,exportJson(data),'application/json')}>Download JSON backup</button><button className="secondary" onClick={()=>jsonRef.current?.click()}>Restore JSON backup</button><button className="secondary" onClick={()=>downloadText(`storage-hunters-gear-${dateStamp()}.csv`,gearToCsv(data.gear),'text/csv')}>Export gear CSV</button><button className="secondary" onClick={()=>csvRef.current?.click()}>Import gear CSV</button><input hidden type="file" accept="application/json,.json" ref={jsonRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const d=importJson(await f.text());if(confirm(`Restore backup containing ${d.gear.length} gear items? This replaces current local data.`)){setData(d);showToast('Backup restored')}}catch(err){alert(err instanceof Error?err.message:'Invalid backup')}}}/><input hidden type="file" accept="text/csv,.csv" ref={csvRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const g=csvToGear(await f.text());if(confirm(`Import ${g.length} gear items? They will be added to the current inventory.`)){const imported=prepareImportedGear(data.gear,g);setData({...data,gear:[...data.gear,...imported]});showToast('CSV imported')}}catch(err){alert(err instanceof Error?err.message:'Invalid CSV')}}}/><button className="danger" onClick={()=>{const phrase=prompt('Type RESET ALL DATA to permanently clear all local inventory, certificates, roll history, vehicle parts, trophies and settings back to an empty workspace.');if(phrase==='RESET ALL DATA')setData(makeEmptyData())}}>Clear all local data</button></div>
+  </section>;
+}
+
+function GearEditor({item,authModel,mode,onClose,onSave}:{item:GearItem;authModel:AuthModelEntry[];mode:'add'|'edit';onClose:()=>void;onSave:(i:GearItem,keepAdding?:boolean)=>void}){
+  const [v,setV]=useState({...item,name:generateGearName(item.baseName,item.stats,item.authenticated,item.authentication)});
+  const initialShown=statLabels.filter(([key])=>Math.abs(item.stats[key])>1e-12).map(([key])=>key);
+  const [shownStats,setShownStats]=useState<Array<keyof GearStats>>(initialShown);
+  const patch=(next:Partial<GearItem>)=>setV(current=>{const updated={...current,...next};return {...updated,name:generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication)};});
+  const setStat=(k:keyof GearStats,n:number)=>setV(current=>{const stats={...current.stats,[k]:Number.isFinite(n)?n:0};return {...current,stats,name:generateGearName(current.baseName,stats,current.authenticated,current.authentication)};});
+  const setAuthentication=(next:Partial<GearItem['authentication']>)=>setV(current=>{const authentication={...current.authentication,...next};return {...current,authentication,name:generateGearName(current.baseName,current.stats,current.authenticated,authentication)};});
+  const showStat=(key:keyof GearStats)=>setShownStats(current=>current.includes(key)?current:[...current,key]);
+  const hideStat=(key:keyof GearStats)=>{setStat(key,0);setShownStats(current=>current.filter(k=>k!==key));};
+  const orderedShown=statLabels.filter(([key])=>shownStats.includes(key));
+  const hidden=statLabels.filter(([key])=>!shownStats.includes(key));
+  const displayedArrow=reductionToGameArrow(v.stats.arrowReduction);
+  const legacyAlien=v.authenticated&&v.authentication.kind==='Alien';
+  const currentKind=v.authentication.kind==='Premium'?'Premium':v.authentication.kind==='Limited'?'Limited':'Normal';
+  return <div className="modalBackdrop"><div className="modal sheet"><div className="modalHeader"><div><span className="eyebrow">{mode==='add'?'QUICK ADD GEAR':'EDIT GEAR'}</span><h2>{v.baseName||'New gear'}</h2></div><button className="iconButton" onClick={onClose}>×</button></div>
+    <div className="formGrid quickIdentity"><label className="wide">Actual gear name<input autoFocus value={v.baseName} onChange={e=>patch({baseName:e.target.value})} placeholder="e.g. Pearl Dominus"/></label><label>Slot<select value={v.slot} onChange={e=>patch({slot:e.target.value as Slot})}><option>Head</option><option>Back</option><option>Wrist</option></select></label><label>Mutation<input list={`mutations-${v.id}`} value={v.mutation??''} onChange={e=>patch({mutation:e.target.value})} placeholder="None, Diamond, Gold…"/><datalist id={`mutations-${v.id}`}>{['None','Diamond','Gold','Silver','Cobwebbed','Exclusive','Police','Chrome','Gem','Void','Onyx'].map(m=><option key={m} value={m}/>)}</datalist></label><label>Condition %<input type="number" min="0" max="100" step="any" inputMode="decimal" value={v.conditionPct??''} onChange={e=>patch({conditionPct:e.target.value===''?undefined:Number(e.target.value)})} placeholder="Optional"/></label><label className="check"><input type="checkbox" checked={v.favourite} onChange={e=>patch({favourite:e.target.checked})}/> Lock / favourite</label></div>
+    <div className="autoNamePreview"><span>Automatic name</span><strong>{v.name||'Name updates as stats are entered'}</strong></div>
+    <div className="quickEntrySection"><div className="rowBetween"><div><strong>Stats shown on this item</strong><div className="fieldHelp">Tap only the stats visible in game. Empty fields stay out of the way.</div></div></div>
+      {hidden.length>0&&<div className="statPicker">{hidden.map(([key,label])=><button type="button" key={key} onClick={()=>showStat(key)}>＋ {shortStat(label)}</button>)}</div>}
+      {!orderedShown.length&&<div className="quickEmpty">No stats selected yet.</div>}
+      <div className="quickStatGrid">{orderedShown.map(([key,label])=>key==='arrowReduction'
+        ? <div className="quickStatField arrowQuick" key={key}><label>{label}<input inputMode="decimal" type="number" step="any" value={displayedArrow} onChange={e=>setStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><small>Enter the signed game value, e.g. -24.</small></label><button type="button" className="removeStat" onClick={()=>hideStat(key)}>×</button></div>
+        : <div className="quickStatField" key={key}><label>{label} %<input inputMode="decimal" type="number" step="any" value={v.stats[key]} onChange={e=>setStat(key,Number(e.target.value))}/></label><button type="button" className="removeStat" onClick={()=>hideStat(key)}>×</button></div>)}</div>
+    </div>
+    <details className="finalStatsEditor authQuick" open={v.authenticated}><summary>Authentication {v.authenticated?`— ${v.authentication.kind} · ${v.authentication.effect||'select effect'}`:'— none'}</summary><div className="formGrid"><label className="check wide"><input type="checkbox" checked={v.authenticated} onChange={e=>{const authenticated=e.target.checked;const authentication=authenticated?(v.authenticated?v.authentication:{kind:'Normal' as const,effect:'',value:0}):{kind:'None' as const,effect:'',value:0};setV(current=>({...current,authenticated,authentication,name:generateGearName(current.baseName,current.stats,authenticated,authentication)}));}}/> Authenticated</label>{v.authenticated&&<>{legacyAlien?<><div className="wide notice"><b>Legacy Alien</b> — retained for historical compatibility.</div><label>Type<input value="Legacy Alien" readOnly/></label><label>Legacy effect<input value={v.authentication.effect} readOnly/></label><label>Legacy value %<input type="number" step="any" value={v.authentication.value} onChange={e=>setAuthentication({value:Number(e.target.value)})}/></label></>:<><label>Certificate type<select value={currentKind} onChange={e=>setAuthentication({kind:e.target.value as 'Normal'|'Premium'|'Limited',effect:'',value:0})}><option>Normal</option><option>Premium</option><option>Limited</option></select></label><label>Effect<select value={v.authentication.effect} onChange={e=>setAuthentication({effect:e.target.value})}>{activeAuthenticationOptions(v.slot,v.authentication.effect,authModel,currentKind).map(x=><option value={x} key={x}>{x||'Select effect'}</option>)}</select></label><label>Value %<input type="number" inputMode="decimal" step="any" value={v.authentication.value} onChange={e=>setAuthentication({value:Number(e.target.value)})}/></label><p className="wide fieldHelp">{currentKind==='Premium'?'Premium effects are evaluated by the shared loadout engine where possible; unresolved effects remain protected.':currentKind==='Limited'?'Limited effects are evaluated against your actual Main and specialist loadouts; unknown proc behaviour reduces confidence rather than creating fake certainty.':'Enter the normal/base accessory stats separately. Numeric authentication is added automatically by the optimiser.'}</p></>}</>}</div></details>
+    <div className="stickyActions quickActions"><button className="secondary" onClick={onClose}>Cancel</button>{mode==='add'&&<button className="secondary addAnother" onClick={()=>onSave({...v,name:generateGearName(v.baseName,v.stats,v.authenticated,v.authentication)},true)}>Save + another</button>}<button className="primary" onClick={()=>onSave({...v,name:generateGearName(v.baseName,v.stats,v.authenticated,v.authentication)})}>{mode==='add'?'Analyse & add':'Save changes'}</button></div>
+  </div></div>;
+}
+function NewItemSheet({analysis,onClose}:{analysis:{name:string;standalone:number;previous:number;next:number;bestChanged:boolean;replaced?:string;verdict?:string;bestCert?:string;combined?:GearStats};onClose:()=>void}){const d=analysis.next-analysis.previous;return <div className="modalBackdrop"><div className="modal resultModal"><span className="eyebrow">NEW ITEM ANALYSIS</span><h2>{analysis.name}</h2><div className="resultScore">{analysis.next.toFixed(2)}</div><div className="statsGrid three resultStats"><StatTile label="Standalone" value={analysis.standalone}/><StatTile label="Previous best" value={analysis.previous}/><StatTile label="Improvement" value={d}/></div><p>Best loadout changed: <b>{analysis.bestChanged?'YES':'NO'}</b></p>{analysis.replaced&&<p>Replaces: <b>{analysis.replaced}</b></p>}<StatusBadge status={analysis.verdict??'KEEP'}/>{analysis.combined&&<><div className="sectionTitle"><h3>New combined stats</h3></div><div className="statsGrid">{statLabels.map(([k,l])=><StatTile key={k} label={l} value={analysis.combined![k]} suffix="%"/>)}</div></>}{analysis.bestCert&&<p className="notice">Best certificate targeting: <b>{analysis.bestCert}</b>.</p>}<button className="primary" onClick={onClose}>Done</button></div></div>}
+
+function RollLogEditor({data,certificate,onClose,onSave}:{data:AppData;certificate:OwnedCertificate;onClose:()=>void;onSave:(r:CertificateRollLog,updated:GearItem)=>void}){
+  const type=authModelTypeForOwnedCertificate(certificate);
+  const [itemId,setItemId]=useState(data.gear[0]?.id??'');
+  const item=data.gear.find(g=>g.id===itemId);
+  const [newAuth,setNewAuth]=useState('');
+  const [newValue,setNewValue]=useState(0);
+  const autoPreview=useMemo(()=>item&&newAuth?applyRollToItem(item,newAuth,newValue,type):item,[item,newAuth,newValue,type]);
+  const expectedDisplayedStats=useMemo(()=>autoPreview?effectiveItemStats(autoPreview):undefined,[autoPreview]);
+  const [finalStats,setFinalStats]=useState<GearStats|undefined>(expectedDisplayedStats?{...expectedDisplayedStats}:undefined);
+  useEffect(()=>{setFinalStats(expectedDisplayedStats?{...expectedDisplayedStats}:undefined)},[expectedDisplayedStats]);
+  useEffect(()=>{setNewAuth('');setNewValue(0)},[itemId,type]);
+  const preview=useMemo(()=>{
+    if(!autoPreview||!finalStats)return autoPreview;
+    const observed=withObservedAuthenticationStats(autoPreview,finalStats);
+    return {...observed,name:generateGearName(observed.baseName,observed.stats,observed.authenticated,observed.authentication)};
+  },[autoPreview,finalStats]);
+  const before=optimise(data.gear,data.settings,1)[0]?.score.total??0;
+  const previewGear=preview?data.gear.map(g=>g.id===preview.id?preview:g):data.gear;
+  const after=optimise(previewGear,data.settings,1)[0]?.score.total??before;
+  const setFinalStat=(key:keyof GearStats,value:number)=>setFinalStats(current=>({...ZERO_STATS,...current,[key]:Number.isFinite(value)?value:0}));
+  const authKind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
+  return <div className="modalBackdrop"><div className="modal"><div className="modalHeader"><h2>Record certificate roll</h2><button className="iconButton" onClick={onClose}>×</button></div>
+    <div className="notice"><b>Certificate being consumed:</b> {certificate.type}{certificate.gradeStars!==undefined?' · '+'★'.repeat(certificate.gradeStars):''}{certificate.displayedValue!==undefined?' · $'+certificate.displayedValue.toLocaleString():''}. Saving this roll reduces its owned quantity by one.</div>
+    <div className="formGrid"><label className="wide">Item<select value={itemId} onChange={e=>setItemId(e.target.value)}>{data.gear.map(g=><option value={g.id} key={g.id}>{g.name} · {g.slot}</option>)}</select></label><label>New authentication<select value={newAuth} onChange={e=>setNewAuth(e.target.value)}><option value="">Select result</option>{activeCertificateOutcomeOptions(item?.slot,data.authModel,authKind,certificate.type).map(a=><option key={a}>{a}</option>)}</select></label><label>New value %<input type="number" step="any" value={newValue} onChange={e=>setNewValue(Number(e.target.value))}/></label><label>Best score before<input type="number" value={before} readOnly/></label><label>Calculated score after<input type="number" value={after} readOnly/></label><p className="wide fieldHelp">These are the final stats displayed in game after the new authentication. Any difference caused by the authentication (especially Focused) is stored on that authentication only; the item's base stats are not overwritten.</p></div>
+    {finalStats&&<details className="finalStatsEditor"><summary>Confirm / correct final displayed stats</summary><div className="formGrid">{statLabels.filter(([k])=>k!=='arrowReduction').map(([k,l])=><label key={k}>{l} %<input type="number" inputMode="decimal" step="any" value={finalStats[k]} onChange={e=>setFinalStat(k,Number(e.target.value))}/></label>)}<label className="wide arrowInput">Bid Arrow Speed — game display %<input type="number" inputMode="decimal" step="any" value={reductionToGameArrow(finalStats.arrowReduction)} onChange={e=>setFinalStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><span>Enter the signed value shown by the game.</span></label></div></details>}
+    <div className="stickyActions"><button className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={!item||!newAuth||!preview||certificate.quantity<1} onClick={()=>{item&&preview&&onSave({id:crypto.randomUUID(),date:new Date().toISOString(),certificateType:type,itemId:item.id,itemName:item.name,slot:item.slot,previousAuthentication:item.authentication.effect,previousValue:item.authentication.value,newAuthentication:newAuth,newValue,improvedBestSet:after>before,bestScoreBefore:before,bestScoreAfter:after,certificateId:certificate.id,certificateGradeStars:certificate.gradeStars,certificateInventoryType:certificate.type},preview)}}>Apply, record & consume</button></div>
+  </div></div>;
+}
+
+function authModelCertificateType(type:OwnedCertificate['type']):AuthModelEntry['certificateType']{
+  return type==='Premium Certificate of Authenticity'
+    ?'Premium Certificate of Authenticity'
+    :type==='Limited Certificate of Authenticity'
+      ?'Limited Certificate of Authenticity'
+      :'Normal Certificate of Authenticity';
+}
+
+function AuthModelRow({entry,onChange,onDelete}:{entry:AuthModelEntry;onChange:(e:AuthModelEntry)=>void;onDelete:()=>void}){
+  const inventoryType=entry.certificateInventoryType??(
+    entry.certificateType==='Premium Certificate of Authenticity'?'Premium Certificate of Authenticity':
+    entry.certificateType==='Limited Certificate of Authenticity'?'Limited Certificate of Authenticity':
+    'Wooden Certificate of Authenticity'
+  );
+  return <details className="modelRow">
+    <summary><span>{entry.outcome}</span><span>{inventoryType.replace(' Certificate of Authenticity','')} · {entry.slot} · {entry.assumedLikelihoodClass}{entry.enabled?'':' · disabled'}</span></summary>
+    <div className="formGrid">
+      <label className="wide">Outcome<input value={entry.outcome} onChange={e=>onChange({...entry,outcome:e.target.value})}/></label>
+      <label>Certificate tier<select value={inventoryType} onChange={e=>{const certificateInventoryType=e.target.value as OwnedCertificate['type'];onChange({...entry,certificateInventoryType,certificateType:authModelCertificateType(certificateInventoryType)})}}><option>Wooden Certificate of Authenticity</option><option>Ripped Certificate of Authenticity</option><option>Premium Certificate of Authenticity</option><option>Limited Certificate of Authenticity</option></select></label>
+      <label>Slot<select value={entry.slot} onChange={e=>onChange({...entry,slot:e.target.value as AuthModelEntry['slot']})}><option>Any</option><option>Head</option><option>Back</option><option>Wrist</option></select></label>
+      <label className="wide">Category<input value={entry.category} onChange={e=>onChange({...entry,category:e.target.value})}/></label>
+      <label>Relative-weight class<select value={entry.assumedLikelihoodClass} onChange={e=>onChange({...entry,assumedLikelihoodClass:e.target.value as AuthModelEntry['assumedLikelihoodClass']})}>{['VERY HIGH','HIGH','MEDIUM','LOW','VERY LOW'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Confidence<select value={entry.confidence} onChange={e=>onChange({...entry,confidence:e.target.value as AuthModelEntry['confidence']})}>{['Unknown','Low','Medium','High','Empirical'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Optional min<input type="number" step="any" value={entry.min??''} onChange={e=>onChange({...entry,min:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label>Optional typical<input type="number" step="any" value={entry.typical??''} onChange={e=>onChange({...entry,typical:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label>Optional max<input type="number" step="any" value={entry.max??''} onChange={e=>onChange({...entry,max:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label className="check"><input type="checkbox" checked={entry.enabled} onChange={e=>onChange({...entry,enabled:e.target.checked})}/> Enabled in live EV</label>
+      <div className="wide fieldHelp">Observed samples: {entry.observedSampleCount}. Values: {entry.observedValues.length?entry.observedValues.join(', '):'none yet'}. As exact-tier samples accumulate, empirical roll strength progressively outweighs the min/typical/max prior.</div>
+      <button className="danger wide" onClick={onDelete}>Delete model outcome</button>
+    </div>
+  </details>;
+}
+
+function LoadoutCard({slot,item}:{slot:string;item:GearItem}){return <div className="loadoutCard"><span>{slot}</span><strong>{item.baseName||item.name}</strong>{item.authentication.effect&&<small>{item.authentication.effect} {item.authentication.value?`${item.authentication.value}%`:''}</small>}</div>}
+function StatTile({label,value,suffix=''}:{label:string;value:number;suffix?:string}){return <div className="statTile"><span>{label}</span><strong>{Number.isFinite(value)?value.toFixed(Math.abs(value)%1?2:0):'—'}{suffix}</strong></div>}
+function ArrowThresholdCard({value,settings}:{value:number;settings:AlgorithmSettings}){const max=Math.max(settings.arrowSweetSpot,100);const pct=Math.min(100,Math.max(0,value/max*100));const excess=Math.max(0,value-settings.arrowSweetSpot);return <div className="thresholdCard"><div className="rowBetween"><strong>Bid Arrow reduction</strong><span>{value.toFixed(1)}% · target {settings.arrowSweetSpot}%</span></div><div className="progress arrowProgress"><i style={{width:`${pct}%`}}/><b style={{left:`${settings.arrowSweetSpot/max*100}%`}}/></div>{excess>0&&<div className="fieldHelp">{excess.toFixed(1)}% is above your 75% sweet spot. It is treated as wasted, not as an invented gameplay penalty.</div>}</div>}
+function ThresholdCard({label,value,target,ceiling}:{label:string;value:number;target:number;ceiling:number}){const pct=Math.min(100,Math.max(0,value/ceiling*100));return <div className="thresholdCard"><div className="rowBetween"><strong>{label}</strong><span>{value.toFixed(1)}% · target {target}% · ceiling {ceiling}%</span></div><div className="progress"><i style={{width:`${pct}%`}}/><b style={{left:`${target/ceiling*100}%`}}/></div></div>}
+function StatusBadge({status}:{status:string}){return <span className={`badge status ${status.toLowerCase().replaceAll(' ','-').replaceAll('/','')}`}>{status}</span>}
+function EmptyState({title,text,action,onClick}:{title:string;text:string;action?:string;onClick?:()=>void}){return <div className="empty"><div className="emptyIcon">⌁</div><h3>{title}</h3><p>{text}</p>{action&&<button className="primary" onClick={onClick}>{action}</button>}</div>}
+
+function algorithmIssues(s:AlgorithmSettings):string[]{const issues:string[]=[];for(const [k,v] of Object.entries(s))if(k!=='version'&&!Number.isFinite(Number(v)))issues.push(`${k} is not finite`);if(s.arrowSweetSpot<0)issues.push('Arrow sweet spot cannot be negative');if(s.energyTarget>s.energyCeiling)issues.push('Energy target must be ≤ Energy ceiling');if(s.zoneBreakpoint1>s.zoneBreakpoint2)issues.push('Zone breakpoint 1 must be ≤ breakpoint 2');for(const [label,value] of [['Luck weight',s.luckWeight],['Arrow weight',s.arrowWeight],['Zone weight',s.zoneWeight],['Recovery weight',s.recoveryWeight],['Zone middle multiplier',s.zoneMultiplier2],['Zone upper multiplier',s.zoneMultiplier3]] as const)if(value<0)issues.push(`${label} cannot be negative`);return issues;}
+function newAuthModelEntry():AuthModelEntry{return{id:crypto.randomUUID(),certificateInventoryType:'Wooden Certificate of Authenticity',certificateType:'Normal Certificate of Authenticity',slot:'Any',outcome:'Custom outcome',category:'Custom / unknown',assumedLikelihoodClass:'MEDIUM',observedSampleCount:0,observedValues:[],confidence:'Unknown',enabled:true}}
+function blankItem(slot:Slot='Head'):GearItem{const now=new Date().toISOString();return{id:crypto.randomUUID(),baseName:'',name:'',slot,stats:{...ZERO_STATS},authenticated:false,authentication:{kind:'None',effect:'',value:0},favourite:false,createdAt:now,updatedAt:now}}
+function applyRollToItem(item:GearItem,effect:string,value:number,type:AuthModelEntry['certificateType']):GearItem{
+  let base=removeNumericAuthentication(item);
+  if(base.authenticated){base=structuredClone(base);base.authenticated=false;base.authentication={kind:'None',effect:'',value:0};}
+  const updated=addOutcomeToItem(base,effect,value);
+  updated.authentication.kind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
+  updated.name=generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication);
+  updated.updatedAt=new Date().toISOString();
+  return updated;
+}
+function prepareImportedGear(existing:GearItem[],incoming:GearItem[]):GearItem[]{const used=new Set(existing.map(x=>x.id));return incoming.map(item=>{const clone=structuredClone(item);if(!clone.id||used.has(clone.id))clone.id=crypto.randomUUID();used.add(clone.id);return clone;});}
+function validateItem(i:GearItem){
+  if(!i.baseName.trim())return 'Item name is required.';
+  if(!['Head','Back','Wrist'].includes(i.slot))return 'Valid slot is required.';
+  if(i.conditionPct!==undefined && (!Number.isFinite(i.conditionPct) || i.conditionPct<0 || i.conditionPct>100))return 'Condition must be between 0 and 100%.';
+  if(i.mutation!==undefined && typeof i.mutation!=='string')return 'Mutation must be text.';
+  for(const [k] of statLabels)if(!Number.isFinite(i.stats[k]))return `${k} must be a finite number.`;
+  if(!Number.isFinite(i.authentication.value))return 'Authentication value must be a finite number.';
+  if(!i.authenticated)return '';
+  if(i.authentication.kind==='None')return 'Choose an authentication type.';
+  const effect=i.authentication.effect.trim();
+  if(!effect)return 'Choose an authentication effect.';
+  if(i.authentication.kind==='Normal'&&LEGACY_ALIEN_EFFECTS.includes(effect as never))return `${effect} is a legacy Alien effect and cannot be selected for a new Normal authentication.`;
+  if(i.authentication.kind==='Alien')return ''; // Historical Alien gear remains valid and editable as legacy data.
+  if(i.authentication.kind==='Premium'){
+    for(const [slot,effects] of Object.entries(PREMIUM_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
+  if(i.authentication.kind==='Limited'){
+    for(const [slot,effects] of Object.entries(LIMITED_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
+  for(const [slot,effects] of Object.entries(EXCLUSIVE_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+  return '';
+}
+function displayStat(k:keyof GearStats,v:number){const n=k==='arrowReduction'?reductionToGameArrow(v):v;return `${n>0?'+':''}${n.toFixed(Math.abs(n)%1?1:0)}%`}
+function shortStat(s:string){return s.replace('Energy Drink Time','Energy').replace('Vehicle Speed','Vehicle').replace('Bid Recovery','Recovery').replace('Bid Zone Width','Zone').replace('Bid Arrow Reduction','Arrow').replace('NPC Offers Bonus','NPC')}
+function replacedName(prev:any,next:any,slot:Slot){const key=slot.toLowerCase() as 'head'|'back'|'wrist';return prev[key].id!==next[key].id?prev[key].name:undefined}
+function dateStamp(){return new Date().toISOString().slice(0,10)}
+function downloadText(name:string,text:string,type:string){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+function applyTheme(theme:AppData['theme']){document.documentElement.dataset.theme=theme;if(theme==='system')delete document.documentElement.dataset.theme}
+function navIcon(t:Tab){return ({Dashboard:'▦',Gear:'◆',Optimise:'◎',Vehicle:'▰',Trophies:'♜',Certificates:'◈',Settings:'⚙',More:'•••'} as Record<Tab,string>)[t]}
++certificate.displayedValue.toLocaleString():''}. Saving this roll reduces its owned quantity by one.</div>
+    <div className="formGrid"><label className="wide">Item<select value={itemId} onChange={e=>setItemId(e.target.value)}>{data.gear.map(g=><option value={g.id} key={g.id}>{g.name} · {g.slot}</option>)}</select></label><label>New authentication<select value={newAuth} onChange={e=>setNewAuth(e.target.value)}><option value="">Select result</option>{activeCertificateOutcomeOptions(item?.slot,data.authModel,authKind,certificate.type).map(a=><option key={a}>{a}</option>)}</select></label><label>New value %<input type="number" step="any" value={newValue} onChange={e=>setNewValue(Number(e.target.value))}/></label><label>Best score before<input type="number" value={before} readOnly/></label><label>Calculated score after<input type="number" value={after} readOnly/></label><p className="wide fieldHelp">These are the final stats displayed in game after the new authentication. Any difference caused by the authentication (especially Focused) is stored on that authentication only; the item's base stats are not overwritten.</p></div>
+    {finalStats&&<details className="finalStatsEditor"><summary>Confirm / correct final displayed stats</summary><div className="formGrid">{statLabels.filter(([k])=>k!=='arrowReduction').map(([k,l])=><label key={k}>{l} %<input type="number" inputMode="decimal" step="any" value={finalStats[k]} onChange={e=>setFinalStat(k,Number(e.target.value))}/></label>)}<label className="wide arrowInput">Bid Arrow Speed — game display %<input type="number" inputMode="decimal" step="any" value={reductionToGameArrow(finalStats.arrowReduction)} onChange={e=>setFinalStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><span>Enter the signed value shown by the game.</span></label></div></details>}
+    <div className="stickyActions"><button className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={!item||!newAuth||!preview||certificate.quantity<1} onClick={()=>{item&&preview&&onSave({id:crypto.randomUUID(),date:new Date().toISOString(),certificateType:type,itemId:item.id,itemName:item.name,slot:item.slot,previousAuthentication:item.authentication.effect,previousValue:item.authentication.value,newAuthentication:newAuth,newValue,improvedBestSet:after>before,bestScoreBefore:before,bestScoreAfter:after,certificateId:certificate.id,certificateGradeStars:certificate.gradeStars,certificateInventoryType:certificate.type},preview)}}>Apply, record & consume</button></div>
+  </div></div>;
+}
+
+function authModelCertificateType(type:OwnedCertificate['type']):AuthModelEntry['certificateType']{
+  return type==='Premium Certificate of Authenticity'
+    ?'Premium Certificate of Authenticity'
+    :type==='Limited Certificate of Authenticity'
+      ?'Limited Certificate of Authenticity'
+      :'Normal Certificate of Authenticity';
+}
+
+function AuthModelRow({entry,onChange,onDelete}:{entry:AuthModelEntry;onChange:(e:AuthModelEntry)=>void;onDelete:()=>void}){
+  const inventoryType=entry.certificateInventoryType??(
+    entry.certificateType==='Premium Certificate of Authenticity'?'Premium Certificate of Authenticity':
+    entry.certificateType==='Limited Certificate of Authenticity'?'Limited Certificate of Authenticity':
+    'Wooden Certificate of Authenticity'
+  );
+  return <details className="modelRow">
+    <summary><span>{entry.outcome}</span><span>{inventoryType.replace(' Certificate of Authenticity','')} · {entry.slot} · {entry.assumedLikelihoodClass}{entry.enabled?'':' · disabled'}</span></summary>
+    <div className="formGrid">
+      <label className="wide">Outcome<input value={entry.outcome} onChange={e=>onChange({...entry,outcome:e.target.value})}/></label>
+      <label>Certificate tier<select value={inventoryType} onChange={e=>{const certificateInventoryType=e.target.value as OwnedCertificate['type'];onChange({...entry,certificateInventoryType,certificateType:authModelCertificateType(certificateInventoryType)})}}><option>Wooden Certificate of Authenticity</option><option>Ripped Certificate of Authenticity</option><option>Premium Certificate of Authenticity</option><option>Limited Certificate of Authenticity</option></select></label>
+      <label>Slot<select value={entry.slot} onChange={e=>onChange({...entry,slot:e.target.value as AuthModelEntry['slot']})}><option>Any</option><option>Head</option><option>Back</option><option>Wrist</option></select></label>
+      <label className="wide">Category<input value={entry.category} onChange={e=>onChange({...entry,category:e.target.value})}/></label>
+      <label>Relative-weight class<select value={entry.assumedLikelihoodClass} onChange={e=>onChange({...entry,assumedLikelihoodClass:e.target.value as AuthModelEntry['assumedLikelihoodClass']})}>{['VERY HIGH','HIGH','MEDIUM','LOW','VERY LOW'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Confidence<select value={entry.confidence} onChange={e=>onChange({...entry,confidence:e.target.value as AuthModelEntry['confidence']})}>{['Unknown','Low','Medium','High','Empirical'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Optional min<input type="number" step="any" value={entry.min??''} onChange={e=>onChange({...entry,min:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label>Optional typical<input type="number" step="any" value={entry.typical??''} onChange={e=>onChange({...entry,typical:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label>Optional max<input type="number" step="any" value={entry.max??''} onChange={e=>onChange({...entry,max:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label className="check"><input type="checkbox" checked={entry.enabled} onChange={e=>onChange({...entry,enabled:e.target.checked})}/> Enabled in live EV</label>
+      <div className="wide fieldHelp">Observed samples: {entry.observedSampleCount}. Values: {entry.observedValues.length?entry.observedValues.join(', '):'none yet'}. As exact-tier samples accumulate, empirical roll strength progressively outweighs the min/typical/max prior.</div>
+      <button className="danger wide" onClick={onDelete}>Delete model outcome</button>
+    </div>
+  </details>;
+}
+
+function LoadoutCard({slot,item}:{slot:string;item:GearItem}){return <div className="loadoutCard"><span>{slot}</span><strong>{item.baseName||item.name}</strong>{item.authentication.effect&&<small>{item.authentication.effect} {item.authentication.value?`${item.authentication.value}%`:''}</small>}</div>}
+function StatTile({label,value,suffix=''}:{label:string;value:number;suffix?:string}){return <div className="statTile"><span>{label}</span><strong>{Number.isFinite(value)?value.toFixed(Math.abs(value)%1?2:0):'—'}{suffix}</strong></div>}
+function ArrowThresholdCard({value,settings}:{value:number;settings:AlgorithmSettings}){const max=Math.max(settings.arrowSweetSpot,100);const pct=Math.min(100,Math.max(0,value/max*100));const excess=Math.max(0,value-settings.arrowSweetSpot);return <div className="thresholdCard"><div className="rowBetween"><strong>Bid Arrow reduction</strong><span>{value.toFixed(1)}% · target {settings.arrowSweetSpot}%</span></div><div className="progress arrowProgress"><i style={{width:`${pct}%`}}/><b style={{left:`${settings.arrowSweetSpot/max*100}%`}}/></div>{excess>0&&<div className="fieldHelp">{excess.toFixed(1)}% is above your 75% sweet spot. It is treated as wasted, not as an invented gameplay penalty.</div>}</div>}
+function ThresholdCard({label,value,target,ceiling}:{label:string;value:number;target:number;ceiling:number}){const pct=Math.min(100,Math.max(0,value/ceiling*100));return <div className="thresholdCard"><div className="rowBetween"><strong>{label}</strong><span>{value.toFixed(1)}% · target {target}% · ceiling {ceiling}%</span></div><div className="progress"><i style={{width:`${pct}%`}}/><b style={{left:`${target/ceiling*100}%`}}/></div></div>}
+function StatusBadge({status}:{status:string}){return <span className={`badge status ${status.toLowerCase().replaceAll(' ','-').replaceAll('/','')}`}>{status}</span>}
+function EmptyState({title,text,action,onClick}:{title:string;text:string;action?:string;onClick?:()=>void}){return <div className="empty"><div className="emptyIcon">⌁</div><h3>{title}</h3><p>{text}</p>{action&&<button className="primary" onClick={onClick}>{action}</button>}</div>}
+
+function algorithmIssues(s:AlgorithmSettings):string[]{const issues:string[]=[];for(const [k,v] of Object.entries(s))if(k!=='version'&&!Number.isFinite(Number(v)))issues.push(`${k} is not finite`);if(s.arrowSweetSpot<0)issues.push('Arrow sweet spot cannot be negative');if(s.energyTarget>s.energyCeiling)issues.push('Energy target must be ≤ Energy ceiling');if(s.zoneBreakpoint1>s.zoneBreakpoint2)issues.push('Zone breakpoint 1 must be ≤ breakpoint 2');for(const [label,value] of [['Luck weight',s.luckWeight],['Arrow weight',s.arrowWeight],['Zone weight',s.zoneWeight],['Recovery weight',s.recoveryWeight],['Zone middle multiplier',s.zoneMultiplier2],['Zone upper multiplier',s.zoneMultiplier3]] as const)if(value<0)issues.push(`${label} cannot be negative`);return issues;}
+function newAuthModelEntry():AuthModelEntry{return{id:crypto.randomUUID(),certificateInventoryType:'Wooden Certificate of Authenticity',certificateType:'Normal Certificate of Authenticity',slot:'Any',outcome:'Custom outcome',category:'Custom / unknown',assumedLikelihoodClass:'MEDIUM',observedSampleCount:0,observedValues:[],confidence:'Unknown',enabled:true}}
+function blankItem(slot:Slot='Head'):GearItem{const now=new Date().toISOString();return{id:crypto.randomUUID(),baseName:'',name:'',slot,stats:{...ZERO_STATS},authenticated:false,authentication:{kind:'None',effect:'',value:0},favourite:false,createdAt:now,updatedAt:now}}
+function applyRollToItem(item:GearItem,effect:string,value:number,type:AuthModelEntry['certificateType']):GearItem{
+  let base=removeNumericAuthentication(item);
+  if(base.authenticated){base=structuredClone(base);base.authenticated=false;base.authentication={kind:'None',effect:'',value:0};}
+  const updated=addOutcomeToItem(base,effect,value);
+  updated.authentication.kind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
+  updated.name=generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication);
+  updated.updatedAt=new Date().toISOString();
+  return updated;
+}
+function prepareImportedGear(existing:GearItem[],incoming:GearItem[]):GearItem[]{const used=new Set(existing.map(x=>x.id));return incoming.map(item=>{const clone=structuredClone(item);if(!clone.id||used.has(clone.id))clone.id=crypto.randomUUID();used.add(clone.id);return clone;});}
+function validateItem(i:GearItem){
+  if(!i.baseName.trim())return 'Item name is required.';
+  if(!['Head','Back','Wrist'].includes(i.slot))return 'Valid slot is required.';
+  if(i.conditionPct!==undefined && (!Number.isFinite(i.conditionPct) || i.conditionPct<0 || i.conditionPct>100))return 'Condition must be between 0 and 100%.';
+  if(i.mutation!==undefined && typeof i.mutation!=='string')return 'Mutation must be text.';
+  for(const [k] of statLabels)if(!Number.isFinite(i.stats[k]))return `${k} must be a finite number.`;
+  if(!Number.isFinite(i.authentication.value))return 'Authentication value must be a finite number.';
+  if(!i.authenticated)return '';
+  if(i.authentication.kind==='None')return 'Choose an authentication type.';
+  const effect=i.authentication.effect.trim();
+  if(!effect)return 'Choose an authentication effect.';
+  if(i.authentication.kind==='Normal'&&LEGACY_ALIEN_EFFECTS.includes(effect as never))return `${effect} is a legacy Alien effect and cannot be selected for a new Normal authentication.`;
+  if(i.authentication.kind==='Alien')return ''; // Historical Alien gear remains valid and editable as legacy data.
+  if(i.authentication.kind==='Premium'){
+    for(const [slot,effects] of Object.entries(PREMIUM_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
+  if(i.authentication.kind==='Limited'){
+    for(const [slot,effects] of Object.entries(LIMITED_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
+  for(const [slot,effects] of Object.entries(EXCLUSIVE_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+  return '';
+}
+function displayStat(k:keyof GearStats,v:number){const n=k==='arrowReduction'?reductionToGameArrow(v):v;return `${n>0?'+':''}${n.toFixed(Math.abs(n)%1?1:0)}%`}
+function shortStat(s:string){return s.replace('Energy Drink Time','Energy').replace('Vehicle Speed','Vehicle').replace('Bid Recovery','Recovery').replace('Bid Zone Width','Zone').replace('Bid Arrow Reduction','Arrow').replace('NPC Offers Bonus','NPC')}
+function replacedName(prev:any,next:any,slot:Slot){const key=slot.toLowerCase() as 'head'|'back'|'wrist';return prev[key].id!==next[key].id?prev[key].name:undefined}
+function dateStamp(){return new Date().toISOString().slice(0,10)}
+function downloadText(name:string,text:string,type:string){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+function applyTheme(theme:AppData['theme']){document.documentElement.dataset.theme=theme;if(theme==='system')delete document.documentElement.dataset.theme}
+function navIcon(t:Tab){return ({Dashboard:'▦',Gear:'◆',Optimise:'◎',Vehicle:'▰',Trophies:'♜',Certificates:'◈',Settings:'⚙',More:'•••'} as Record<Tab,string>)[t]}
++decision.certificate.displayedValue.toLocaleString():''}</span>
+            </div>
+            <div className="premiumVerdict">{decision.verdict}</div>
+          </summary>
+          <div className="comboBody">
+            {target?<>
+              <div className="rowBetween"><div><span className="eyebrow">BEST CURRENT TARGET</span><h3>{target.item.baseName||target.item.name}</h3><p>{target.item.slot}{target.item.authenticated?' · replacing '+target.item.authentication.effect:''}</p></div><span className="badge heuristic">{target.confidencePct.toFixed(0)}% CONFIDENCE</span></div>
+
+              <div className="statsGrid three">
+                <StatTile label="Robust Main improves" value={target.chanceOfImprovementPct} suffix="%"/>
+                <StatTile label="Potential Main improves" value={target.chanceOfPotentialImprovementPct} suffix="%"/>
+                <StatTile label="Expected Main change" value={target.expectedImprovementPct} suffix="%"/>
+                <StatTile label="Chance Main/context worsens" value={target.chanceOfWorsePct} suffix="%"/>
+                <StatTile label="Meaningful robust gain ≥1%" value={target.chanceOfMeaningfulImprovementPct} suffix="%"/>
+                <StatTile label="Unresolved outcome mass" value={target.unresolvedOutcomeMassPct} suffix="%"/>
+                <StatTile label="Current Main fit" value={target.mainFitPct} suffix="%"/>
+              </div>
+
+              <div className="thresholdTable">
+                <div><b>Main sensitivity low / central / high</b><span>{signed(target.expectedImprovementLowPct)} / {signed(target.expectedImprovementPct)} / {signed(target.expectedImprovementHighPct)}</span></div>
+                <div><b>Average robust gain when successful</b><span>{signed(target.averageGainWhenSuccessfulPct)}</span></div>
+                <div><b>Average demonstrated loss when worse</b><span>{signed(target.averageLossWhenWorsePct)}</span></div>
+                <div><b>10th / median / 90th central percentile</b><span>{signed(target.p10Pct)} / {signed(target.medianPct)} / {signed(target.p90Pct)}</span></div>
+                <div><b>Best possible modelled branch</b><span>{target.bestPossibleOutcome} · {signed(target.bestCasePct)}</span></div>
+                <div><b>Worst modelled Main/context branch</b><span>{target.worstPossibleOutcome} · {signed(target.worstCasePct)}</span></div>
+                <div><b>Authentication risk — neutral Main</b><span>{signed(target.currentAuthenticationMainRiskPct)}</span></div>
+                <div><b>Authentication risk — Day/Night/Rain</b><span>{signed(target.currentAuthenticationContextRiskPct)}</span></div>
+                <div><b>Authentication risk — Drink Prep</b><span>{signed(target.currentAuthenticationDrinkRiskPct)}</span></div>
+                <div><b>Authentication risk — Grading</b><span>{signed(target.currentAuthenticationGradingRiskPct)}</span></div>
+                <div><b>Authentication risk — Shop/Idle</b><span>{signed(target.currentAuthenticationShopRiskPct)}</span></div>
+                <div><b>Worst authentication risk anywhere relevant</b><span>{signed(target.currentAuthenticationValueAtRiskPct)}</span></div>
+                <div><b>Average Day/Night/Rain impact</b><span>{signed(target.expectedContextualMainPct)}</span></div>
+                <div><b>Worst Day/Night/Rain impact</b><span>{signed(target.worstContextualMainPct)}</span></div>
+                <div><b>Expected Drink Prep impact</b><span>{signed(target.expectedDrinkPrepPct)}</span></div>
+                <div><b>Expected Grading impact</b><span>{signed(target.expectedGradingPct)}</span></div>
+                <div><b>Expected Shop/Idle impact</b><span>{signed(target.expectedShopPct)}</span></div>
+              </div>
+
+              {target.unresolvedEffects.length>0&&<div className="notice warning"><b>Unresolved magnitude:</b> {target.unresolvedEffects.join(', ')}. These branches are not treated as zero-value known outcomes and cannot produce a USE verdict until supported by numeric evidence.</div>}
+              <ul>{target.reasons.map((reason,i)=><li key={i}>{reason}</li>)}</ul>
+
+              {decision.conversion&&<div className="notice"><b>Wooden → Premium opportunity cost:</b> {decision.conversion.recommendation}. Direct Wooden EV {signed(decision.conversion.directExpectedMainPct)} vs synthetic Premium EV {signed(decision.conversion.premiumExpectedMainPct)}. Conversion costs {decision.conversion.diamondCost} Diamonds. {decision.conversion.reason}</div>}
+
+              <details>
+                <summary>Other targets</summary>
+                <div className="thresholdTable">{decision.targets.slice(1,7).map((alt,index)=><div key={alt.item.id}><b>#{index+2} {alt.item.baseName||alt.item.name} · {alt.verdict}</b><span>{alt.chanceOfImprovementPct.toFixed(1)}% robust improve · EV {signed(alt.expectedImprovementPct)}</span></div>)}</div>
+              </details>
+            </>:<p className="muted">A complete Head, Back and Wrist inventory is required.</p>}
+
+            <div className="notice warning"><b>Evidence boundary:</b> these are modelled decision percentages, not hidden Roblox loot odds. Effect selection uses a neutral equal prior until exact-certificate observations exist. Unknown star transforms and unresolved magnitudes reduce confidence instead of being invented.</div>
+          </div>
+        </details>;
+      })}
+      {!certificateState.computing&&!certificateState.error&&!decisions.length&&<p className="muted">No owned certificates are available for analysis.</p>}
+    </div>
+
+    <div className="card">
+      <div className="sectionTitle"><h2>Owned certificates</h2><button className="secondary compact" onClick={()=>setEditInventory(!editInventory)}>{editInventory?'Done':'Manual adjustment'}</button></div>
+      <div className="gearList">{data.ownedCertificates.map(cert=><div className="gearCard" key={cert.id}><strong>{cert.type}</strong><p>{cert.rarity||'Certificate'}{cert.gradeStars!==undefined?' · '+'★'.repeat(cert.gradeStars):''}{cert.displayedValue!==undefined?' · $'+cert.displayedValue.toLocaleString():''} · Owned: {cert.quantity}</p>{editInventory&&<div className="actions"><button onClick={()=>changeQty(cert.id,-1)} disabled={cert.quantity===0}>− Remove one</button><button onClick={()=>changeQty(cert.id,1)}>＋ Add one</button></div>}</div>)}</div>
+      <div className="notice">Recording a roll below now consumes the exact selected certificate automatically. Wooden → Premium is compared explicitly against direct Wooden use at the current 150-Diamond conversion cost.</div>
+    </div>
+
+    <div className="sectionTitle"><h2>Record a result</h2></div>
+    {availableCertificates.length?<div className="card">
+      <label>Certificate actually used<select value={selectedCertificateId} onChange={e=>setSelectedCertificateId(e.target.value)}>{availableCertificates.map(cert=><option value={cert.id} key={cert.id}>{cert.type} · {cert.gradeStars!==undefined?'★'.repeat(cert.gradeStars)+' · ':''}{cert.displayedValue!==undefined?'$'+cert.displayedValue.toLocaleString()+' · ':''}owned {cert.quantity}</option>)}</select></label>
+      <button className="secondary" disabled={!selectedCertificate} onClick={()=>setLogOpen(true)}>＋ Record selected certificate roll</button>
+    </div>:<p className="muted">No certificate with quantity remaining is available to record.</p>}
+
+    <div className="sectionTitle"><h2>Roll history</h2></div>
+    <div className="card tableCard">{data.rollLog.length?data.rollLog.slice().reverse().map(r=><div className="logRow" key={r.id}><div><strong>{r.itemName}</strong><span>{new Date(r.date).toLocaleDateString()} · {r.certificateInventoryType??(r.certificateType.startsWith('Normal')?'Legacy Normal':r.certificateType.startsWith('Premium')?'Premium':r.certificateType.startsWith('Limited')?'Limited':'Legacy Alien')}</span></div><div><b>{r.newAuthentication} {r.newValue}%</b><span>{r.bestScoreBefore.toFixed(2)} → {r.bestScoreAfter.toFixed(2)}</span></div></div>):<p className="muted">No certificate rolls recorded yet.</p>}</div>
+
+    {logOpen&&selectedCertificate&&<RollLogEditor data={data} certificate={selectedCertificate} onClose={()=>setLogOpen(false)} onSave={(r,updated)=>{
+      try{
+        setData(applyRecordedCertificateRoll(data,selectedCertificate.id,r,updated));
+        setLogOpen(false);
+      }catch(error){alert(error instanceof Error?error.message:'Could not record certificate roll.')}
+    }}/>}
+  </section>;
+}
+
+function SettingsScreen({data,setData,showToast}:{data:AppData;setData:(d:AppData)=>void;showToast:(s:string)=>void}){
+  const jsonRef=useRef<HTMLInputElement>(null),csvRef=useRef<HTMLInputElement>(null);
+  function setS<K extends keyof AlgorithmSettings>(k:K,v:AlgorithmSettings[K]){setData({...data,settings:{...data.settings,[k]:v}})}
+  const fields:Array<[keyof AlgorithmSettings,string]>=[['luckWeight','Main Auction Luck weight'],['arrowWeight','Main Auction Bid Arrow weight'],['arrowSweetSpot','Bid Arrow sweet spot'],['zoneWeight','Main Auction Bid Zone weight'],['zoneBreakpoint1','Bid Zone breakpoint 1'],['zoneBreakpoint2','Bid Zone breakpoint 2'],['zoneMultiplier2','Bid Zone middle multiplier'],['zoneMultiplier3','Bid Zone upper multiplier'],['recoveryWeight','Main Auction Bid Recovery weight'],['energyTarget','Drink Prep Energy target'],['energyCeiling','Drink Prep Energy ceiling'],['energySecondStageMultiplier','Drink Prep above-target multiplier']];
+  const issues=algorithmIssues(data.settings);
+  return <section><div className="pageHeading"><div><h1>Settings</h1><p>Algorithm Version 2.0</p></div></div>
+    <div className="sectionTitle"><h2>Appearance</h2></div><div className="card"><label>Theme<select value={data.theme} onChange={e=>setData({...data,theme:e.target.value as any})}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label></div>
+    <div className="sectionTitle"><h2>Algorithm editor</h2><button className="secondary compact" onClick={()=>setData({...data,settings:{...LOCKED_DEFAULT_SETTINGS}})}>Reset to locked defaults</button></div>
+    <div className="settingsGrid">{fields.map(([k,label])=><label className="settingField" key={k}><span>{label}</span><input type="number" step="any" value={data.settings[k]} onChange={e=>setS(k,Number(e.target.value) as never)}/></label>)}</div>
+    {issues.length>0&&<div className="notice dangerNotice"><b>Settings need correction:</b> {issues.join(' · ')}</div>}
+    <div className="notice">Algorithm 2.0 uses one shared model for Main Auction, retention and certificate decisions. Displayed Luck is linear. Bid Arrow benefit caps at your 75% sweet spot with no invented over-cap penalty. Drink Prep, Grading and Shop/Idle are separate loadouts and never compensate for a weaker Main Auction result. Day, Night and Rain are evaluated as contextual Main variants instead of fake uptime averages.</div>
+    <div className="sectionTitle"><h2>Authentication outcome catalogue</h2><button className="secondary compact" onClick={()=>setData({...data,authModel:[...data.authModel,newAuthModelEntry()]})}>＋ Add outcome</button></div><div className="card authModel"><p className="muted">This is the live certificate model. Enabled rows, certificate tier, min / typical / max, confidence and relative-weight class all feed directly into certificate EV. MEDIUM is the neutral default because the real per-effect odds are unpublished; changing the class is an explicit user assumption, not a game fact.</p>{data.authModel.filter(m=>m.certificateType!=='Certificate of Alienticity'&&!LEGACY_ALIEN_EFFECTS.includes(m.outcome as never)).slice().sort((a,b)=>(a.certificateInventoryType??'').localeCompare(b.certificateInventoryType??'')||a.slot.localeCompare(b.slot)||a.outcome.localeCompare(b.outcome)).map(m=><AuthModelRow key={m.id} entry={m} onChange={entry=>setData({...data,authModel:data.authModel.map(x=>x.id===entry.id?entry:x)})} onDelete={()=>{if(confirm(`Remove authentication model outcome ${m.outcome}? Roll history is not deleted.`))setData({...data,authModel:data.authModel.filter(x=>x.id!==m.id)})}}/>)}</div>
+    <div className="sectionTitle"><h2>Backup & data safety</h2></div><div className="card buttonStack"><button className="primary" onClick={()=>downloadText(`storage-hunters-backup-${dateStamp()}.json`,exportJson(data),'application/json')}>Download JSON backup</button><button className="secondary" onClick={()=>jsonRef.current?.click()}>Restore JSON backup</button><button className="secondary" onClick={()=>downloadText(`storage-hunters-gear-${dateStamp()}.csv`,gearToCsv(data.gear),'text/csv')}>Export gear CSV</button><button className="secondary" onClick={()=>csvRef.current?.click()}>Import gear CSV</button><input hidden type="file" accept="application/json,.json" ref={jsonRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const d=importJson(await f.text());if(confirm(`Restore backup containing ${d.gear.length} gear items? This replaces current local data.`)){setData(d);showToast('Backup restored')}}catch(err){alert(err instanceof Error?err.message:'Invalid backup')}}}/><input hidden type="file" accept="text/csv,.csv" ref={csvRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const g=csvToGear(await f.text());if(confirm(`Import ${g.length} gear items? They will be added to the current inventory.`)){const imported=prepareImportedGear(data.gear,g);setData({...data,gear:[...data.gear,...imported]});showToast('CSV imported')}}catch(err){alert(err instanceof Error?err.message:'Invalid CSV')}}}/><button className="danger" onClick={()=>{const phrase=prompt('Type RESET ALL DATA to permanently clear all local inventory, certificates, roll history, vehicle parts, trophies and settings back to an empty workspace.');if(phrase==='RESET ALL DATA')setData(makeEmptyData())}}>Clear all local data</button></div>
+  </section>;
+}
+
+function GearEditor({item,authModel,mode,onClose,onSave}:{item:GearItem;authModel:AuthModelEntry[];mode:'add'|'edit';onClose:()=>void;onSave:(i:GearItem,keepAdding?:boolean)=>void}){
+  const [v,setV]=useState({...item,name:generateGearName(item.baseName,item.stats,item.authenticated,item.authentication)});
+  const initialShown=statLabels.filter(([key])=>Math.abs(item.stats[key])>1e-12).map(([key])=>key);
+  const [shownStats,setShownStats]=useState<Array<keyof GearStats>>(initialShown);
+  const patch=(next:Partial<GearItem>)=>setV(current=>{const updated={...current,...next};return {...updated,name:generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication)};});
+  const setStat=(k:keyof GearStats,n:number)=>setV(current=>{const stats={...current.stats,[k]:Number.isFinite(n)?n:0};return {...current,stats,name:generateGearName(current.baseName,stats,current.authenticated,current.authentication)};});
+  const setAuthentication=(next:Partial<GearItem['authentication']>)=>setV(current=>{const authentication={...current.authentication,...next};return {...current,authentication,name:generateGearName(current.baseName,current.stats,current.authenticated,authentication)};});
+  const showStat=(key:keyof GearStats)=>setShownStats(current=>current.includes(key)?current:[...current,key]);
+  const hideStat=(key:keyof GearStats)=>{setStat(key,0);setShownStats(current=>current.filter(k=>k!==key));};
+  const orderedShown=statLabels.filter(([key])=>shownStats.includes(key));
+  const hidden=statLabels.filter(([key])=>!shownStats.includes(key));
+  const displayedArrow=reductionToGameArrow(v.stats.arrowReduction);
+  const legacyAlien=v.authenticated&&v.authentication.kind==='Alien';
+  const currentKind=v.authentication.kind==='Premium'?'Premium':v.authentication.kind==='Limited'?'Limited':'Normal';
+  return <div className="modalBackdrop"><div className="modal sheet"><div className="modalHeader"><div><span className="eyebrow">{mode==='add'?'QUICK ADD GEAR':'EDIT GEAR'}</span><h2>{v.baseName||'New gear'}</h2></div><button className="iconButton" onClick={onClose}>×</button></div>
+    <div className="formGrid quickIdentity"><label className="wide">Actual gear name<input autoFocus value={v.baseName} onChange={e=>patch({baseName:e.target.value})} placeholder="e.g. Pearl Dominus"/></label><label>Slot<select value={v.slot} onChange={e=>patch({slot:e.target.value as Slot})}><option>Head</option><option>Back</option><option>Wrist</option></select></label><label>Mutation<input list={`mutations-${v.id}`} value={v.mutation??''} onChange={e=>patch({mutation:e.target.value})} placeholder="None, Diamond, Gold…"/><datalist id={`mutations-${v.id}`}>{['None','Diamond','Gold','Silver','Cobwebbed','Exclusive','Police','Chrome','Gem','Void','Onyx'].map(m=><option key={m} value={m}/>)}</datalist></label><label>Condition %<input type="number" min="0" max="100" step="any" inputMode="decimal" value={v.conditionPct??''} onChange={e=>patch({conditionPct:e.target.value===''?undefined:Number(e.target.value)})} placeholder="Optional"/></label><label className="check"><input type="checkbox" checked={v.favourite} onChange={e=>patch({favourite:e.target.checked})}/> Lock / favourite</label></div>
+    <div className="autoNamePreview"><span>Automatic name</span><strong>{v.name||'Name updates as stats are entered'}</strong></div>
+    <div className="quickEntrySection"><div className="rowBetween"><div><strong>Stats shown on this item</strong><div className="fieldHelp">Tap only the stats visible in game. Empty fields stay out of the way.</div></div></div>
+      {hidden.length>0&&<div className="statPicker">{hidden.map(([key,label])=><button type="button" key={key} onClick={()=>showStat(key)}>＋ {shortStat(label)}</button>)}</div>}
+      {!orderedShown.length&&<div className="quickEmpty">No stats selected yet.</div>}
+      <div className="quickStatGrid">{orderedShown.map(([key,label])=>key==='arrowReduction'
+        ? <div className="quickStatField arrowQuick" key={key}><label>{label}<input inputMode="decimal" type="number" step="any" value={displayedArrow} onChange={e=>setStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><small>Enter the signed game value, e.g. -24.</small></label><button type="button" className="removeStat" onClick={()=>hideStat(key)}>×</button></div>
+        : <div className="quickStatField" key={key}><label>{label} %<input inputMode="decimal" type="number" step="any" value={v.stats[key]} onChange={e=>setStat(key,Number(e.target.value))}/></label><button type="button" className="removeStat" onClick={()=>hideStat(key)}>×</button></div>)}</div>
+    </div>
+    <details className="finalStatsEditor authQuick" open={v.authenticated}><summary>Authentication {v.authenticated?`— ${v.authentication.kind} · ${v.authentication.effect||'select effect'}`:'— none'}</summary><div className="formGrid"><label className="check wide"><input type="checkbox" checked={v.authenticated} onChange={e=>{const authenticated=e.target.checked;const authentication=authenticated?(v.authenticated?v.authentication:{kind:'Normal' as const,effect:'',value:0}):{kind:'None' as const,effect:'',value:0};setV(current=>({...current,authenticated,authentication,name:generateGearName(current.baseName,current.stats,authenticated,authentication)}));}}/> Authenticated</label>{v.authenticated&&<>{legacyAlien?<><div className="wide notice"><b>Legacy Alien</b> — retained for historical compatibility.</div><label>Type<input value="Legacy Alien" readOnly/></label><label>Legacy effect<input value={v.authentication.effect} readOnly/></label><label>Legacy value %<input type="number" step="any" value={v.authentication.value} onChange={e=>setAuthentication({value:Number(e.target.value)})}/></label></>:<><label>Certificate type<select value={currentKind} onChange={e=>setAuthentication({kind:e.target.value as 'Normal'|'Premium'|'Limited',effect:'',value:0})}><option>Normal</option><option>Premium</option><option>Limited</option></select></label><label>Effect<select value={v.authentication.effect} onChange={e=>setAuthentication({effect:e.target.value})}>{activeAuthenticationOptions(v.slot,v.authentication.effect,authModel,currentKind).map(x=><option value={x} key={x}>{x||'Select effect'}</option>)}</select></label><label>Value %<input type="number" inputMode="decimal" step="any" value={v.authentication.value} onChange={e=>setAuthentication({value:Number(e.target.value)})}/></label><p className="wide fieldHelp">{currentKind==='Premium'?'Premium effects are evaluated by the shared loadout engine where possible; unresolved effects remain protected.':currentKind==='Limited'?'Limited effects are evaluated against your actual Main and specialist loadouts; unknown proc behaviour reduces confidence rather than creating fake certainty.':'Enter the normal/base accessory stats separately. Numeric authentication is added automatically by the optimiser.'}</p></>}</>}</div></details>
+    <div className="stickyActions quickActions"><button className="secondary" onClick={onClose}>Cancel</button>{mode==='add'&&<button className="secondary addAnother" onClick={()=>onSave({...v,name:generateGearName(v.baseName,v.stats,v.authenticated,v.authentication)},true)}>Save + another</button>}<button className="primary" onClick={()=>onSave({...v,name:generateGearName(v.baseName,v.stats,v.authenticated,v.authentication)})}>{mode==='add'?'Analyse & add':'Save changes'}</button></div>
+  </div></div>;
+}
+function NewItemSheet({analysis,onClose}:{analysis:{name:string;standalone:number;previous:number;next:number;bestChanged:boolean;replaced?:string;verdict?:string;bestCert?:string;combined?:GearStats};onClose:()=>void}){const d=analysis.next-analysis.previous;return <div className="modalBackdrop"><div className="modal resultModal"><span className="eyebrow">NEW ITEM ANALYSIS</span><h2>{analysis.name}</h2><div className="resultScore">{analysis.next.toFixed(2)}</div><div className="statsGrid three resultStats"><StatTile label="Standalone" value={analysis.standalone}/><StatTile label="Previous best" value={analysis.previous}/><StatTile label="Improvement" value={d}/></div><p>Best loadout changed: <b>{analysis.bestChanged?'YES':'NO'}</b></p>{analysis.replaced&&<p>Replaces: <b>{analysis.replaced}</b></p>}<StatusBadge status={analysis.verdict??'KEEP'}/>{analysis.combined&&<><div className="sectionTitle"><h3>New combined stats</h3></div><div className="statsGrid">{statLabels.map(([k,l])=><StatTile key={k} label={l} value={analysis.combined![k]} suffix="%"/>)}</div></>}{analysis.bestCert&&<p className="notice">Best certificate targeting: <b>{analysis.bestCert}</b>.</p>}<button className="primary" onClick={onClose}>Done</button></div></div>}
+
+function RollLogEditor({data,certificate,onClose,onSave}:{data:AppData;certificate:OwnedCertificate;onClose:()=>void;onSave:(r:CertificateRollLog,updated:GearItem)=>void}){
+  const type=authModelTypeForOwnedCertificate(certificate);
+  const [itemId,setItemId]=useState(data.gear[0]?.id??'');
+  const item=data.gear.find(g=>g.id===itemId);
+  const [newAuth,setNewAuth]=useState('');
+  const [newValue,setNewValue]=useState(0);
+  const autoPreview=useMemo(()=>item&&newAuth?applyRollToItem(item,newAuth,newValue,type):item,[item,newAuth,newValue,type]);
+  const expectedDisplayedStats=useMemo(()=>autoPreview?effectiveItemStats(autoPreview):undefined,[autoPreview]);
+  const [finalStats,setFinalStats]=useState<GearStats|undefined>(expectedDisplayedStats?{...expectedDisplayedStats}:undefined);
+  useEffect(()=>{setFinalStats(expectedDisplayedStats?{...expectedDisplayedStats}:undefined)},[expectedDisplayedStats]);
+  useEffect(()=>{setNewAuth('');setNewValue(0)},[itemId,type]);
+  const preview=useMemo(()=>{
+    if(!autoPreview||!finalStats)return autoPreview;
+    const observed=withObservedAuthenticationStats(autoPreview,finalStats);
+    return {...observed,name:generateGearName(observed.baseName,observed.stats,observed.authenticated,observed.authentication)};
+  },[autoPreview,finalStats]);
+  const before=optimise(data.gear,data.settings,1)[0]?.score.total??0;
+  const previewGear=preview?data.gear.map(g=>g.id===preview.id?preview:g):data.gear;
+  const after=optimise(previewGear,data.settings,1)[0]?.score.total??before;
+  const setFinalStat=(key:keyof GearStats,value:number)=>setFinalStats(current=>({...ZERO_STATS,...current,[key]:Number.isFinite(value)?value:0}));
+  const authKind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
+  return <div className="modalBackdrop"><div className="modal"><div className="modalHeader"><h2>Record certificate roll</h2><button className="iconButton" onClick={onClose}>×</button></div>
+    <div className="notice"><b>Certificate being consumed:</b> {certificate.type}{certificate.gradeStars!==undefined?' · '+'★'.repeat(certificate.gradeStars):''}{certificate.displayedValue!==undefined?' · $'+certificate.displayedValue.toLocaleString():''}. Saving this roll reduces its owned quantity by one.</div>
+    <div className="formGrid"><label className="wide">Item<select value={itemId} onChange={e=>setItemId(e.target.value)}>{data.gear.map(g=><option value={g.id} key={g.id}>{g.name} · {g.slot}</option>)}</select></label><label>New authentication<select value={newAuth} onChange={e=>setNewAuth(e.target.value)}><option value="">Select result</option>{activeCertificateOutcomeOptions(item?.slot,data.authModel,authKind,certificate.type).map(a=><option key={a}>{a}</option>)}</select></label><label>New value %<input type="number" step="any" value={newValue} onChange={e=>setNewValue(Number(e.target.value))}/></label><label>Best score before<input type="number" value={before} readOnly/></label><label>Calculated score after<input type="number" value={after} readOnly/></label><p className="wide fieldHelp">These are the final stats displayed in game after the new authentication. Any difference caused by the authentication (especially Focused) is stored on that authentication only; the item's base stats are not overwritten.</p></div>
+    {finalStats&&<details className="finalStatsEditor"><summary>Confirm / correct final displayed stats</summary><div className="formGrid">{statLabels.filter(([k])=>k!=='arrowReduction').map(([k,l])=><label key={k}>{l} %<input type="number" inputMode="decimal" step="any" value={finalStats[k]} onChange={e=>setFinalStat(k,Number(e.target.value))}/></label>)}<label className="wide arrowInput">Bid Arrow Speed — game display %<input type="number" inputMode="decimal" step="any" value={reductionToGameArrow(finalStats.arrowReduction)} onChange={e=>setFinalStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><span>Enter the signed value shown by the game.</span></label></div></details>}
+    <div className="stickyActions"><button className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={!item||!newAuth||!preview||certificate.quantity<1} onClick={()=>{item&&preview&&onSave({id:crypto.randomUUID(),date:new Date().toISOString(),certificateType:type,itemId:item.id,itemName:item.name,slot:item.slot,previousAuthentication:item.authentication.effect,previousValue:item.authentication.value,newAuthentication:newAuth,newValue,improvedBestSet:after>before,bestScoreBefore:before,bestScoreAfter:after,certificateId:certificate.id,certificateGradeStars:certificate.gradeStars,certificateInventoryType:certificate.type},preview)}}>Apply, record & consume</button></div>
+  </div></div>;
+}
+
+function authModelCertificateType(type:OwnedCertificate['type']):AuthModelEntry['certificateType']{
+  return type==='Premium Certificate of Authenticity'
+    ?'Premium Certificate of Authenticity'
+    :type==='Limited Certificate of Authenticity'
+      ?'Limited Certificate of Authenticity'
+      :'Normal Certificate of Authenticity';
+}
+
+function AuthModelRow({entry,onChange,onDelete}:{entry:AuthModelEntry;onChange:(e:AuthModelEntry)=>void;onDelete:()=>void}){
+  const inventoryType=entry.certificateInventoryType??(
+    entry.certificateType==='Premium Certificate of Authenticity'?'Premium Certificate of Authenticity':
+    entry.certificateType==='Limited Certificate of Authenticity'?'Limited Certificate of Authenticity':
+    'Wooden Certificate of Authenticity'
+  );
+  return <details className="modelRow">
+    <summary><span>{entry.outcome}</span><span>{inventoryType.replace(' Certificate of Authenticity','')} · {entry.slot} · {entry.assumedLikelihoodClass}{entry.enabled?'':' · disabled'}</span></summary>
+    <div className="formGrid">
+      <label className="wide">Outcome<input value={entry.outcome} onChange={e=>onChange({...entry,outcome:e.target.value})}/></label>
+      <label>Certificate tier<select value={inventoryType} onChange={e=>{const certificateInventoryType=e.target.value as OwnedCertificate['type'];onChange({...entry,certificateInventoryType,certificateType:authModelCertificateType(certificateInventoryType)})}}><option>Wooden Certificate of Authenticity</option><option>Ripped Certificate of Authenticity</option><option>Premium Certificate of Authenticity</option><option>Limited Certificate of Authenticity</option></select></label>
+      <label>Slot<select value={entry.slot} onChange={e=>onChange({...entry,slot:e.target.value as AuthModelEntry['slot']})}><option>Any</option><option>Head</option><option>Back</option><option>Wrist</option></select></label>
+      <label className="wide">Category<input value={entry.category} onChange={e=>onChange({...entry,category:e.target.value})}/></label>
+      <label>Relative-weight class<select value={entry.assumedLikelihoodClass} onChange={e=>onChange({...entry,assumedLikelihoodClass:e.target.value as AuthModelEntry['assumedLikelihoodClass']})}>{['VERY HIGH','HIGH','MEDIUM','LOW','VERY LOW'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Confidence<select value={entry.confidence} onChange={e=>onChange({...entry,confidence:e.target.value as AuthModelEntry['confidence']})}>{['Unknown','Low','Medium','High','Empirical'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Optional min<input type="number" step="any" value={entry.min??''} onChange={e=>onChange({...entry,min:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label>Optional typical<input type="number" step="any" value={entry.typical??''} onChange={e=>onChange({...entry,typical:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label>Optional max<input type="number" step="any" value={entry.max??''} onChange={e=>onChange({...entry,max:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label className="check"><input type="checkbox" checked={entry.enabled} onChange={e=>onChange({...entry,enabled:e.target.checked})}/> Enabled in live EV</label>
+      <div className="wide fieldHelp">Observed samples: {entry.observedSampleCount}. Values: {entry.observedValues.length?entry.observedValues.join(', '):'none yet'}. As exact-tier samples accumulate, empirical roll strength progressively outweighs the min/typical/max prior.</div>
+      <button className="danger wide" onClick={onDelete}>Delete model outcome</button>
+    </div>
+  </details>;
+}
+
+function LoadoutCard({slot,item}:{slot:string;item:GearItem}){return <div className="loadoutCard"><span>{slot}</span><strong>{item.baseName||item.name}</strong>{item.authentication.effect&&<small>{item.authentication.effect} {item.authentication.value?`${item.authentication.value}%`:''}</small>}</div>}
+function StatTile({label,value,suffix=''}:{label:string;value:number;suffix?:string}){return <div className="statTile"><span>{label}</span><strong>{Number.isFinite(value)?value.toFixed(Math.abs(value)%1?2:0):'—'}{suffix}</strong></div>}
+function ArrowThresholdCard({value,settings}:{value:number;settings:AlgorithmSettings}){const max=Math.max(settings.arrowSweetSpot,100);const pct=Math.min(100,Math.max(0,value/max*100));const excess=Math.max(0,value-settings.arrowSweetSpot);return <div className="thresholdCard"><div className="rowBetween"><strong>Bid Arrow reduction</strong><span>{value.toFixed(1)}% · target {settings.arrowSweetSpot}%</span></div><div className="progress arrowProgress"><i style={{width:`${pct}%`}}/><b style={{left:`${settings.arrowSweetSpot/max*100}%`}}/></div>{excess>0&&<div className="fieldHelp">{excess.toFixed(1)}% is above your 75% sweet spot. It is treated as wasted, not as an invented gameplay penalty.</div>}</div>}
+function ThresholdCard({label,value,target,ceiling}:{label:string;value:number;target:number;ceiling:number}){const pct=Math.min(100,Math.max(0,value/ceiling*100));return <div className="thresholdCard"><div className="rowBetween"><strong>{label}</strong><span>{value.toFixed(1)}% · target {target}% · ceiling {ceiling}%</span></div><div className="progress"><i style={{width:`${pct}%`}}/><b style={{left:`${target/ceiling*100}%`}}/></div></div>}
+function StatusBadge({status}:{status:string}){return <span className={`badge status ${status.toLowerCase().replaceAll(' ','-').replaceAll('/','')}`}>{status}</span>}
+function EmptyState({title,text,action,onClick}:{title:string;text:string;action?:string;onClick?:()=>void}){return <div className="empty"><div className="emptyIcon">⌁</div><h3>{title}</h3><p>{text}</p>{action&&<button className="primary" onClick={onClick}>{action}</button>}</div>}
+
+function algorithmIssues(s:AlgorithmSettings):string[]{const issues:string[]=[];for(const [k,v] of Object.entries(s))if(k!=='version'&&!Number.isFinite(Number(v)))issues.push(`${k} is not finite`);if(s.arrowSweetSpot<0)issues.push('Arrow sweet spot cannot be negative');if(s.energyTarget>s.energyCeiling)issues.push('Energy target must be ≤ Energy ceiling');if(s.zoneBreakpoint1>s.zoneBreakpoint2)issues.push('Zone breakpoint 1 must be ≤ breakpoint 2');for(const [label,value] of [['Luck weight',s.luckWeight],['Arrow weight',s.arrowWeight],['Zone weight',s.zoneWeight],['Recovery weight',s.recoveryWeight],['Zone middle multiplier',s.zoneMultiplier2],['Zone upper multiplier',s.zoneMultiplier3]] as const)if(value<0)issues.push(`${label} cannot be negative`);return issues;}
+function newAuthModelEntry():AuthModelEntry{return{id:crypto.randomUUID(),certificateInventoryType:'Wooden Certificate of Authenticity',certificateType:'Normal Certificate of Authenticity',slot:'Any',outcome:'Custom outcome',category:'Custom / unknown',assumedLikelihoodClass:'MEDIUM',observedSampleCount:0,observedValues:[],confidence:'Unknown',enabled:true}}
+function blankItem(slot:Slot='Head'):GearItem{const now=new Date().toISOString();return{id:crypto.randomUUID(),baseName:'',name:'',slot,stats:{...ZERO_STATS},authenticated:false,authentication:{kind:'None',effect:'',value:0},favourite:false,createdAt:now,updatedAt:now}}
+function applyRollToItem(item:GearItem,effect:string,value:number,type:AuthModelEntry['certificateType']):GearItem{
+  let base=removeNumericAuthentication(item);
+  if(base.authenticated){base=structuredClone(base);base.authenticated=false;base.authentication={kind:'None',effect:'',value:0};}
+  const updated=addOutcomeToItem(base,effect,value);
+  updated.authentication.kind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
+  updated.name=generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication);
+  updated.updatedAt=new Date().toISOString();
+  return updated;
+}
+function prepareImportedGear(existing:GearItem[],incoming:GearItem[]):GearItem[]{const used=new Set(existing.map(x=>x.id));return incoming.map(item=>{const clone=structuredClone(item);if(!clone.id||used.has(clone.id))clone.id=crypto.randomUUID();used.add(clone.id);return clone;});}
+function validateItem(i:GearItem){
+  if(!i.baseName.trim())return 'Item name is required.';
+  if(!['Head','Back','Wrist'].includes(i.slot))return 'Valid slot is required.';
+  if(i.conditionPct!==undefined && (!Number.isFinite(i.conditionPct) || i.conditionPct<0 || i.conditionPct>100))return 'Condition must be between 0 and 100%.';
+  if(i.mutation!==undefined && typeof i.mutation!=='string')return 'Mutation must be text.';
+  for(const [k] of statLabels)if(!Number.isFinite(i.stats[k]))return `${k} must be a finite number.`;
+  if(!Number.isFinite(i.authentication.value))return 'Authentication value must be a finite number.';
+  if(!i.authenticated)return '';
+  if(i.authentication.kind==='None')return 'Choose an authentication type.';
+  const effect=i.authentication.effect.trim();
+  if(!effect)return 'Choose an authentication effect.';
+  if(i.authentication.kind==='Normal'&&LEGACY_ALIEN_EFFECTS.includes(effect as never))return `${effect} is a legacy Alien effect and cannot be selected for a new Normal authentication.`;
+  if(i.authentication.kind==='Alien')return ''; // Historical Alien gear remains valid and editable as legacy data.
+  if(i.authentication.kind==='Premium'){
+    for(const [slot,effects] of Object.entries(PREMIUM_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
+  if(i.authentication.kind==='Limited'){
+    for(const [slot,effects] of Object.entries(LIMITED_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
+  for(const [slot,effects] of Object.entries(EXCLUSIVE_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+  return '';
+}
+function displayStat(k:keyof GearStats,v:number){const n=k==='arrowReduction'?reductionToGameArrow(v):v;return `${n>0?'+':''}${n.toFixed(Math.abs(n)%1?1:0)}%`}
+function shortStat(s:string){return s.replace('Energy Drink Time','Energy').replace('Vehicle Speed','Vehicle').replace('Bid Recovery','Recovery').replace('Bid Zone Width','Zone').replace('Bid Arrow Reduction','Arrow').replace('NPC Offers Bonus','NPC')}
+function replacedName(prev:any,next:any,slot:Slot){const key=slot.toLowerCase() as 'head'|'back'|'wrist';return prev[key].id!==next[key].id?prev[key].name:undefined}
+function dateStamp(){return new Date().toISOString().slice(0,10)}
+function downloadText(name:string,text:string,type:string){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+function applyTheme(theme:AppData['theme']){document.documentElement.dataset.theme=theme;if(theme==='system')delete document.documentElement.dataset.theme}
+function navIcon(t:Tab){return ({Dashboard:'▦',Gear:'◆',Optimise:'◎',Vehicle:'▰',Trophies:'♜',Certificates:'◈',Settings:'⚙',More:'•••'} as Record<Tab,string>)[t]}
++cert.displayedValue.toLocaleString():''} · Owned: {cert.quantity}</p>{editInventory&&<div className="formGrid"><label>Mutation<input value={cert.mutation??''} placeholder="None / Secret / …" onChange={e=>patchCertificate(cert.id,{mutation:e.target.value.trim()||undefined})}/></label><label>Grade stars<input type="number" min="0" max="5" step="1" value={cert.gradeStars??''} onChange={e=>patchCertificate(cert.id,{gradeStars:e.target.value===''?undefined:Math.max(0,Math.min(5,Math.trunc(Number(e.target.value)||0)))})}/></label><div className="actions wide"><button onClick={()=>changeQty(cert.id,-1)} disabled={cert.quantity===0}>− Remove one</button><button onClick={()=>changeQty(cert.id,1)}>＋ Add one</button></div></div>}</div>)}</div>
+      <div className="notice">Recording a roll below now consumes the exact selected certificate automatically. Wooden → Premium is compared explicitly against direct Wooden use at the current 150-Diamond conversion cost.</div>
+    </div>
+
+    <div className="sectionTitle"><h2>Record a result</h2></div>
+    {availableCertificates.length?<div className="card">
+      <label>Certificate actually used<select value={selectedCertificateId} onChange={e=>setSelectedCertificateId(e.target.value)}>{availableCertificates.map(cert=><option value={cert.id} key={cert.id}>{cert.type} · {cert.gradeStars!==undefined?'★'.repeat(cert.gradeStars)+' · ':''}{cert.displayedValue!==undefined?'$'+cert.displayedValue.toLocaleString()+' · ':''}owned {cert.quantity}</option>)}</select></label>
+      <button className="secondary" disabled={!selectedCertificate} onClick={()=>setLogOpen(true)}>＋ Record selected certificate roll</button>
+    </div>:<p className="muted">No certificate with quantity remaining is available to record.</p>}
+
+    <div className="sectionTitle"><h2>Roll history</h2></div>
+    <div className="card tableCard">{data.rollLog.length?data.rollLog.slice().reverse().map(r=><div className="logRow" key={r.id}><div><strong>{r.itemName}</strong><span>{new Date(r.date).toLocaleDateString()} · {r.certificateInventoryType??(r.certificateType.startsWith('Normal')?'Legacy Normal':r.certificateType.startsWith('Premium')?'Premium':r.certificateType.startsWith('Limited')?'Limited':'Legacy Alien')}</span></div><div><b>{r.newAuthentication} {r.newValue}%</b><span>{r.bestScoreBefore.toFixed(2)} → {r.bestScoreAfter.toFixed(2)}</span></div></div>):<p className="muted">No certificate rolls recorded yet.</p>}</div>
+
+    {logOpen&&selectedCertificate&&<RollLogEditor data={data} certificate={selectedCertificate} onClose={()=>setLogOpen(false)} onSave={(r,updated)=>{
+      try{
+        setData(applyRecordedCertificateRoll(data,selectedCertificate.id,r,updated));
+        setLogOpen(false);
+      }catch(error){alert(error instanceof Error?error.message:'Could not record certificate roll.')}
+    }}/>}
+  </section>;
+}
+
+function SettingsScreen({data,setData,showToast}:{data:AppData;setData:(d:AppData)=>void;showToast:(s:string)=>void}){
+  const jsonRef=useRef<HTMLInputElement>(null),csvRef=useRef<HTMLInputElement>(null);
+  function setS<K extends keyof AlgorithmSettings>(k:K,v:AlgorithmSettings[K]){setData({...data,settings:{...data.settings,[k]:v}})}
+  const fields:Array<[keyof AlgorithmSettings,string]>=[['luckWeight','Main Auction Luck weight'],['arrowWeight','Main Auction Bid Arrow weight'],['arrowSweetSpot','Bid Arrow sweet spot'],['zoneWeight','Main Auction Bid Zone weight'],['zoneBreakpoint1','Bid Zone breakpoint 1'],['zoneBreakpoint2','Bid Zone breakpoint 2'],['zoneMultiplier2','Bid Zone middle multiplier'],['zoneMultiplier3','Bid Zone upper multiplier'],['recoveryWeight','Main Auction Bid Recovery weight'],['energyTarget','Drink Prep Energy target'],['energyCeiling','Drink Prep Energy ceiling'],['energySecondStageMultiplier','Drink Prep above-target multiplier']];
+  const issues=algorithmIssues(data.settings);
+  return <section><div className="pageHeading"><div><h1>Settings</h1><p>Algorithm Version 2.0</p></div></div>
+    <div className="sectionTitle"><h2>Appearance</h2></div><div className="card"><label>Theme<select value={data.theme} onChange={e=>setData({...data,theme:e.target.value as any})}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label></div>
+    <div className="sectionTitle"><h2>Algorithm editor</h2><button className="secondary compact" onClick={()=>setData({...data,settings:{...LOCKED_DEFAULT_SETTINGS}})}>Reset to locked defaults</button></div>
+    <div className="settingsGrid">{fields.map(([k,label])=><label className="settingField" key={k}><span>{label}</span><input type="number" step="any" value={data.settings[k]} onChange={e=>setS(k,Number(e.target.value) as never)}/></label>)}</div>
+    {issues.length>0&&<div className="notice dangerNotice"><b>Settings need correction:</b> {issues.join(' · ')}</div>}
+    <div className="notice">Algorithm 2.0 uses one shared model for Main Auction, retention and certificate decisions. Displayed Luck is linear. Bid Arrow benefit caps at your 75% sweet spot with no invented over-cap penalty. Drink Prep, Grading and Shop/Idle are separate loadouts and never compensate for a weaker Main Auction result. Day, Night and Rain are evaluated as contextual Main variants instead of fake uptime averages.</div>
+    <div className="sectionTitle"><h2>Authentication outcome catalogue</h2><button className="secondary compact" onClick={()=>setData({...data,authModel:[...data.authModel,newAuthModelEntry()]})}>＋ Add outcome</button></div><div className="card authModel"><p className="muted">This is the live certificate model. Enabled rows, certificate tier, min / typical / max, confidence and relative-weight class all feed directly into certificate EV. MEDIUM is the neutral default because the real per-effect odds are unpublished; changing the class is an explicit user assumption, not a game fact.</p>{data.authModel.filter(m=>m.certificateType!=='Certificate of Alienticity'&&!LEGACY_ALIEN_EFFECTS.includes(m.outcome as never)).slice().sort((a,b)=>(a.certificateInventoryType??'').localeCompare(b.certificateInventoryType??'')||a.slot.localeCompare(b.slot)||a.outcome.localeCompare(b.outcome)).map(m=><AuthModelRow key={m.id} entry={m} onChange={entry=>setData({...data,authModel:data.authModel.map(x=>x.id===entry.id?entry:x)})} onDelete={()=>{if(confirm(`Remove authentication model outcome ${m.outcome}? Roll history is not deleted.`))setData({...data,authModel:data.authModel.filter(x=>x.id!==m.id)})}}/>)}</div>
+    <div className="sectionTitle"><h2>Backup & data safety</h2></div><div className="card buttonStack"><button className="primary" onClick={()=>downloadText(`storage-hunters-backup-${dateStamp()}.json`,exportJson(data),'application/json')}>Download JSON backup</button><button className="secondary" onClick={()=>jsonRef.current?.click()}>Restore JSON backup</button><button className="secondary" onClick={()=>downloadText(`storage-hunters-gear-${dateStamp()}.csv`,gearToCsv(data.gear),'text/csv')}>Export gear CSV</button><button className="secondary" onClick={()=>csvRef.current?.click()}>Import gear CSV</button><input hidden type="file" accept="application/json,.json" ref={jsonRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const d=importJson(await f.text());if(confirm(`Restore backup containing ${d.gear.length} gear items? This replaces current local data.`)){setData(d);showToast('Backup restored')}}catch(err){alert(err instanceof Error?err.message:'Invalid backup')}}}/><input hidden type="file" accept="text/csv,.csv" ref={csvRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const g=csvToGear(await f.text());if(confirm(`Import ${g.length} gear items? They will be added to the current inventory.`)){const imported=prepareImportedGear(data.gear,g);setData({...data,gear:[...data.gear,...imported]});showToast('CSV imported')}}catch(err){alert(err instanceof Error?err.message:'Invalid CSV')}}}/><button className="danger" onClick={()=>{const phrase=prompt('Type RESET ALL DATA to permanently clear all local inventory, certificates, roll history, vehicle parts, trophies and settings back to an empty workspace.');if(phrase==='RESET ALL DATA')setData(makeEmptyData())}}>Clear all local data</button></div>
+  </section>;
+}
+
+function GearEditor({item,authModel,mode,onClose,onSave}:{item:GearItem;authModel:AuthModelEntry[];mode:'add'|'edit';onClose:()=>void;onSave:(i:GearItem,keepAdding?:boolean)=>void}){
+  const [v,setV]=useState({...item,name:generateGearName(item.baseName,item.stats,item.authenticated,item.authentication)});
+  const initialShown=statLabels.filter(([key])=>Math.abs(item.stats[key])>1e-12).map(([key])=>key);
+  const [shownStats,setShownStats]=useState<Array<keyof GearStats>>(initialShown);
+  const patch=(next:Partial<GearItem>)=>setV(current=>{const updated={...current,...next};return {...updated,name:generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication)};});
+  const setStat=(k:keyof GearStats,n:number)=>setV(current=>{const stats={...current.stats,[k]:Number.isFinite(n)?n:0};return {...current,stats,name:generateGearName(current.baseName,stats,current.authenticated,current.authentication)};});
+  const setAuthentication=(next:Partial<GearItem['authentication']>)=>setV(current=>{const authentication={...current.authentication,...next};return {...current,authentication,name:generateGearName(current.baseName,current.stats,current.authenticated,authentication)};});
+  const showStat=(key:keyof GearStats)=>setShownStats(current=>current.includes(key)?current:[...current,key]);
+  const hideStat=(key:keyof GearStats)=>{setStat(key,0);setShownStats(current=>current.filter(k=>k!==key));};
+  const orderedShown=statLabels.filter(([key])=>shownStats.includes(key));
+  const hidden=statLabels.filter(([key])=>!shownStats.includes(key));
+  const displayedArrow=reductionToGameArrow(v.stats.arrowReduction);
+  const legacyAlien=v.authenticated&&v.authentication.kind==='Alien';
+  const currentKind=v.authentication.kind==='Premium'?'Premium':v.authentication.kind==='Limited'?'Limited':'Normal';
+  return <div className="modalBackdrop"><div className="modal sheet"><div className="modalHeader"><div><span className="eyebrow">{mode==='add'?'QUICK ADD GEAR':'EDIT GEAR'}</span><h2>{v.baseName||'New gear'}</h2></div><button className="iconButton" onClick={onClose}>×</button></div>
+    <div className="formGrid quickIdentity"><label className="wide">Actual gear name<input autoFocus value={v.baseName} onChange={e=>patch({baseName:e.target.value})} placeholder="e.g. Pearl Dominus"/></label><label>Slot<select value={v.slot} onChange={e=>patch({slot:e.target.value as Slot})}><option>Head</option><option>Back</option><option>Wrist</option></select></label><label>Mutation<input list={`mutations-${v.id}`} value={v.mutation??''} onChange={e=>patch({mutation:e.target.value})} placeholder="None, Diamond, Gold…"/><datalist id={`mutations-${v.id}`}>{['None','Diamond','Gold','Silver','Cobwebbed','Exclusive','Police','Chrome','Gem','Void','Onyx'].map(m=><option key={m} value={m}/>)}</datalist></label><label>Condition %<input type="number" min="0" max="100" step="any" inputMode="decimal" value={v.conditionPct??''} onChange={e=>patch({conditionPct:e.target.value===''?undefined:Number(e.target.value)})} placeholder="Optional"/></label><label className="check"><input type="checkbox" checked={v.favourite} onChange={e=>patch({favourite:e.target.checked})}/> Lock / favourite</label></div>
+    <div className="autoNamePreview"><span>Automatic name</span><strong>{v.name||'Name updates as stats are entered'}</strong></div>
+    <div className="quickEntrySection"><div className="rowBetween"><div><strong>Stats shown on this item</strong><div className="fieldHelp">Tap only the stats visible in game. Empty fields stay out of the way.</div></div></div>
+      {hidden.length>0&&<div className="statPicker">{hidden.map(([key,label])=><button type="button" key={key} onClick={()=>showStat(key)}>＋ {shortStat(label)}</button>)}</div>}
+      {!orderedShown.length&&<div className="quickEmpty">No stats selected yet.</div>}
+      <div className="quickStatGrid">{orderedShown.map(([key,label])=>key==='arrowReduction'
+        ? <div className="quickStatField arrowQuick" key={key}><label>{label}<input inputMode="decimal" type="number" step="any" value={displayedArrow} onChange={e=>setStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><small>Enter the signed game value, e.g. -24.</small></label><button type="button" className="removeStat" onClick={()=>hideStat(key)}>×</button></div>
+        : <div className="quickStatField" key={key}><label>{label} %<input inputMode="decimal" type="number" step="any" value={v.stats[key]} onChange={e=>setStat(key,Number(e.target.value))}/></label><button type="button" className="removeStat" onClick={()=>hideStat(key)}>×</button></div>)}</div>
+    </div>
+    <details className="finalStatsEditor authQuick" open={v.authenticated}><summary>Authentication {v.authenticated?`— ${v.authentication.kind} · ${v.authentication.effect||'select effect'}`:'— none'}</summary><div className="formGrid"><label className="check wide"><input type="checkbox" checked={v.authenticated} onChange={e=>{const authenticated=e.target.checked;const authentication=authenticated?(v.authenticated?v.authentication:{kind:'Normal' as const,effect:'',value:0}):{kind:'None' as const,effect:'',value:0};setV(current=>({...current,authenticated,authentication,name:generateGearName(current.baseName,current.stats,authenticated,authentication)}));}}/> Authenticated</label>{v.authenticated&&<>{legacyAlien?<><div className="wide notice"><b>Legacy Alien</b> — retained for historical compatibility.</div><label>Type<input value="Legacy Alien" readOnly/></label><label>Legacy effect<input value={v.authentication.effect} readOnly/></label><label>Legacy value %<input type="number" step="any" value={v.authentication.value} onChange={e=>setAuthentication({value:Number(e.target.value)})}/></label></>:<><label>Certificate type<select value={currentKind} onChange={e=>setAuthentication({kind:e.target.value as 'Normal'|'Premium'|'Limited',effect:'',value:0})}><option>Normal</option><option>Premium</option><option>Limited</option></select></label><label>Effect<select value={v.authentication.effect} onChange={e=>setAuthentication({effect:e.target.value})}>{activeAuthenticationOptions(v.slot,v.authentication.effect,authModel,currentKind).map(x=><option value={x} key={x}>{x||'Select effect'}</option>)}</select></label><label>Value %<input type="number" inputMode="decimal" step="any" value={v.authentication.value} onChange={e=>setAuthentication({value:Number(e.target.value)})}/></label><p className="wide fieldHelp">{currentKind==='Premium'?'Premium effects are evaluated by the shared loadout engine where possible; unresolved effects remain protected.':currentKind==='Limited'?'Limited effects are evaluated against your actual Main and specialist loadouts; unknown proc behaviour reduces confidence rather than creating fake certainty.':'Enter the normal/base accessory stats separately. Numeric authentication is added automatically by the optimiser.'}</p></>}</>}</div></details>
+    <div className="stickyActions quickActions"><button className="secondary" onClick={onClose}>Cancel</button>{mode==='add'&&<button className="secondary addAnother" onClick={()=>onSave({...v,name:generateGearName(v.baseName,v.stats,v.authenticated,v.authentication)},true)}>Save + another</button>}<button className="primary" onClick={()=>onSave({...v,name:generateGearName(v.baseName,v.stats,v.authenticated,v.authentication)})}>{mode==='add'?'Analyse & add':'Save changes'}</button></div>
+  </div></div>;
+}
+function NewItemSheet({analysis,onClose}:{analysis:{name:string;standalone:number;previous:number;next:number;bestChanged:boolean;replaced?:string;verdict?:string;bestCert?:string;combined?:GearStats};onClose:()=>void}){const d=analysis.next-analysis.previous;return <div className="modalBackdrop"><div className="modal resultModal"><span className="eyebrow">NEW ITEM ANALYSIS</span><h2>{analysis.name}</h2><div className="resultScore">{analysis.next.toFixed(2)}</div><div className="statsGrid three resultStats"><StatTile label="Standalone" value={analysis.standalone}/><StatTile label="Previous best" value={analysis.previous}/><StatTile label="Improvement" value={d}/></div><p>Best loadout changed: <b>{analysis.bestChanged?'YES':'NO'}</b></p>{analysis.replaced&&<p>Replaces: <b>{analysis.replaced}</b></p>}<StatusBadge status={analysis.verdict??'KEEP'}/>{analysis.combined&&<><div className="sectionTitle"><h3>New combined stats</h3></div><div className="statsGrid">{statLabels.map(([k,l])=><StatTile key={k} label={l} value={analysis.combined![k]} suffix="%"/>)}</div></>}{analysis.bestCert&&<p className="notice">Best certificate targeting: <b>{analysis.bestCert}</b>.</p>}<button className="primary" onClick={onClose}>Done</button></div></div>}
+
+function RollLogEditor({data,certificate,onClose,onSave}:{data:AppData;certificate:OwnedCertificate;onClose:()=>void;onSave:(r:CertificateRollLog,updated:GearItem)=>void}){
+  const type=authModelTypeForOwnedCertificate(certificate);
+  const [itemId,setItemId]=useState(data.gear[0]?.id??'');
+  const item=data.gear.find(g=>g.id===itemId);
+  const [newAuth,setNewAuth]=useState('');
+  const [newValue,setNewValue]=useState(0);
+  const autoPreview=useMemo(()=>item&&newAuth?applyRollToItem(item,newAuth,newValue,type):item,[item,newAuth,newValue,type]);
+  const expectedDisplayedStats=useMemo(()=>autoPreview?effectiveItemStats(autoPreview):undefined,[autoPreview]);
+  const [finalStats,setFinalStats]=useState<GearStats|undefined>(expectedDisplayedStats?{...expectedDisplayedStats}:undefined);
+  useEffect(()=>{setFinalStats(expectedDisplayedStats?{...expectedDisplayedStats}:undefined)},[expectedDisplayedStats]);
+  useEffect(()=>{setNewAuth('');setNewValue(0)},[itemId,type]);
+  const preview=useMemo(()=>{
+    if(!autoPreview||!finalStats)return autoPreview;
+    const observed=withObservedAuthenticationStats(autoPreview,finalStats);
+    return {...observed,name:generateGearName(observed.baseName,observed.stats,observed.authenticated,observed.authentication)};
+  },[autoPreview,finalStats]);
+  const before=optimise(data.gear,data.settings,1)[0]?.score.total??0;
+  const previewGear=preview?data.gear.map(g=>g.id===preview.id?preview:g):data.gear;
+  const after=optimise(previewGear,data.settings,1)[0]?.score.total??before;
+  const setFinalStat=(key:keyof GearStats,value:number)=>setFinalStats(current=>({...ZERO_STATS,...current,[key]:Number.isFinite(value)?value:0}));
+  const authKind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
+  return <div className="modalBackdrop"><div className="modal"><div className="modalHeader"><h2>Record certificate roll</h2><button className="iconButton" onClick={onClose}>×</button></div>
+    <div className="notice"><b>Certificate being consumed:</b> {certificate.type}{certificate.gradeStars!==undefined?' · '+'★'.repeat(certificate.gradeStars):''}{certificate.displayedValue!==undefined?' · $'+certificate.displayedValue.toLocaleString():''}. Saving this roll reduces its owned quantity by one.</div>
+    <div className="formGrid"><label className="wide">Item<select value={itemId} onChange={e=>setItemId(e.target.value)}>{data.gear.map(g=><option value={g.id} key={g.id}>{g.name} · {g.slot}</option>)}</select></label><label>New authentication<select value={newAuth} onChange={e=>setNewAuth(e.target.value)}><option value="">Select result</option>{activeCertificateOutcomeOptions(item?.slot,data.authModel,authKind,certificate.type).map(a=><option key={a}>{a}</option>)}</select></label><label>New value %<input type="number" step="any" value={newValue} onChange={e=>setNewValue(Number(e.target.value))}/></label><label>Best score before<input type="number" value={before} readOnly/></label><label>Calculated score after<input type="number" value={after} readOnly/></label><p className="wide fieldHelp">These are the final stats displayed in game after the new authentication. Any difference caused by the authentication (especially Focused) is stored on that authentication only; the item's base stats are not overwritten.</p></div>
+    {finalStats&&<details className="finalStatsEditor"><summary>Confirm / correct final displayed stats</summary><div className="formGrid">{statLabels.filter(([k])=>k!=='arrowReduction').map(([k,l])=><label key={k}>{l} %<input type="number" inputMode="decimal" step="any" value={finalStats[k]} onChange={e=>setFinalStat(k,Number(e.target.value))}/></label>)}<label className="wide arrowInput">Bid Arrow Speed — game display %<input type="number" inputMode="decimal" step="any" value={reductionToGameArrow(finalStats.arrowReduction)} onChange={e=>setFinalStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><span>Enter the signed value shown by the game.</span></label></div></details>}
+    <div className="stickyActions"><button className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={!item||!newAuth||!preview||certificate.quantity<1} onClick={()=>{item&&preview&&onSave({id:crypto.randomUUID(),date:new Date().toISOString(),certificateType:type,itemId:item.id,itemName:item.name,slot:item.slot,previousAuthentication:item.authentication.effect,previousValue:item.authentication.value,newAuthentication:newAuth,newValue,improvedBestSet:after>before,bestScoreBefore:before,bestScoreAfter:after,certificateId:certificate.id,certificateGradeStars:certificate.gradeStars,certificateInventoryType:certificate.type},preview)}}>Apply, record & consume</button></div>
+  </div></div>;
+}
+
+function authModelCertificateType(type:OwnedCertificate['type']):AuthModelEntry['certificateType']{
+  return type==='Premium Certificate of Authenticity'
+    ?'Premium Certificate of Authenticity'
+    :type==='Limited Certificate of Authenticity'
+      ?'Limited Certificate of Authenticity'
+      :'Normal Certificate of Authenticity';
+}
+
+function AuthModelRow({entry,onChange,onDelete}:{entry:AuthModelEntry;onChange:(e:AuthModelEntry)=>void;onDelete:()=>void}){
+  const inventoryType=entry.certificateInventoryType??(
+    entry.certificateType==='Premium Certificate of Authenticity'?'Premium Certificate of Authenticity':
+    entry.certificateType==='Limited Certificate of Authenticity'?'Limited Certificate of Authenticity':
+    'Wooden Certificate of Authenticity'
+  );
+  return <details className="modelRow">
+    <summary><span>{entry.outcome}</span><span>{inventoryType.replace(' Certificate of Authenticity','')} · {entry.slot} · {entry.assumedLikelihoodClass}{entry.enabled?'':' · disabled'}</span></summary>
+    <div className="formGrid">
+      <label className="wide">Outcome<input value={entry.outcome} onChange={e=>onChange({...entry,outcome:e.target.value})}/></label>
+      <label>Certificate tier<select value={inventoryType} onChange={e=>{const certificateInventoryType=e.target.value as OwnedCertificate['type'];onChange({...entry,certificateInventoryType,certificateType:authModelCertificateType(certificateInventoryType)})}}><option>Wooden Certificate of Authenticity</option><option>Ripped Certificate of Authenticity</option><option>Premium Certificate of Authenticity</option><option>Limited Certificate of Authenticity</option></select></label>
+      <label>Slot<select value={entry.slot} onChange={e=>onChange({...entry,slot:e.target.value as AuthModelEntry['slot']})}><option>Any</option><option>Head</option><option>Back</option><option>Wrist</option></select></label>
+      <label className="wide">Category<input value={entry.category} onChange={e=>onChange({...entry,category:e.target.value})}/></label>
+      <label>Relative-weight class<select value={entry.assumedLikelihoodClass} onChange={e=>onChange({...entry,assumedLikelihoodClass:e.target.value as AuthModelEntry['assumedLikelihoodClass']})}>{['VERY HIGH','HIGH','MEDIUM','LOW','VERY LOW'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Confidence<select value={entry.confidence} onChange={e=>onChange({...entry,confidence:e.target.value as AuthModelEntry['confidence']})}>{['Unknown','Low','Medium','High','Empirical'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Optional min<input type="number" step="any" value={entry.min??''} onChange={e=>onChange({...entry,min:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label>Optional typical<input type="number" step="any" value={entry.typical??''} onChange={e=>onChange({...entry,typical:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label>Optional max<input type="number" step="any" value={entry.max??''} onChange={e=>onChange({...entry,max:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label className="check"><input type="checkbox" checked={entry.enabled} onChange={e=>onChange({...entry,enabled:e.target.checked})}/> Enabled in live EV</label>
+      <div className="wide fieldHelp">Observed samples: {entry.observedSampleCount}. Values: {entry.observedValues.length?entry.observedValues.join(', '):'none yet'}. As exact-tier samples accumulate, empirical roll strength progressively outweighs the min/typical/max prior.</div>
+      <button className="danger wide" onClick={onDelete}>Delete model outcome</button>
+    </div>
+  </details>;
+}
+
+function LoadoutCard({slot,item}:{slot:string;item:GearItem}){return <div className="loadoutCard"><span>{slot}</span><strong>{item.baseName||item.name}</strong>{item.authentication.effect&&<small>{item.authentication.effect} {item.authentication.value?`${item.authentication.value}%`:''}</small>}</div>}
+function StatTile({label,value,suffix=''}:{label:string;value:number;suffix?:string}){return <div className="statTile"><span>{label}</span><strong>{Number.isFinite(value)?value.toFixed(Math.abs(value)%1?2:0):'—'}{suffix}</strong></div>}
+function ArrowThresholdCard({value,settings}:{value:number;settings:AlgorithmSettings}){const max=Math.max(settings.arrowSweetSpot,100);const pct=Math.min(100,Math.max(0,value/max*100));const excess=Math.max(0,value-settings.arrowSweetSpot);return <div className="thresholdCard"><div className="rowBetween"><strong>Bid Arrow reduction</strong><span>{value.toFixed(1)}% · target {settings.arrowSweetSpot}%</span></div><div className="progress arrowProgress"><i style={{width:`${pct}%`}}/><b style={{left:`${settings.arrowSweetSpot/max*100}%`}}/></div>{excess>0&&<div className="fieldHelp">{excess.toFixed(1)}% is above your 75% sweet spot. It is treated as wasted, not as an invented gameplay penalty.</div>}</div>}
+function ThresholdCard({label,value,target,ceiling}:{label:string;value:number;target:number;ceiling:number}){const pct=Math.min(100,Math.max(0,value/ceiling*100));return <div className="thresholdCard"><div className="rowBetween"><strong>{label}</strong><span>{value.toFixed(1)}% · target {target}% · ceiling {ceiling}%</span></div><div className="progress"><i style={{width:`${pct}%`}}/><b style={{left:`${target/ceiling*100}%`}}/></div></div>}
+function StatusBadge({status}:{status:string}){return <span className={`badge status ${status.toLowerCase().replaceAll(' ','-').replaceAll('/','')}`}>{status}</span>}
+function EmptyState({title,text,action,onClick}:{title:string;text:string;action?:string;onClick?:()=>void}){return <div className="empty"><div className="emptyIcon">⌁</div><h3>{title}</h3><p>{text}</p>{action&&<button className="primary" onClick={onClick}>{action}</button>}</div>}
+
+function algorithmIssues(s:AlgorithmSettings):string[]{const issues:string[]=[];for(const [k,v] of Object.entries(s))if(k!=='version'&&!Number.isFinite(Number(v)))issues.push(`${k} is not finite`);if(s.arrowSweetSpot<0)issues.push('Arrow sweet spot cannot be negative');if(s.energyTarget>s.energyCeiling)issues.push('Energy target must be ≤ Energy ceiling');if(s.zoneBreakpoint1>s.zoneBreakpoint2)issues.push('Zone breakpoint 1 must be ≤ breakpoint 2');for(const [label,value] of [['Luck weight',s.luckWeight],['Arrow weight',s.arrowWeight],['Zone weight',s.zoneWeight],['Recovery weight',s.recoveryWeight],['Zone middle multiplier',s.zoneMultiplier2],['Zone upper multiplier',s.zoneMultiplier3]] as const)if(value<0)issues.push(`${label} cannot be negative`);return issues;}
+function newAuthModelEntry():AuthModelEntry{return{id:crypto.randomUUID(),certificateInventoryType:'Wooden Certificate of Authenticity',certificateType:'Normal Certificate of Authenticity',slot:'Any',outcome:'Custom outcome',category:'Custom / unknown',assumedLikelihoodClass:'MEDIUM',observedSampleCount:0,observedValues:[],confidence:'Unknown',enabled:true}}
+function blankItem(slot:Slot='Head'):GearItem{const now=new Date().toISOString();return{id:crypto.randomUUID(),baseName:'',name:'',slot,stats:{...ZERO_STATS},authenticated:false,authentication:{kind:'None',effect:'',value:0},favourite:false,createdAt:now,updatedAt:now}}
+function applyRollToItem(item:GearItem,effect:string,value:number,type:AuthModelEntry['certificateType']):GearItem{
+  let base=removeNumericAuthentication(item);
+  if(base.authenticated){base=structuredClone(base);base.authenticated=false;base.authentication={kind:'None',effect:'',value:0};}
+  const updated=addOutcomeToItem(base,effect,value);
+  updated.authentication.kind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
+  updated.name=generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication);
+  updated.updatedAt=new Date().toISOString();
+  return updated;
+}
+function prepareImportedGear(existing:GearItem[],incoming:GearItem[]):GearItem[]{const used=new Set(existing.map(x=>x.id));return incoming.map(item=>{const clone=structuredClone(item);if(!clone.id||used.has(clone.id))clone.id=crypto.randomUUID();used.add(clone.id);return clone;});}
+function validateItem(i:GearItem){
+  if(!i.baseName.trim())return 'Item name is required.';
+  if(!['Head','Back','Wrist'].includes(i.slot))return 'Valid slot is required.';
+  if(i.conditionPct!==undefined && (!Number.isFinite(i.conditionPct) || i.conditionPct<0 || i.conditionPct>100))return 'Condition must be between 0 and 100%.';
+  if(i.mutation!==undefined && typeof i.mutation!=='string')return 'Mutation must be text.';
+  for(const [k] of statLabels)if(!Number.isFinite(i.stats[k]))return `${k} must be a finite number.`;
+  if(!Number.isFinite(i.authentication.value))return 'Authentication value must be a finite number.';
+  if(!i.authenticated)return '';
+  if(i.authentication.kind==='None')return 'Choose an authentication type.';
+  const effect=i.authentication.effect.trim();
+  if(!effect)return 'Choose an authentication effect.';
+  if(i.authentication.kind==='Normal'&&LEGACY_ALIEN_EFFECTS.includes(effect as never))return `${effect} is a legacy Alien effect and cannot be selected for a new Normal authentication.`;
+  if(i.authentication.kind==='Alien')return ''; // Historical Alien gear remains valid and editable as legacy data.
+  if(i.authentication.kind==='Premium'){
+    for(const [slot,effects] of Object.entries(PREMIUM_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
+  if(i.authentication.kind==='Limited'){
+    for(const [slot,effects] of Object.entries(LIMITED_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
+  for(const [slot,effects] of Object.entries(EXCLUSIVE_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+  return '';
+}
+function displayStat(k:keyof GearStats,v:number){const n=k==='arrowReduction'?reductionToGameArrow(v):v;return `${n>0?'+':''}${n.toFixed(Math.abs(n)%1?1:0)}%`}
+function shortStat(s:string){return s.replace('Energy Drink Time','Energy').replace('Vehicle Speed','Vehicle').replace('Bid Recovery','Recovery').replace('Bid Zone Width','Zone').replace('Bid Arrow Reduction','Arrow').replace('NPC Offers Bonus','NPC')}
+function replacedName(prev:any,next:any,slot:Slot){const key=slot.toLowerCase() as 'head'|'back'|'wrist';return prev[key].id!==next[key].id?prev[key].name:undefined}
+function dateStamp(){return new Date().toISOString().slice(0,10)}
+function downloadText(name:string,text:string,type:string){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+function applyTheme(theme:AppData['theme']){document.documentElement.dataset.theme=theme;if(theme==='system')delete document.documentElement.dataset.theme}
+function navIcon(t:Tab){return ({Dashboard:'▦',Gear:'◆',Optimise:'◎',Vehicle:'▰',Trophies:'♜',Certificates:'◈',Settings:'⚙',More:'•••'} as Record<Tab,string>)[t]}
++decision.certificate.displayedValue.toLocaleString():''}</span>
+            </div>
+            <div className="premiumVerdict">{decision.verdict}</div>
+          </summary>
+          <div className="comboBody">
+            {target?<>
+              <div className="rowBetween"><div><span className="eyebrow">BEST CURRENT TARGET</span><h3>{target.item.baseName||target.item.name}</h3><p>{target.item.slot}{target.item.authenticated?' · replacing '+target.item.authentication.effect:''}</p></div><span className="badge heuristic">{target.confidencePct.toFixed(0)}% CONFIDENCE</span></div>
+
+              <div className="statsGrid three">
+                <StatTile label="Robust Main improves" value={target.chanceOfImprovementPct} suffix="%"/>
+                <StatTile label="Potential Main improves" value={target.chanceOfPotentialImprovementPct} suffix="%"/>
+                <StatTile label="Expected Main change" value={target.expectedImprovementPct} suffix="%"/>
+                <StatTile label="Chance Main/context worsens" value={target.chanceOfWorsePct} suffix="%"/>
+                <StatTile label="Meaningful robust gain ≥1%" value={target.chanceOfMeaningfulImprovementPct} suffix="%"/>
+                <StatTile label="Unresolved outcome mass" value={target.unresolvedOutcomeMassPct} suffix="%"/>
+                <StatTile label="Current Main fit" value={target.mainFitPct} suffix="%"/>
+              </div>
+
+              <div className="thresholdTable">
+                <div><b>Main sensitivity low / central / high</b><span>{signed(target.expectedImprovementLowPct)} / {signed(target.expectedImprovementPct)} / {signed(target.expectedImprovementHighPct)}</span></div>
+                <div><b>Average robust gain when successful</b><span>{signed(target.averageGainWhenSuccessfulPct)}</span></div>
+                <div><b>Average demonstrated loss when worse</b><span>{signed(target.averageLossWhenWorsePct)}</span></div>
+                <div><b>10th / median / 90th central percentile</b><span>{signed(target.p10Pct)} / {signed(target.medianPct)} / {signed(target.p90Pct)}</span></div>
+                <div><b>Best possible modelled branch</b><span>{target.bestPossibleOutcome} · {signed(target.bestCasePct)}</span></div>
+                <div><b>Worst modelled Main/context branch</b><span>{target.worstPossibleOutcome} · {signed(target.worstCasePct)}</span></div>
+                <div><b>Authentication risk — neutral Main</b><span>{signed(target.currentAuthenticationMainRiskPct)}</span></div>
+                <div><b>Authentication risk — Day/Night/Rain</b><span>{signed(target.currentAuthenticationContextRiskPct)}</span></div>
+                <div><b>Authentication risk — Drink Prep</b><span>{signed(target.currentAuthenticationDrinkRiskPct)}</span></div>
+                <div><b>Authentication risk — Grading</b><span>{signed(target.currentAuthenticationGradingRiskPct)}</span></div>
+                <div><b>Authentication risk — Shop/Idle</b><span>{signed(target.currentAuthenticationShopRiskPct)}</span></div>
+                <div><b>Worst authentication risk anywhere relevant</b><span>{signed(target.currentAuthenticationValueAtRiskPct)}</span></div>
+                <div><b>Average Day/Night/Rain impact</b><span>{signed(target.expectedContextualMainPct)}</span></div>
+                <div><b>Worst Day/Night/Rain impact</b><span>{signed(target.worstContextualMainPct)}</span></div>
+                <div><b>Expected Drink Prep impact</b><span>{signed(target.expectedDrinkPrepPct)}</span></div>
+                <div><b>Expected Grading impact</b><span>{signed(target.expectedGradingPct)}</span></div>
+                <div><b>Expected Shop/Idle impact</b><span>{signed(target.expectedShopPct)}</span></div>
+              </div>
+
+              {target.unresolvedEffects.length>0&&<div className="notice warning"><b>Unresolved magnitude:</b> {target.unresolvedEffects.join(', ')}. These branches are not treated as zero-value known outcomes and cannot produce a USE verdict until supported by numeric evidence.</div>}
+              <ul>{target.reasons.map((reason,i)=><li key={i}>{reason}</li>)}</ul>
+
+              {decision.conversion&&<div className="notice"><b>Wooden → Premium opportunity cost:</b> {decision.conversion.recommendation}. Direct Wooden EV {signed(decision.conversion.directExpectedMainPct)} vs synthetic Premium EV {signed(decision.conversion.premiumExpectedMainPct)}. Conversion costs {decision.conversion.diamondCost} Diamonds. {decision.conversion.reason}</div>}
+
+              <details>
+                <summary>Other targets</summary>
+                <div className="thresholdTable">{decision.targets.slice(1,7).map((alt,index)=><div key={alt.item.id}><b>#{index+2} {alt.item.baseName||alt.item.name} · {alt.verdict}</b><span>{alt.chanceOfImprovementPct.toFixed(1)}% robust improve · EV {signed(alt.expectedImprovementPct)}</span></div>)}</div>
+              </details>
+            </>:<p className="muted">A complete Head, Back and Wrist inventory is required.</p>}
+
+            <div className="notice warning"><b>Evidence boundary:</b> these are modelled decision percentages, not hidden Roblox loot odds. Effect selection uses a neutral equal prior until exact-certificate observations exist. Unknown star transforms and unresolved magnitudes reduce confidence instead of being invented.</div>
+          </div>
+        </details>;
+      })}
+      {!certificateState.computing&&!certificateState.error&&!decisions.length&&<p className="muted">No owned certificates are available for analysis.</p>}
+    </div>
+
+    <div className="card">
+      <div className="sectionTitle"><h2>Owned certificates</h2><button className="secondary compact" onClick={()=>setEditInventory(!editInventory)}>{editInventory?'Done':'Manual adjustment'}</button></div>
+      <div className="gearList">{data.ownedCertificates.map(cert=><div className="gearCard" key={cert.id}><strong>{cert.type}</strong><p>{cert.rarity||'Certificate'}{cert.gradeStars!==undefined?' · '+'★'.repeat(cert.gradeStars):''}{cert.displayedValue!==undefined?' · $'+cert.displayedValue.toLocaleString():''} · Owned: {cert.quantity}</p>{editInventory&&<div className="actions"><button onClick={()=>changeQty(cert.id,-1)} disabled={cert.quantity===0}>− Remove one</button><button onClick={()=>changeQty(cert.id,1)}>＋ Add one</button></div>}</div>)}</div>
+      <div className="notice">Recording a roll below now consumes the exact selected certificate automatically. Wooden → Premium is compared explicitly against direct Wooden use at the current 150-Diamond conversion cost.</div>
+    </div>
+
+    <div className="sectionTitle"><h2>Record a result</h2></div>
+    {availableCertificates.length?<div className="card">
+      <label>Certificate actually used<select value={selectedCertificateId} onChange={e=>setSelectedCertificateId(e.target.value)}>{availableCertificates.map(cert=><option value={cert.id} key={cert.id}>{cert.type} · {cert.gradeStars!==undefined?'★'.repeat(cert.gradeStars)+' · ':''}{cert.displayedValue!==undefined?'$'+cert.displayedValue.toLocaleString()+' · ':''}owned {cert.quantity}</option>)}</select></label>
+      <button className="secondary" disabled={!selectedCertificate} onClick={()=>setLogOpen(true)}>＋ Record selected certificate roll</button>
+    </div>:<p className="muted">No certificate with quantity remaining is available to record.</p>}
+
+    <div className="sectionTitle"><h2>Roll history</h2></div>
+    <div className="card tableCard">{data.rollLog.length?data.rollLog.slice().reverse().map(r=><div className="logRow" key={r.id}><div><strong>{r.itemName}</strong><span>{new Date(r.date).toLocaleDateString()} · {r.certificateInventoryType??(r.certificateType.startsWith('Normal')?'Legacy Normal':r.certificateType.startsWith('Premium')?'Premium':r.certificateType.startsWith('Limited')?'Limited':'Legacy Alien')}</span></div><div><b>{r.newAuthentication} {r.newValue}%</b><span>{r.bestScoreBefore.toFixed(2)} → {r.bestScoreAfter.toFixed(2)}</span></div></div>):<p className="muted">No certificate rolls recorded yet.</p>}</div>
+
+    {logOpen&&selectedCertificate&&<RollLogEditor data={data} certificate={selectedCertificate} onClose={()=>setLogOpen(false)} onSave={(r,updated)=>{
+      try{
+        setData(applyRecordedCertificateRoll(data,selectedCertificate.id,r,updated));
+        setLogOpen(false);
+      }catch(error){alert(error instanceof Error?error.message:'Could not record certificate roll.')}
+    }}/>}
+  </section>;
+}
+
+function SettingsScreen({data,setData,showToast}:{data:AppData;setData:(d:AppData)=>void;showToast:(s:string)=>void}){
+  const jsonRef=useRef<HTMLInputElement>(null),csvRef=useRef<HTMLInputElement>(null);
+  function setS<K extends keyof AlgorithmSettings>(k:K,v:AlgorithmSettings[K]){setData({...data,settings:{...data.settings,[k]:v}})}
+  const fields:Array<[keyof AlgorithmSettings,string]>=[['luckWeight','Main Auction Luck weight'],['arrowWeight','Main Auction Bid Arrow weight'],['arrowSweetSpot','Bid Arrow sweet spot'],['zoneWeight','Main Auction Bid Zone weight'],['zoneBreakpoint1','Bid Zone breakpoint 1'],['zoneBreakpoint2','Bid Zone breakpoint 2'],['zoneMultiplier2','Bid Zone middle multiplier'],['zoneMultiplier3','Bid Zone upper multiplier'],['recoveryWeight','Main Auction Bid Recovery weight'],['energyTarget','Drink Prep Energy target'],['energyCeiling','Drink Prep Energy ceiling'],['energySecondStageMultiplier','Drink Prep above-target multiplier']];
+  const issues=algorithmIssues(data.settings);
+  return <section><div className="pageHeading"><div><h1>Settings</h1><p>Algorithm Version 2.0</p></div></div>
+    <div className="sectionTitle"><h2>Appearance</h2></div><div className="card"><label>Theme<select value={data.theme} onChange={e=>setData({...data,theme:e.target.value as any})}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label></div>
+    <div className="sectionTitle"><h2>Algorithm editor</h2><button className="secondary compact" onClick={()=>setData({...data,settings:{...LOCKED_DEFAULT_SETTINGS}})}>Reset to locked defaults</button></div>
+    <div className="settingsGrid">{fields.map(([k,label])=><label className="settingField" key={k}><span>{label}</span><input type="number" step="any" value={data.settings[k]} onChange={e=>setS(k,Number(e.target.value) as never)}/></label>)}</div>
+    {issues.length>0&&<div className="notice dangerNotice"><b>Settings need correction:</b> {issues.join(' · ')}</div>}
+    <div className="notice">Algorithm 2.0 uses one shared model for Main Auction, retention and certificate decisions. Displayed Luck is linear. Bid Arrow benefit caps at your 75% sweet spot with no invented over-cap penalty. Drink Prep, Grading and Shop/Idle are separate loadouts and never compensate for a weaker Main Auction result. Day, Night and Rain are evaluated as contextual Main variants instead of fake uptime averages.</div>
+    <div className="sectionTitle"><h2>Authentication outcome catalogue</h2><button className="secondary compact" onClick={()=>setData({...data,authModel:[...data.authModel,newAuthModelEntry()]})}>＋ Add outcome</button></div><div className="card authModel"><p className="muted">This is the live certificate model. Enabled rows, certificate tier, min / typical / max, confidence and relative-weight class all feed directly into certificate EV. MEDIUM is the neutral default because the real per-effect odds are unpublished; changing the class is an explicit user assumption, not a game fact.</p>{data.authModel.filter(m=>m.certificateType!=='Certificate of Alienticity'&&!LEGACY_ALIEN_EFFECTS.includes(m.outcome as never)).slice().sort((a,b)=>(a.certificateInventoryType??'').localeCompare(b.certificateInventoryType??'')||a.slot.localeCompare(b.slot)||a.outcome.localeCompare(b.outcome)).map(m=><AuthModelRow key={m.id} entry={m} onChange={entry=>setData({...data,authModel:data.authModel.map(x=>x.id===entry.id?entry:x)})} onDelete={()=>{if(confirm(`Remove authentication model outcome ${m.outcome}? Roll history is not deleted.`))setData({...data,authModel:data.authModel.filter(x=>x.id!==m.id)})}}/>)}</div>
+    <div className="sectionTitle"><h2>Backup & data safety</h2></div><div className="card buttonStack"><button className="primary" onClick={()=>downloadText(`storage-hunters-backup-${dateStamp()}.json`,exportJson(data),'application/json')}>Download JSON backup</button><button className="secondary" onClick={()=>jsonRef.current?.click()}>Restore JSON backup</button><button className="secondary" onClick={()=>downloadText(`storage-hunters-gear-${dateStamp()}.csv`,gearToCsv(data.gear),'text/csv')}>Export gear CSV</button><button className="secondary" onClick={()=>csvRef.current?.click()}>Import gear CSV</button><input hidden type="file" accept="application/json,.json" ref={jsonRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const d=importJson(await f.text());if(confirm(`Restore backup containing ${d.gear.length} gear items? This replaces current local data.`)){setData(d);showToast('Backup restored')}}catch(err){alert(err instanceof Error?err.message:'Invalid backup')}}}/><input hidden type="file" accept="text/csv,.csv" ref={csvRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const g=csvToGear(await f.text());if(confirm(`Import ${g.length} gear items? They will be added to the current inventory.`)){const imported=prepareImportedGear(data.gear,g);setData({...data,gear:[...data.gear,...imported]});showToast('CSV imported')}}catch(err){alert(err instanceof Error?err.message:'Invalid CSV')}}}/><button className="danger" onClick={()=>{const phrase=prompt('Type RESET ALL DATA to permanently clear all local inventory, certificates, roll history, vehicle parts, trophies and settings back to an empty workspace.');if(phrase==='RESET ALL DATA')setData(makeEmptyData())}}>Clear all local data</button></div>
+  </section>;
+}
+
+function GearEditor({item,authModel,mode,onClose,onSave}:{item:GearItem;authModel:AuthModelEntry[];mode:'add'|'edit';onClose:()=>void;onSave:(i:GearItem,keepAdding?:boolean)=>void}){
+  const [v,setV]=useState({...item,name:generateGearName(item.baseName,item.stats,item.authenticated,item.authentication)});
+  const initialShown=statLabels.filter(([key])=>Math.abs(item.stats[key])>1e-12).map(([key])=>key);
+  const [shownStats,setShownStats]=useState<Array<keyof GearStats>>(initialShown);
+  const patch=(next:Partial<GearItem>)=>setV(current=>{const updated={...current,...next};return {...updated,name:generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication)};});
+  const setStat=(k:keyof GearStats,n:number)=>setV(current=>{const stats={...current.stats,[k]:Number.isFinite(n)?n:0};return {...current,stats,name:generateGearName(current.baseName,stats,current.authenticated,current.authentication)};});
+  const setAuthentication=(next:Partial<GearItem['authentication']>)=>setV(current=>{const authentication={...current.authentication,...next};return {...current,authentication,name:generateGearName(current.baseName,current.stats,current.authenticated,authentication)};});
+  const showStat=(key:keyof GearStats)=>setShownStats(current=>current.includes(key)?current:[...current,key]);
+  const hideStat=(key:keyof GearStats)=>{setStat(key,0);setShownStats(current=>current.filter(k=>k!==key));};
+  const orderedShown=statLabels.filter(([key])=>shownStats.includes(key));
+  const hidden=statLabels.filter(([key])=>!shownStats.includes(key));
+  const displayedArrow=reductionToGameArrow(v.stats.arrowReduction);
+  const legacyAlien=v.authenticated&&v.authentication.kind==='Alien';
+  const currentKind=v.authentication.kind==='Premium'?'Premium':v.authentication.kind==='Limited'?'Limited':'Normal';
+  return <div className="modalBackdrop"><div className="modal sheet"><div className="modalHeader"><div><span className="eyebrow">{mode==='add'?'QUICK ADD GEAR':'EDIT GEAR'}</span><h2>{v.baseName||'New gear'}</h2></div><button className="iconButton" onClick={onClose}>×</button></div>
+    <div className="formGrid quickIdentity"><label className="wide">Actual gear name<input autoFocus value={v.baseName} onChange={e=>patch({baseName:e.target.value})} placeholder="e.g. Pearl Dominus"/></label><label>Slot<select value={v.slot} onChange={e=>patch({slot:e.target.value as Slot})}><option>Head</option><option>Back</option><option>Wrist</option></select></label><label>Mutation<input list={`mutations-${v.id}`} value={v.mutation??''} onChange={e=>patch({mutation:e.target.value})} placeholder="None, Diamond, Gold…"/><datalist id={`mutations-${v.id}`}>{['None','Diamond','Gold','Silver','Cobwebbed','Exclusive','Police','Chrome','Gem','Void','Onyx'].map(m=><option key={m} value={m}/>)}</datalist></label><label>Condition %<input type="number" min="0" max="100" step="any" inputMode="decimal" value={v.conditionPct??''} onChange={e=>patch({conditionPct:e.target.value===''?undefined:Number(e.target.value)})} placeholder="Optional"/></label><label className="check"><input type="checkbox" checked={v.favourite} onChange={e=>patch({favourite:e.target.checked})}/> Lock / favourite</label></div>
+    <div className="autoNamePreview"><span>Automatic name</span><strong>{v.name||'Name updates as stats are entered'}</strong></div>
+    <div className="quickEntrySection"><div className="rowBetween"><div><strong>Stats shown on this item</strong><div className="fieldHelp">Tap only the stats visible in game. Empty fields stay out of the way.</div></div></div>
+      {hidden.length>0&&<div className="statPicker">{hidden.map(([key,label])=><button type="button" key={key} onClick={()=>showStat(key)}>＋ {shortStat(label)}</button>)}</div>}
+      {!orderedShown.length&&<div className="quickEmpty">No stats selected yet.</div>}
+      <div className="quickStatGrid">{orderedShown.map(([key,label])=>key==='arrowReduction'
+        ? <div className="quickStatField arrowQuick" key={key}><label>{label}<input inputMode="decimal" type="number" step="any" value={displayedArrow} onChange={e=>setStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><small>Enter the signed game value, e.g. -24.</small></label><button type="button" className="removeStat" onClick={()=>hideStat(key)}>×</button></div>
+        : <div className="quickStatField" key={key}><label>{label} %<input inputMode="decimal" type="number" step="any" value={v.stats[key]} onChange={e=>setStat(key,Number(e.target.value))}/></label><button type="button" className="removeStat" onClick={()=>hideStat(key)}>×</button></div>)}</div>
+    </div>
+    <details className="finalStatsEditor authQuick" open={v.authenticated}><summary>Authentication {v.authenticated?`— ${v.authentication.kind} · ${v.authentication.effect||'select effect'}`:'— none'}</summary><div className="formGrid"><label className="check wide"><input type="checkbox" checked={v.authenticated} onChange={e=>{const authenticated=e.target.checked;const authentication=authenticated?(v.authenticated?v.authentication:{kind:'Normal' as const,effect:'',value:0}):{kind:'None' as const,effect:'',value:0};setV(current=>({...current,authenticated,authentication,name:generateGearName(current.baseName,current.stats,authenticated,authentication)}));}}/> Authenticated</label>{v.authenticated&&<>{legacyAlien?<><div className="wide notice"><b>Legacy Alien</b> — retained for historical compatibility.</div><label>Type<input value="Legacy Alien" readOnly/></label><label>Legacy effect<input value={v.authentication.effect} readOnly/></label><label>Legacy value %<input type="number" step="any" value={v.authentication.value} onChange={e=>setAuthentication({value:Number(e.target.value)})}/></label></>:<><label>Certificate type<select value={currentKind} onChange={e=>setAuthentication({kind:e.target.value as 'Normal'|'Premium'|'Limited',effect:'',value:0})}><option>Normal</option><option>Premium</option><option>Limited</option></select></label><label>Effect<select value={v.authentication.effect} onChange={e=>setAuthentication({effect:e.target.value})}>{activeAuthenticationOptions(v.slot,v.authentication.effect,authModel,currentKind).map(x=><option value={x} key={x}>{x||'Select effect'}</option>)}</select></label><label>Value %<input type="number" inputMode="decimal" step="any" value={v.authentication.value} onChange={e=>setAuthentication({value:Number(e.target.value)})}/></label><p className="wide fieldHelp">{currentKind==='Premium'?'Premium effects are evaluated by the shared loadout engine where possible; unresolved effects remain protected.':currentKind==='Limited'?'Limited effects are evaluated against your actual Main and specialist loadouts; unknown proc behaviour reduces confidence rather than creating fake certainty.':'Enter the normal/base accessory stats separately. Numeric authentication is added automatically by the optimiser.'}</p></>}</>}</div></details>
+    <div className="stickyActions quickActions"><button className="secondary" onClick={onClose}>Cancel</button>{mode==='add'&&<button className="secondary addAnother" onClick={()=>onSave({...v,name:generateGearName(v.baseName,v.stats,v.authenticated,v.authentication)},true)}>Save + another</button>}<button className="primary" onClick={()=>onSave({...v,name:generateGearName(v.baseName,v.stats,v.authenticated,v.authentication)})}>{mode==='add'?'Analyse & add':'Save changes'}</button></div>
+  </div></div>;
+}
+function NewItemSheet({analysis,onClose}:{analysis:{name:string;standalone:number;previous:number;next:number;bestChanged:boolean;replaced?:string;verdict?:string;bestCert?:string;combined?:GearStats};onClose:()=>void}){const d=analysis.next-analysis.previous;return <div className="modalBackdrop"><div className="modal resultModal"><span className="eyebrow">NEW ITEM ANALYSIS</span><h2>{analysis.name}</h2><div className="resultScore">{analysis.next.toFixed(2)}</div><div className="statsGrid three resultStats"><StatTile label="Standalone" value={analysis.standalone}/><StatTile label="Previous best" value={analysis.previous}/><StatTile label="Improvement" value={d}/></div><p>Best loadout changed: <b>{analysis.bestChanged?'YES':'NO'}</b></p>{analysis.replaced&&<p>Replaces: <b>{analysis.replaced}</b></p>}<StatusBadge status={analysis.verdict??'KEEP'}/>{analysis.combined&&<><div className="sectionTitle"><h3>New combined stats</h3></div><div className="statsGrid">{statLabels.map(([k,l])=><StatTile key={k} label={l} value={analysis.combined![k]} suffix="%"/>)}</div></>}{analysis.bestCert&&<p className="notice">Best certificate targeting: <b>{analysis.bestCert}</b>.</p>}<button className="primary" onClick={onClose}>Done</button></div></div>}
+
+function RollLogEditor({data,certificate,onClose,onSave}:{data:AppData;certificate:OwnedCertificate;onClose:()=>void;onSave:(r:CertificateRollLog,updated:GearItem)=>void}){
+  const type=authModelTypeForOwnedCertificate(certificate);
+  const [itemId,setItemId]=useState(data.gear[0]?.id??'');
+  const item=data.gear.find(g=>g.id===itemId);
+  const [newAuth,setNewAuth]=useState('');
+  const [newValue,setNewValue]=useState(0);
+  const autoPreview=useMemo(()=>item&&newAuth?applyRollToItem(item,newAuth,newValue,type):item,[item,newAuth,newValue,type]);
+  const expectedDisplayedStats=useMemo(()=>autoPreview?effectiveItemStats(autoPreview):undefined,[autoPreview]);
+  const [finalStats,setFinalStats]=useState<GearStats|undefined>(expectedDisplayedStats?{...expectedDisplayedStats}:undefined);
+  useEffect(()=>{setFinalStats(expectedDisplayedStats?{...expectedDisplayedStats}:undefined)},[expectedDisplayedStats]);
+  useEffect(()=>{setNewAuth('');setNewValue(0)},[itemId,type]);
+  const preview=useMemo(()=>{
+    if(!autoPreview||!finalStats)return autoPreview;
+    const observed=withObservedAuthenticationStats(autoPreview,finalStats);
+    return {...observed,name:generateGearName(observed.baseName,observed.stats,observed.authenticated,observed.authentication)};
+  },[autoPreview,finalStats]);
+  const before=optimise(data.gear,data.settings,1)[0]?.score.total??0;
+  const previewGear=preview?data.gear.map(g=>g.id===preview.id?preview:g):data.gear;
+  const after=optimise(previewGear,data.settings,1)[0]?.score.total??before;
+  const setFinalStat=(key:keyof GearStats,value:number)=>setFinalStats(current=>({...ZERO_STATS,...current,[key]:Number.isFinite(value)?value:0}));
+  const authKind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
+  return <div className="modalBackdrop"><div className="modal"><div className="modalHeader"><h2>Record certificate roll</h2><button className="iconButton" onClick={onClose}>×</button></div>
+    <div className="notice"><b>Certificate being consumed:</b> {certificate.type}{certificate.gradeStars!==undefined?' · '+'★'.repeat(certificate.gradeStars):''}{certificate.displayedValue!==undefined?' · $'+certificate.displayedValue.toLocaleString():''}. Saving this roll reduces its owned quantity by one.</div>
+    <div className="formGrid"><label className="wide">Item<select value={itemId} onChange={e=>setItemId(e.target.value)}>{data.gear.map(g=><option value={g.id} key={g.id}>{g.name} · {g.slot}</option>)}</select></label><label>New authentication<select value={newAuth} onChange={e=>setNewAuth(e.target.value)}><option value="">Select result</option>{activeCertificateOutcomeOptions(item?.slot,data.authModel,authKind,certificate.type).map(a=><option key={a}>{a}</option>)}</select></label><label>New value %<input type="number" step="any" value={newValue} onChange={e=>setNewValue(Number(e.target.value))}/></label><label>Best score before<input type="number" value={before} readOnly/></label><label>Calculated score after<input type="number" value={after} readOnly/></label><p className="wide fieldHelp">These are the final stats displayed in game after the new authentication. Any difference caused by the authentication (especially Focused) is stored on that authentication only; the item's base stats are not overwritten.</p></div>
+    {finalStats&&<details className="finalStatsEditor"><summary>Confirm / correct final displayed stats</summary><div className="formGrid">{statLabels.filter(([k])=>k!=='arrowReduction').map(([k,l])=><label key={k}>{l} %<input type="number" inputMode="decimal" step="any" value={finalStats[k]} onChange={e=>setFinalStat(k,Number(e.target.value))}/></label>)}<label className="wide arrowInput">Bid Arrow Speed — game display %<input type="number" inputMode="decimal" step="any" value={reductionToGameArrow(finalStats.arrowReduction)} onChange={e=>setFinalStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><span>Enter the signed value shown by the game.</span></label></div></details>}
+    <div className="stickyActions"><button className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={!item||!newAuth||!preview||certificate.quantity<1} onClick={()=>{item&&preview&&onSave({id:crypto.randomUUID(),date:new Date().toISOString(),certificateType:type,itemId:item.id,itemName:item.name,slot:item.slot,previousAuthentication:item.authentication.effect,previousValue:item.authentication.value,newAuthentication:newAuth,newValue,improvedBestSet:after>before,bestScoreBefore:before,bestScoreAfter:after,certificateId:certificate.id,certificateGradeStars:certificate.gradeStars,certificateInventoryType:certificate.type},preview)}}>Apply, record & consume</button></div>
+  </div></div>;
+}
+
+function authModelCertificateType(type:OwnedCertificate['type']):AuthModelEntry['certificateType']{
+  return type==='Premium Certificate of Authenticity'
+    ?'Premium Certificate of Authenticity'
+    :type==='Limited Certificate of Authenticity'
+      ?'Limited Certificate of Authenticity'
+      :'Normal Certificate of Authenticity';
+}
+
+function AuthModelRow({entry,onChange,onDelete}:{entry:AuthModelEntry;onChange:(e:AuthModelEntry)=>void;onDelete:()=>void}){
+  const inventoryType=entry.certificateInventoryType??(
+    entry.certificateType==='Premium Certificate of Authenticity'?'Premium Certificate of Authenticity':
+    entry.certificateType==='Limited Certificate of Authenticity'?'Limited Certificate of Authenticity':
+    'Wooden Certificate of Authenticity'
+  );
+  return <details className="modelRow">
+    <summary><span>{entry.outcome}</span><span>{inventoryType.replace(' Certificate of Authenticity','')} · {entry.slot} · {entry.assumedLikelihoodClass}{entry.enabled?'':' · disabled'}</span></summary>
+    <div className="formGrid">
+      <label className="wide">Outcome<input value={entry.outcome} onChange={e=>onChange({...entry,outcome:e.target.value})}/></label>
+      <label>Certificate tier<select value={inventoryType} onChange={e=>{const certificateInventoryType=e.target.value as OwnedCertificate['type'];onChange({...entry,certificateInventoryType,certificateType:authModelCertificateType(certificateInventoryType)})}}><option>Wooden Certificate of Authenticity</option><option>Ripped Certificate of Authenticity</option><option>Premium Certificate of Authenticity</option><option>Limited Certificate of Authenticity</option></select></label>
+      <label>Slot<select value={entry.slot} onChange={e=>onChange({...entry,slot:e.target.value as AuthModelEntry['slot']})}><option>Any</option><option>Head</option><option>Back</option><option>Wrist</option></select></label>
+      <label className="wide">Category<input value={entry.category} onChange={e=>onChange({...entry,category:e.target.value})}/></label>
+      <label>Relative-weight class<select value={entry.assumedLikelihoodClass} onChange={e=>onChange({...entry,assumedLikelihoodClass:e.target.value as AuthModelEntry['assumedLikelihoodClass']})}>{['VERY HIGH','HIGH','MEDIUM','LOW','VERY LOW'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Confidence<select value={entry.confidence} onChange={e=>onChange({...entry,confidence:e.target.value as AuthModelEntry['confidence']})}>{['Unknown','Low','Medium','High','Empirical'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Optional min<input type="number" step="any" value={entry.min??''} onChange={e=>onChange({...entry,min:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label>Optional typical<input type="number" step="any" value={entry.typical??''} onChange={e=>onChange({...entry,typical:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label>Optional max<input type="number" step="any" value={entry.max??''} onChange={e=>onChange({...entry,max:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label className="check"><input type="checkbox" checked={entry.enabled} onChange={e=>onChange({...entry,enabled:e.target.checked})}/> Enabled in live EV</label>
+      <div className="wide fieldHelp">Observed samples: {entry.observedSampleCount}. Values: {entry.observedValues.length?entry.observedValues.join(', '):'none yet'}. As exact-tier samples accumulate, empirical roll strength progressively outweighs the min/typical/max prior.</div>
+      <button className="danger wide" onClick={onDelete}>Delete model outcome</button>
+    </div>
+  </details>;
+}
+
+function LoadoutCard({slot,item}:{slot:string;item:GearItem}){return <div className="loadoutCard"><span>{slot}</span><strong>{item.baseName||item.name}</strong>{item.authentication.effect&&<small>{item.authentication.effect} {item.authentication.value?`${item.authentication.value}%`:''}</small>}</div>}
+function StatTile({label,value,suffix=''}:{label:string;value:number;suffix?:string}){return <div className="statTile"><span>{label}</span><strong>{Number.isFinite(value)?value.toFixed(Math.abs(value)%1?2:0):'—'}{suffix}</strong></div>}
+function ArrowThresholdCard({value,settings}:{value:number;settings:AlgorithmSettings}){const max=Math.max(settings.arrowSweetSpot,100);const pct=Math.min(100,Math.max(0,value/max*100));const excess=Math.max(0,value-settings.arrowSweetSpot);return <div className="thresholdCard"><div className="rowBetween"><strong>Bid Arrow reduction</strong><span>{value.toFixed(1)}% · target {settings.arrowSweetSpot}%</span></div><div className="progress arrowProgress"><i style={{width:`${pct}%`}}/><b style={{left:`${settings.arrowSweetSpot/max*100}%`}}/></div>{excess>0&&<div className="fieldHelp">{excess.toFixed(1)}% is above your 75% sweet spot. It is treated as wasted, not as an invented gameplay penalty.</div>}</div>}
+function ThresholdCard({label,value,target,ceiling}:{label:string;value:number;target:number;ceiling:number}){const pct=Math.min(100,Math.max(0,value/ceiling*100));return <div className="thresholdCard"><div className="rowBetween"><strong>{label}</strong><span>{value.toFixed(1)}% · target {target}% · ceiling {ceiling}%</span></div><div className="progress"><i style={{width:`${pct}%`}}/><b style={{left:`${target/ceiling*100}%`}}/></div></div>}
+function StatusBadge({status}:{status:string}){return <span className={`badge status ${status.toLowerCase().replaceAll(' ','-').replaceAll('/','')}`}>{status}</span>}
+function EmptyState({title,text,action,onClick}:{title:string;text:string;action?:string;onClick?:()=>void}){return <div className="empty"><div className="emptyIcon">⌁</div><h3>{title}</h3><p>{text}</p>{action&&<button className="primary" onClick={onClick}>{action}</button>}</div>}
+
+function algorithmIssues(s:AlgorithmSettings):string[]{const issues:string[]=[];for(const [k,v] of Object.entries(s))if(k!=='version'&&!Number.isFinite(Number(v)))issues.push(`${k} is not finite`);if(s.arrowSweetSpot<0)issues.push('Arrow sweet spot cannot be negative');if(s.energyTarget>s.energyCeiling)issues.push('Energy target must be ≤ Energy ceiling');if(s.zoneBreakpoint1>s.zoneBreakpoint2)issues.push('Zone breakpoint 1 must be ≤ breakpoint 2');for(const [label,value] of [['Luck weight',s.luckWeight],['Arrow weight',s.arrowWeight],['Zone weight',s.zoneWeight],['Recovery weight',s.recoveryWeight],['Zone middle multiplier',s.zoneMultiplier2],['Zone upper multiplier',s.zoneMultiplier3]] as const)if(value<0)issues.push(`${label} cannot be negative`);return issues;}
+function newAuthModelEntry():AuthModelEntry{return{id:crypto.randomUUID(),certificateInventoryType:'Wooden Certificate of Authenticity',certificateType:'Normal Certificate of Authenticity',slot:'Any',outcome:'Custom outcome',category:'Custom / unknown',assumedLikelihoodClass:'MEDIUM',observedSampleCount:0,observedValues:[],confidence:'Unknown',enabled:true}}
+function blankItem(slot:Slot='Head'):GearItem{const now=new Date().toISOString();return{id:crypto.randomUUID(),baseName:'',name:'',slot,stats:{...ZERO_STATS},authenticated:false,authentication:{kind:'None',effect:'',value:0},favourite:false,createdAt:now,updatedAt:now}}
+function applyRollToItem(item:GearItem,effect:string,value:number,type:AuthModelEntry['certificateType']):GearItem{
+  let base=removeNumericAuthentication(item);
+  if(base.authenticated){base=structuredClone(base);base.authenticated=false;base.authentication={kind:'None',effect:'',value:0};}
+  const updated=addOutcomeToItem(base,effect,value);
+  updated.authentication.kind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
+  updated.name=generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication);
+  updated.updatedAt=new Date().toISOString();
+  return updated;
+}
+function prepareImportedGear(existing:GearItem[],incoming:GearItem[]):GearItem[]{const used=new Set(existing.map(x=>x.id));return incoming.map(item=>{const clone=structuredClone(item);if(!clone.id||used.has(clone.id))clone.id=crypto.randomUUID();used.add(clone.id);return clone;});}
+function validateItem(i:GearItem){
+  if(!i.baseName.trim())return 'Item name is required.';
+  if(!['Head','Back','Wrist'].includes(i.slot))return 'Valid slot is required.';
+  if(i.conditionPct!==undefined && (!Number.isFinite(i.conditionPct) || i.conditionPct<0 || i.conditionPct>100))return 'Condition must be between 0 and 100%.';
+  if(i.mutation!==undefined && typeof i.mutation!=='string')return 'Mutation must be text.';
+  for(const [k] of statLabels)if(!Number.isFinite(i.stats[k]))return `${k} must be a finite number.`;
+  if(!Number.isFinite(i.authentication.value))return 'Authentication value must be a finite number.';
+  if(!i.authenticated)return '';
+  if(i.authentication.kind==='None')return 'Choose an authentication type.';
+  const effect=i.authentication.effect.trim();
+  if(!effect)return 'Choose an authentication effect.';
+  if(i.authentication.kind==='Normal'&&LEGACY_ALIEN_EFFECTS.includes(effect as never))return `${effect} is a legacy Alien effect and cannot be selected for a new Normal authentication.`;
+  if(i.authentication.kind==='Alien')return ''; // Historical Alien gear remains valid and editable as legacy data.
+  if(i.authentication.kind==='Premium'){
+    for(const [slot,effects] of Object.entries(PREMIUM_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
+  if(i.authentication.kind==='Limited'){
+    for(const [slot,effects] of Object.entries(LIMITED_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
+  for(const [slot,effects] of Object.entries(EXCLUSIVE_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+  return '';
+}
+function displayStat(k:keyof GearStats,v:number){const n=k==='arrowReduction'?reductionToGameArrow(v):v;return `${n>0?'+':''}${n.toFixed(Math.abs(n)%1?1:0)}%`}
+function shortStat(s:string){return s.replace('Energy Drink Time','Energy').replace('Vehicle Speed','Vehicle').replace('Bid Recovery','Recovery').replace('Bid Zone Width','Zone').replace('Bid Arrow Reduction','Arrow').replace('NPC Offers Bonus','NPC')}
+function replacedName(prev:any,next:any,slot:Slot){const key=slot.toLowerCase() as 'head'|'back'|'wrist';return prev[key].id!==next[key].id?prev[key].name:undefined}
+function dateStamp(){return new Date().toISOString().slice(0,10)}
+function downloadText(name:string,text:string,type:string){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+function applyTheme(theme:AppData['theme']){document.documentElement.dataset.theme=theme;if(theme==='system')delete document.documentElement.dataset.theme}
+function navIcon(t:Tab){return ({Dashboard:'▦',Gear:'◆',Optimise:'◎',Vehicle:'▰',Trophies:'♜',Certificates:'◈',Settings:'⚙',More:'•••'} as Record<Tab,string>)[t]}
++cert.displayedValue.toLocaleString()+' · ':''}owned {cert.quantity}</option>)}</select></label>
+      <button className="secondary" disabled={!selectedCertificate} onClick={()=>setLogOpen(true)}>＋ Record selected certificate roll</button>
+    </div>:<p className="muted">No certificate with quantity remaining is available to record.</p>}
+
+    <div className="sectionTitle"><h2>Roll history</h2></div>
+    <div className="card tableCard">{data.rollLog.length?data.rollLog.slice().reverse().map(r=><div className="logRow" key={r.id}><div><strong>{r.itemName}</strong><span>{new Date(r.date).toLocaleDateString()} · {r.certificateInventoryType??(r.certificateType.startsWith('Normal')?'Legacy Normal':r.certificateType.startsWith('Premium')?'Premium':r.certificateType.startsWith('Limited')?'Limited':'Legacy Alien')}</span></div><div><b>{r.newAuthentication} {r.newValue}%</b><span>{r.bestScoreBefore.toFixed(2)} → {r.bestScoreAfter.toFixed(2)}</span></div></div>):<p className="muted">No certificate rolls recorded yet.</p>}</div>
+
+    {logOpen&&selectedCertificate&&<RollLogEditor data={data} certificate={selectedCertificate} onClose={()=>setLogOpen(false)} onSave={(r,updated)=>{
+      try{
+        setData(applyRecordedCertificateRoll(data,selectedCertificate.id,r,updated));
+        setLogOpen(false);
+      }catch(error){alert(error instanceof Error?error.message:'Could not record certificate roll.')}
+    }}/>}
+  </section>;
+}
+
+function SettingsScreen({data,setData,showToast}:{data:AppData;setData:(d:AppData)=>void;showToast:(s:string)=>void}){
+  const jsonRef=useRef<HTMLInputElement>(null),csvRef=useRef<HTMLInputElement>(null);
+  function setS<K extends keyof AlgorithmSettings>(k:K,v:AlgorithmSettings[K]){setData({...data,settings:{...data.settings,[k]:v}})}
+  const fields:Array<[keyof AlgorithmSettings,string]>=[['luckWeight','Main Auction Luck weight'],['arrowWeight','Main Auction Bid Arrow weight'],['arrowSweetSpot','Bid Arrow sweet spot'],['zoneWeight','Main Auction Bid Zone weight'],['zoneBreakpoint1','Bid Zone breakpoint 1'],['zoneBreakpoint2','Bid Zone breakpoint 2'],['zoneMultiplier2','Bid Zone middle multiplier'],['zoneMultiplier3','Bid Zone upper multiplier'],['recoveryWeight','Main Auction Bid Recovery weight'],['energyTarget','Drink Prep Energy target'],['energyCeiling','Drink Prep Energy ceiling'],['energySecondStageMultiplier','Drink Prep above-target multiplier']];
+  const issues=algorithmIssues(data.settings);
+  return <section><div className="pageHeading"><div><h1>Settings</h1><p>Algorithm Version 2.0</p></div></div>
+    <div className="sectionTitle"><h2>Appearance</h2></div><div className="card"><label>Theme<select value={data.theme} onChange={e=>setData({...data,theme:e.target.value as any})}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label></div>
+    <div className="sectionTitle"><h2>Algorithm editor</h2><button className="secondary compact" onClick={()=>setData({...data,settings:{...LOCKED_DEFAULT_SETTINGS}})}>Reset to locked defaults</button></div>
+    <div className="settingsGrid">{fields.map(([k,label])=><label className="settingField" key={k}><span>{label}</span><input type="number" step="any" value={data.settings[k]} onChange={e=>setS(k,Number(e.target.value) as never)}/></label>)}</div>
+    {issues.length>0&&<div className="notice dangerNotice"><b>Settings need correction:</b> {issues.join(' · ')}</div>}
+    <div className="notice">Algorithm 2.0 uses one shared model for Main Auction, retention and certificate decisions. Displayed Luck is linear. Bid Arrow benefit caps at your 75% sweet spot with no invented over-cap penalty. Drink Prep, Grading and Shop/Idle are separate loadouts and never compensate for a weaker Main Auction result. Day, Night and Rain are evaluated as contextual Main variants instead of fake uptime averages.</div>
+    <div className="sectionTitle"><h2>Authentication outcome catalogue</h2><button className="secondary compact" onClick={()=>setData({...data,authModel:[...data.authModel,newAuthModelEntry()]})}>＋ Add outcome</button></div><div className="card authModel"><p className="muted">This is the live certificate model. Enabled rows, certificate tier, min / typical / max, confidence and relative-weight class all feed directly into certificate EV. MEDIUM is the neutral default because the real per-effect odds are unpublished; changing the class is an explicit user assumption, not a game fact.</p>{data.authModel.filter(m=>m.certificateType!=='Certificate of Alienticity'&&!LEGACY_ALIEN_EFFECTS.includes(m.outcome as never)).slice().sort((a,b)=>(a.certificateInventoryType??'').localeCompare(b.certificateInventoryType??'')||a.slot.localeCompare(b.slot)||a.outcome.localeCompare(b.outcome)).map(m=><AuthModelRow key={m.id} entry={m} onChange={entry=>setData({...data,authModel:data.authModel.map(x=>x.id===entry.id?entry:x)})} onDelete={()=>{if(confirm(`Remove authentication model outcome ${m.outcome}? Roll history is not deleted.`))setData({...data,authModel:data.authModel.filter(x=>x.id!==m.id)})}}/>)}</div>
+    <div className="sectionTitle"><h2>Backup & data safety</h2></div><div className="card buttonStack"><button className="primary" onClick={()=>downloadText(`storage-hunters-backup-${dateStamp()}.json`,exportJson(data),'application/json')}>Download JSON backup</button><button className="secondary" onClick={()=>jsonRef.current?.click()}>Restore JSON backup</button><button className="secondary" onClick={()=>downloadText(`storage-hunters-gear-${dateStamp()}.csv`,gearToCsv(data.gear),'text/csv')}>Export gear CSV</button><button className="secondary" onClick={()=>csvRef.current?.click()}>Import gear CSV</button><input hidden type="file" accept="application/json,.json" ref={jsonRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const d=importJson(await f.text());if(confirm(`Restore backup containing ${d.gear.length} gear items? This replaces current local data.`)){setData(d);showToast('Backup restored')}}catch(err){alert(err instanceof Error?err.message:'Invalid backup')}}}/><input hidden type="file" accept="text/csv,.csv" ref={csvRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const g=csvToGear(await f.text());if(confirm(`Import ${g.length} gear items? They will be added to the current inventory.`)){const imported=prepareImportedGear(data.gear,g);setData({...data,gear:[...data.gear,...imported]});showToast('CSV imported')}}catch(err){alert(err instanceof Error?err.message:'Invalid CSV')}}}/><button className="danger" onClick={()=>{const phrase=prompt('Type RESET ALL DATA to permanently clear all local inventory, certificates, roll history, vehicle parts, trophies and settings back to an empty workspace.');if(phrase==='RESET ALL DATA')setData(makeEmptyData())}}>Clear all local data</button></div>
+  </section>;
+}
+
+function GearEditor({item,authModel,mode,onClose,onSave}:{item:GearItem;authModel:AuthModelEntry[];mode:'add'|'edit';onClose:()=>void;onSave:(i:GearItem,keepAdding?:boolean)=>void}){
+  const [v,setV]=useState({...item,name:generateGearName(item.baseName,item.stats,item.authenticated,item.authentication)});
+  const initialShown=statLabels.filter(([key])=>Math.abs(item.stats[key])>1e-12).map(([key])=>key);
+  const [shownStats,setShownStats]=useState<Array<keyof GearStats>>(initialShown);
+  const patch=(next:Partial<GearItem>)=>setV(current=>{const updated={...current,...next};return {...updated,name:generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication)};});
+  const setStat=(k:keyof GearStats,n:number)=>setV(current=>{const stats={...current.stats,[k]:Number.isFinite(n)?n:0};return {...current,stats,name:generateGearName(current.baseName,stats,current.authenticated,current.authentication)};});
+  const setAuthentication=(next:Partial<GearItem['authentication']>)=>setV(current=>{const authentication={...current.authentication,...next};return {...current,authentication,name:generateGearName(current.baseName,current.stats,current.authenticated,authentication)};});
+  const showStat=(key:keyof GearStats)=>setShownStats(current=>current.includes(key)?current:[...current,key]);
+  const hideStat=(key:keyof GearStats)=>{setStat(key,0);setShownStats(current=>current.filter(k=>k!==key));};
+  const orderedShown=statLabels.filter(([key])=>shownStats.includes(key));
+  const hidden=statLabels.filter(([key])=>!shownStats.includes(key));
+  const displayedArrow=reductionToGameArrow(v.stats.arrowReduction);
+  const legacyAlien=v.authenticated&&v.authentication.kind==='Alien';
+  const currentKind=v.authentication.kind==='Premium'?'Premium':v.authentication.kind==='Limited'?'Limited':'Normal';
+  return <div className="modalBackdrop"><div className="modal sheet"><div className="modalHeader"><div><span className="eyebrow">{mode==='add'?'QUICK ADD GEAR':'EDIT GEAR'}</span><h2>{v.baseName||'New gear'}</h2></div><button className="iconButton" onClick={onClose}>×</button></div>
+    <div className="formGrid quickIdentity"><label className="wide">Actual gear name<input autoFocus value={v.baseName} onChange={e=>patch({baseName:e.target.value})} placeholder="e.g. Pearl Dominus"/></label><label>Slot<select value={v.slot} onChange={e=>patch({slot:e.target.value as Slot})}><option>Head</option><option>Back</option><option>Wrist</option></select></label><label>Mutation<input list={`mutations-${v.id}`} value={v.mutation??''} onChange={e=>patch({mutation:e.target.value})} placeholder="None, Diamond, Gold…"/><datalist id={`mutations-${v.id}`}>{['None','Diamond','Gold','Silver','Cobwebbed','Exclusive','Police','Chrome','Gem','Void','Onyx'].map(m=><option key={m} value={m}/>)}</datalist></label><label>Condition %<input type="number" min="0" max="100" step="any" inputMode="decimal" value={v.conditionPct??''} onChange={e=>patch({conditionPct:e.target.value===''?undefined:Number(e.target.value)})} placeholder="Optional"/></label><label className="check"><input type="checkbox" checked={v.favourite} onChange={e=>patch({favourite:e.target.checked})}/> Lock / favourite</label></div>
+    <div className="autoNamePreview"><span>Automatic name</span><strong>{v.name||'Name updates as stats are entered'}</strong></div>
+    <div className="quickEntrySection"><div className="rowBetween"><div><strong>Stats shown on this item</strong><div className="fieldHelp">Tap only the stats visible in game. Empty fields stay out of the way.</div></div></div>
+      {hidden.length>0&&<div className="statPicker">{hidden.map(([key,label])=><button type="button" key={key} onClick={()=>showStat(key)}>＋ {shortStat(label)}</button>)}</div>}
+      {!orderedShown.length&&<div className="quickEmpty">No stats selected yet.</div>}
+      <div className="quickStatGrid">{orderedShown.map(([key,label])=>key==='arrowReduction'
+        ? <div className="quickStatField arrowQuick" key={key}><label>{label}<input inputMode="decimal" type="number" step="any" value={displayedArrow} onChange={e=>setStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><small>Enter the signed game value, e.g. -24.</small></label><button type="button" className="removeStat" onClick={()=>hideStat(key)}>×</button></div>
+        : <div className="quickStatField" key={key}><label>{label} %<input inputMode="decimal" type="number" step="any" value={v.stats[key]} onChange={e=>setStat(key,Number(e.target.value))}/></label><button type="button" className="removeStat" onClick={()=>hideStat(key)}>×</button></div>)}</div>
+    </div>
+    <details className="finalStatsEditor authQuick" open={v.authenticated}><summary>Authentication {v.authenticated?`— ${v.authentication.kind} · ${v.authentication.effect||'select effect'}`:'— none'}</summary><div className="formGrid"><label className="check wide"><input type="checkbox" checked={v.authenticated} onChange={e=>{const authenticated=e.target.checked;const authentication=authenticated?(v.authenticated?v.authentication:{kind:'Normal' as const,effect:'',value:0}):{kind:'None' as const,effect:'',value:0};setV(current=>({...current,authenticated,authentication,name:generateGearName(current.baseName,current.stats,authenticated,authentication)}));}}/> Authenticated</label>{v.authenticated&&<>{legacyAlien?<><div className="wide notice"><b>Legacy Alien</b> — retained for historical compatibility.</div><label>Type<input value="Legacy Alien" readOnly/></label><label>Legacy effect<input value={v.authentication.effect} readOnly/></label><label>Legacy value %<input type="number" step="any" value={v.authentication.value} onChange={e=>setAuthentication({value:Number(e.target.value)})}/></label></>:<><label>Certificate type<select value={currentKind} onChange={e=>setAuthentication({kind:e.target.value as 'Normal'|'Premium'|'Limited',effect:'',value:0})}><option>Normal</option><option>Premium</option><option>Limited</option></select></label><label>Effect<select value={v.authentication.effect} onChange={e=>setAuthentication({effect:e.target.value})}>{activeAuthenticationOptions(v.slot,v.authentication.effect,authModel,currentKind).map(x=><option value={x} key={x}>{x||'Select effect'}</option>)}</select></label><label>Value %<input type="number" inputMode="decimal" step="any" value={v.authentication.value} onChange={e=>setAuthentication({value:Number(e.target.value)})}/></label><p className="wide fieldHelp">{currentKind==='Premium'?'Premium effects are evaluated by the shared loadout engine where possible; unresolved effects remain protected.':currentKind==='Limited'?'Limited effects are evaluated against your actual Main and specialist loadouts; unknown proc behaviour reduces confidence rather than creating fake certainty.':'Enter the normal/base accessory stats separately. Numeric authentication is added automatically by the optimiser.'}</p></>}</>}</div></details>
+    <div className="stickyActions quickActions"><button className="secondary" onClick={onClose}>Cancel</button>{mode==='add'&&<button className="secondary addAnother" onClick={()=>onSave({...v,name:generateGearName(v.baseName,v.stats,v.authenticated,v.authentication)},true)}>Save + another</button>}<button className="primary" onClick={()=>onSave({...v,name:generateGearName(v.baseName,v.stats,v.authenticated,v.authentication)})}>{mode==='add'?'Analyse & add':'Save changes'}</button></div>
+  </div></div>;
+}
+function NewItemSheet({analysis,onClose}:{analysis:{name:string;standalone:number;previous:number;next:number;bestChanged:boolean;replaced?:string;verdict?:string;bestCert?:string;combined?:GearStats};onClose:()=>void}){const d=analysis.next-analysis.previous;return <div className="modalBackdrop"><div className="modal resultModal"><span className="eyebrow">NEW ITEM ANALYSIS</span><h2>{analysis.name}</h2><div className="resultScore">{analysis.next.toFixed(2)}</div><div className="statsGrid three resultStats"><StatTile label="Standalone" value={analysis.standalone}/><StatTile label="Previous best" value={analysis.previous}/><StatTile label="Improvement" value={d}/></div><p>Best loadout changed: <b>{analysis.bestChanged?'YES':'NO'}</b></p>{analysis.replaced&&<p>Replaces: <b>{analysis.replaced}</b></p>}<StatusBadge status={analysis.verdict??'KEEP'}/>{analysis.combined&&<><div className="sectionTitle"><h3>New combined stats</h3></div><div className="statsGrid">{statLabels.map(([k,l])=><StatTile key={k} label={l} value={analysis.combined![k]} suffix="%"/>)}</div></>}{analysis.bestCert&&<p className="notice">Best certificate targeting: <b>{analysis.bestCert}</b>.</p>}<button className="primary" onClick={onClose}>Done</button></div></div>}
+
+function RollLogEditor({data,certificate,onClose,onSave}:{data:AppData;certificate:OwnedCertificate;onClose:()=>void;onSave:(r:CertificateRollLog,updated:GearItem)=>void}){
+  const type=authModelTypeForOwnedCertificate(certificate);
+  const [itemId,setItemId]=useState(data.gear[0]?.id??'');
+  const item=data.gear.find(g=>g.id===itemId);
+  const [newAuth,setNewAuth]=useState('');
+  const [newValue,setNewValue]=useState(0);
+  const autoPreview=useMemo(()=>item&&newAuth?applyRollToItem(item,newAuth,newValue,type):item,[item,newAuth,newValue,type]);
+  const expectedDisplayedStats=useMemo(()=>autoPreview?effectiveItemStats(autoPreview):undefined,[autoPreview]);
+  const [finalStats,setFinalStats]=useState<GearStats|undefined>(expectedDisplayedStats?{...expectedDisplayedStats}:undefined);
+  useEffect(()=>{setFinalStats(expectedDisplayedStats?{...expectedDisplayedStats}:undefined)},[expectedDisplayedStats]);
+  useEffect(()=>{setNewAuth('');setNewValue(0)},[itemId,type]);
+  const preview=useMemo(()=>{
+    if(!autoPreview||!finalStats)return autoPreview;
+    const observed=withObservedAuthenticationStats(autoPreview,finalStats);
+    return {...observed,name:generateGearName(observed.baseName,observed.stats,observed.authenticated,observed.authentication)};
+  },[autoPreview,finalStats]);
+  const before=optimise(data.gear,data.settings,1)[0]?.score.total??0;
+  const previewGear=preview?data.gear.map(g=>g.id===preview.id?preview:g):data.gear;
+  const after=optimise(previewGear,data.settings,1)[0]?.score.total??before;
+  const setFinalStat=(key:keyof GearStats,value:number)=>setFinalStats(current=>({...ZERO_STATS,...current,[key]:Number.isFinite(value)?value:0}));
+  const authKind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
+  return <div className="modalBackdrop"><div className="modal"><div className="modalHeader"><h2>Record certificate roll</h2><button className="iconButton" onClick={onClose}>×</button></div>
+    <div className="notice"><b>Certificate being consumed:</b> {certificate.type}{certificate.gradeStars!==undefined?' · '+'★'.repeat(certificate.gradeStars):''}{certificate.displayedValue!==undefined?' · $'+certificate.displayedValue.toLocaleString():''}. Saving this roll reduces its owned quantity by one.</div>
+    <div className="formGrid"><label className="wide">Item<select value={itemId} onChange={e=>setItemId(e.target.value)}>{data.gear.map(g=><option value={g.id} key={g.id}>{g.name} · {g.slot}</option>)}</select></label><label>New authentication<select value={newAuth} onChange={e=>setNewAuth(e.target.value)}><option value="">Select result</option>{activeCertificateOutcomeOptions(item?.slot,data.authModel,authKind,certificate.type).map(a=><option key={a}>{a}</option>)}</select></label><label>New value %<input type="number" step="any" value={newValue} onChange={e=>setNewValue(Number(e.target.value))}/></label><label>Best score before<input type="number" value={before} readOnly/></label><label>Calculated score after<input type="number" value={after} readOnly/></label><p className="wide fieldHelp">These are the final stats displayed in game after the new authentication. Any difference caused by the authentication (especially Focused) is stored on that authentication only; the item's base stats are not overwritten.</p></div>
+    {finalStats&&<details className="finalStatsEditor"><summary>Confirm / correct final displayed stats</summary><div className="formGrid">{statLabels.filter(([k])=>k!=='arrowReduction').map(([k,l])=><label key={k}>{l} %<input type="number" inputMode="decimal" step="any" value={finalStats[k]} onChange={e=>setFinalStat(k,Number(e.target.value))}/></label>)}<label className="wide arrowInput">Bid Arrow Speed — game display %<input type="number" inputMode="decimal" step="any" value={reductionToGameArrow(finalStats.arrowReduction)} onChange={e=>setFinalStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><span>Enter the signed value shown by the game.</span></label></div></details>}
+    <div className="stickyActions"><button className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={!item||!newAuth||!preview||certificate.quantity<1} onClick={()=>{item&&preview&&onSave({id:crypto.randomUUID(),date:new Date().toISOString(),certificateType:type,itemId:item.id,itemName:item.name,slot:item.slot,previousAuthentication:item.authentication.effect,previousValue:item.authentication.value,newAuthentication:newAuth,newValue,improvedBestSet:after>before,bestScoreBefore:before,bestScoreAfter:after,certificateId:certificate.id,certificateGradeStars:certificate.gradeStars,certificateInventoryType:certificate.type},preview)}}>Apply, record & consume</button></div>
+  </div></div>;
+}
+
+function authModelCertificateType(type:OwnedCertificate['type']):AuthModelEntry['certificateType']{
+  return type==='Premium Certificate of Authenticity'
+    ?'Premium Certificate of Authenticity'
+    :type==='Limited Certificate of Authenticity'
+      ?'Limited Certificate of Authenticity'
+      :'Normal Certificate of Authenticity';
+}
+
+function AuthModelRow({entry,onChange,onDelete}:{entry:AuthModelEntry;onChange:(e:AuthModelEntry)=>void;onDelete:()=>void}){
+  const inventoryType=entry.certificateInventoryType??(
+    entry.certificateType==='Premium Certificate of Authenticity'?'Premium Certificate of Authenticity':
+    entry.certificateType==='Limited Certificate of Authenticity'?'Limited Certificate of Authenticity':
+    'Wooden Certificate of Authenticity'
+  );
+  return <details className="modelRow">
+    <summary><span>{entry.outcome}</span><span>{inventoryType.replace(' Certificate of Authenticity','')} · {entry.slot} · {entry.assumedLikelihoodClass}{entry.enabled?'':' · disabled'}</span></summary>
+    <div className="formGrid">
+      <label className="wide">Outcome<input value={entry.outcome} onChange={e=>onChange({...entry,outcome:e.target.value})}/></label>
+      <label>Certificate tier<select value={inventoryType} onChange={e=>{const certificateInventoryType=e.target.value as OwnedCertificate['type'];onChange({...entry,certificateInventoryType,certificateType:authModelCertificateType(certificateInventoryType)})}}><option>Wooden Certificate of Authenticity</option><option>Ripped Certificate of Authenticity</option><option>Premium Certificate of Authenticity</option><option>Limited Certificate of Authenticity</option></select></label>
+      <label>Slot<select value={entry.slot} onChange={e=>onChange({...entry,slot:e.target.value as AuthModelEntry['slot']})}><option>Any</option><option>Head</option><option>Back</option><option>Wrist</option></select></label>
+      <label className="wide">Category<input value={entry.category} onChange={e=>onChange({...entry,category:e.target.value})}/></label>
+      <label>Relative-weight class<select value={entry.assumedLikelihoodClass} onChange={e=>onChange({...entry,assumedLikelihoodClass:e.target.value as AuthModelEntry['assumedLikelihoodClass']})}>{['VERY HIGH','HIGH','MEDIUM','LOW','VERY LOW'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Confidence<select value={entry.confidence} onChange={e=>onChange({...entry,confidence:e.target.value as AuthModelEntry['confidence']})}>{['Unknown','Low','Medium','High','Empirical'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Optional min<input type="number" step="any" value={entry.min??''} onChange={e=>onChange({...entry,min:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label>Optional typical<input type="number" step="any" value={entry.typical??''} onChange={e=>onChange({...entry,typical:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label>Optional max<input type="number" step="any" value={entry.max??''} onChange={e=>onChange({...entry,max:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label className="check"><input type="checkbox" checked={entry.enabled} onChange={e=>onChange({...entry,enabled:e.target.checked})}/> Enabled in live EV</label>
+      <div className="wide fieldHelp">Observed samples: {entry.observedSampleCount}. Values: {entry.observedValues.length?entry.observedValues.join(', '):'none yet'}. As exact-tier samples accumulate, empirical roll strength progressively outweighs the min/typical/max prior.</div>
+      <button className="danger wide" onClick={onDelete}>Delete model outcome</button>
+    </div>
+  </details>;
+}
+
+function LoadoutCard({slot,item}:{slot:string;item:GearItem}){return <div className="loadoutCard"><span>{slot}</span><strong>{item.baseName||item.name}</strong>{item.authentication.effect&&<small>{item.authentication.effect} {item.authentication.value?`${item.authentication.value}%`:''}</small>}</div>}
+function StatTile({label,value,suffix=''}:{label:string;value:number;suffix?:string}){return <div className="statTile"><span>{label}</span><strong>{Number.isFinite(value)?value.toFixed(Math.abs(value)%1?2:0):'—'}{suffix}</strong></div>}
+function ArrowThresholdCard({value,settings}:{value:number;settings:AlgorithmSettings}){const max=Math.max(settings.arrowSweetSpot,100);const pct=Math.min(100,Math.max(0,value/max*100));const excess=Math.max(0,value-settings.arrowSweetSpot);return <div className="thresholdCard"><div className="rowBetween"><strong>Bid Arrow reduction</strong><span>{value.toFixed(1)}% · target {settings.arrowSweetSpot}%</span></div><div className="progress arrowProgress"><i style={{width:`${pct}%`}}/><b style={{left:`${settings.arrowSweetSpot/max*100}%`}}/></div>{excess>0&&<div className="fieldHelp">{excess.toFixed(1)}% is above your 75% sweet spot. It is treated as wasted, not as an invented gameplay penalty.</div>}</div>}
+function ThresholdCard({label,value,target,ceiling}:{label:string;value:number;target:number;ceiling:number}){const pct=Math.min(100,Math.max(0,value/ceiling*100));return <div className="thresholdCard"><div className="rowBetween"><strong>{label}</strong><span>{value.toFixed(1)}% · target {target}% · ceiling {ceiling}%</span></div><div className="progress"><i style={{width:`${pct}%`}}/><b style={{left:`${target/ceiling*100}%`}}/></div></div>}
+function StatusBadge({status}:{status:string}){return <span className={`badge status ${status.toLowerCase().replaceAll(' ','-').replaceAll('/','')}`}>{status}</span>}
+function EmptyState({title,text,action,onClick}:{title:string;text:string;action?:string;onClick?:()=>void}){return <div className="empty"><div className="emptyIcon">⌁</div><h3>{title}</h3><p>{text}</p>{action&&<button className="primary" onClick={onClick}>{action}</button>}</div>}
+
+function algorithmIssues(s:AlgorithmSettings):string[]{const issues:string[]=[];for(const [k,v] of Object.entries(s))if(k!=='version'&&!Number.isFinite(Number(v)))issues.push(`${k} is not finite`);if(s.arrowSweetSpot<0)issues.push('Arrow sweet spot cannot be negative');if(s.energyTarget>s.energyCeiling)issues.push('Energy target must be ≤ Energy ceiling');if(s.zoneBreakpoint1>s.zoneBreakpoint2)issues.push('Zone breakpoint 1 must be ≤ breakpoint 2');for(const [label,value] of [['Luck weight',s.luckWeight],['Arrow weight',s.arrowWeight],['Zone weight',s.zoneWeight],['Recovery weight',s.recoveryWeight],['Zone middle multiplier',s.zoneMultiplier2],['Zone upper multiplier',s.zoneMultiplier3]] as const)if(value<0)issues.push(`${label} cannot be negative`);return issues;}
+function newAuthModelEntry():AuthModelEntry{return{id:crypto.randomUUID(),certificateInventoryType:'Wooden Certificate of Authenticity',certificateType:'Normal Certificate of Authenticity',slot:'Any',outcome:'Custom outcome',category:'Custom / unknown',assumedLikelihoodClass:'MEDIUM',observedSampleCount:0,observedValues:[],confidence:'Unknown',enabled:true}}
+function blankItem(slot:Slot='Head'):GearItem{const now=new Date().toISOString();return{id:crypto.randomUUID(),baseName:'',name:'',slot,stats:{...ZERO_STATS},authenticated:false,authentication:{kind:'None',effect:'',value:0},favourite:false,createdAt:now,updatedAt:now}}
+function applyRollToItem(item:GearItem,effect:string,value:number,type:AuthModelEntry['certificateType']):GearItem{
+  let base=removeNumericAuthentication(item);
+  if(base.authenticated){base=structuredClone(base);base.authenticated=false;base.authentication={kind:'None',effect:'',value:0};}
+  const updated=addOutcomeToItem(base,effect,value);
+  updated.authentication.kind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
+  updated.name=generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication);
+  updated.updatedAt=new Date().toISOString();
+  return updated;
+}
+function prepareImportedGear(existing:GearItem[],incoming:GearItem[]):GearItem[]{const used=new Set(existing.map(x=>x.id));return incoming.map(item=>{const clone=structuredClone(item);if(!clone.id||used.has(clone.id))clone.id=crypto.randomUUID();used.add(clone.id);return clone;});}
+function validateItem(i:GearItem){
+  if(!i.baseName.trim())return 'Item name is required.';
+  if(!['Head','Back','Wrist'].includes(i.slot))return 'Valid slot is required.';
+  if(i.conditionPct!==undefined && (!Number.isFinite(i.conditionPct) || i.conditionPct<0 || i.conditionPct>100))return 'Condition must be between 0 and 100%.';
+  if(i.mutation!==undefined && typeof i.mutation!=='string')return 'Mutation must be text.';
+  for(const [k] of statLabels)if(!Number.isFinite(i.stats[k]))return `${k} must be a finite number.`;
+  if(!Number.isFinite(i.authentication.value))return 'Authentication value must be a finite number.';
+  if(!i.authenticated)return '';
+  if(i.authentication.kind==='None')return 'Choose an authentication type.';
+  const effect=i.authentication.effect.trim();
+  if(!effect)return 'Choose an authentication effect.';
+  if(i.authentication.kind==='Normal'&&LEGACY_ALIEN_EFFECTS.includes(effect as never))return `${effect} is a legacy Alien effect and cannot be selected for a new Normal authentication.`;
+  if(i.authentication.kind==='Alien')return ''; // Historical Alien gear remains valid and editable as legacy data.
+  if(i.authentication.kind==='Premium'){
+    for(const [slot,effects] of Object.entries(PREMIUM_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
+  if(i.authentication.kind==='Limited'){
+    for(const [slot,effects] of Object.entries(LIMITED_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
+  for(const [slot,effects] of Object.entries(EXCLUSIVE_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+  return '';
+}
+function displayStat(k:keyof GearStats,v:number){const n=k==='arrowReduction'?reductionToGameArrow(v):v;return `${n>0?'+':''}${n.toFixed(Math.abs(n)%1?1:0)}%`}
+function shortStat(s:string){return s.replace('Energy Drink Time','Energy').replace('Vehicle Speed','Vehicle').replace('Bid Recovery','Recovery').replace('Bid Zone Width','Zone').replace('Bid Arrow Reduction','Arrow').replace('NPC Offers Bonus','NPC')}
+function replacedName(prev:any,next:any,slot:Slot){const key=slot.toLowerCase() as 'head'|'back'|'wrist';return prev[key].id!==next[key].id?prev[key].name:undefined}
+function dateStamp(){return new Date().toISOString().slice(0,10)}
+function downloadText(name:string,text:string,type:string){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+function applyTheme(theme:AppData['theme']){document.documentElement.dataset.theme=theme;if(theme==='system')delete document.documentElement.dataset.theme}
+function navIcon(t:Tab){return ({Dashboard:'▦',Gear:'◆',Optimise:'◎',Vehicle:'▰',Trophies:'♜',Certificates:'◈',Settings:'⚙',More:'•••'} as Record<Tab,string>)[t]}
++decision.certificate.displayedValue.toLocaleString():''}</span>
+            </div>
+            <div className="premiumVerdict">{decision.verdict}</div>
+          </summary>
+          <div className="comboBody">
+            {target?<>
+              <div className="rowBetween"><div><span className="eyebrow">BEST CURRENT TARGET</span><h3>{target.item.baseName||target.item.name}</h3><p>{target.item.slot}{target.item.authenticated?' · replacing '+target.item.authentication.effect:''}</p></div><span className="badge heuristic">{target.confidencePct.toFixed(0)}% CONFIDENCE</span></div>
+
+              <div className="statsGrid three">
+                <StatTile label="Robust Main improves" value={target.chanceOfImprovementPct} suffix="%"/>
+                <StatTile label="Potential Main improves" value={target.chanceOfPotentialImprovementPct} suffix="%"/>
+                <StatTile label="Expected Main change" value={target.expectedImprovementPct} suffix="%"/>
+                <StatTile label="Chance Main/context worsens" value={target.chanceOfWorsePct} suffix="%"/>
+                <StatTile label="Meaningful robust gain ≥1%" value={target.chanceOfMeaningfulImprovementPct} suffix="%"/>
+                <StatTile label="Unresolved outcome mass" value={target.unresolvedOutcomeMassPct} suffix="%"/>
+                <StatTile label="Current Main fit" value={target.mainFitPct} suffix="%"/>
+              </div>
+
+              <div className="thresholdTable">
+                <div><b>Main sensitivity low / central / high</b><span>{signed(target.expectedImprovementLowPct)} / {signed(target.expectedImprovementPct)} / {signed(target.expectedImprovementHighPct)}</span></div>
+                <div><b>Average robust gain when successful</b><span>{signed(target.averageGainWhenSuccessfulPct)}</span></div>
+                <div><b>Average demonstrated loss when worse</b><span>{signed(target.averageLossWhenWorsePct)}</span></div>
+                <div><b>10th / median / 90th central percentile</b><span>{signed(target.p10Pct)} / {signed(target.medianPct)} / {signed(target.p90Pct)}</span></div>
+                <div><b>Best possible modelled branch</b><span>{target.bestPossibleOutcome} · {signed(target.bestCasePct)}</span></div>
+                <div><b>Worst modelled Main/context branch</b><span>{target.worstPossibleOutcome} · {signed(target.worstCasePct)}</span></div>
+                <div><b>Authentication risk — neutral Main</b><span>{signed(target.currentAuthenticationMainRiskPct)}</span></div>
+                <div><b>Authentication risk — Day/Night/Rain</b><span>{signed(target.currentAuthenticationContextRiskPct)}</span></div>
+                <div><b>Authentication risk — Drink Prep</b><span>{signed(target.currentAuthenticationDrinkRiskPct)}</span></div>
+                <div><b>Authentication risk — Grading</b><span>{signed(target.currentAuthenticationGradingRiskPct)}</span></div>
+                <div><b>Authentication risk — Shop/Idle</b><span>{signed(target.currentAuthenticationShopRiskPct)}</span></div>
+                <div><b>Worst authentication risk anywhere relevant</b><span>{signed(target.currentAuthenticationValueAtRiskPct)}</span></div>
+                <div><b>Average Day/Night/Rain impact</b><span>{signed(target.expectedContextualMainPct)}</span></div>
+                <div><b>Worst Day/Night/Rain impact</b><span>{signed(target.worstContextualMainPct)}</span></div>
+                <div><b>Expected Drink Prep impact</b><span>{signed(target.expectedDrinkPrepPct)}</span></div>
+                <div><b>Expected Grading impact</b><span>{signed(target.expectedGradingPct)}</span></div>
+                <div><b>Expected Shop/Idle impact</b><span>{signed(target.expectedShopPct)}</span></div>
+              </div>
+
+              {target.unresolvedEffects.length>0&&<div className="notice warning"><b>Unresolved magnitude:</b> {target.unresolvedEffects.join(', ')}. These branches are not treated as zero-value known outcomes and cannot produce a USE verdict until supported by numeric evidence.</div>}
+              <ul>{target.reasons.map((reason,i)=><li key={i}>{reason}</li>)}</ul>
+
+              {decision.conversion&&<div className="notice"><b>Wooden → Premium opportunity cost:</b> {decision.conversion.recommendation}. Direct Wooden EV {signed(decision.conversion.directExpectedMainPct)} vs synthetic Premium EV {signed(decision.conversion.premiumExpectedMainPct)}. Conversion costs {decision.conversion.diamondCost} Diamonds. {decision.conversion.reason}</div>}
+
+              <details>
+                <summary>Other targets</summary>
+                <div className="thresholdTable">{decision.targets.slice(1,7).map((alt,index)=><div key={alt.item.id}><b>#{index+2} {alt.item.baseName||alt.item.name} · {alt.verdict}</b><span>{alt.chanceOfImprovementPct.toFixed(1)}% robust improve · EV {signed(alt.expectedImprovementPct)}</span></div>)}</div>
+              </details>
+            </>:<p className="muted">A complete Head, Back and Wrist inventory is required.</p>}
+
+            <div className="notice warning"><b>Evidence boundary:</b> these are modelled decision percentages, not hidden Roblox loot odds. Effect selection uses a neutral equal prior until exact-certificate observations exist. Unknown star transforms and unresolved magnitudes reduce confidence instead of being invented.</div>
+          </div>
+        </details>;
+      })}
+      {!certificateState.computing&&!certificateState.error&&!decisions.length&&<p className="muted">No owned certificates are available for analysis.</p>}
+    </div>
+
+    <div className="card">
+      <div className="sectionTitle"><h2>Owned certificates</h2><button className="secondary compact" onClick={()=>setEditInventory(!editInventory)}>{editInventory?'Done':'Manual adjustment'}</button></div>
+      <div className="gearList">{data.ownedCertificates.map(cert=><div className="gearCard" key={cert.id}><strong>{cert.type}</strong><p>{cert.rarity||'Certificate'}{cert.gradeStars!==undefined?' · '+'★'.repeat(cert.gradeStars):''}{cert.displayedValue!==undefined?' · $'+cert.displayedValue.toLocaleString():''} · Owned: {cert.quantity}</p>{editInventory&&<div className="actions"><button onClick={()=>changeQty(cert.id,-1)} disabled={cert.quantity===0}>− Remove one</button><button onClick={()=>changeQty(cert.id,1)}>＋ Add one</button></div>}</div>)}</div>
+      <div className="notice">Recording a roll below now consumes the exact selected certificate automatically. Wooden → Premium is compared explicitly against direct Wooden use at the current 150-Diamond conversion cost.</div>
+    </div>
+
+    <div className="sectionTitle"><h2>Record a result</h2></div>
+    {availableCertificates.length?<div className="card">
+      <label>Certificate actually used<select value={selectedCertificateId} onChange={e=>setSelectedCertificateId(e.target.value)}>{availableCertificates.map(cert=><option value={cert.id} key={cert.id}>{cert.type} · {cert.gradeStars!==undefined?'★'.repeat(cert.gradeStars)+' · ':''}{cert.displayedValue!==undefined?'$'+cert.displayedValue.toLocaleString()+' · ':''}owned {cert.quantity}</option>)}</select></label>
+      <button className="secondary" disabled={!selectedCertificate} onClick={()=>setLogOpen(true)}>＋ Record selected certificate roll</button>
+    </div>:<p className="muted">No certificate with quantity remaining is available to record.</p>}
+
+    <div className="sectionTitle"><h2>Roll history</h2></div>
+    <div className="card tableCard">{data.rollLog.length?data.rollLog.slice().reverse().map(r=><div className="logRow" key={r.id}><div><strong>{r.itemName}</strong><span>{new Date(r.date).toLocaleDateString()} · {r.certificateInventoryType??(r.certificateType.startsWith('Normal')?'Legacy Normal':r.certificateType.startsWith('Premium')?'Premium':r.certificateType.startsWith('Limited')?'Limited':'Legacy Alien')}</span></div><div><b>{r.newAuthentication} {r.newValue}%</b><span>{r.bestScoreBefore.toFixed(2)} → {r.bestScoreAfter.toFixed(2)}</span></div></div>):<p className="muted">No certificate rolls recorded yet.</p>}</div>
+
+    {logOpen&&selectedCertificate&&<RollLogEditor data={data} certificate={selectedCertificate} onClose={()=>setLogOpen(false)} onSave={(r,updated)=>{
+      try{
+        setData(applyRecordedCertificateRoll(data,selectedCertificate.id,r,updated));
+        setLogOpen(false);
+      }catch(error){alert(error instanceof Error?error.message:'Could not record certificate roll.')}
+    }}/>}
+  </section>;
+}
+
+function SettingsScreen({data,setData,showToast}:{data:AppData;setData:(d:AppData)=>void;showToast:(s:string)=>void}){
+  const jsonRef=useRef<HTMLInputElement>(null),csvRef=useRef<HTMLInputElement>(null);
+  function setS<K extends keyof AlgorithmSettings>(k:K,v:AlgorithmSettings[K]){setData({...data,settings:{...data.settings,[k]:v}})}
+  const fields:Array<[keyof AlgorithmSettings,string]>=[['luckWeight','Main Auction Luck weight'],['arrowWeight','Main Auction Bid Arrow weight'],['arrowSweetSpot','Bid Arrow sweet spot'],['zoneWeight','Main Auction Bid Zone weight'],['zoneBreakpoint1','Bid Zone breakpoint 1'],['zoneBreakpoint2','Bid Zone breakpoint 2'],['zoneMultiplier2','Bid Zone middle multiplier'],['zoneMultiplier3','Bid Zone upper multiplier'],['recoveryWeight','Main Auction Bid Recovery weight'],['energyTarget','Drink Prep Energy target'],['energyCeiling','Drink Prep Energy ceiling'],['energySecondStageMultiplier','Drink Prep above-target multiplier']];
+  const issues=algorithmIssues(data.settings);
+  return <section><div className="pageHeading"><div><h1>Settings</h1><p>Algorithm Version 2.0</p></div></div>
+    <div className="sectionTitle"><h2>Appearance</h2></div><div className="card"><label>Theme<select value={data.theme} onChange={e=>setData({...data,theme:e.target.value as any})}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label></div>
+    <div className="sectionTitle"><h2>Algorithm editor</h2><button className="secondary compact" onClick={()=>setData({...data,settings:{...LOCKED_DEFAULT_SETTINGS}})}>Reset to locked defaults</button></div>
+    <div className="settingsGrid">{fields.map(([k,label])=><label className="settingField" key={k}><span>{label}</span><input type="number" step="any" value={data.settings[k]} onChange={e=>setS(k,Number(e.target.value) as never)}/></label>)}</div>
+    {issues.length>0&&<div className="notice dangerNotice"><b>Settings need correction:</b> {issues.join(' · ')}</div>}
+    <div className="notice">Algorithm 2.0 uses one shared model for Main Auction, retention and certificate decisions. Displayed Luck is linear. Bid Arrow benefit caps at your 75% sweet spot with no invented over-cap penalty. Drink Prep, Grading and Shop/Idle are separate loadouts and never compensate for a weaker Main Auction result. Day, Night and Rain are evaluated as contextual Main variants instead of fake uptime averages.</div>
+    <div className="sectionTitle"><h2>Authentication outcome catalogue</h2><button className="secondary compact" onClick={()=>setData({...data,authModel:[...data.authModel,newAuthModelEntry()]})}>＋ Add outcome</button></div><div className="card authModel"><p className="muted">This is the live certificate model. Enabled rows, certificate tier, min / typical / max, confidence and relative-weight class all feed directly into certificate EV. MEDIUM is the neutral default because the real per-effect odds are unpublished; changing the class is an explicit user assumption, not a game fact.</p>{data.authModel.filter(m=>m.certificateType!=='Certificate of Alienticity'&&!LEGACY_ALIEN_EFFECTS.includes(m.outcome as never)).slice().sort((a,b)=>(a.certificateInventoryType??'').localeCompare(b.certificateInventoryType??'')||a.slot.localeCompare(b.slot)||a.outcome.localeCompare(b.outcome)).map(m=><AuthModelRow key={m.id} entry={m} onChange={entry=>setData({...data,authModel:data.authModel.map(x=>x.id===entry.id?entry:x)})} onDelete={()=>{if(confirm(`Remove authentication model outcome ${m.outcome}? Roll history is not deleted.`))setData({...data,authModel:data.authModel.filter(x=>x.id!==m.id)})}}/>)}</div>
+    <div className="sectionTitle"><h2>Backup & data safety</h2></div><div className="card buttonStack"><button className="primary" onClick={()=>downloadText(`storage-hunters-backup-${dateStamp()}.json`,exportJson(data),'application/json')}>Download JSON backup</button><button className="secondary" onClick={()=>jsonRef.current?.click()}>Restore JSON backup</button><button className="secondary" onClick={()=>downloadText(`storage-hunters-gear-${dateStamp()}.csv`,gearToCsv(data.gear),'text/csv')}>Export gear CSV</button><button className="secondary" onClick={()=>csvRef.current?.click()}>Import gear CSV</button><input hidden type="file" accept="application/json,.json" ref={jsonRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const d=importJson(await f.text());if(confirm(`Restore backup containing ${d.gear.length} gear items? This replaces current local data.`)){setData(d);showToast('Backup restored')}}catch(err){alert(err instanceof Error?err.message:'Invalid backup')}}}/><input hidden type="file" accept="text/csv,.csv" ref={csvRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const g=csvToGear(await f.text());if(confirm(`Import ${g.length} gear items? They will be added to the current inventory.`)){const imported=prepareImportedGear(data.gear,g);setData({...data,gear:[...data.gear,...imported]});showToast('CSV imported')}}catch(err){alert(err instanceof Error?err.message:'Invalid CSV')}}}/><button className="danger" onClick={()=>{const phrase=prompt('Type RESET ALL DATA to permanently clear all local inventory, certificates, roll history, vehicle parts, trophies and settings back to an empty workspace.');if(phrase==='RESET ALL DATA')setData(makeEmptyData())}}>Clear all local data</button></div>
+  </section>;
+}
+
+function GearEditor({item,authModel,mode,onClose,onSave}:{item:GearItem;authModel:AuthModelEntry[];mode:'add'|'edit';onClose:()=>void;onSave:(i:GearItem,keepAdding?:boolean)=>void}){
+  const [v,setV]=useState({...item,name:generateGearName(item.baseName,item.stats,item.authenticated,item.authentication)});
+  const initialShown=statLabels.filter(([key])=>Math.abs(item.stats[key])>1e-12).map(([key])=>key);
+  const [shownStats,setShownStats]=useState<Array<keyof GearStats>>(initialShown);
+  const patch=(next:Partial<GearItem>)=>setV(current=>{const updated={...current,...next};return {...updated,name:generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication)};});
+  const setStat=(k:keyof GearStats,n:number)=>setV(current=>{const stats={...current.stats,[k]:Number.isFinite(n)?n:0};return {...current,stats,name:generateGearName(current.baseName,stats,current.authenticated,current.authentication)};});
+  const setAuthentication=(next:Partial<GearItem['authentication']>)=>setV(current=>{const authentication={...current.authentication,...next};return {...current,authentication,name:generateGearName(current.baseName,current.stats,current.authenticated,authentication)};});
+  const showStat=(key:keyof GearStats)=>setShownStats(current=>current.includes(key)?current:[...current,key]);
+  const hideStat=(key:keyof GearStats)=>{setStat(key,0);setShownStats(current=>current.filter(k=>k!==key));};
+  const orderedShown=statLabels.filter(([key])=>shownStats.includes(key));
+  const hidden=statLabels.filter(([key])=>!shownStats.includes(key));
+  const displayedArrow=reductionToGameArrow(v.stats.arrowReduction);
+  const legacyAlien=v.authenticated&&v.authentication.kind==='Alien';
+  const currentKind=v.authentication.kind==='Premium'?'Premium':v.authentication.kind==='Limited'?'Limited':'Normal';
+  return <div className="modalBackdrop"><div className="modal sheet"><div className="modalHeader"><div><span className="eyebrow">{mode==='add'?'QUICK ADD GEAR':'EDIT GEAR'}</span><h2>{v.baseName||'New gear'}</h2></div><button className="iconButton" onClick={onClose}>×</button></div>
+    <div className="formGrid quickIdentity"><label className="wide">Actual gear name<input autoFocus value={v.baseName} onChange={e=>patch({baseName:e.target.value})} placeholder="e.g. Pearl Dominus"/></label><label>Slot<select value={v.slot} onChange={e=>patch({slot:e.target.value as Slot})}><option>Head</option><option>Back</option><option>Wrist</option></select></label><label>Mutation<input list={`mutations-${v.id}`} value={v.mutation??''} onChange={e=>patch({mutation:e.target.value})} placeholder="None, Diamond, Gold…"/><datalist id={`mutations-${v.id}`}>{['None','Diamond','Gold','Silver','Cobwebbed','Exclusive','Police','Chrome','Gem','Void','Onyx'].map(m=><option key={m} value={m}/>)}</datalist></label><label>Condition %<input type="number" min="0" max="100" step="any" inputMode="decimal" value={v.conditionPct??''} onChange={e=>patch({conditionPct:e.target.value===''?undefined:Number(e.target.value)})} placeholder="Optional"/></label><label className="check"><input type="checkbox" checked={v.favourite} onChange={e=>patch({favourite:e.target.checked})}/> Lock / favourite</label></div>
+    <div className="autoNamePreview"><span>Automatic name</span><strong>{v.name||'Name updates as stats are entered'}</strong></div>
+    <div className="quickEntrySection"><div className="rowBetween"><div><strong>Stats shown on this item</strong><div className="fieldHelp">Tap only the stats visible in game. Empty fields stay out of the way.</div></div></div>
+      {hidden.length>0&&<div className="statPicker">{hidden.map(([key,label])=><button type="button" key={key} onClick={()=>showStat(key)}>＋ {shortStat(label)}</button>)}</div>}
+      {!orderedShown.length&&<div className="quickEmpty">No stats selected yet.</div>}
+      <div className="quickStatGrid">{orderedShown.map(([key,label])=>key==='arrowReduction'
+        ? <div className="quickStatField arrowQuick" key={key}><label>{label}<input inputMode="decimal" type="number" step="any" value={displayedArrow} onChange={e=>setStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><small>Enter the signed game value, e.g. -24.</small></label><button type="button" className="removeStat" onClick={()=>hideStat(key)}>×</button></div>
+        : <div className="quickStatField" key={key}><label>{label} %<input inputMode="decimal" type="number" step="any" value={v.stats[key]} onChange={e=>setStat(key,Number(e.target.value))}/></label><button type="button" className="removeStat" onClick={()=>hideStat(key)}>×</button></div>)}</div>
+    </div>
+    <details className="finalStatsEditor authQuick" open={v.authenticated}><summary>Authentication {v.authenticated?`— ${v.authentication.kind} · ${v.authentication.effect||'select effect'}`:'— none'}</summary><div className="formGrid"><label className="check wide"><input type="checkbox" checked={v.authenticated} onChange={e=>{const authenticated=e.target.checked;const authentication=authenticated?(v.authenticated?v.authentication:{kind:'Normal' as const,effect:'',value:0}):{kind:'None' as const,effect:'',value:0};setV(current=>({...current,authenticated,authentication,name:generateGearName(current.baseName,current.stats,authenticated,authentication)}));}}/> Authenticated</label>{v.authenticated&&<>{legacyAlien?<><div className="wide notice"><b>Legacy Alien</b> — retained for historical compatibility.</div><label>Type<input value="Legacy Alien" readOnly/></label><label>Legacy effect<input value={v.authentication.effect} readOnly/></label><label>Legacy value %<input type="number" step="any" value={v.authentication.value} onChange={e=>setAuthentication({value:Number(e.target.value)})}/></label></>:<><label>Certificate type<select value={currentKind} onChange={e=>setAuthentication({kind:e.target.value as 'Normal'|'Premium'|'Limited',effect:'',value:0})}><option>Normal</option><option>Premium</option><option>Limited</option></select></label><label>Effect<select value={v.authentication.effect} onChange={e=>setAuthentication({effect:e.target.value})}>{activeAuthenticationOptions(v.slot,v.authentication.effect,authModel,currentKind).map(x=><option value={x} key={x}>{x||'Select effect'}</option>)}</select></label><label>Value %<input type="number" inputMode="decimal" step="any" value={v.authentication.value} onChange={e=>setAuthentication({value:Number(e.target.value)})}/></label><p className="wide fieldHelp">{currentKind==='Premium'?'Premium effects are evaluated by the shared loadout engine where possible; unresolved effects remain protected.':currentKind==='Limited'?'Limited effects are evaluated against your actual Main and specialist loadouts; unknown proc behaviour reduces confidence rather than creating fake certainty.':'Enter the normal/base accessory stats separately. Numeric authentication is added automatically by the optimiser.'}</p></>}</>}</div></details>
+    <div className="stickyActions quickActions"><button className="secondary" onClick={onClose}>Cancel</button>{mode==='add'&&<button className="secondary addAnother" onClick={()=>onSave({...v,name:generateGearName(v.baseName,v.stats,v.authenticated,v.authentication)},true)}>Save + another</button>}<button className="primary" onClick={()=>onSave({...v,name:generateGearName(v.baseName,v.stats,v.authenticated,v.authentication)})}>{mode==='add'?'Analyse & add':'Save changes'}</button></div>
+  </div></div>;
+}
+function NewItemSheet({analysis,onClose}:{analysis:{name:string;standalone:number;previous:number;next:number;bestChanged:boolean;replaced?:string;verdict?:string;bestCert?:string;combined?:GearStats};onClose:()=>void}){const d=analysis.next-analysis.previous;return <div className="modalBackdrop"><div className="modal resultModal"><span className="eyebrow">NEW ITEM ANALYSIS</span><h2>{analysis.name}</h2><div className="resultScore">{analysis.next.toFixed(2)}</div><div className="statsGrid three resultStats"><StatTile label="Standalone" value={analysis.standalone}/><StatTile label="Previous best" value={analysis.previous}/><StatTile label="Improvement" value={d}/></div><p>Best loadout changed: <b>{analysis.bestChanged?'YES':'NO'}</b></p>{analysis.replaced&&<p>Replaces: <b>{analysis.replaced}</b></p>}<StatusBadge status={analysis.verdict??'KEEP'}/>{analysis.combined&&<><div className="sectionTitle"><h3>New combined stats</h3></div><div className="statsGrid">{statLabels.map(([k,l])=><StatTile key={k} label={l} value={analysis.combined![k]} suffix="%"/>)}</div></>}{analysis.bestCert&&<p className="notice">Best certificate targeting: <b>{analysis.bestCert}</b>.</p>}<button className="primary" onClick={onClose}>Done</button></div></div>}
+
+function RollLogEditor({data,certificate,onClose,onSave}:{data:AppData;certificate:OwnedCertificate;onClose:()=>void;onSave:(r:CertificateRollLog,updated:GearItem)=>void}){
+  const type=authModelTypeForOwnedCertificate(certificate);
+  const [itemId,setItemId]=useState(data.gear[0]?.id??'');
+  const item=data.gear.find(g=>g.id===itemId);
+  const [newAuth,setNewAuth]=useState('');
+  const [newValue,setNewValue]=useState(0);
+  const autoPreview=useMemo(()=>item&&newAuth?applyRollToItem(item,newAuth,newValue,type):item,[item,newAuth,newValue,type]);
+  const expectedDisplayedStats=useMemo(()=>autoPreview?effectiveItemStats(autoPreview):undefined,[autoPreview]);
+  const [finalStats,setFinalStats]=useState<GearStats|undefined>(expectedDisplayedStats?{...expectedDisplayedStats}:undefined);
+  useEffect(()=>{setFinalStats(expectedDisplayedStats?{...expectedDisplayedStats}:undefined)},[expectedDisplayedStats]);
+  useEffect(()=>{setNewAuth('');setNewValue(0)},[itemId,type]);
+  const preview=useMemo(()=>{
+    if(!autoPreview||!finalStats)return autoPreview;
+    const observed=withObservedAuthenticationStats(autoPreview,finalStats);
+    return {...observed,name:generateGearName(observed.baseName,observed.stats,observed.authenticated,observed.authentication)};
+  },[autoPreview,finalStats]);
+  const before=optimise(data.gear,data.settings,1)[0]?.score.total??0;
+  const previewGear=preview?data.gear.map(g=>g.id===preview.id?preview:g):data.gear;
+  const after=optimise(previewGear,data.settings,1)[0]?.score.total??before;
+  const setFinalStat=(key:keyof GearStats,value:number)=>setFinalStats(current=>({...ZERO_STATS,...current,[key]:Number.isFinite(value)?value:0}));
+  const authKind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
+  return <div className="modalBackdrop"><div className="modal"><div className="modalHeader"><h2>Record certificate roll</h2><button className="iconButton" onClick={onClose}>×</button></div>
+    <div className="notice"><b>Certificate being consumed:</b> {certificate.type}{certificate.gradeStars!==undefined?' · '+'★'.repeat(certificate.gradeStars):''}{certificate.displayedValue!==undefined?' · $'+certificate.displayedValue.toLocaleString():''}. Saving this roll reduces its owned quantity by one.</div>
+    <div className="formGrid"><label className="wide">Item<select value={itemId} onChange={e=>setItemId(e.target.value)}>{data.gear.map(g=><option value={g.id} key={g.id}>{g.name} · {g.slot}</option>)}</select></label><label>New authentication<select value={newAuth} onChange={e=>setNewAuth(e.target.value)}><option value="">Select result</option>{activeCertificateOutcomeOptions(item?.slot,data.authModel,authKind,certificate.type).map(a=><option key={a}>{a}</option>)}</select></label><label>New value %<input type="number" step="any" value={newValue} onChange={e=>setNewValue(Number(e.target.value))}/></label><label>Best score before<input type="number" value={before} readOnly/></label><label>Calculated score after<input type="number" value={after} readOnly/></label><p className="wide fieldHelp">These are the final stats displayed in game after the new authentication. Any difference caused by the authentication (especially Focused) is stored on that authentication only; the item's base stats are not overwritten.</p></div>
+    {finalStats&&<details className="finalStatsEditor"><summary>Confirm / correct final displayed stats</summary><div className="formGrid">{statLabels.filter(([k])=>k!=='arrowReduction').map(([k,l])=><label key={k}>{l} %<input type="number" inputMode="decimal" step="any" value={finalStats[k]} onChange={e=>setFinalStat(k,Number(e.target.value))}/></label>)}<label className="wide arrowInput">Bid Arrow Speed — game display %<input type="number" inputMode="decimal" step="any" value={reductionToGameArrow(finalStats.arrowReduction)} onChange={e=>setFinalStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><span>Enter the signed value shown by the game.</span></label></div></details>}
+    <div className="stickyActions"><button className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={!item||!newAuth||!preview||certificate.quantity<1} onClick={()=>{item&&preview&&onSave({id:crypto.randomUUID(),date:new Date().toISOString(),certificateType:type,itemId:item.id,itemName:item.name,slot:item.slot,previousAuthentication:item.authentication.effect,previousValue:item.authentication.value,newAuthentication:newAuth,newValue,improvedBestSet:after>before,bestScoreBefore:before,bestScoreAfter:after,certificateId:certificate.id,certificateGradeStars:certificate.gradeStars,certificateInventoryType:certificate.type},preview)}}>Apply, record & consume</button></div>
+  </div></div>;
+}
+
+function authModelCertificateType(type:OwnedCertificate['type']):AuthModelEntry['certificateType']{
+  return type==='Premium Certificate of Authenticity'
+    ?'Premium Certificate of Authenticity'
+    :type==='Limited Certificate of Authenticity'
+      ?'Limited Certificate of Authenticity'
+      :'Normal Certificate of Authenticity';
+}
+
+function AuthModelRow({entry,onChange,onDelete}:{entry:AuthModelEntry;onChange:(e:AuthModelEntry)=>void;onDelete:()=>void}){
+  const inventoryType=entry.certificateInventoryType??(
+    entry.certificateType==='Premium Certificate of Authenticity'?'Premium Certificate of Authenticity':
+    entry.certificateType==='Limited Certificate of Authenticity'?'Limited Certificate of Authenticity':
+    'Wooden Certificate of Authenticity'
+  );
+  return <details className="modelRow">
+    <summary><span>{entry.outcome}</span><span>{inventoryType.replace(' Certificate of Authenticity','')} · {entry.slot} · {entry.assumedLikelihoodClass}{entry.enabled?'':' · disabled'}</span></summary>
+    <div className="formGrid">
+      <label className="wide">Outcome<input value={entry.outcome} onChange={e=>onChange({...entry,outcome:e.target.value})}/></label>
+      <label>Certificate tier<select value={inventoryType} onChange={e=>{const certificateInventoryType=e.target.value as OwnedCertificate['type'];onChange({...entry,certificateInventoryType,certificateType:authModelCertificateType(certificateInventoryType)})}}><option>Wooden Certificate of Authenticity</option><option>Ripped Certificate of Authenticity</option><option>Premium Certificate of Authenticity</option><option>Limited Certificate of Authenticity</option></select></label>
+      <label>Slot<select value={entry.slot} onChange={e=>onChange({...entry,slot:e.target.value as AuthModelEntry['slot']})}><option>Any</option><option>Head</option><option>Back</option><option>Wrist</option></select></label>
+      <label className="wide">Category<input value={entry.category} onChange={e=>onChange({...entry,category:e.target.value})}/></label>
+      <label>Relative-weight class<select value={entry.assumedLikelihoodClass} onChange={e=>onChange({...entry,assumedLikelihoodClass:e.target.value as AuthModelEntry['assumedLikelihoodClass']})}>{['VERY HIGH','HIGH','MEDIUM','LOW','VERY LOW'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Confidence<select value={entry.confidence} onChange={e=>onChange({...entry,confidence:e.target.value as AuthModelEntry['confidence']})}>{['Unknown','Low','Medium','High','Empirical'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Optional min<input type="number" step="any" value={entry.min??''} onChange={e=>onChange({...entry,min:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label>Optional typical<input type="number" step="any" value={entry.typical??''} onChange={e=>onChange({...entry,typical:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label>Optional max<input type="number" step="any" value={entry.max??''} onChange={e=>onChange({...entry,max:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label className="check"><input type="checkbox" checked={entry.enabled} onChange={e=>onChange({...entry,enabled:e.target.checked})}/> Enabled in live EV</label>
+      <div className="wide fieldHelp">Observed samples: {entry.observedSampleCount}. Values: {entry.observedValues.length?entry.observedValues.join(', '):'none yet'}. As exact-tier samples accumulate, empirical roll strength progressively outweighs the min/typical/max prior.</div>
+      <button className="danger wide" onClick={onDelete}>Delete model outcome</button>
+    </div>
+  </details>;
+}
+
+function LoadoutCard({slot,item}:{slot:string;item:GearItem}){return <div className="loadoutCard"><span>{slot}</span><strong>{item.baseName||item.name}</strong>{item.authentication.effect&&<small>{item.authentication.effect} {item.authentication.value?`${item.authentication.value}%`:''}</small>}</div>}
+function StatTile({label,value,suffix=''}:{label:string;value:number;suffix?:string}){return <div className="statTile"><span>{label}</span><strong>{Number.isFinite(value)?value.toFixed(Math.abs(value)%1?2:0):'—'}{suffix}</strong></div>}
+function ArrowThresholdCard({value,settings}:{value:number;settings:AlgorithmSettings}){const max=Math.max(settings.arrowSweetSpot,100);const pct=Math.min(100,Math.max(0,value/max*100));const excess=Math.max(0,value-settings.arrowSweetSpot);return <div className="thresholdCard"><div className="rowBetween"><strong>Bid Arrow reduction</strong><span>{value.toFixed(1)}% · target {settings.arrowSweetSpot}%</span></div><div className="progress arrowProgress"><i style={{width:`${pct}%`}}/><b style={{left:`${settings.arrowSweetSpot/max*100}%`}}/></div>{excess>0&&<div className="fieldHelp">{excess.toFixed(1)}% is above your 75% sweet spot. It is treated as wasted, not as an invented gameplay penalty.</div>}</div>}
+function ThresholdCard({label,value,target,ceiling}:{label:string;value:number;target:number;ceiling:number}){const pct=Math.min(100,Math.max(0,value/ceiling*100));return <div className="thresholdCard"><div className="rowBetween"><strong>{label}</strong><span>{value.toFixed(1)}% · target {target}% · ceiling {ceiling}%</span></div><div className="progress"><i style={{width:`${pct}%`}}/><b style={{left:`${target/ceiling*100}%`}}/></div></div>}
+function StatusBadge({status}:{status:string}){return <span className={`badge status ${status.toLowerCase().replaceAll(' ','-').replaceAll('/','')}`}>{status}</span>}
+function EmptyState({title,text,action,onClick}:{title:string;text:string;action?:string;onClick?:()=>void}){return <div className="empty"><div className="emptyIcon">⌁</div><h3>{title}</h3><p>{text}</p>{action&&<button className="primary" onClick={onClick}>{action}</button>}</div>}
+
+function algorithmIssues(s:AlgorithmSettings):string[]{const issues:string[]=[];for(const [k,v] of Object.entries(s))if(k!=='version'&&!Number.isFinite(Number(v)))issues.push(`${k} is not finite`);if(s.arrowSweetSpot<0)issues.push('Arrow sweet spot cannot be negative');if(s.energyTarget>s.energyCeiling)issues.push('Energy target must be ≤ Energy ceiling');if(s.zoneBreakpoint1>s.zoneBreakpoint2)issues.push('Zone breakpoint 1 must be ≤ breakpoint 2');for(const [label,value] of [['Luck weight',s.luckWeight],['Arrow weight',s.arrowWeight],['Zone weight',s.zoneWeight],['Recovery weight',s.recoveryWeight],['Zone middle multiplier',s.zoneMultiplier2],['Zone upper multiplier',s.zoneMultiplier3]] as const)if(value<0)issues.push(`${label} cannot be negative`);return issues;}
+function newAuthModelEntry():AuthModelEntry{return{id:crypto.randomUUID(),certificateInventoryType:'Wooden Certificate of Authenticity',certificateType:'Normal Certificate of Authenticity',slot:'Any',outcome:'Custom outcome',category:'Custom / unknown',assumedLikelihoodClass:'MEDIUM',observedSampleCount:0,observedValues:[],confidence:'Unknown',enabled:true}}
+function blankItem(slot:Slot='Head'):GearItem{const now=new Date().toISOString();return{id:crypto.randomUUID(),baseName:'',name:'',slot,stats:{...ZERO_STATS},authenticated:false,authentication:{kind:'None',effect:'',value:0},favourite:false,createdAt:now,updatedAt:now}}
+function applyRollToItem(item:GearItem,effect:string,value:number,type:AuthModelEntry['certificateType']):GearItem{
+  let base=removeNumericAuthentication(item);
+  if(base.authenticated){base=structuredClone(base);base.authenticated=false;base.authentication={kind:'None',effect:'',value:0};}
+  const updated=addOutcomeToItem(base,effect,value);
+  updated.authentication.kind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
+  updated.name=generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication);
+  updated.updatedAt=new Date().toISOString();
+  return updated;
+}
+function prepareImportedGear(existing:GearItem[],incoming:GearItem[]):GearItem[]{const used=new Set(existing.map(x=>x.id));return incoming.map(item=>{const clone=structuredClone(item);if(!clone.id||used.has(clone.id))clone.id=crypto.randomUUID();used.add(clone.id);return clone;});}
+function validateItem(i:GearItem){
+  if(!i.baseName.trim())return 'Item name is required.';
+  if(!['Head','Back','Wrist'].includes(i.slot))return 'Valid slot is required.';
+  if(i.conditionPct!==undefined && (!Number.isFinite(i.conditionPct) || i.conditionPct<0 || i.conditionPct>100))return 'Condition must be between 0 and 100%.';
+  if(i.mutation!==undefined && typeof i.mutation!=='string')return 'Mutation must be text.';
+  for(const [k] of statLabels)if(!Number.isFinite(i.stats[k]))return `${k} must be a finite number.`;
+  if(!Number.isFinite(i.authentication.value))return 'Authentication value must be a finite number.';
+  if(!i.authenticated)return '';
+  if(i.authentication.kind==='None')return 'Choose an authentication type.';
+  const effect=i.authentication.effect.trim();
+  if(!effect)return 'Choose an authentication effect.';
+  if(i.authentication.kind==='Normal'&&LEGACY_ALIEN_EFFECTS.includes(effect as never))return `${effect} is a legacy Alien effect and cannot be selected for a new Normal authentication.`;
+  if(i.authentication.kind==='Alien')return ''; // Historical Alien gear remains valid and editable as legacy data.
+  if(i.authentication.kind==='Premium'){
+    for(const [slot,effects] of Object.entries(PREMIUM_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
+  if(i.authentication.kind==='Limited'){
+    for(const [slot,effects] of Object.entries(LIMITED_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
+  for(const [slot,effects] of Object.entries(EXCLUSIVE_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+  return '';
+}
+function displayStat(k:keyof GearStats,v:number){const n=k==='arrowReduction'?reductionToGameArrow(v):v;return `${n>0?'+':''}${n.toFixed(Math.abs(n)%1?1:0)}%`}
+function shortStat(s:string){return s.replace('Energy Drink Time','Energy').replace('Vehicle Speed','Vehicle').replace('Bid Recovery','Recovery').replace('Bid Zone Width','Zone').replace('Bid Arrow Reduction','Arrow').replace('NPC Offers Bonus','NPC')}
+function replacedName(prev:any,next:any,slot:Slot){const key=slot.toLowerCase() as 'head'|'back'|'wrist';return prev[key].id!==next[key].id?prev[key].name:undefined}
+function dateStamp(){return new Date().toISOString().slice(0,10)}
+function downloadText(name:string,text:string,type:string){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+function applyTheme(theme:AppData['theme']){document.documentElement.dataset.theme=theme;if(theme==='system')delete document.documentElement.dataset.theme}
+function navIcon(t:Tab){return ({Dashboard:'▦',Gear:'◆',Optimise:'◎',Vehicle:'▰',Trophies:'♜',Certificates:'◈',Settings:'⚙',More:'•••'} as Record<Tab,string>)[t]}
++cert.displayedValue.toLocaleString():''} · Owned: {cert.quantity}</p>{editInventory&&<div className="formGrid"><label>Mutation<input value={cert.mutation??''} placeholder="None / Secret / …" onChange={e=>patchCertificate(cert.id,{mutation:e.target.value.trim()||undefined})}/></label><label>Grade stars<input type="number" min="0" max="5" step="1" value={cert.gradeStars??''} onChange={e=>patchCertificate(cert.id,{gradeStars:e.target.value===''?undefined:Math.max(0,Math.min(5,Math.trunc(Number(e.target.value)||0)))})}/></label><div className="actions wide"><button onClick={()=>changeQty(cert.id,-1)} disabled={cert.quantity===0}>− Remove one</button><button onClick={()=>changeQty(cert.id,1)}>＋ Add one</button></div></div>}</div>)}</div>
+      <div className="notice">Recording a roll below now consumes the exact selected certificate automatically. Wooden → Premium is compared explicitly against direct Wooden use at the current 150-Diamond conversion cost.</div>
+    </div>
+
+    <div className="sectionTitle"><h2>Record a result</h2></div>
+    {availableCertificates.length?<div className="card">
+      <label>Certificate actually used<select value={selectedCertificateId} onChange={e=>setSelectedCertificateId(e.target.value)}>{availableCertificates.map(cert=><option value={cert.id} key={cert.id}>{cert.type} · {cert.gradeStars!==undefined?'★'.repeat(cert.gradeStars)+' · ':''}{cert.displayedValue!==undefined?'$'+cert.displayedValue.toLocaleString()+' · ':''}owned {cert.quantity}</option>)}</select></label>
+      <button className="secondary" disabled={!selectedCertificate} onClick={()=>setLogOpen(true)}>＋ Record selected certificate roll</button>
+    </div>:<p className="muted">No certificate with quantity remaining is available to record.</p>}
+
+    <div className="sectionTitle"><h2>Roll history</h2></div>
+    <div className="card tableCard">{data.rollLog.length?data.rollLog.slice().reverse().map(r=><div className="logRow" key={r.id}><div><strong>{r.itemName}</strong><span>{new Date(r.date).toLocaleDateString()} · {r.certificateInventoryType??(r.certificateType.startsWith('Normal')?'Legacy Normal':r.certificateType.startsWith('Premium')?'Premium':r.certificateType.startsWith('Limited')?'Limited':'Legacy Alien')}</span></div><div><b>{r.newAuthentication} {r.newValue}%</b><span>{r.bestScoreBefore.toFixed(2)} → {r.bestScoreAfter.toFixed(2)}</span></div></div>):<p className="muted">No certificate rolls recorded yet.</p>}</div>
+
+    {logOpen&&selectedCertificate&&<RollLogEditor data={data} certificate={selectedCertificate} onClose={()=>setLogOpen(false)} onSave={(r,updated)=>{
+      try{
+        setData(applyRecordedCertificateRoll(data,selectedCertificate.id,r,updated));
+        setLogOpen(false);
+      }catch(error){alert(error instanceof Error?error.message:'Could not record certificate roll.')}
+    }}/>}
+  </section>;
+}
+
+function SettingsScreen({data,setData,showToast}:{data:AppData;setData:(d:AppData)=>void;showToast:(s:string)=>void}){
+  const jsonRef=useRef<HTMLInputElement>(null),csvRef=useRef<HTMLInputElement>(null);
+  function setS<K extends keyof AlgorithmSettings>(k:K,v:AlgorithmSettings[K]){setData({...data,settings:{...data.settings,[k]:v}})}
+  const fields:Array<[keyof AlgorithmSettings,string]>=[['luckWeight','Main Auction Luck weight'],['arrowWeight','Main Auction Bid Arrow weight'],['arrowSweetSpot','Bid Arrow sweet spot'],['zoneWeight','Main Auction Bid Zone weight'],['zoneBreakpoint1','Bid Zone breakpoint 1'],['zoneBreakpoint2','Bid Zone breakpoint 2'],['zoneMultiplier2','Bid Zone middle multiplier'],['zoneMultiplier3','Bid Zone upper multiplier'],['recoveryWeight','Main Auction Bid Recovery weight'],['energyTarget','Drink Prep Energy target'],['energyCeiling','Drink Prep Energy ceiling'],['energySecondStageMultiplier','Drink Prep above-target multiplier']];
+  const issues=algorithmIssues(data.settings);
+  return <section><div className="pageHeading"><div><h1>Settings</h1><p>Algorithm Version 2.0</p></div></div>
+    <div className="sectionTitle"><h2>Appearance</h2></div><div className="card"><label>Theme<select value={data.theme} onChange={e=>setData({...data,theme:e.target.value as any})}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label></div>
+    <div className="sectionTitle"><h2>Algorithm editor</h2><button className="secondary compact" onClick={()=>setData({...data,settings:{...LOCKED_DEFAULT_SETTINGS}})}>Reset to locked defaults</button></div>
+    <div className="settingsGrid">{fields.map(([k,label])=><label className="settingField" key={k}><span>{label}</span><input type="number" step="any" value={data.settings[k]} onChange={e=>setS(k,Number(e.target.value) as never)}/></label>)}</div>
+    {issues.length>0&&<div className="notice dangerNotice"><b>Settings need correction:</b> {issues.join(' · ')}</div>}
+    <div className="notice">Algorithm 2.0 uses one shared model for Main Auction, retention and certificate decisions. Displayed Luck is linear. Bid Arrow benefit caps at your 75% sweet spot with no invented over-cap penalty. Drink Prep, Grading and Shop/Idle are separate loadouts and never compensate for a weaker Main Auction result. Day, Night and Rain are evaluated as contextual Main variants instead of fake uptime averages.</div>
+    <div className="sectionTitle"><h2>Authentication outcome catalogue</h2><button className="secondary compact" onClick={()=>setData({...data,authModel:[...data.authModel,newAuthModelEntry()]})}>＋ Add outcome</button></div><div className="card authModel"><p className="muted">This is the live certificate model. Enabled rows, certificate tier, min / typical / max, confidence and relative-weight class all feed directly into certificate EV. MEDIUM is the neutral default because the real per-effect odds are unpublished; changing the class is an explicit user assumption, not a game fact.</p>{data.authModel.filter(m=>m.certificateType!=='Certificate of Alienticity'&&!LEGACY_ALIEN_EFFECTS.includes(m.outcome as never)).slice().sort((a,b)=>(a.certificateInventoryType??'').localeCompare(b.certificateInventoryType??'')||a.slot.localeCompare(b.slot)||a.outcome.localeCompare(b.outcome)).map(m=><AuthModelRow key={m.id} entry={m} onChange={entry=>setData({...data,authModel:data.authModel.map(x=>x.id===entry.id?entry:x)})} onDelete={()=>{if(confirm(`Remove authentication model outcome ${m.outcome}? Roll history is not deleted.`))setData({...data,authModel:data.authModel.filter(x=>x.id!==m.id)})}}/>)}</div>
+    <div className="sectionTitle"><h2>Backup & data safety</h2></div><div className="card buttonStack"><button className="primary" onClick={()=>downloadText(`storage-hunters-backup-${dateStamp()}.json`,exportJson(data),'application/json')}>Download JSON backup</button><button className="secondary" onClick={()=>jsonRef.current?.click()}>Restore JSON backup</button><button className="secondary" onClick={()=>downloadText(`storage-hunters-gear-${dateStamp()}.csv`,gearToCsv(data.gear),'text/csv')}>Export gear CSV</button><button className="secondary" onClick={()=>csvRef.current?.click()}>Import gear CSV</button><input hidden type="file" accept="application/json,.json" ref={jsonRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const d=importJson(await f.text());if(confirm(`Restore backup containing ${d.gear.length} gear items? This replaces current local data.`)){setData(d);showToast('Backup restored')}}catch(err){alert(err instanceof Error?err.message:'Invalid backup')}}}/><input hidden type="file" accept="text/csv,.csv" ref={csvRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const g=csvToGear(await f.text());if(confirm(`Import ${g.length} gear items? They will be added to the current inventory.`)){const imported=prepareImportedGear(data.gear,g);setData({...data,gear:[...data.gear,...imported]});showToast('CSV imported')}}catch(err){alert(err instanceof Error?err.message:'Invalid CSV')}}}/><button className="danger" onClick={()=>{const phrase=prompt('Type RESET ALL DATA to permanently clear all local inventory, certificates, roll history, vehicle parts, trophies and settings back to an empty workspace.');if(phrase==='RESET ALL DATA')setData(makeEmptyData())}}>Clear all local data</button></div>
+  </section>;
+}
+
+function GearEditor({item,authModel,mode,onClose,onSave}:{item:GearItem;authModel:AuthModelEntry[];mode:'add'|'edit';onClose:()=>void;onSave:(i:GearItem,keepAdding?:boolean)=>void}){
+  const [v,setV]=useState({...item,name:generateGearName(item.baseName,item.stats,item.authenticated,item.authentication)});
+  const initialShown=statLabels.filter(([key])=>Math.abs(item.stats[key])>1e-12).map(([key])=>key);
+  const [shownStats,setShownStats]=useState<Array<keyof GearStats>>(initialShown);
+  const patch=(next:Partial<GearItem>)=>setV(current=>{const updated={...current,...next};return {...updated,name:generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication)};});
+  const setStat=(k:keyof GearStats,n:number)=>setV(current=>{const stats={...current.stats,[k]:Number.isFinite(n)?n:0};return {...current,stats,name:generateGearName(current.baseName,stats,current.authenticated,current.authentication)};});
+  const setAuthentication=(next:Partial<GearItem['authentication']>)=>setV(current=>{const authentication={...current.authentication,...next};return {...current,authentication,name:generateGearName(current.baseName,current.stats,current.authenticated,authentication)};});
+  const showStat=(key:keyof GearStats)=>setShownStats(current=>current.includes(key)?current:[...current,key]);
+  const hideStat=(key:keyof GearStats)=>{setStat(key,0);setShownStats(current=>current.filter(k=>k!==key));};
+  const orderedShown=statLabels.filter(([key])=>shownStats.includes(key));
+  const hidden=statLabels.filter(([key])=>!shownStats.includes(key));
+  const displayedArrow=reductionToGameArrow(v.stats.arrowReduction);
+  const legacyAlien=v.authenticated&&v.authentication.kind==='Alien';
+  const currentKind=v.authentication.kind==='Premium'?'Premium':v.authentication.kind==='Limited'?'Limited':'Normal';
+  return <div className="modalBackdrop"><div className="modal sheet"><div className="modalHeader"><div><span className="eyebrow">{mode==='add'?'QUICK ADD GEAR':'EDIT GEAR'}</span><h2>{v.baseName||'New gear'}</h2></div><button className="iconButton" onClick={onClose}>×</button></div>
+    <div className="formGrid quickIdentity"><label className="wide">Actual gear name<input autoFocus value={v.baseName} onChange={e=>patch({baseName:e.target.value})} placeholder="e.g. Pearl Dominus"/></label><label>Slot<select value={v.slot} onChange={e=>patch({slot:e.target.value as Slot})}><option>Head</option><option>Back</option><option>Wrist</option></select></label><label>Mutation<input list={`mutations-${v.id}`} value={v.mutation??''} onChange={e=>patch({mutation:e.target.value})} placeholder="None, Diamond, Gold…"/><datalist id={`mutations-${v.id}`}>{['None','Diamond','Gold','Silver','Cobwebbed','Exclusive','Police','Chrome','Gem','Void','Onyx'].map(m=><option key={m} value={m}/>)}</datalist></label><label>Condition %<input type="number" min="0" max="100" step="any" inputMode="decimal" value={v.conditionPct??''} onChange={e=>patch({conditionPct:e.target.value===''?undefined:Number(e.target.value)})} placeholder="Optional"/></label><label className="check"><input type="checkbox" checked={v.favourite} onChange={e=>patch({favourite:e.target.checked})}/> Lock / favourite</label></div>
+    <div className="autoNamePreview"><span>Automatic name</span><strong>{v.name||'Name updates as stats are entered'}</strong></div>
+    <div className="quickEntrySection"><div className="rowBetween"><div><strong>Stats shown on this item</strong><div className="fieldHelp">Tap only the stats visible in game. Empty fields stay out of the way.</div></div></div>
+      {hidden.length>0&&<div className="statPicker">{hidden.map(([key,label])=><button type="button" key={key} onClick={()=>showStat(key)}>＋ {shortStat(label)}</button>)}</div>}
+      {!orderedShown.length&&<div className="quickEmpty">No stats selected yet.</div>}
+      <div className="quickStatGrid">{orderedShown.map(([key,label])=>key==='arrowReduction'
+        ? <div className="quickStatField arrowQuick" key={key}><label>{label}<input inputMode="decimal" type="number" step="any" value={displayedArrow} onChange={e=>setStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><small>Enter the signed game value, e.g. -24.</small></label><button type="button" className="removeStat" onClick={()=>hideStat(key)}>×</button></div>
+        : <div className="quickStatField" key={key}><label>{label} %<input inputMode="decimal" type="number" step="any" value={v.stats[key]} onChange={e=>setStat(key,Number(e.target.value))}/></label><button type="button" className="removeStat" onClick={()=>hideStat(key)}>×</button></div>)}</div>
+    </div>
+    <details className="finalStatsEditor authQuick" open={v.authenticated}><summary>Authentication {v.authenticated?`— ${v.authentication.kind} · ${v.authentication.effect||'select effect'}`:'— none'}</summary><div className="formGrid"><label className="check wide"><input type="checkbox" checked={v.authenticated} onChange={e=>{const authenticated=e.target.checked;const authentication=authenticated?(v.authenticated?v.authentication:{kind:'Normal' as const,effect:'',value:0}):{kind:'None' as const,effect:'',value:0};setV(current=>({...current,authenticated,authentication,name:generateGearName(current.baseName,current.stats,authenticated,authentication)}));}}/> Authenticated</label>{v.authenticated&&<>{legacyAlien?<><div className="wide notice"><b>Legacy Alien</b> — retained for historical compatibility.</div><label>Type<input value="Legacy Alien" readOnly/></label><label>Legacy effect<input value={v.authentication.effect} readOnly/></label><label>Legacy value %<input type="number" step="any" value={v.authentication.value} onChange={e=>setAuthentication({value:Number(e.target.value)})}/></label></>:<><label>Certificate type<select value={currentKind} onChange={e=>setAuthentication({kind:e.target.value as 'Normal'|'Premium'|'Limited',effect:'',value:0})}><option>Normal</option><option>Premium</option><option>Limited</option></select></label><label>Effect<select value={v.authentication.effect} onChange={e=>setAuthentication({effect:e.target.value})}>{activeAuthenticationOptions(v.slot,v.authentication.effect,authModel,currentKind).map(x=><option value={x} key={x}>{x||'Select effect'}</option>)}</select></label><label>Value %<input type="number" inputMode="decimal" step="any" value={v.authentication.value} onChange={e=>setAuthentication({value:Number(e.target.value)})}/></label><p className="wide fieldHelp">{currentKind==='Premium'?'Premium effects are evaluated by the shared loadout engine where possible; unresolved effects remain protected.':currentKind==='Limited'?'Limited effects are evaluated against your actual Main and specialist loadouts; unknown proc behaviour reduces confidence rather than creating fake certainty.':'Enter the normal/base accessory stats separately. Numeric authentication is added automatically by the optimiser.'}</p></>}</>}</div></details>
+    <div className="stickyActions quickActions"><button className="secondary" onClick={onClose}>Cancel</button>{mode==='add'&&<button className="secondary addAnother" onClick={()=>onSave({...v,name:generateGearName(v.baseName,v.stats,v.authenticated,v.authentication)},true)}>Save + another</button>}<button className="primary" onClick={()=>onSave({...v,name:generateGearName(v.baseName,v.stats,v.authenticated,v.authentication)})}>{mode==='add'?'Analyse & add':'Save changes'}</button></div>
+  </div></div>;
+}
+function NewItemSheet({analysis,onClose}:{analysis:{name:string;standalone:number;previous:number;next:number;bestChanged:boolean;replaced?:string;verdict?:string;bestCert?:string;combined?:GearStats};onClose:()=>void}){const d=analysis.next-analysis.previous;return <div className="modalBackdrop"><div className="modal resultModal"><span className="eyebrow">NEW ITEM ANALYSIS</span><h2>{analysis.name}</h2><div className="resultScore">{analysis.next.toFixed(2)}</div><div className="statsGrid three resultStats"><StatTile label="Standalone" value={analysis.standalone}/><StatTile label="Previous best" value={analysis.previous}/><StatTile label="Improvement" value={d}/></div><p>Best loadout changed: <b>{analysis.bestChanged?'YES':'NO'}</b></p>{analysis.replaced&&<p>Replaces: <b>{analysis.replaced}</b></p>}<StatusBadge status={analysis.verdict??'KEEP'}/>{analysis.combined&&<><div className="sectionTitle"><h3>New combined stats</h3></div><div className="statsGrid">{statLabels.map(([k,l])=><StatTile key={k} label={l} value={analysis.combined![k]} suffix="%"/>)}</div></>}{analysis.bestCert&&<p className="notice">Best certificate targeting: <b>{analysis.bestCert}</b>.</p>}<button className="primary" onClick={onClose}>Done</button></div></div>}
+
+function RollLogEditor({data,certificate,onClose,onSave}:{data:AppData;certificate:OwnedCertificate;onClose:()=>void;onSave:(r:CertificateRollLog,updated:GearItem)=>void}){
+  const type=authModelTypeForOwnedCertificate(certificate);
+  const [itemId,setItemId]=useState(data.gear[0]?.id??'');
+  const item=data.gear.find(g=>g.id===itemId);
+  const [newAuth,setNewAuth]=useState('');
+  const [newValue,setNewValue]=useState(0);
+  const autoPreview=useMemo(()=>item&&newAuth?applyRollToItem(item,newAuth,newValue,type):item,[item,newAuth,newValue,type]);
+  const expectedDisplayedStats=useMemo(()=>autoPreview?effectiveItemStats(autoPreview):undefined,[autoPreview]);
+  const [finalStats,setFinalStats]=useState<GearStats|undefined>(expectedDisplayedStats?{...expectedDisplayedStats}:undefined);
+  useEffect(()=>{setFinalStats(expectedDisplayedStats?{...expectedDisplayedStats}:undefined)},[expectedDisplayedStats]);
+  useEffect(()=>{setNewAuth('');setNewValue(0)},[itemId,type]);
+  const preview=useMemo(()=>{
+    if(!autoPreview||!finalStats)return autoPreview;
+    const observed=withObservedAuthenticationStats(autoPreview,finalStats);
+    return {...observed,name:generateGearName(observed.baseName,observed.stats,observed.authenticated,observed.authentication)};
+  },[autoPreview,finalStats]);
+  const before=optimise(data.gear,data.settings,1)[0]?.score.total??0;
+  const previewGear=preview?data.gear.map(g=>g.id===preview.id?preview:g):data.gear;
+  const after=optimise(previewGear,data.settings,1)[0]?.score.total??before;
+  const setFinalStat=(key:keyof GearStats,value:number)=>setFinalStats(current=>({...ZERO_STATS,...current,[key]:Number.isFinite(value)?value:0}));
+  const authKind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
+  return <div className="modalBackdrop"><div className="modal"><div className="modalHeader"><h2>Record certificate roll</h2><button className="iconButton" onClick={onClose}>×</button></div>
+    <div className="notice"><b>Certificate being consumed:</b> {certificate.type}{certificate.gradeStars!==undefined?' · '+'★'.repeat(certificate.gradeStars):''}{certificate.displayedValue!==undefined?' · $'+certificate.displayedValue.toLocaleString():''}. Saving this roll reduces its owned quantity by one.</div>
+    <div className="formGrid"><label className="wide">Item<select value={itemId} onChange={e=>setItemId(e.target.value)}>{data.gear.map(g=><option value={g.id} key={g.id}>{g.name} · {g.slot}</option>)}</select></label><label>New authentication<select value={newAuth} onChange={e=>setNewAuth(e.target.value)}><option value="">Select result</option>{activeCertificateOutcomeOptions(item?.slot,data.authModel,authKind,certificate.type).map(a=><option key={a}>{a}</option>)}</select></label><label>New value %<input type="number" step="any" value={newValue} onChange={e=>setNewValue(Number(e.target.value))}/></label><label>Best score before<input type="number" value={before} readOnly/></label><label>Calculated score after<input type="number" value={after} readOnly/></label><p className="wide fieldHelp">These are the final stats displayed in game after the new authentication. Any difference caused by the authentication (especially Focused) is stored on that authentication only; the item's base stats are not overwritten.</p></div>
+    {finalStats&&<details className="finalStatsEditor"><summary>Confirm / correct final displayed stats</summary><div className="formGrid">{statLabels.filter(([k])=>k!=='arrowReduction').map(([k,l])=><label key={k}>{l} %<input type="number" inputMode="decimal" step="any" value={finalStats[k]} onChange={e=>setFinalStat(k,Number(e.target.value))}/></label>)}<label className="wide arrowInput">Bid Arrow Speed — game display %<input type="number" inputMode="decimal" step="any" value={reductionToGameArrow(finalStats.arrowReduction)} onChange={e=>setFinalStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><span>Enter the signed value shown by the game.</span></label></div></details>}
+    <div className="stickyActions"><button className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={!item||!newAuth||!preview||certificate.quantity<1} onClick={()=>{item&&preview&&onSave({id:crypto.randomUUID(),date:new Date().toISOString(),certificateType:type,itemId:item.id,itemName:item.name,slot:item.slot,previousAuthentication:item.authentication.effect,previousValue:item.authentication.value,newAuthentication:newAuth,newValue,improvedBestSet:after>before,bestScoreBefore:before,bestScoreAfter:after,certificateId:certificate.id,certificateGradeStars:certificate.gradeStars,certificateInventoryType:certificate.type},preview)}}>Apply, record & consume</button></div>
+  </div></div>;
+}
+
+function authModelCertificateType(type:OwnedCertificate['type']):AuthModelEntry['certificateType']{
+  return type==='Premium Certificate of Authenticity'
+    ?'Premium Certificate of Authenticity'
+    :type==='Limited Certificate of Authenticity'
+      ?'Limited Certificate of Authenticity'
+      :'Normal Certificate of Authenticity';
+}
+
+function AuthModelRow({entry,onChange,onDelete}:{entry:AuthModelEntry;onChange:(e:AuthModelEntry)=>void;onDelete:()=>void}){
+  const inventoryType=entry.certificateInventoryType??(
+    entry.certificateType==='Premium Certificate of Authenticity'?'Premium Certificate of Authenticity':
+    entry.certificateType==='Limited Certificate of Authenticity'?'Limited Certificate of Authenticity':
+    'Wooden Certificate of Authenticity'
+  );
+  return <details className="modelRow">
+    <summary><span>{entry.outcome}</span><span>{inventoryType.replace(' Certificate of Authenticity','')} · {entry.slot} · {entry.assumedLikelihoodClass}{entry.enabled?'':' · disabled'}</span></summary>
+    <div className="formGrid">
+      <label className="wide">Outcome<input value={entry.outcome} onChange={e=>onChange({...entry,outcome:e.target.value})}/></label>
+      <label>Certificate tier<select value={inventoryType} onChange={e=>{const certificateInventoryType=e.target.value as OwnedCertificate['type'];onChange({...entry,certificateInventoryType,certificateType:authModelCertificateType(certificateInventoryType)})}}><option>Wooden Certificate of Authenticity</option><option>Ripped Certificate of Authenticity</option><option>Premium Certificate of Authenticity</option><option>Limited Certificate of Authenticity</option></select></label>
+      <label>Slot<select value={entry.slot} onChange={e=>onChange({...entry,slot:e.target.value as AuthModelEntry['slot']})}><option>Any</option><option>Head</option><option>Back</option><option>Wrist</option></select></label>
+      <label className="wide">Category<input value={entry.category} onChange={e=>onChange({...entry,category:e.target.value})}/></label>
+      <label>Relative-weight class<select value={entry.assumedLikelihoodClass} onChange={e=>onChange({...entry,assumedLikelihoodClass:e.target.value as AuthModelEntry['assumedLikelihoodClass']})}>{['VERY HIGH','HIGH','MEDIUM','LOW','VERY LOW'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Confidence<select value={entry.confidence} onChange={e=>onChange({...entry,confidence:e.target.value as AuthModelEntry['confidence']})}>{['Unknown','Low','Medium','High','Empirical'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Optional min<input type="number" step="any" value={entry.min??''} onChange={e=>onChange({...entry,min:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label>Optional typical<input type="number" step="any" value={entry.typical??''} onChange={e=>onChange({...entry,typical:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label>Optional max<input type="number" step="any" value={entry.max??''} onChange={e=>onChange({...entry,max:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      <label className="check"><input type="checkbox" checked={entry.enabled} onChange={e=>onChange({...entry,enabled:e.target.checked})}/> Enabled in live EV</label>
+      <div className="wide fieldHelp">Observed samples: {entry.observedSampleCount}. Values: {entry.observedValues.length?entry.observedValues.join(', '):'none yet'}. As exact-tier samples accumulate, empirical roll strength progressively outweighs the min/typical/max prior.</div>
+      <button className="danger wide" onClick={onDelete}>Delete model outcome</button>
+    </div>
+  </details>;
+}
+
+function LoadoutCard({slot,item}:{slot:string;item:GearItem}){return <div className="loadoutCard"><span>{slot}</span><strong>{item.baseName||item.name}</strong>{item.authentication.effect&&<small>{item.authentication.effect} {item.authentication.value?`${item.authentication.value}%`:''}</small>}</div>}
+function StatTile({label,value,suffix=''}:{label:string;value:number;suffix?:string}){return <div className="statTile"><span>{label}</span><strong>{Number.isFinite(value)?value.toFixed(Math.abs(value)%1?2:0):'—'}{suffix}</strong></div>}
+function ArrowThresholdCard({value,settings}:{value:number;settings:AlgorithmSettings}){const max=Math.max(settings.arrowSweetSpot,100);const pct=Math.min(100,Math.max(0,value/max*100));const excess=Math.max(0,value-settings.arrowSweetSpot);return <div className="thresholdCard"><div className="rowBetween"><strong>Bid Arrow reduction</strong><span>{value.toFixed(1)}% · target {settings.arrowSweetSpot}%</span></div><div className="progress arrowProgress"><i style={{width:`${pct}%`}}/><b style={{left:`${settings.arrowSweetSpot/max*100}%`}}/></div>{excess>0&&<div className="fieldHelp">{excess.toFixed(1)}% is above your 75% sweet spot. It is treated as wasted, not as an invented gameplay penalty.</div>}</div>}
+function ThresholdCard({label,value,target,ceiling}:{label:string;value:number;target:number;ceiling:number}){const pct=Math.min(100,Math.max(0,value/ceiling*100));return <div className="thresholdCard"><div className="rowBetween"><strong>{label}</strong><span>{value.toFixed(1)}% · target {target}% · ceiling {ceiling}%</span></div><div className="progress"><i style={{width:`${pct}%`}}/><b style={{left:`${target/ceiling*100}%`}}/></div></div>}
+function StatusBadge({status}:{status:string}){return <span className={`badge status ${status.toLowerCase().replaceAll(' ','-').replaceAll('/','')}`}>{status}</span>}
+function EmptyState({title,text,action,onClick}:{title:string;text:string;action?:string;onClick?:()=>void}){return <div className="empty"><div className="emptyIcon">⌁</div><h3>{title}</h3><p>{text}</p>{action&&<button className="primary" onClick={onClick}>{action}</button>}</div>}
+
+function algorithmIssues(s:AlgorithmSettings):string[]{const issues:string[]=[];for(const [k,v] of Object.entries(s))if(k!=='version'&&!Number.isFinite(Number(v)))issues.push(`${k} is not finite`);if(s.arrowSweetSpot<0)issues.push('Arrow sweet spot cannot be negative');if(s.energyTarget>s.energyCeiling)issues.push('Energy target must be ≤ Energy ceiling');if(s.zoneBreakpoint1>s.zoneBreakpoint2)issues.push('Zone breakpoint 1 must be ≤ breakpoint 2');for(const [label,value] of [['Luck weight',s.luckWeight],['Arrow weight',s.arrowWeight],['Zone weight',s.zoneWeight],['Recovery weight',s.recoveryWeight],['Zone middle multiplier',s.zoneMultiplier2],['Zone upper multiplier',s.zoneMultiplier3]] as const)if(value<0)issues.push(`${label} cannot be negative`);return issues;}
+function newAuthModelEntry():AuthModelEntry{return{id:crypto.randomUUID(),certificateInventoryType:'Wooden Certificate of Authenticity',certificateType:'Normal Certificate of Authenticity',slot:'Any',outcome:'Custom outcome',category:'Custom / unknown',assumedLikelihoodClass:'MEDIUM',observedSampleCount:0,observedValues:[],confidence:'Unknown',enabled:true}}
+function blankItem(slot:Slot='Head'):GearItem{const now=new Date().toISOString();return{id:crypto.randomUUID(),baseName:'',name:'',slot,stats:{...ZERO_STATS},authenticated:false,authentication:{kind:'None',effect:'',value:0},favourite:false,createdAt:now,updatedAt:now}}
+function applyRollToItem(item:GearItem,effect:string,value:number,type:AuthModelEntry['certificateType']):GearItem{
+  let base=removeNumericAuthentication(item);
+  if(base.authenticated){base=structuredClone(base);base.authenticated=false;base.authentication={kind:'None',effect:'',value:0};}
+  const updated=addOutcomeToItem(base,effect,value);
+  updated.authentication.kind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
+  updated.name=generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication);
+  updated.updatedAt=new Date().toISOString();
+  return updated;
+}
+function prepareImportedGear(existing:GearItem[],incoming:GearItem[]):GearItem[]{const used=new Set(existing.map(x=>x.id));return incoming.map(item=>{const clone=structuredClone(item);if(!clone.id||used.has(clone.id))clone.id=crypto.randomUUID();used.add(clone.id);return clone;});}
+function validateItem(i:GearItem){
+  if(!i.baseName.trim())return 'Item name is required.';
+  if(!['Head','Back','Wrist'].includes(i.slot))return 'Valid slot is required.';
+  if(i.conditionPct!==undefined && (!Number.isFinite(i.conditionPct) || i.conditionPct<0 || i.conditionPct>100))return 'Condition must be between 0 and 100%.';
+  if(i.mutation!==undefined && typeof i.mutation!=='string')return 'Mutation must be text.';
+  for(const [k] of statLabels)if(!Number.isFinite(i.stats[k]))return `${k} must be a finite number.`;
+  if(!Number.isFinite(i.authentication.value))return 'Authentication value must be a finite number.';
+  if(!i.authenticated)return '';
+  if(i.authentication.kind==='None')return 'Choose an authentication type.';
+  const effect=i.authentication.effect.trim();
+  if(!effect)return 'Choose an authentication effect.';
+  if(i.authentication.kind==='Normal'&&LEGACY_ALIEN_EFFECTS.includes(effect as never))return `${effect} is a legacy Alien effect and cannot be selected for a new Normal authentication.`;
+  if(i.authentication.kind==='Alien')return ''; // Historical Alien gear remains valid and editable as legacy data.
+  if(i.authentication.kind==='Premium'){
+    for(const [slot,effects] of Object.entries(PREMIUM_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
+  if(i.authentication.kind==='Limited'){
+    for(const [slot,effects] of Object.entries(LIMITED_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+    return '';
+  }
+  for(const [slot,effects] of Object.entries(EXCLUSIVE_AUTH_EFFECTS) as Array<[Slot,readonly string[]]>) if(effects.includes(effect)&&slot!==i.slot)return `${effect} is exclusive to ${slot} gear.`;
+  return '';
+}
+function displayStat(k:keyof GearStats,v:number){const n=k==='arrowReduction'?reductionToGameArrow(v):v;return `${n>0?'+':''}${n.toFixed(Math.abs(n)%1?1:0)}%`}
+function shortStat(s:string){return s.replace('Energy Drink Time','Energy').replace('Vehicle Speed','Vehicle').replace('Bid Recovery','Recovery').replace('Bid Zone Width','Zone').replace('Bid Arrow Reduction','Arrow').replace('NPC Offers Bonus','NPC')}
+function replacedName(prev:any,next:any,slot:Slot){const key=slot.toLowerCase() as 'head'|'back'|'wrist';return prev[key].id!==next[key].id?prev[key].name:undefined}
+function dateStamp(){return new Date().toISOString().slice(0,10)}
+function downloadText(name:string,text:string,type:string){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+function applyTheme(theme:AppData['theme']){document.documentElement.dataset.theme=theme;if(theme==='system')delete document.documentElement.dataset.theme}
+function navIcon(t:Tab){return ({Dashboard:'▦',Gear:'◆',Optimise:'◎',Vehicle:'▰',Trophies:'♜',Certificates:'◈',Settings:'⚙',More:'•••'} as Record<Tab,string>)[t]}
++decision.certificate.displayedValue.toLocaleString():''}</span>
             </div>
             <div className="premiumVerdict">{decision.verdict}</div>
           </summary>
