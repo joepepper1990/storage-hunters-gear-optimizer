@@ -1,4 +1,5 @@
-import type { AppData, AuthModelEntry, CertificateRollLog, GearItem, OwnedCertificate } from '../types';
+import type { AppData, AuthModelEntry, CertificateRollLog, GearItem, GearStats, OwnedCertificate } from '../types';
+import { effectiveItemStats } from './scoring';
 
 export function authModelTypeForOwnedCertificate(cert:OwnedCertificate):AuthModelEntry['certificateType'] {
   if(cert.type==='Premium Certificate of Authenticity') return 'Premium Certificate of Authenticity';
@@ -30,6 +31,23 @@ export function recordEmpiricalRoll(model:AuthModelEntry[],roll:CertificateRollL
   });
 }
 
+export function withObservedAuthenticationStats(item:GearItem, displayed:GearStats):GearItem {
+  const baseline={...item,authentication:{...item.authentication,statDeltas:undefined}};
+  const expected=effectiveItemStats(baseline);
+  const statDeltas:Partial<GearStats>={};
+  for(const key of Object.keys(expected) as Array<keyof GearStats>){
+    const delta=(displayed[key]??0)-expected[key];
+    if(Math.abs(delta)>1e-9)statDeltas[key]=delta;
+  }
+  return {
+    ...item,
+    authentication:{
+      ...item.authentication,
+      statDeltas:Object.keys(statDeltas).length?statDeltas:undefined
+    }
+  };
+}
+
 export function applyRecordedCertificateRoll(
   data:AppData,
   certificateId:string,
@@ -45,7 +63,8 @@ export function applyRecordedCertificateRoll(
     certificateId:certificate.id,
     certificateGradeStars:certificate.gradeStars,
     certificateInventoryType:certificate.type,
-    certificateType:authModelTypeForOwnedCertificate(certificate)
+    certificateType:authModelTypeForOwnedCertificate(certificate),
+    observedStatDeltas:updated.authentication.statDeltas
   };
 
   return {
