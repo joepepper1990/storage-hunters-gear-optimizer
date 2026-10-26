@@ -8,22 +8,51 @@ const DB_NAME = 'storage-hunters-gear-optimizer';
 const STORE = 'app';
 const KEY = 'data';
 const MIRROR_KEY = 'storage-hunters-gear-optimizer:emergency-mirror';
+const STORAGE_ENVELOPE_VERSION = 1;
 let saveChain: Promise<void> = Promise.resolve();
+
+interface StoredEnvelope {
+  storageEnvelopeVersion: 1;
+  savedAt: number;
+  data: AppData;
+}
+export interface StoredSnapshot {
+  savedAt: number;
+  data: AppData;
+}
+
+function decodeStoredSnapshot(value:unknown):StoredSnapshot|undefined {
+  if(!value||typeof value!=='object')return undefined;
+  const raw=value as any;
+  if(raw.storageEnvelopeVersion===STORAGE_ENVELOPE_VERSION&&raw.data&&typeof raw.savedAt==='number'){
+    return {savedAt:Number.isFinite(raw.savedAt)?raw.savedAt:0,data:raw.data as AppData};
+  }
+  if(Array.isArray(raw.gear))return {savedAt:0,data:raw as AppData};
+  return undefined;
+}
+
+export function selectNewestStoredSnapshot(a?:StoredSnapshot,b?:StoredSnapshot):StoredSnapshot|undefined {
+  if(!a)return b;
+  if(!b)return a;
+  return b.savedAt>a.savedAt?b:a;
+}
 
 export async function loadData(): Promise<AppData> {
   let indexedDbError: unknown;
+  let indexed:StoredSnapshot|undefined;
   try {
     const db = await openDb();
-    const value = await request<AppData | undefined>(db.transaction(STORE, 'readonly').objectStore(STORE).get(KEY));
+    const value = await request<unknown>(db.transaction(STORE, 'readonly').objectStore(STORE).get(KEY));
     db.close();
-    if (value) return normalizeData(value);
+    indexed=decodeStoredSnapshot(value);
   } catch (error) {
     indexedDbError = error;
   }
 
-  const mirror = loadEmergencyMirror();
-  if (mirror) return mirror;
-  if (indexedDbError) throw new Error(`Unable to open local gear storage and no emergency mirror was available: ${errorMessage(indexedDbError)}`);
+  const mirror=loadEmergencyMirror();
+  const selected=selectNewestStoredSnapshot(indexed,mirror);
+  if(selected)return normalizeData(selected.data);
+  if(indexedDbError)throw new Error(`Unable to open local gear storage and no emergency mirror was available: ${errorMessage(indexedDbError)}`);
   return makeInitialData();
 }
 
@@ -38,19 +67,21 @@ export function saveData(data: AppData): Promise<void> {
 }
 
 async function writeSnapshot(data: AppData): Promise<void> {
+  const savedAt=Date.now();
+  const envelope:StoredEnvelope={storageEnvelopeVersion:STORAGE_ENVELOPE_VERSION,savedAt,data};
   let idbSaved = false;
   let mirrorSaved = false;
   let idbError: unknown;
   try {
     const db = await openDb();
-    await request(db.transaction(STORE, 'readwrite').objectStore(STORE).put(data, KEY));
+    await request(db.transaction(STORE, 'readwrite').objectStore(STORE).put(envelope, KEY));
     db.close();
     idbSaved = true;
   } catch (error) {
     idbError = error;
   }
   try {
-    saveEmergencyMirror(data);
+    saveEmergencyMirror(data,savedAt);
     mirrorSaved = true;
   } catch {
     // A large inventory can exceed localStorage quota; IndexedDB remains authoritative.
@@ -59,15 +90,16 @@ async function writeSnapshot(data: AppData): Promise<void> {
 }
 
 /** Synchronous best-effort mirror used on pagehide and as recovery if IndexedDB is unavailable. */
-export function saveEmergencyMirror(data: AppData): void {
-  localStorage.setItem(MIRROR_KEY, JSON.stringify(data));
+export function saveEmergencyMirror(data: AppData,savedAt=Date.now()): void {
+  const envelope:StoredEnvelope={storageEnvelopeVersion:STORAGE_ENVELOPE_VERSION,savedAt,data};
+  localStorage.setItem(MIRROR_KEY, JSON.stringify(envelope));
 }
 
-function loadEmergencyMirror(): AppData | undefined {
+function loadEmergencyMirror(): StoredSnapshot | undefined {
   try {
     const text = localStorage.getItem(MIRROR_KEY);
     if (!text) return undefined;
-    return normalizeData(JSON.parse(text) as AppData);
+    return decodeStoredSnapshot(JSON.parse(text));
   } catch {
     return undefined;
   }
@@ -262,7 +294,8 @@ function normalizeOwnedCertificate(raw: AppData['ownedCertificates'][number]):Ap
     displayedValue:raw.displayedValue===undefined?undefined:finite(raw.displayedValue),
     conditionPct:conditionOrUndefined(raw.conditionPct),
     rarity:typeof raw.rarity==='string'?raw.rarity:undefined,
-    gradeStars};
+    gradeStars,
+    mutation:typeof raw.mutation==='string'&&raw.mutation.trim()?raw.mutation.trim():undefined};
 }
 
 function normalizeTrailer(item: Trailer): Trailer {
