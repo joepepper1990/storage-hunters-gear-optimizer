@@ -91,7 +91,7 @@ describe('per-item Wooden-to-Premium decision guide',()=>{
     expect(result).toHaveLength(data.gear.length);
     expect(result.some(a=>a.item.baseName==='Maple Wristband')).toBe(true);
     expect(result.find(a=>a.item.baseName==='Jellyfish Wristband')?.verdict).toBe('ALREADY PREMIUM');
-    expect(result.find(a=>a.item.baseName==='Reactor Fedora')?.verdict).toBe('ALREADY PREMIUM');
+    expect(result.find(a=>a.item.baseName==='Reactor Fedora'&&a.item.authentication.effect==='Mutated Luck')?.verdict).toBe('ALREADY PREMIUM');
     expect(result.find(a=>a.item.baseName==='Pearl Dominus')?.verdict).toBe('PROTECT ENCHANTMENT');
   });
 });
