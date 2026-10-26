@@ -297,6 +297,7 @@ export interface CertificateRollLog {
   bestScoreAfter: number;
   certificateId?: string;
   certificateGradeStars?: number;
+  certificateMutation?: string;
   /** Exact owned certificate inventory type used for this roll (Wooden, Ripped, Premium or Limited). */
   certificateInventoryType?: OwnedCertificate['type'];
   normalizedRollPosition?: number;
@@ -324,6 +325,8 @@ export interface OwnedCertificate {
   rarity?: string;
   /** Star grade shown on the physical certificate. */
   gradeStars?: number;
+  /** Mutation shown on the physical certificate, when present. */
+  mutation?: string;
 }
 
 export interface AppData {
