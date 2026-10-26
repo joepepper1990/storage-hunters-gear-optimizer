@@ -249,7 +249,7 @@ function targetDecision(data:AppData,cert:OwnedCertificate,item:GearItem):Certif
       const grading=pct(next.grading?.utility,baseline.grading?.utility);
       const shop=pct(next.shop?.utility,baseline.shop?.utility);
       const anyBenefit=delta>1e-4||contextual>1e-4||drink>1e-4||grading>1e-4||shop>1e-4;
-      const starPenalty=cert.gradeStars&&cert.gradeStars>0?.08:0;
+      const starPenalty=cert.gradeStars && cert.gradeStars>0 ? .08 : 0;
       branches.push({
         p:p/rolls.length,delta,contextual,drink,grading,shop,anyBenefit,
         confidence:Math.max(.1,def.confidence-starPenalty),
