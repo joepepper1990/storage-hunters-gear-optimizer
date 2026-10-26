@@ -143,3 +143,12 @@ export function analysePostRollOptions(data:AppData,roll:CertificateRollLog):Pos
       :'Computed against accepting the current result. This recommendation considers gear benefit only, not the personal value of 199 Robux.'
   };
 }
+
+/** Historical rolls alone do not imply the game still offers paid reroll buttons.
+ * Only a fresh, unpersisted UI session token can activate these choices.
+ */
+export function analyseActivePostRoll(data:AppData,activePostRollId?:string):PostRollDecision|undefined {
+  if(!activePostRollId)return undefined;
+  const latest=data.rollLog.at(-1);
+  return latest?.id===activePostRollId?analysePostRollOptions(data,latest):undefined;
+}
