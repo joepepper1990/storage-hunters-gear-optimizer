@@ -225,6 +225,7 @@ function modelEntry(seed:ModelSeed,inventoryType:AuthModelEntry['certificateInve
     typical:seed.typical,
     max:seed.max,
     confidence:seed.confidence,
+    empiricalConfidence:'Unknown',
     enabled:true
   };
 }
@@ -240,7 +241,7 @@ export function makeDefaultAuthModel(): AuthModelEntry[] {
 
 export function makeEmptyData():AppData{
   return {
-    schemaVersion:12,
+    schemaVersion:13,
     gear:[],
     settings:{...LOCKED_DEFAULT_SETTINGS},
     authModel:makeDefaultAuthModel(),
@@ -258,7 +259,7 @@ export function makeEmptyData():AppData{
 
 export function makeInitialData(): AppData {
   return {
-    schemaVersion: 12,
+    schemaVersion: 13,
     gear: makeKnownGear(),
     settings: { ...LOCKED_DEFAULT_SETTINGS },
     authModel: makeDefaultAuthModel(),
