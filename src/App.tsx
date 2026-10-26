@@ -6,6 +6,7 @@ import type { PostRollDecision } from './engine/certificateReroll';
 import { applyRecordedCertificateRoll, authModelTypeForOwnedCertificate, correctRecordedCertificateRoll, deleteRecordedCertificateRoll, withObservedAuthenticationStats } from './engine/certificateRolls';
 import { certificateInputKey, optimisationInputKey } from './engine/analysisFreshness';
 import { authenticationCatalogueIssues } from './engine/authModel';
+import { MODEL_ASSUMPTIONS } from './engine/modelAssumptions';
 import { buildGearLoadouts } from './engine/gearLoadouts';
 import { addOutcomeToItem, removeNumericAuthentication } from './engine/dominance';
 import { effectiveItemStats, gameArrowToReduction, reductionToGameArrow, scoreStandalone } from './engine/scoring';
@@ -233,7 +234,7 @@ function Dashboard({data,best,analyses,onGo}:{data:AppData;best:any;analyses:any
   </section>;
 }
 
-function GearScreen({gear,analyses,settings,analysisCurrent,onAdd,onScan,onEdit,onClone,onDelete,onFav,onBulkDiscard}:{gear:GearItem[];analyses:ItemAnalysis[];settings:AlgorithmSettings;analysisCurrent:boolean;onAdd:()=>void;onScan:()=>void;onEdit:(i:GearItem)=>void;onClone:(i:GearItem)=>void;onDelete:(i:GearItem)=>void;onFav:(i:GearItem)=>void;onBulkDiscard:()=>void}){
+export function GearScreen({gear,analyses,settings,analysisCurrent,onAdd,onScan,onEdit,onClone,onDelete,onFav,onBulkDiscard}:{gear:GearItem[];analyses:ItemAnalysis[];settings:AlgorithmSettings;analysisCurrent:boolean;onAdd:()=>void;onScan:()=>void;onEdit:(i:GearItem)=>void;onClone:(i:GearItem)=>void;onDelete:(i:GearItem)=>void;onFav:(i:GearItem)=>void;onBulkDiscard:()=>void}){
   const [q,setQ]=useState(''); const [slot,setSlot]=useState<'All'|Slot>('All'); const [status,setStatus]=useState('All'); const [auth,setAuth]=useState('All'); const [sort,setSort]=useState('scoreDesc');
   const map=new Map(analyses.map(a=>[a.item.id,a]));
   let items=gear.filter(i=>(slot==='All'||i.slot===slot)&&(!q||i.name.toLowerCase().includes(q.toLowerCase())||i.id.includes(q))&&(status==='All'||map.get(i.id)?.verdict===status)&&(auth==='All'||(auth==='Unauthenticated'?!i.authenticated:i.authentication.kind===auth)));
@@ -293,7 +294,7 @@ function OptimiseScreen({data,combinations,limit,setLimit}:{data:AppData;combina
   </section>;
 }
 
-function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppData)=>void}){
+export function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppData)=>void}){
   const [logOpen,setLogOpen]=useState(false);
   const [editInventory,setEditInventory]=useState(false);
   const [editingRoll,setEditingRoll]=useState<CertificateRollLog|null>(null);
@@ -431,7 +432,7 @@ function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppData)=>voi
   </section>;
 }
 
-function SettingsScreen({data,setData,showToast}:{data:AppData;setData:(d:AppData)=>void;showToast:(s:string)=>void}){
+export function SettingsScreen({data,setData,showToast}:{data:AppData;setData:(d:AppData)=>void;showToast:(s:string)=>void}){
   const jsonRef=useRef<HTMLInputElement>(null),csvRef=useRef<HTMLInputElement>(null);
   function setS<K extends keyof AlgorithmSettings>(k:K,v:AlgorithmSettings[K]){setData({...data,settings:{...data.settings,[k]:v}})}
   const fields:Array<[keyof AlgorithmSettings,string]>=[['luckWeight','Main Auction Luck weight'],['arrowWeight','Main Auction Bid Arrow weight'],['arrowSweetSpot','Bid Arrow sweet spot'],['zoneWeight','Main Auction Bid Zone weight'],['zoneBreakpoint1','Bid Zone breakpoint 1'],['zoneBreakpoint2','Bid Zone breakpoint 2'],['zoneMultiplier2','Bid Zone middle multiplier'],['zoneMultiplier3','Bid Zone upper multiplier'],['recoveryWeight','Main Auction Bid Recovery weight'],['energyTarget','Drink Prep Energy target'],['energyCeiling','Drink Prep Energy ceiling'],['energySecondStageMultiplier','Drink Prep above-target multiplier']];
@@ -443,6 +444,17 @@ function SettingsScreen({data,setData,showToast}:{data:AppData;setData:(d:AppDat
     <div className="settingsGrid">{fields.map(([k,label])=><label className="settingField" key={k}><span>{label}</span><input type="number" step="any" value={data.settings[k]} onChange={e=>setS(k,Number(e.target.value) as never)}/></label>)}</div>
     {issues.length>0&&<div className="notice dangerNotice"><b>Settings need correction:</b> {issues.join(' · ')}</div>}
     <div className="notice">Algorithm 2.0 uses one shared model for Main Auction, retention and certificate decisions. Displayed Luck is linear. Bid Arrow benefit caps at your 75% sweet spot with no invented over-cap penalty. Drink Prep, Grading and Shop/Idle are separate loadouts and never compensate for a weaker Main Auction result. Day, Night and Rain are evaluated as contextual Main variants instead of fake uptime averages.</div>
+    <div className="sectionTitle"><h2>Model assumptions</h2></div>
+    <div className="card">
+      <div className="thresholdTable">
+        <div><b>Central dynamic sensitivity</b><span>DB {MODEL_ASSUMPTIONS.dynamic.central.droughtbreakerStacks} · GH +{MODEL_ASSUMPTIONS.dynamic.central.goldenHourLuck} Luck · Frenzy {(MODEL_ASSUMPTIONS.dynamic.central.luckFrenzyUptime*100).toFixed(0)}% uptime · Drink +{MODEL_ASSUMPTIONS.dynamic.central.drinkLuckBoost}</span></div>
+        <div><b>High dynamic sensitivity</b><span>DB {MODEL_ASSUMPTIONS.dynamic.high.droughtbreakerStacks} · GH +{MODEL_ASSUMPTIONS.dynamic.high.goldenHourLuck} Luck · Frenzy {(MODEL_ASSUMPTIONS.dynamic.high.luckFrenzyUptime*100).toFixed(0)}% uptime · Drink +{MODEL_ASSUMPTIONS.dynamic.high.drinkLuckBoost}</span></div>
+        <div><b>Certificate prior strength</b><span>{MODEL_ASSUMPTIONS.certificate.priorStrength} prior-equivalent samples</span></div>
+        <div><b>Normal / rare USE EV threshold</b><span>{MODEL_ASSUMPTIONS.certificate.use.normalMinWorstStateEvPct}% / {MODEL_ASSUMPTIONS.certificate.use.rareMinWorstStateEvPct}% worst-state EV</span></div>
+        <div><b>Immediate Authenticator reroll price</b><span>{MODEL_ASSUMPTIONS.authenticator.paidRerollRobux} Robux</span></div>
+      </div>
+      <p className="muted">These are named sensitivity/decision-policy assumptions, not hidden Roblox probabilities. Their provenance is documented in the engine source; certificate outcome ranges and relative weights remain editable in the catalogue below.</p>
+    </div>
     <div className="sectionTitle"><h2>Authentication outcome catalogue</h2><button className="secondary compact" onClick={()=>setData({...data,authModel:[...data.authModel,newAuthModelEntry()]})}>＋ Add outcome</button></div>{catalogueIssues.length>0&&<div className="notice warning"><b>Catalogue conflicts:</b> {catalogueIssues.join(' · ')}</div>}<div className="card authModel"><p className="muted">This is the live certificate model. Enabled rows, certificate tier, min / typical / max, confidence and relative-weight class all feed directly into certificate EV. Basic outcomes default to MEDIUM. Wooden/Ripped slot-exclusive outcomes default to LOW because current guides consistently describe them as less common; LOW is a qualitative model assumption, not a claimed hidden percentage, and remains editable.</p>{data.authModel.filter(m=>m.certificateType!=='Certificate of Alienticity'&&!LEGACY_ALIEN_EFFECTS.includes(m.outcome as never)).slice().sort((a,b)=>(a.certificateInventoryType??'').localeCompare(b.certificateInventoryType??'')||a.slot.localeCompare(b.slot)||a.outcome.localeCompare(b.outcome)).map(m=><AuthModelRow key={m.id} entry={m} onChange={entry=>setData({...data,authModel:data.authModel.map(x=>x.id===entry.id?entry:x)})} onDelete={()=>{if(confirm(`Remove authentication model outcome ${m.outcome}? Roll history is not deleted.`))setData({...data,authModel:data.authModel.filter(x=>x.id!==m.id)})}}/>)}</div>
     <div className="sectionTitle"><h2>Backup & data safety</h2></div><div className="card buttonStack"><button className="primary" onClick={()=>downloadText(`storage-hunters-backup-${dateStamp()}.json`,exportJson(data),'application/json')}>Download JSON backup</button><button className="secondary" onClick={()=>jsonRef.current?.click()}>Restore JSON backup</button><button className="secondary" onClick={()=>downloadText(`storage-hunters-gear-${dateStamp()}.csv`,gearToCsv(data.gear),'text/csv')}>Export gear CSV</button><button className="secondary" onClick={()=>csvRef.current?.click()}>Import gear CSV</button><input hidden type="file" accept="application/json,.json" ref={jsonRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const d=importJson(await f.text());if(confirm(`Restore backup containing ${d.gear.length} gear items? This replaces current local data.`)){setData(d);showToast('Backup restored')}}catch(err){alert(err instanceof Error?err.message:'Invalid backup')}}}/><input hidden type="file" accept="text/csv,.csv" ref={csvRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const g=csvToGear(await f.text());if(confirm(`Import ${g.length} gear items? They will be added to the current inventory.`)){const imported=prepareImportedGear(data.gear,g);setData({...data,gear:[...data.gear,...imported]});showToast('CSV imported')}}catch(err){alert(err instanceof Error?err.message:'Invalid CSV')}}}/><button className="danger" onClick={()=>{const phrase=prompt('Type RESET ALL DATA to permanently clear all local inventory, certificates, roll history, vehicle parts, trophies and settings back to an empty workspace.');if(phrase==='RESET ALL DATA')setData(makeEmptyData())}}>Clear all local data</button></div>
   </section>;
