@@ -222,4 +222,38 @@ describe('certificate expected-value engine',()=>{
     expect(empirical).toBeGreaterThan(prior);
   });
 
+  it('keeps an unknown Luck range unresolved after a single observed roll',()=>{
+    const data=makeInitialData();
+    data.gear=[gear('H','Head',{luck:100}),gear('B','Back',{luck:100}),gear('W','Wrist',{luck:100})];
+    const wooden={id:'wooden-one-luck',type:'Wooden Certificate of Authenticity' as const,quantity:1,gradeStars:2};
+    data.authModel=data.authModel.map(m=>({...m,enabled:m.certificateInventoryType==='Wooden Certificate of Authenticity'&&m.outcome==='Luck'}));
+    data.rollLog=[{
+      id:'luck-1',date:now,certificateType:'Normal Certificate of Authenticity',
+      certificateInventoryType:'Wooden Certificate of Authenticity',certificateGradeStars:2,
+      itemId:'H',itemName:'H',slot:'Head',previousAuthentication:'',previousValue:0,
+      newAuthentication:'Luck',newValue:45,improvedBestSet:true,bestScoreBefore:100,bestScoreAfter:145
+    }];
+    const target=analyseCertificate(data,wooden).targets.find(t=>t.item.id==='H')!;
+    expect(target.unresolvedOutcomeMassPct).toBeCloseTo(100,8);
+    expect(target.unresolvedEffects).toContain('Luck');
+    expect(target.verdict).not.toBe('USE');
+  });
+
+  it('keeps Focused mechanically unresolved even when a numeric observation exists',()=>{
+    const data=makeInitialData();
+    data.gear=[gear('H','Head',{luck:100}),gear('B','Back',{luck:100,zone:20}),gear('W','Wrist',{luck:100})];
+    const wooden={id:'wooden-focused',type:'Wooden Certificate of Authenticity' as const,quantity:1,gradeStars:2};
+    data.authModel=data.authModel.map(m=>({...m,enabled:m.certificateInventoryType==='Wooden Certificate of Authenticity'&&m.outcome==='Focused'}));
+    data.rollLog=[{
+      id:'focused-1',date:now,certificateType:'Normal Certificate of Authenticity',
+      certificateInventoryType:'Wooden Certificate of Authenticity',certificateGradeStars:2,
+      itemId:'B',itemName:'B',slot:'Back',previousAuthentication:'',previousValue:0,
+      newAuthentication:'Focused',newValue:30,improvedBestSet:true,bestScoreBefore:100,bestScoreAfter:110
+    }];
+    const target=analyseCertificate(data,wooden).targets.find(t=>t.item.id==='B')!;
+    expect(target.unresolvedOutcomeMassPct).toBeCloseTo(100,8);
+    expect(target.unresolvedEffects).toContain('Focused');
+    expect(target.verdict).not.toBe('USE');
+  });
+
 });
