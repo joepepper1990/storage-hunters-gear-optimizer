@@ -89,7 +89,7 @@ function request<T = unknown>(req: IDBRequest<T>): Promise<T> {
 export function normalizeData(raw: AppData): AppData {
   const initial = makeInitialData();
   return {
-    schemaVersion: 10,
+    schemaVersion: 11,
     // Schema 9 is a deliberate one-time inventory reset from the user's complete
     // 26 October 2026 screenshots. Any pre-schema-9 gear rows are replaced, not
     // merged, because the verified 22-item list is the user's entire owned gear.
@@ -97,7 +97,7 @@ export function normalizeData(raw: AppData): AppData {
       ? (Array.isArray(raw?.gear) ? raw.gear.map(normalizeItem) : [])
       : makeKnownGear(),
     settings: normalizeSettings(raw?.settings),
-    authModel: normalizeAuthModel(raw?.authModel, initial.authModel),
+    authModel: normalizeAuthModel(raw?.authModel, initial.authModel, Number(raw?.schemaVersion ?? 0)),
     rollLog: Array.isArray(raw?.rollLog) ? raw.rollLog : [],
     // Same one-time reset for certificates: the seven screenshot-confirmed
     // certificates are the complete owned inventory at this snapshot.
@@ -156,13 +156,49 @@ function normalizeTrophySettings(raw: Partial<TrophyOptimiserSettings> | undefin
   return { maxActive, mutationWeights: [...merged.values()] };
 }
 
-function normalizeAuthModel(raw: AppData['authModel'] | undefined, defaults: AppData['authModel']): AppData['authModel'] {
-  const supplied = Array.isArray(raw) ? raw.map(entry => ({ ...entry, observedValues: Array.isArray(entry.observedValues) ? [...entry.observedValues] : [] })) : [];
-  const out = [...supplied];
-  const key = (entry: AppData['authModel'][number]) => `${entry.certificateType}|${entry.slot}|${entry.outcome}`;
-  const existing = new Set(out.map(key));
-  // Merge newly-added current certificate outcomes without deleting historical Alien rows from older backups.
-  for (const entry of defaults) if (!existing.has(key(entry))) out.push(entry);
+function normalizeAuthModel(raw: AppData['authModel'] | undefined, defaults: AppData['authModel'], schemaVersion=0): AppData['authModel'] {
+  const supplied = Array.isArray(raw) ? raw.map(entry => ({
+    ...entry,
+    observedValues: Array.isArray(entry.observedValues) ? [...entry.observedValues] : []
+  })) : [];
+
+  const migrated = supplied.flatMap(entry=>{
+    if(schemaVersion>=11 || entry.certificateInventoryType) return [entry];
+    if(entry.certificateType==='Normal Certificate of Authenticity'){
+      return [{
+        ...entry,
+        certificateInventoryType:'Wooden Certificate of Authenticity' as const,
+        // Schema-10 HIGH/LOW values represented the old invented basic/exclusive weighting.
+        // Reset current built-in rows to a neutral prior while retaining custom rows and observations.
+        assumedLikelihoodClass:['Normal numeric','Slot-exclusive'].includes(entry.category)?'MEDIUM' as const:entry.assumedLikelihoodClass
+      }];
+    }
+    if(entry.certificateType==='Premium Certificate of Authenticity')return [{...entry,certificateInventoryType:'Premium Certificate of Authenticity' as const}];
+    if(entry.certificateType==='Limited Certificate of Authenticity')return [{...entry,certificateInventoryType:'Limited Certificate of Authenticity' as const}];
+    return [entry];
+  });
+
+  const key=(entry:AppData['authModel'][number])=>`${entry.certificateInventoryType??'legacy'}|${entry.certificateType}|${entry.slot}|${entry.outcome}`;
+  const defaultsByKey=new Map(defaults.map(entry=>[key(entry),entry]));
+  const out=migrated.map(entry=>{
+    if(schemaVersion>=11)return entry;
+    const fallback=defaultsByKey.get(key(entry));
+    if(!fallback)return entry;
+    const oldBuiltIn=['Normal numeric','Slot-exclusive','Premium perk — community-documented','Limited passive — exact proc range unverified'].includes(entry.category);
+    return {
+      ...fallback,
+      ...entry,
+      certificateInventoryType:entry.certificateInventoryType??fallback.certificateInventoryType,
+      category:oldBuiltIn?fallback.category:entry.category,
+      min:oldBuiltIn?fallback.min:(entry.min??fallback.min),
+      typical:oldBuiltIn?fallback.typical:(entry.typical??fallback.typical),
+      max:oldBuiltIn?fallback.max:(entry.max??fallback.max)
+    };
+  });
+  const existing=new Set(out.map(key));
+  if(schemaVersion<11){
+    for(const entry of defaults) if(!existing.has(key(entry))) out.push(entry);
+  }
   return out;
 }
 

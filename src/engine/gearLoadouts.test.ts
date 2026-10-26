@@ -109,4 +109,23 @@ describe('unified gear loadouts and retention',()=>{
     const loadout=buildGearLoadouts(data.gear,data.settings).main!;
     expect([best.head.id,best.back.id,best.wrist.id]).toEqual([loadout.head.id,loadout.back.id,loadout.wrist.id]);
   });
+  it('returns modelled dynamic Luck in the Main combination display stats',()=>{
+    const h=g('H','Head',{luck:10},{kind:'Premium',effect:'Mutated Luck',value:0},'Diamond');
+    const b=g('B','Back',{},undefined,'Void');
+    const w=g('W','Wrist',{},undefined,'Chrome');
+    const best=optimise([h,b,w],LOCKED_DEFAULT_SETTINGS,1)[0]!;
+    expect(best.stats.luck).toBe(100);
+    expect(best.score.luck).toBe(100);
+  });
+
+  it('labels KEEP membership when an item is only relevant in a dynamic sensitivity state',()=>{
+    const dynamic=g('Dynamic','Back',{luck:70},{kind:'Premium',effect:'Droughtbreaker',value:10});
+    const staticBack=g('Static','Back',{luck:110});
+    const gear=[g('H','Head',{luck:100}),dynamic,staticBack,g('W','Wrist',{luck:100})];
+    const analysis=analyseGearRetention(gear,LOCKED_DEFAULT_SETTINGS).find(a=>a.item.id==='Dynamic')!;
+    expect(analysis.verdict).toBe('KEEP');
+    expect(analysis.loadoutMemberships.some(m=>m.scenario)).toBe(true);
+    expect(analysis.reason).toMatch(/DB 5|dynamic sensitivity/);
+  });
+
 });

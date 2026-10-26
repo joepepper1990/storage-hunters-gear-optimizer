@@ -147,55 +147,118 @@ export const LOCKED_DEFAULT_SETTINGS: AlgorithmSettings = {
   gradeRerollWeight: 0
 };
 
-const normalOutcomes = ['Luck', 'Bid Recovery', 'Bid Arrow Speed', 'Bid Zone Width', 'Energy Drink Time', 'Tip Chance', 'NPC Offers Bonus', 'Walkspeed'];
-const exclusive: Record<'Head' | 'Back' | 'Wrist', string[]> = {
-  Head: ['Sunny', 'Nocturnal', 'Overcharged'],
-  Back: ['Raindrop', 'Focused'],
-  Wrist: ['Time Keeper', 'Connected']
+type ModelSeed={
+  outcome:string;
+  slot:'Any'|'Head'|'Back'|'Wrist';
+  min?:number;
+  typical?:number;
+  max?:number;
+  confidence:AuthModelEntry['confidence'];
+  category:string;
 };
 
+const WOODEN_MODEL:ModelSeed[]=[
+  {outcome:'Luck',slot:'Any',confidence:'Unknown',category:'Wooden basic — range unresolved'},
+  {outcome:'Bid Recovery',slot:'Any',min:5,max:25,confidence:'Medium',category:'Wooden basic'},
+  {outcome:'Bid Arrow Speed',slot:'Any',min:-60,max:-12,confidence:'Medium',category:'Wooden basic'},
+  {outcome:'Bid Zone Width',slot:'Any',min:15,max:75,confidence:'Medium',category:'Wooden basic'},
+  {outcome:'Energy Drink Time',slot:'Any',min:10,max:50,confidence:'Medium',category:'Wooden basic'},
+  {outcome:'Tip Chance',slot:'Any',min:3,max:15,confidence:'Medium',category:'Wooden basic'},
+  {outcome:'NPC Offers Bonus',slot:'Any',min:3,max:15,confidence:'Medium',category:'Wooden basic'},
+  {outcome:'Walkspeed',slot:'Any',min:10,max:50,confidence:'Medium',category:'Wooden basic'},
+  {outcome:'Sunny',slot:'Head',min:10,max:100,confidence:'Medium',category:'Wooden exclusive'},
+  {outcome:'Nocturnal',slot:'Head',min:10,max:100,confidence:'Medium',category:'Wooden exclusive'},
+  {outcome:'Overcharged',slot:'Head',min:5,max:20,confidence:'Medium',category:'Wooden exclusive'},
+  {outcome:'Raindrop',slot:'Back',min:10,max:100,confidence:'Medium',category:'Wooden exclusive'},
+  {outcome:'Focused',slot:'Back',confidence:'Unknown',category:'Wooden exclusive — formula/range unresolved'},
+  {outcome:'Time Keeper',slot:'Wrist',min:5,max:40,confidence:'Medium',category:'Wooden exclusive'},
+  {outcome:'Connected',slot:'Wrist',min:2,max:12,confidence:'Medium',category:'Wooden exclusive'}
+];
+
+const RIPPED_MODEL:ModelSeed[]=[
+  {outcome:'Luck',slot:'Any',confidence:'Unknown',category:'Ripped basic — range unresolved'},
+  {outcome:'Bid Recovery',slot:'Any',min:3.8,max:13,confidence:'Medium',category:'Ripped basic'},
+  {outcome:'Bid Arrow Speed',slot:'Any',min:-30,max:-15,confidence:'Low',category:'Ripped basic — published band remains community/unconfirmed'},
+  {outcome:'Bid Zone Width',slot:'Any',min:11,max:38,confidence:'Medium',category:'Ripped basic'},
+  {outcome:'Energy Drink Time',slot:'Any',min:7,max:25,confidence:'Medium',category:'Ripped basic'},
+  {outcome:'Tip Chance',slot:'Any',min:2.3,max:7.5,confidence:'Medium',category:'Ripped basic'},
+  {outcome:'NPC Offers Bonus',slot:'Any',min:2.3,max:7.5,confidence:'Medium',category:'Ripped basic'},
+  {outcome:'Walkspeed',slot:'Any',min:7.5,max:25,confidence:'Medium',category:'Ripped basic'},
+  {outcome:'Sunny',slot:'Head',confidence:'Unknown',category:'Ripped exclusive — availability/range not yet confirmed'},
+  {outcome:'Nocturnal',slot:'Head',confidence:'Unknown',category:'Ripped exclusive — availability/range not yet confirmed'},
+  {outcome:'Overcharged',slot:'Head',confidence:'Unknown',category:'Ripped exclusive — availability/range not yet confirmed'},
+  {outcome:'Raindrop',slot:'Back',min:8,max:50,confidence:'Medium',category:'Ripped exclusive — confirmed'},
+  {outcome:'Focused',slot:'Back',confidence:'Unknown',category:'Ripped exclusive — availability/range not yet confirmed'},
+  {outcome:'Time Keeper',slot:'Wrist',min:4,max:20,confidence:'Medium',category:'Ripped exclusive — confirmed'},
+  {outcome:'Connected',slot:'Wrist',confidence:'Unknown',category:'Ripped exclusive — availability/range not yet confirmed'}
+];
+
+const PREMIUM_MODEL:ModelSeed[]=[
+  {outcome:'Mutated Luck',slot:'Head',confidence:'High',category:'Premium perk'},
+  {outcome:'Droughtbreaker',slot:'Back',confidence:'Low',category:'Premium perk'},
+  {outcome:'Golden Hour',slot:'Back',confidence:'Low',category:'Premium perk'},
+  {outcome:'Club Pact',slot:'Wrist',confidence:'Medium',category:'Premium perk'},
+  {outcome:'Temporal Split',slot:'Wrist',confidence:'Medium',category:'Premium perk'}
+];
+
+const LIMITED_MODEL:ModelSeed[]=[
+  {outcome:'Auto X-Ray',slot:'Head',min:3,max:30,confidence:'High',category:'Limited passive'},
+  {outcome:'Grade Re-Roll',slot:'Head',min:5,max:25,confidence:'High',category:'Limited passive'},
+  {outcome:'Luck Frenzy',slot:'Back',min:10,max:110,confidence:'Medium',category:'Limited passive'},
+  {outcome:'Featherweight',slot:'Back',min:3,max:20,confidence:'High',category:'Limited passive'},
+  {outcome:'Second Chance',slot:'Wrist',min:4,max:33,confidence:'High',category:'Limited passive'},
+  {outcome:'Steady Hand',slot:'Wrist',min:4,max:33,confidence:'High',category:'Limited passive'}
+];
+
+function modelEntry(seed:ModelSeed,inventoryType:AuthModelEntry['certificateInventoryType'],certificateType:AuthModelEntry['certificateType']):AuthModelEntry{
+  return {
+    id:crypto.randomUUID(),
+    certificateInventoryType:inventoryType,
+    certificateType,
+    slot:seed.slot,
+    outcome:seed.outcome,
+    category:seed.category,
+    assumedLikelihoodClass:'MEDIUM',
+    observedSampleCount:0,
+    observedValues:[],
+    min:seed.min,
+    typical:seed.typical,
+    max:seed.max,
+    confidence:seed.confidence,
+    enabled:true
+  };
+}
+
 export function makeDefaultAuthModel(): AuthModelEntry[] {
-  const entries: AuthModelEntry[] = [];
-  for (const outcome of normalOutcomes) {
-    entries.push({
-      id: crypto.randomUUID(), certificateType: 'Normal Certificate of Authenticity', slot: 'Any', outcome,
-      category: 'Normal numeric', assumedLikelihoodClass: 'HIGH', observedSampleCount: 0, observedValues: [], confidence: 'Unknown', enabled: true
-    });
-  }
-  for (const [slot, outcomes] of Object.entries(exclusive) as Array<['Head' | 'Back' | 'Wrist', string[]]>) {
-    for (const outcome of outcomes) entries.push({
-      id: crypto.randomUUID(), certificateType: 'Normal Certificate of Authenticity', slot, outcome,
-      category: 'Slot-exclusive', assumedLikelihoodClass: 'LOW', observedSampleCount: 0, observedValues: [], confidence: 'Unknown', enabled: true
-    });
-  }
-  const premiumSlots:Record<'Head'|'Back'|'Wrist',string[]> = {
-    Head:['Mutated Luck'],
-    Back:['Droughtbreaker','Golden Hour'],
-    Wrist:['Club Pact','Temporal Split']
+  return [
+    ...WOODEN_MODEL.map(seed=>modelEntry(seed,'Wooden Certificate of Authenticity','Normal Certificate of Authenticity')),
+    ...RIPPED_MODEL.map(seed=>modelEntry(seed,'Ripped Certificate of Authenticity','Normal Certificate of Authenticity')),
+    ...PREMIUM_MODEL.map(seed=>modelEntry(seed,'Premium Certificate of Authenticity','Premium Certificate of Authenticity')),
+    ...LIMITED_MODEL.map(seed=>modelEntry(seed,'Limited Certificate of Authenticity','Limited Certificate of Authenticity'))
+  ];
+}
+
+export function makeEmptyData():AppData{
+  return {
+    schemaVersion:11,
+    gear:[],
+    settings:{...LOCKED_DEFAULT_SETTINGS},
+    authModel:makeDefaultAuthModel(),
+    rollLog:[],
+    ownedCertificates:[],
+    theme:'system',
+    vehicleProfile:{...DEFAULT_VEHICLE_PROFILE},
+    vehicleSettings:{...DEFAULT_VEHICLE_SETTINGS},
+    vehicleParts:[],
+    trailers:[],
+    trophies:[],
+    trophySettings:structuredClone(DEFAULT_TROPHY_SETTINGS)
   };
-  for(const [slot,outcomes] of Object.entries(premiumSlots) as Array<['Head'|'Back'|'Wrist',string[]]>)
-    for(const outcome of outcomes)entries.push({
-      id:crypto.randomUUID(),certificateType:'Premium Certificate of Authenticity',slot,outcome,
-      category:'Premium perk — community-documented',assumedLikelihoodClass:'LOW',
-      observedSampleCount:0,observedValues:[],confidence:'Unknown',enabled:true
-    });
-  const limitedSlots:Record<'Head'|'Back'|'Wrist',string[]>={
-    Head:['Auto X-Ray','Grade Re-Roll'],
-    Back:['Luck Frenzy','Featherweight'],
-    Wrist:['Second Chance','Steady Hand']
-  };
-  for(const [slot,outcomes] of Object.entries(limitedSlots) as Array<['Head'|'Back'|'Wrist',string[]]>)
-    for(const outcome of outcomes)entries.push({
-      id:crypto.randomUUID(),certificateType:'Limited Certificate of Authenticity',slot,outcome,
-      category:'Limited passive — exact proc range unverified',assumedLikelihoodClass:'MEDIUM',
-      observedSampleCount:0,observedValues:[],confidence:'Low',enabled:true
-    });
-  return entries;
 }
 
 export function makeInitialData(): AppData {
   return {
-    schemaVersion: 10,
+    schemaVersion: 11,
     gear: makeKnownGear(),
     settings: { ...LOCKED_DEFAULT_SETTINGS },
     authModel: makeDefaultAuthModel(),

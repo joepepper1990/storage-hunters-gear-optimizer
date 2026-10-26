@@ -159,8 +159,9 @@ export function mainCombination(
     passiveDetails: extraLuck?[{label:'Dynamic / contextual Luck',score:passive}]:[],
     hasUnknownProtectedPassive:false, hasProvisionalPassive:false
   };
+  const displayedStats={...stats,luck:stats.luck+extraLuck};
   return {
-    head,back,wrist,stats,score,
+    head,back,wrist,stats:displayedStats,score,
     wastedArrow:Math.max(0,stats.arrowReduction-settings.arrowSweetSpot),
     penalisedArrow:0,
     wastedEnergy:Math.max(0,stats.energy-settings.energyCeiling)
