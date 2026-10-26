@@ -8,8 +8,8 @@ export function evaluateCombination(head: GearItem, back: GearItem, wrist: GearI
   const score = scoreItemOrCombination(stats, items, settings);
   return {
     head, back, wrist, stats, score,
-    wastedArrow: Math.max(0, Math.min(stats.arrowReduction, settings.arrowPenaltyThreshold) - settings.arrowCeiling),
-    penalisedArrow: Math.max(0, stats.arrowReduction - settings.arrowPenaltyThreshold),
+    wastedArrow: Math.max(0, stats.arrowReduction - settings.arrowSweetSpot),
+    penalisedArrow: 0,
     wastedEnergy: Math.max(0, stats.energy - settings.energyCeiling)
   };
 }
