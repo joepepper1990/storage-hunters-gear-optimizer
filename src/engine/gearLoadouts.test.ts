@@ -128,4 +128,31 @@ describe('unified gear loadouts and retention',()=>{
     expect(analysis.reason).toMatch(/DB 5|dynamic sensitivity/);
   });
 
+  it('uses a robust zero-state Main baseline instead of assuming Droughtbreaker, Golden Hour or Frenzy uptime',()=>{
+    const dynamic=g('Dynamic','Back',{luck:10},{kind:'Premium',effect:'Droughtbreaker',value:100});
+    const staticBack=g('Static','Back',{luck:80});
+    const gear=[g('H','Head',{luck:100}),dynamic,staticBack,g('W','Wrist',{luck:100})];
+    const defaultMain=buildGearLoadouts(gear,LOCKED_DEFAULT_SETTINGS).main!;
+    const central=buildGearLoadouts(gear,LOCKED_DEFAULT_SETTINGS,'central').main!;
+    expect(defaultMain.back.id).toBe('Static');
+    expect(central.back.id).toBe('Dynamic');
+  });
+
+  it('treats Overcharged as auction-time drink Luck rather than Drink Prep duration',()=>{
+    const over=g('Over','Head',{},{kind:'Normal',effect:'Overcharged',value:20});
+    const energy=g('Energy','Head',{energy:40});
+    const gear=[over,energy,g('B','Back',{}),g('W','Wrist',{})];
+    const prep=buildGearLoadouts(gear,LOCKED_DEFAULT_SETTINGS,'low').drink!;
+    expect(prep.head.id).toBe('Energy');
+    const noDrink=mainAuctionUtility([over,gear[2],gear[3]],LOCKED_DEFAULT_SETTINGS,'Neutral','low');
+    const drinkState={droughtbreakerStacks:0,goldenHourLuck:0,luckFrenzyUptime:0,drinkLuckBoost:150,label:'Drink 2 active'};
+    const withDrink=mainAuctionUtility([over,gear[2],gear[3]],LOCKED_DEFAULT_SETTINGS,'Neutral',drinkState);
+    expect(withDrink-noDrink).toBeCloseTo(30,8);
+  });
+
+  it('uses the current Lucky Grading distribution for Grade Re-Roll EV',()=>{
+    expect(gradeRerollExpectedValueGainPct(25)).toBeGreaterThan(1.76);
+    expect(gradeRerollExpectedValueGainPct(25)).toBeLessThan(1.78);
+  });
+
 });
