@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 import { analyseOwnedCertificates } from '../engine/certificateDecision';
-import { analysePostRollOptions } from '../engine/certificateReroll';
+import { analyseActivePostRoll } from '../engine/certificateReroll';
 import type { AppData } from '../types';
 
 interface Request {
@@ -13,10 +13,8 @@ self.onmessage = (event: MessageEvent<Request>) => {
   const { id, data, activePostRollId } = event.data;
   try {
     const decisions = analyseOwnedCertificates(data);
-    const latestRoll=data.rollLog.at(-1);
-    // The session token only exists in the current React session, never in saved history.
-    const postRoll=activePostRollId&&latestRoll?.id===activePostRollId
-      ?analysePostRollOptions(data,latestRoll):undefined;
+    // A saved roll is historical evidence, not a live paid-reroll opportunity.
+    const postRoll=analyseActivePostRoll(data,activePostRollId);
     self.postMessage({ id, decisions, postRoll });
   } catch (error) {
     self.postMessage({ id, error: error instanceof Error ? error.message : String(error) });
