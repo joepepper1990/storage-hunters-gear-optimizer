@@ -52,6 +52,10 @@ export interface CertificateTargetDecision {
   chancePersonalPreferenceImprovesPct: number;
   chancePersonalPreferenceWorsePct: number;
   expectedPersonalPreferenceDelta: number;
+  /** Null when any outcome is unresolved; other expected fields are conditional EV. */
+  fullExpectedMainPct: number | null;
+  fullMainLowerBoundPct: number;
+  fullMainUpperBoundPct: number | null;
   expectedImprovementPct: number;
   expectedImprovementLowPct: number;
   expectedImprovementCentralPct: number;
@@ -76,6 +80,8 @@ export interface CertificateTargetDecision {
   currentAuthenticationShopRiskPct: number;
   unresolvedOutcomeMassPct: number;
   resolvedOutcomeMassPct: number;
+  outcomeLikelihoods: ReturnType<typeof certificateOutcomeLikelihoods>;
+  evidenceCoverage: ReturnType<typeof certificateEvidenceCoverage>;
   unresolvedEffects: string[];
   decisionBasis: 'Main Auction' | 'Contextual Main' | 'Main secondary preference' | 'Drink Prep' | 'Grading' | 'Shop / Idle' | 'None';
   mainFitPct: number;
@@ -263,15 +269,15 @@ function observedEffectCounts(data:AppData,cert:OwnedCertificate,slot:Slot):Map<
   // with low evidential weight and never add them twice to the matching rollLog.
   for(const row of catalogueRowsFor(data.authModel,cert.type,slot)){
     const existing=counts.get(row.outcome)??0;
-    const modelOnly=Math.max(0,(row.observedSampleCount??0)-Math.round(existing));
+    const represented=data.rollLog.filter(r=>r.slot===slot&&r.newAuthentication===row.outcome&&rollMatchesCertificate(r,cert)).length;
+    const modelOnly=Math.max(0,(row.observedSampleCount??0)-represented);
     counts.set(row.outcome,existing+Math.min(modelOnly,20)*.10);
   }
   return counts;
 }
 
-function outcomeProbabilities(defs:CertificateOutcomeDefinition[],counts:Map<string,number>) {
+function outcomeProbabilities(defs:CertificateOutcomeDefinition[],counts:Map<string,number>,strength:number=MODEL_ASSUMPTIONS.certificate.outcomePriorStrength) {
   const priorTotal=defs.reduce((sum,def)=>sum+LIKELIHOOD_WEIGHT[def.assumedLikelihoodClass],0)||1;
-  const strength=MODEL_ASSUMPTIONS.certificate.outcomePriorStrength;
   const weighted=defs.map(def=>({
     def,
     w:strength*LIKELIHOOD_WEIGHT[def.assumedLikelihoodClass]/priorTotal+(counts.get(def.effect)??0)
@@ -281,9 +287,25 @@ function outcomeProbabilities(defs:CertificateOutcomeDefinition[],counts:Map<str
 }
 
 /** Diagnostic probabilities; these are model estimates, not published Roblox odds. */
-export function certificateOutcomeLikelihoods(data:AppData,cert:OwnedCertificate,slot:Slot):Array<{effect:string;probability:number}> {
-  return outcomeProbabilities(outcomesFor(data,cert,slot),observedEffectCounts(data,cert,slot))
-    .map(({def,p})=>({effect:def.effect,probability:p}));
+export function certificateOutcomeLikelihoods(data:AppData,cert:OwnedCertificate,slot:Slot):Array<{effect:string;probability:number;minProbability:number;maxProbability:number}> {
+  const defs=outcomesFor(data,cert,slot),counts=observedEffectCounts(data,cert,slot);
+  const strength=MODEL_ASSUMPTIONS.certificate.outcomePriorStrength;
+  const weak=outcomeProbabilities(defs,counts,strength/2);
+  const strong=outcomeProbabilities(defs,counts,strength*2);
+  return outcomeProbabilities(defs,counts).map(({def,p},i)=>({
+    effect:def.effect,probability:p,
+    minProbability:Math.min(p,weak[i].p,strong[i].p),
+    maxProbability:Math.max(p,weak[i].p,strong[i].p)
+  }));
+}
+
+export function certificateEvidenceCoverage(data:AppData,cert:OwnedCertificate,slot:Slot):{exact:number;partial:number;excluded:number} {
+  const relevant=data.rollLog.filter(r=>r.slot===slot&&rollMatchesCertificate(r,cert));
+  return {
+    exact:relevant.filter(r=>evidenceWeight(r,cert)===1).length,
+    partial:relevant.filter(r=>evidenceWeight(r,cert)>0&&evidenceWeight(r,cert)<1).length,
+    excluded:relevant.filter(r=>evidenceWeight(r,cert)===0).length
+  };
 }
 
 function effectNeedsNumericMagnitude(effect:string):boolean {
@@ -308,14 +330,13 @@ function normalizedPriorWeights(values:number[],min:number,max:number,typical?:n
   return raw.map(x=>x/total);
 }
 
-function empiricalSupports(values:number[],mass:number):Array<{value:number;weight:number}> {
+export function empiricalSupports(values:number[],mass:number):Array<{value:number;weight:number}> {
   if(!values.length||mass<=0)return [];
-  const sorted=[...values].sort((a,b)=>a-b);
-  const count=Math.min(5,sorted.length);
-  const points=Array.from({length:count},(_,i)=>
-    sorted[Math.round((sorted.length-1)*(count===1?0:i/(count-1)))]
-  );
-  return points.map(value=>({value,weight:mass/points.length}));
+  // Aggregate equal values only: preserve every realised frequency and tail.
+  const counts=new Map<number,number>();
+  for(const value of values)counts.set(value,(counts.get(value)??0)+1);
+  return [...counts].sort(([a],[b])=>a-b)
+    .map(([value,count])=>({value,weight:mass*count/values.length}));
 }
 
 function rollSupports(def:CertificateOutcomeDefinition,data:AppData,slot:Slot,cert:OwnedCertificate):RollSupport[] {
@@ -722,6 +743,9 @@ function targetDecision(
     chancePersonalPreferenceImprovesPct:chancePreferenceImprove,
     chancePersonalPreferenceWorsePct:chancePreferenceWorse,
     expectedPersonalPreferenceDelta:expectedPreference,
+    fullExpectedMainPct:unresolvedMass>1e-6?null:expected,
+    fullMainLowerBoundPct:expected*resolvedMass-unresolvedMass,
+    fullMainUpperBoundPct:unresolvedMass>1e-6?null:expected,
     expectedImprovementPct:expected,
     expectedImprovementLowPct:expectedLow,
     expectedImprovementCentralPct:expectedCentral,
@@ -746,6 +770,8 @@ function targetDecision(
     currentAuthenticationShopRiskPct:shopRisk,
     unresolvedOutcomeMassPct:unresolvedMass,
     resolvedOutcomeMassPct:resolvedMass*100,
+    outcomeLikelihoods:certificateOutcomeLikelihoods(data,cert,item.slot),
+    evidenceCoverage:certificateEvidenceCoverage(data,cert,item.slot),
     unresolvedEffects:[...unresolvedEffects],
     decisionBasis,
     mainFitPct:mainFit,
@@ -763,7 +789,7 @@ function targetDecision(
       unresolvedMass>0
         ?'Some catalogue outcome magnitude/mechanic remains unresolved. It is excluded from numeric EV instead of being assigned a fake zero, and that probability mass cannot produce a USE verdict.'
         :'All enabled catalogue outcomes for this slot have mapped numeric/mechanic support.',
-      'Outcome selection uses the editable catalogue relative-weight class plus exact-certificate roll history. Default current rows are MEDIUM, so the starting prior is neutral.',
+      'Outcome selection uses the editable catalogue relative-weight class plus exact-certificate roll history. Basic/exclusive relative weights are editable qualitative assumptions; the explicit prior strength is not published game odds.',
       cert.gradeStars!==undefined
         ?String(cert.gradeStars)+'★ quality is recorded. Higher grade is known to push rolls upward, but the exact transform is unpublished; the unshifted range is therefore treated as a conservative floor rather than inventing a multiplier.'
         :'Certificate grade effect is not assumed.',
@@ -849,11 +875,13 @@ function withConversionAdvice(
   const d=direct.recommendedTarget;
   const p=premium.recommendedTarget;
   if(!d||!p)return direct;
-  const diff=p.expectedImprovementPct-d.expectedImprovementPct;
+  const complete=d.resolvedOutcomeMassPct>=100-1e-6&&p.resolvedOutcomeMassPct>=100-1e-6;
+  const diff=p.expectedImprovementLowPct-d.expectedImprovementLowPct;
   let recommendation:CertificateConversionAdvice['recommendation']='HOLD / UNCERTAIN';
   if((p.verdict==='USE'||p.verdict==='CONSIDER')&&diff>=1&&p.chanceOfWorsePct<=d.chanceOfWorsePct+10){
-    recommendation='PREFER PREMIUM CONVERSION';
-  }else if((d.verdict==='USE'||d.verdict==='CONSIDER')&&diff<1){
+    // Converted grade, diamond affordability and personal value are unknown.
+    recommendation='HOLD / UNCERTAIN';
+  }else if(complete&&(d.verdict==='USE'||d.verdict==='CONSIDER')&&diff<1){
     recommendation='DIRECT USE COMPETITIVE';
   }
 
@@ -863,20 +891,27 @@ function withConversionAdvice(
     directExpectedMainPct:d.expectedImprovementPct,
     premiumExpectedMainPct:p.expectedImprovementPct,
     premiumVerdict:p.verdict,
-    reason:'Compares direct Wooden use with converting that Wooden certificate plus 150 Diamonds into a Premium certificate. Diamond utility is not converted into gear score, and the converted certificate grade transform remains uncertain.'
+    reason:'Indicative gear comparison only. Diamond affordability, the value of preserving the Wooden certificate, and converted grade/mutation are unknown. No economic conversion recommendation is made; unresolved conditional EVs are not comparable full-certificate EVs.'
   };
 
   return {
     ...direct,
-    verdict:recommendation==='PREFER PREMIUM CONVERSION'?'HOLD':direct.verdict,
+    verdict:direct.verdict,
     conversion,
     modelNotes:[
       ...direct.modelNotes,
-      recommendation==='PREFER PREMIUM CONVERSION'
-        ?'Direct Wooden use is held because the Premium conversion has the stronger modelled Main opportunity before valuing the 150-Diamond cost.'
-        :'Premium conversion was evaluated as an explicit alternative to direct Wooden use.'
+      'Premium conversion is an indicative alternative only; unknown resource value and converted quality prevent a complete economic recommendation.'
     ]
   };
+}
+
+export function compareCertificateTargets(a:CertificateTargetDecision,b:CertificateTargetDecision):number {
+  const vr=(v:CertificateDecisionVerdict)=>({USE:0,CONSIDER:1,HOLD:2,'DO NOT USE':3}[v]);
+  return vr(a.verdict)-vr(b.verdict)||
+    b.resolvedOutcomeMassPct-a.resolvedOutcomeMassPct||
+    b.expectedImprovementLowPct-a.expectedImprovementLowPct||
+    b.chanceOfImprovementPct-a.chanceOfImprovementPct||
+    b.mainFitPct-a.mainFitPct||a.item.id.localeCompare(b.item.id);
 }
 
 export function analyseCertificate(
@@ -894,13 +929,7 @@ export function analyseCertificate(
     .map(item=>targetDecision(data,cert,item,baselines))
     .filter((x):x is CertificateTargetDecision=>Boolean(x));
 
-  const vr=(v:CertificateDecisionVerdict)=>({USE:0,CONSIDER:1,HOLD:2,'DO NOT USE':3}[v]);
-  targets.sort((a,b)=>
-    vr(a.verdict)-vr(b.verdict)||
-    b.expectedImprovementLowPct-a.expectedImprovementLowPct||
-    b.chanceOfImprovementPct-a.chanceOfImprovementPct||
-    b.mainFitPct-a.mainFitPct
-  );
+  targets.sort(compareCertificateTargets);
 
   const recommendedTarget=targets[0];
   return {
@@ -910,12 +939,13 @@ export function analyseCertificate(
     targets,
     modelNotes:[
       'The Authentication Outcome Catalogue is the live source of truth for enabled outcomes, ranges, confidence and user-assumed relative weighting.',
-      'Default current rows use MEDIUM relative weight unless edited; hidden exact game odds are not claimed.',
+      'Basic/exclusive weights and the 40-sample outcome prior are model assumptions, not measured game odds.',
       'Exact-certificate observations update outcome weights and progressively dominate roll-strength priors as samples grow.',
       'Unresolved Luck/Focused/custom mechanics are never silently treated as known zero-value rolls.',
       'Main Auction is solved first with the same shared engine used everywhere else.',
       'Low / central / high dynamic states are sensitivity-tested without assigning fake state probabilities.',
       'Drink Prep, Grading and Shop/Idle are separately re-optimised; one item may appear in several loadouts.',
+      'Targets of the same verdict rank by resolved coverage before conditional EV; incomplete evidence cannot win merely through an attractive conditional average.',
       'HOLD is a first-class option with zero guaranteed change.'
     ]
   };
@@ -963,3 +993,4 @@ export function analyseOwnedCertificates(data:AppData):OwnedCertificateDecision[
 
   return decisions;
 }
+

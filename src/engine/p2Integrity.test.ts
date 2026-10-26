@@ -1,0 +1,115 @@
+import {describe,it,expect} from 'vitest';
+import {makeInitialData,makeEmptyData} from '../defaults';
+import {selectNewestStoredSnapshot,saveEmergencyMirror,saveData,loadData} from '../data/storage';
+import {empiricalSupports,compareCertificateTargets,analyseOwnedCertificates,analyseCertificate,certificateOutcomeLikelihoods,certificateEvidenceCoverage} from './certificateDecision';
+
+describe('P2 statistical and recovery integrity',()=>{
+  it('preserves observed frequencies and rare tails without quantile compression',()=>{
+    const points=empiricalSupports([...Array(99).fill(10),100],1);
+    expect(points.find(p=>p.value===100)?.weight).toBeCloseTo(.01);
+    expect(points.find(p=>p.value===10)?.weight).toBeCloseTo(.99);
+  });
+  it('orders same-millisecond snapshots by revision regardless of source',()=>{
+    const old={savedAt:100,revision:1,data:makeInitialData()};
+    const fresh={savedAt:100,revision:2,data:makeEmptyData()};
+    expect(selectNewestStoredSnapshot(old,fresh)).toBe(fresh);
+    expect(selectNewestStoredSnapshot(fresh,old)).toBe(fresh);
+  });
+  it('does not rank attractive conditional EV above complete evidence',()=>{
+    const partial={verdict:'CONSIDER',resolvedOutcomeMassPct:30,expectedImprovementLowPct:20,chanceOfImprovementPct:20,mainFitPct:100,item:{id:'partial'}};
+    const complete={...partial,resolvedOutcomeMassPct:100,expectedImprovementLowPct:2,item:{id:'complete'}};
+    expect(compareCertificateTargets(complete as never,partial as never)).toBeLessThan(0);
+  });
+  it('keeps a complete EV unavailable when the outcome range is unresolved',()=>{
+    const data=makeInitialData();
+    data.gear=[...new Map(data.gear.map(g=>[g.slot,g])).values()];
+    data.authModel=data.authModel.map(m=>({...m,enabled:m.outcome==='Luck'&&m.certificateInventoryType==='Wooden Certificate of Authenticity'}));
+    const cert={id:'test',type:'Wooden Certificate of Authenticity' as const,quantity:1};
+    const target=analyseCertificate(data,cert).targets[0];
+    expect(target.fullExpectedMainPct).toBeNull();
+    expect(target.fullMainUpperBoundPct).toBeNull();
+    expect(target.fullMainLowerBoundPct).toBe(-100);
+  });
+  it('exposes sensitivity to weaker and stronger outcome priors',()=>{
+    const data=makeInitialData();
+    data.gear=[...new Map(data.gear.map(g=>[g.slot,g])).values()];
+    const cert={id:'test',type:'Wooden Certificate of Authenticity' as const,quantity:1,gradeStars:2};
+    const item=data.gear.find(g=>g.slot==='Head')!;
+    data.rollLog=[{id:'one',date:'2026-10-26',certificateType:'Normal Certificate of Authenticity',certificateInventoryType:cert.type,certificateGradeStars:2,itemId:item.id,itemName:item.name,slot:'Head',previousAuthentication:'',previousValue:0,newAuthentication:'Bid Zone Width',newValue:50,improvedBestSet:false,bestScoreBefore:0,bestScoreAfter:0}];
+    const row=certificateOutcomeLikelihoods(data,cert,'Head').find(r=>r.effect==='Bid Zone Width')!;
+    expect(row.minProbability).toBeLessThan(row.probability);
+    expect(row.maxProbability).toBeGreaterThan(row.probability);
+  });
+  it('does not reintroduce mismatched rolls through derived catalogue counts',()=>{
+    const data=makeInitialData();
+    const cert={id:'known',type:'Wooden Certificate of Authenticity' as const,quantity:1,gradeStars:2,mutation:'Onyx'};
+    const before=certificateOutcomeLikelihoods(data,cert,'Head');
+    data.rollLog=[{id:'mismatch',date:'2026-10-26',certificateType:'Normal Certificate of Authenticity',certificateInventoryType:cert.type,certificateGradeStars:1,certificateMutation:'Diamond',itemId:'h',itemName:'h',slot:'Head',previousAuthentication:'',previousValue:0,newAuthentication:'Bid Zone Width',newValue:75,improvedBestSet:false,bestScoreBefore:0,bestScoreAfter:0}];
+    data.authModel=data.authModel.map(m=>m.certificateInventoryType===cert.type&&m.outcome==='Bid Zone Width'?{...m,observedValues:[75],observedSampleCount:1}:m);
+    expect(certificateOutcomeLikelihoods(data,cert,'Head')).toEqual(before);
+    expect(certificateEvidenceCoverage(data,cert,'Head')).toEqual({exact:0,partial:0,excluded:1});
+  });
+  it('orders modern revisions correctly when the wall clock moves backwards',()=>{
+    const a={savedAt:200,revision:1,data:makeEmptyData()};
+    const b={savedAt:100,revision:2,data:makeEmptyData()};
+    expect(selectNewestStoredSnapshot(a,b)).toBe(b);
+  });
+  it('allocates distinct mirror revisions even within one millisecond',()=>{
+    const memory=new Map<string,string>();
+    const previous=globalThis.localStorage;
+    Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:(key:string)=>memory.get(key)??null,setItem:(key:string,value:string)=>memory.set(key,value)}});
+    try {
+      saveEmergencyMirror(makeEmptyData(),100);
+      const first=JSON.parse([...memory.values()][0]);
+      saveEmergencyMirror(makeInitialData(),100);
+      const second=JSON.parse([...memory.values()][0]);
+      expect(second.revision).toBeGreaterThan(first.revision);
+      expect(selectNewestStoredSnapshot(first,second)).toBe(second);
+    } finally {Object.defineProperty(globalThis,'localStorage',{configurable:true,value:previous});}
+  });
+  it('a delayed autosave cannot overwrite a newer synchronous pagehide mirror',async()=>{
+    const memory=new Map<string,string>();
+    const oldStorage=globalThis.localStorage,oldDb=globalThis.indexedDB;
+    let stored:unknown;
+    const asyncRequest=(result:unknown)=>{const req:any={result};queueMicrotask(()=>req.onsuccess?.());return req;};
+    const db={close:()=>{},transaction:()=>{const tx:any={objectStore:()=>({put:(value:unknown)=>{stored=value;queueMicrotask(()=>tx.oncomplete?.());return asyncRequest(undefined);},get:()=>asyncRequest(stored)})};return tx;}};
+    Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:(key:string)=>memory.get(key)??null,setItem:(key:string,value:string)=>memory.set(key,value)}});
+    Object.defineProperty(globalThis,'indexedDB',{configurable:true,value:{open:()=>asyncRequest(db)}});
+    try {
+      const old=makeEmptyData(),fresh=makeEmptyData();
+      fresh.ownedCertificates=[{id:'newest',type:'Wooden Certificate of Authenticity',quantity:7}];
+      const pending=saveData(old);
+      saveEmergencyMirror(fresh);
+      await pending;
+      expect(JSON.parse([...memory.values()][0]).data.ownedCertificates[0].id).toBe('newest');
+      expect((await loadData()).ownedCertificates[0]).toMatchObject({id:'newest',quantity:7});
+    } finally {
+      Object.defineProperty(globalThis,'localStorage',{configurable:true,value:oldStorage});
+      Object.defineProperty(globalThis,'indexedDB',{configurable:true,value:oldDb});
+    }
+  });
+  it('rejects autosave if the IndexedDB transaction aborts and the mirror also fails',async()=>{
+    const oldStorage=globalThis.localStorage,oldDb=globalThis.indexedDB;
+    const db={close:()=>{},transaction:()=>{
+      const tx:any={error:new Error('commit aborted'),objectStore:()=>({put:()=>{
+        const req:any={};
+        queueMicrotask(()=>{req.onsuccess?.();queueMicrotask(()=>tx.onabort?.());});
+        return req;
+      }})};return tx;
+    }};
+    Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:()=>null,setItem:()=>{throw new Error('quota');}}});
+    Object.defineProperty(globalThis,'indexedDB',{configurable:true,value:{open:()=>{const req:any={result:db};queueMicrotask(()=>req.onsuccess?.());return req;}}});
+    try {await expect(saveData(makeEmptyData())).rejects.toThrow('Local autosave failed');}
+    finally {
+      Object.defineProperty(globalThis,'localStorage',{configurable:true,value:oldStorage});
+      Object.defineProperty(globalThis,'indexedDB',{configurable:true,value:oldDb});
+    }
+  });
+  it('never presents an unpriced conversion as an economic recommendation',()=>{
+    const data=makeInitialData();
+    data.gear=[...new Map(data.gear.map(g=>[g.slot,g])).values()];
+    const decision=analyseOwnedCertificates(data).find(d=>d.conversion);
+    expect(decision?.conversion?.recommendation).not.toBe('PREFER PREMIUM CONVERSION');
+    expect(decision?.conversion?.reason).toContain('affordability');
+  });
+});

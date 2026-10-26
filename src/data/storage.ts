@@ -9,15 +9,18 @@ const STORE = 'app';
 const KEY = 'data';
 const MIRROR_KEY = 'storage-hunters-gear-optimizer:emergency-mirror';
 const STORAGE_ENVELOPE_VERSION = 1;
+let lastRevision=0;
 let saveChain: Promise<void> = Promise.resolve();
 
 interface StoredEnvelope {
   storageEnvelopeVersion: 1;
   savedAt: number;
+  revision?: number;
   data: AppData;
 }
 export interface StoredSnapshot {
   savedAt: number;
+  revision?: number;
   data: AppData;
 }
 
@@ -25,7 +28,7 @@ function decodeStoredSnapshot(value:unknown):StoredSnapshot|undefined {
   if(!value||typeof value!=='object')return undefined;
   const raw=value as any;
   if(raw.storageEnvelopeVersion===STORAGE_ENVELOPE_VERSION&&raw.data&&typeof raw.savedAt==='number'){
-    return {savedAt:Number.isFinite(raw.savedAt)?raw.savedAt:0,data:raw.data as AppData};
+    return {savedAt:Number.isFinite(raw.savedAt)?raw.savedAt:0,revision:Number.isSafeInteger(raw.revision)&&raw.revision>0?raw.revision:0,data:raw.data as AppData};
   }
   if(Array.isArray(raw.gear))return {savedAt:0,data:raw as AppData};
   return undefined;
@@ -34,6 +37,7 @@ function decodeStoredSnapshot(value:unknown):StoredSnapshot|undefined {
 export function selectNewestStoredSnapshot(a?:StoredSnapshot,b?:StoredSnapshot):StoredSnapshot|undefined {
   if(!a)return b;
   if(!b)return a;
+  if(a.revision&&b.revision&&a.revision!==b.revision)return b.revision>a.revision?b:a;
   return b.savedAt>a.savedAt?b:a;
 }
 
@@ -50,6 +54,7 @@ export async function loadData(): Promise<AppData> {
   }
 
   const mirror=loadEmergencyMirror();
+  lastRevision=Math.max(lastRevision,indexed?.revision??0,mirror?.revision??0);
   const selected=selectNewestStoredSnapshot(indexed,mirror);
   if(selected)return normalizeData(selected.data);
   if(indexedDbError)throw new Error(`Unable to open local gear storage and no emergency mirror was available: ${errorMessage(indexedDbError)}`);
@@ -63,26 +68,34 @@ export async function loadData(): Promise<AppData> {
 export function saveData(data: AppData): Promise<void> {
   const snapshot = structuredClone(data);
   const savedAt=Date.now();
-  saveChain = saveChain.catch(() => undefined).then(() => writeSnapshot(snapshot,savedAt));
+  const revision=nextRevision();
+  saveChain = saveChain.catch(() => undefined).then(() => writeSnapshot(snapshot,savedAt,revision));
   return saveChain;
 }
 
-async function writeSnapshot(data: AppData,savedAt:number): Promise<void> {
-  const envelope:StoredEnvelope={storageEnvelopeVersion:STORAGE_ENVELOPE_VERSION,savedAt,data};
+async function writeSnapshot(data: AppData,savedAt:number,revision:number): Promise<void> {
+  const envelope:StoredEnvelope={storageEnvelopeVersion:STORAGE_ENVELOPE_VERSION,savedAt,revision,data};
   let idbSaved = false;
   let mirrorSaved = false;
   let idbError: unknown;
   try {
     const db = await openDb();
-    await request(db.transaction(STORE, 'readwrite').objectStore(STORE).put(envelope, KEY));
-    db.close();
+    try {
+      const transaction=db.transaction(STORE,'readwrite');
+      await new Promise<void>((resolve,reject)=>{
+        transaction.oncomplete=()=>resolve();
+        transaction.onabort=()=>reject(transaction.error??new Error('IndexedDB transaction aborted.'));
+        transaction.onerror=()=>reject(transaction.error??new Error('IndexedDB transaction failed.'));
+        transaction.objectStore(STORE).put(envelope,KEY);
+      });
+    } finally {db.close();}
     idbSaved = true;
   } catch (error) {
     idbError = error;
   }
   try {
     const currentMirror=loadEmergencyMirror();
-    if(!currentMirror||savedAt>=currentMirror.savedAt)saveEmergencyMirror(data,savedAt);
+    if(!currentMirror||selectNewestStoredSnapshot(envelope,currentMirror)===envelope)writeEmergencyMirror(envelope);
     mirrorSaved = true;
   } catch {
     // A large inventory can exceed localStorage quota; IndexedDB remains authoritative.
@@ -91,9 +104,17 @@ async function writeSnapshot(data: AppData,savedAt:number): Promise<void> {
 }
 
 /** Synchronous best-effort mirror used on pagehide and as recovery if IndexedDB is unavailable. */
+function nextRevision():number {
+  lastRevision=Math.max(lastRevision,loadEmergencyMirror()?.revision??0)+1;
+  return lastRevision;
+}
+
 export function saveEmergencyMirror(data: AppData,savedAt=Date.now()): void {
-  const envelope:StoredEnvelope={storageEnvelopeVersion:STORAGE_ENVELOPE_VERSION,savedAt,data};
-  localStorage.setItem(MIRROR_KEY, JSON.stringify(envelope));
+  writeEmergencyMirror({storageEnvelopeVersion:STORAGE_ENVELOPE_VERSION,savedAt,revision:nextRevision(),data});
+}
+
+function writeEmergencyMirror(envelope:StoredEnvelope):void {
+  localStorage.setItem(MIRROR_KEY,JSON.stringify(envelope));
 }
 
 function loadEmergencyMirror(): StoredSnapshot | undefined {
@@ -464,3 +485,4 @@ function validateImportedData(raw: AppData): void {
     for (const weight of raw.trophySettings.mutationWeights) if (!weight?.mutation?.trim() || !Number.isFinite(Number(weight.multiplier)) || Number(weight.multiplier) < 0) throw new Error('Trophy settings: every mutation needs a non-negative finite multiplier.');
   }
 }
+
