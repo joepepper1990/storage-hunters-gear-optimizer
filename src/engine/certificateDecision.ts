@@ -6,6 +6,7 @@ import {
   mainAuctionUtility,
   mutationLuckForItem
 } from './gearLoadouts';
+import { catalogueRowsFor } from './authModel';
 
 export type CertificateDecisionVerdict = 'USE' | 'CONSIDER' | 'HOLD' | 'DO NOT USE';
 
@@ -194,13 +195,19 @@ function authModelType(cert:OwnedCertificate):AuthModelEntry['certificateType'] 
 
 function outcomesFor(data:AppData,cert:OwnedCertificate,slot:Slot):CertificateOutcomeDefinition[] {
   const modelType=authModelType(cert);
-  const scopedAll=data.authModel.filter(m=>
+  const exact=catalogueRowsFor(data.authModel,cert.type,slot);
+  const legacyRaw=data.authModel.filter(m=>
+    m.enabled &&
+    !m.certificateInventoryType &&
     m.certificateType===modelType &&
     (m.slot==='Any'||m.slot===slot)
   );
-  const exactAll=scopedAll.filter(m=>m.certificateInventoryType===cert.type);
-  const legacyAll=scopedAll.filter(m=>!m.certificateInventoryType);
-  const entries=(exactAll.length?exactAll:legacyAll).filter(m=>m.enabled);
+  const legacyByEffect=new Map<string,AuthModelEntry>();
+  for(const row of legacyRaw){
+    const existing=legacyByEffect.get(row.outcome);
+    if(!existing||(existing.slot==='Any'&&row.slot===slot))legacyByEffect.set(row.outcome,row);
+  }
+  const entries=exact.length?exact:[...legacyByEffect.values()];
 
   return entries.map(entry=>{
     const meta=OUTCOME_META[entry.outcome];
@@ -235,6 +242,11 @@ function observedEffectCounts(data:AppData,cert:OwnedCertificate,slot:Slot):Map<
     if(r.slot===slot&&rollMatchesCertificate(r,cert)){
       counts.set(r.newAuthentication,(counts.get(r.newAuthentication)??0)+1);
     }
+  }
+  // Model-only historical observations remain useful when no full roll-log entry
+  // exists. Use max(), not addition, so mirrored rollLog samples are not double-counted.
+  for(const row of catalogueRowsFor(data.authModel,cert.type,slot)){
+    counts.set(row.outcome,Math.max(counts.get(row.outcome)??0,row.observedSampleCount??0));
   }
   return counts;
 }
@@ -288,15 +300,20 @@ function rollSupports(def:CertificateOutcomeDefinition,data:AppData,slot:Slot,ce
     ?gradeMatched.filter(r=>r.certificateMutation===cert.mutation)
     :gradeMatched.filter(r=>!r.certificateMutation);
   const evidenceRows=mutationMatched.length?mutationMatched:gradeMatched;
-  const observed=evidenceRows.map(r=>r.newValue).filter(v=>Number.isFinite(v));
+  let observed=evidenceRows.map(r=>r.newValue).filter(v=>Number.isFinite(v));
+  if(!observed.length){
+    const modelEntry=data.authModel.find(m=>m.id===def.modelEntryId);
+    observed=(modelEntry?.observedValues??[]).filter(v=>Number.isFinite(v));
+  }
 
   const mechanicUnknown=!def.modeledMechanic;
 
   if(def.min!==undefined&&def.max!==undefined&&Number.isFinite(def.min)&&Number.isFinite(def.max)){
     const min=Math.min(def.min,def.max);
     const max=Math.max(def.min,def.max);
-    const inRange=observed.filter(v=>v>=min&&v<=max);
-    const empiricalMass=inRange.length/(PRIOR_STRENGTH+inRange.length);
+    // Real observations outside the configured range are model-conflict evidence,
+    // not data to silently discard. Include them in the empirical support.
+    const empiricalMass=observed.length/(PRIOR_STRENGTH+observed.length);
     const priorMass=1-empiricalMass;
 
     // Five deterministic quadrature points retain min, quartiles, midpoint and max
@@ -308,7 +325,7 @@ function rollSupports(def:CertificateOutcomeDefinition,data:AppData,slot:Slot,ce
       weight:priorMass*priorWeights[i],
       unresolved:mechanicUnknown
     }));
-    const empirical=empiricalSupports(inRange,empiricalMass).map(x=>({
+    const empirical=empiricalSupports(observed,empiricalMass).map(x=>({
       ...x,
       unresolved:mechanicUnknown
     }));
