@@ -173,20 +173,8 @@ export interface GearItem {
 export interface AlgorithmSettings {
   version: '2.0';
   luckWeight: number;
-  luckBreakpoint1: number;
-  luckBreakpoint2: number;
-  luckBreakpoint3: number;
-  luckBreakpoint4: number;
-  luckMultiplier2: number;
-  luckMultiplier3: number;
-  luckMultiplier4: number;
-  luckMultiplier5: number;
   arrowWeight: number;
   arrowSweetSpot: number;
-  arrowDiminishingMultiplier: number;
-  arrowCeiling: number;
-  arrowPenaltyThreshold: number;
-  arrowOvercapPenaltyMultiplier: number;
   npcWeight: number;
   npcBreakpoint1: number;
   npcBreakpoint2: number;
@@ -205,13 +193,6 @@ export interface AlgorithmSettings {
   recoveryWeight: number;
   vehicleWeight: number;
   walkWeight: number;
-  rushWeight: number;
-  sunnyUptime: number;
-  nocturnalUptime: number;
-  raindropUptime: number;
-  overchargedMultiplier: number;
-  timeKeeperWeight: number;
-  gradeRerollWeight: number;
 }
 
 export interface ScoreBreakdown {
