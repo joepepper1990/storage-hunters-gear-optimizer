@@ -4,7 +4,7 @@ import {screenshotVehicleParts,screenshotTrophies,screenshotCertificates,mergeSc
 import {exportJson,importJson,normalizeData} from './storage';
 import {optimiseTrophies,specialistTrophyLoadout,analyseTrophyRetention,evaluateTrophySet} from '../engine/trophies';
 
-describe('October screenshot inventory — schema 9',()=>{
+describe('October screenshot inventory — schema 10',()=>{
   it('captures seven vehicle parts including the newer reversed-stat Manta roll',()=>{
     const parts=screenshotVehicleParts();
     expect(parts).toHaveLength(7);
@@ -69,14 +69,14 @@ describe('October screenshot inventory — schema 9',()=>{
     legacy.vehicleParts=legacy.vehicleParts.slice(0,3);
     legacy.trophies=[screenshotTrophies()[0]];
     const first=normalizeData(legacy);
-    expect(first.schemaVersion).toBe(9);
+    expect(first.schemaVersion).toBe(10);
     expect(first.gear).toHaveLength(22);
     expect(first.vehicleParts).toHaveLength(3);
     expect(first.trophies).toHaveLength(1);
     expect(first.ownedCertificates).toHaveLength(7);
     expect(first.ownedCertificates.some(c=>c.id==='stale-cert')).toBe(false);
 
-    // Once schema 9 is saved, deliberate later removals stay removed.
+    // Once schema 10 is saved, deliberate later removals stay removed.
     const again=importJson(exportJson(first));
     const deliberatelyRemoved={...again,gear:[],vehicleParts:[],trophies:[],ownedCertificates:[]};
     const saved=importJson(exportJson(deliberatelyRemoved));
