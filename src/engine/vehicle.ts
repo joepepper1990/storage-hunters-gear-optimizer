@@ -94,6 +94,7 @@ export function analyseVehicleParts(parts: VehiclePart[], best: VehicleCombinati
   const equipped = new Set([best?.spoiler?.id, best?.exhaust?.id, best?.wheelStack?.id].filter(Boolean));
   return parts.map(item => {
     if (equipped.has(item.id)) return { item, verdict: 'EQUIP', reason: 'Part of the current highest-scoring vehicle setup.' };
+    if (item.favourite) return { item, verdict: 'KEEP', reason: 'Manually locked / favourited.' };
     const domination = findPartDominator(item, parts.filter(p => p.slot === item.slot && p.id !== item.id));
     if (domination) return {
       item,
@@ -113,6 +114,7 @@ export function analyseVehicleParts(parts: VehiclePart[], best: VehicleCombinati
 export function analyseTrailers(trailers: Trailer[], best: VehicleCombinationResult | undefined) {
   return trailers.map(item => {
     if (best?.trailer?.id === item.id) return { item, verdict: 'EQUIP' as const, reason: 'Trailer in the current highest-scoring vehicle setup.' };
+    if (item.favourite) return { item, verdict: 'KEEP' as const, reason: 'Manually locked / favourited.' };
     const dominator = trailers.find(other => other.id !== item.id && other.capacityKg > item.capacityKg);
     if (dominator) return { item, verdict: 'SAFE TO DISCARD' as const, dominator, reason: `${dominator.name} provides more trailer capacity with no documented performance downside.` };
     if (item.capacityKg < 0) return { item, verdict: 'SAFE TO DISCARD' as const, reason: 'Leaving the trailer slot empty gives more usable capacity.' };
