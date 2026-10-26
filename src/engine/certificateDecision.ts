@@ -202,7 +202,7 @@ function outcomesFor(data:AppData,cert:OwnedCertificate,slot:Slot):CertificateOu
       mainRelevant:meta?.mainRelevant??false,
       specialist:meta?.specialist,
       note:meta?.note,
-      modeledMechanic:Boolean(meta),
+      modeledMechanic:Boolean(meta)&&entry.outcome!=='Focused',
       modelEntryId:entry.id
     };
   });
@@ -298,7 +298,9 @@ function rollSupports(def:CertificateOutcomeDefinition,data:AppData,slot:Slot,ce
   }
 
   if(observed.length){
-    return empiricalSupports(observed,1).map(x=>({...x,unresolved:mechanicUnknown}));
+    // Observations without a configured/legal range are evidence about realised values,
+    // not proof of the full roll distribution. Keep the branch unresolved.
+    return empiricalSupports(observed,1).map(x=>({...x,unresolved:true}));
   }
 
   const kind=cert.type==='Premium Certificate of Authenticity'?'Premium':cert.type==='Limited Certificate of Authenticity'?'Limited':'Normal';
@@ -307,8 +309,10 @@ function rollSupports(def:CertificateOutcomeDefinition,data:AppData,slot:Slot,ce
     .map(g=>g.authentication.value)
     .filter(v=>Number.isFinite(v)&&v!==0);
   if(inventoryValues.length){
+    // Existing owned examples can inform plausible magnitude, but cannot establish
+    // the complete future roll range on their own.
     const supports=empiricalSupports(inventoryValues,1);
-    return supports.map(x=>({...x,unresolved:mechanicUnknown}));
+    return supports.map(x=>({...x,unresolved:true}));
   }
 
   if(!effectNeedsNumericMagnitude(def.effect)&&def.modeledMechanic){
