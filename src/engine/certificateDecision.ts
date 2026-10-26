@@ -149,7 +149,7 @@ const OUTCOME_META:Record<string,OutcomeMeta>={
   Walkspeed:{mainRelevant:false},
   Sunny:{mainRelevant:false,note:'Day auction context only.'},
   Nocturnal:{mainRelevant:false,note:'Night auction context only.'},
-  Overcharged:{mainRelevant:false,specialist:'Drink Prep'},
+  Overcharged:{mainRelevant:true,note:'Auction-time Energy Drink Luck amplification; evaluated in drink-active Main sensitivity states.'},
   Raindrop:{mainRelevant:false,note:'Rain auction context only.'},
   Focused:{mainRelevant:true,note:'Boosts the accessory strongest original stat; exact formula remains unresolved.'},
   'Time Keeper':{mainRelevant:false},
