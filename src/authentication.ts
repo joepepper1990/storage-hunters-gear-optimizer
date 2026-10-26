@@ -25,7 +25,11 @@ export function activeAuthenticationOptions(slot:Slot,current='',model:AuthModel
     kind==='Premium'?'Premium Certificate of Authenticity':
     kind==='Limited'?'Limited Certificate of Authenticity':
     'Normal Certificate of Authenticity';
-  const scoped=model.filter(m=>m.certificateType===certificateType&&(m.slot==='Any'||m.slot===slot)&&!LEGACY_ALIEN_EFFECTS.includes(m.outcome as never));
+  const scoped=model.filter(m=>
+    m.certificateType===certificateType &&
+    (m.slot==='Any'||m.slot===slot) &&
+    !(kind==='Normal'&&LEGACY_ALIEN_EFFECTS.includes(m.outcome as never))
+  );
   const modeled=scoped.filter(m=>m.enabled).map(m=>m.outcome);
 
   let fallback:string[]=[];
@@ -51,7 +55,8 @@ export function activeCertificateOutcomeOptions(
   const scopedAll=model.filter(m=>
     m.certificateType===certificateType &&
     (!slot||m.slot==='Any'||m.slot===slot) &&
-    (!inventoryType||m.certificateInventoryType===inventoryType)
+    (!inventoryType||m.certificateInventoryType===inventoryType) &&
+    !(kind==='Normal'&&LEGACY_ALIEN_EFFECTS.includes(m.outcome as never))
   );
   if(scopedAll.length)return [...new Set(scopedAll.filter(m=>m.enabled).map(m=>m.outcome))];
 
