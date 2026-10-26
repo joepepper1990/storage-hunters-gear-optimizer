@@ -178,8 +178,21 @@ function normalizeAuthModel(raw: AppData['authModel'] | undefined, defaults: App
     return [entry];
   });
 
-  const out=[...migrated];
   const key=(entry:AppData['authModel'][number])=>`${entry.certificateInventoryType??'legacy'}|${entry.certificateType}|${entry.slot}|${entry.outcome}`;
+  const defaultsByKey=new Map(defaults.map(entry=>[key(entry),entry]));
+  const out=migrated.map(entry=>{
+    if(schemaVersion>=11)return entry;
+    const fallback=defaultsByKey.get(key(entry));
+    if(!fallback)return entry;
+    return {
+      ...fallback,
+      ...entry,
+      certificateInventoryType:entry.certificateInventoryType??fallback.certificateInventoryType,
+      min:entry.min??fallback.min,
+      typical:entry.typical??fallback.typical,
+      max:entry.max??fallback.max
+    };
+  });
   const existing=new Set(out.map(key));
   for(const entry of defaults) if(!existing.has(key(entry))) out.push(entry);
   return out;
