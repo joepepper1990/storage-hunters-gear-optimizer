@@ -99,8 +99,14 @@ export function findDominator(target: GearItem, candidates: GearItem[], s: Algor
   };
 }
 
+const DOMINANCE_CONTEXTUAL_EFFECTS = new Set([
+  'Sunny','Nocturnal','Raindrop','Overcharged','Focused','Focus',
+  'Mutated Luck','Droughtbreaker','Drought Breaker','Golden Hour','Luck Frenzy'
+]);
+
 function isProtected(item: GearItem, s: AlgorithmSettings): boolean {
   if (!item.authenticated) return false;
+  if (DOMINANCE_CONTEXTUAL_EFFECTS.has(item.authentication.effect.trim())) return true;
   const passive = passiveScore(item, s);
   return passive.unknown || passive.provisional;
 }
