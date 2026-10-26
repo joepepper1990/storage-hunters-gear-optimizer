@@ -1,5 +1,5 @@
-import { mergeScreenshotParts, mergeScreenshotTrophies, mergeScreenshotCertificates } from './screenshotEquipment';
-import { mergeKnownGear } from './knownGear';
+import { mergeScreenshotParts, mergeScreenshotTrophies, screenshotCertificates } from './screenshotEquipment';
+import { makeKnownGear } from './knownGear';
 import { DEFAULT_TROPHY_SETTINGS, DEFAULT_VEHICLE_PROFILE, DEFAULT_VEHICLE_SETTINGS, makeInitialData, LOCKED_DEFAULT_SETTINGS } from '../defaults';
 import type { AppData, GavelTrophy, GearItem, Trailer, TrophyOptimiserSettings, VehiclePart } from '../types';
 import { generateGearName, generateTrophyName, generateVehiclePartName, inferBaseName } from '../naming';
@@ -89,14 +89,21 @@ function request<T = unknown>(req: IDBRequest<T>): Promise<T> {
 export function normalizeData(raw: AppData): AppData {
   const initial = makeInitialData();
   return {
-    schemaVersion: 8,
-    gear: Number(raw?.schemaVersion) >= 8
+    schemaVersion: 9,
+    // Schema 9 is a deliberate one-time inventory reset from the user's complete
+    // 26 October 2026 screenshots. Any pre-schema-9 gear rows are replaced, not
+    // merged, because the verified 22-item list is the user's entire owned gear.
+    gear: Number(raw?.schemaVersion) >= 9
       ? (Array.isArray(raw?.gear) ? raw.gear.map(normalizeItem) : [])
-      : mergeKnownGear(Array.isArray(raw?.gear) ? raw.gear.map(normalizeItem) : []),
+      : makeKnownGear(),
     settings: normalizeSettings(raw?.settings),
     authModel: normalizeAuthModel(raw?.authModel, initial.authModel),
     rollLog: Array.isArray(raw?.rollLog) ? raw.rollLog : [],
-    ownedCertificates: Number(raw?.schemaVersion)>=8 ? (Array.isArray(raw?.ownedCertificates)?raw.ownedCertificates.map(normalizeOwnedCertificate):[]) : mergeScreenshotCertificates(Array.isArray(raw?.ownedCertificates)?raw.ownedCertificates.map(normalizeOwnedCertificate):[]),
+    // Same one-time reset for certificates: the seven screenshot-confirmed
+    // certificates are the complete owned inventory at this snapshot.
+    ownedCertificates: Number(raw?.schemaVersion)>=9
+      ? (Array.isArray(raw?.ownedCertificates)?raw.ownedCertificates.map(normalizeOwnedCertificate):[])
+      : screenshotCertificates(),
     theme: raw?.theme ?? 'system',
     vehicleProfile: normalizeVehicleProfile(raw?.vehicleProfile),
     vehicleSettings: normalizeVehicleSettings(raw?.vehicleSettings),

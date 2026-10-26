@@ -4,7 +4,7 @@ import {screenshotVehicleParts,screenshotTrophies,screenshotCertificates,mergeSc
 import {exportJson,importJson,normalizeData} from './storage';
 import {optimiseTrophies,specialistTrophyLoadout,analyseTrophyRetention,evaluateTrophySet} from '../engine/trophies';
 
-describe('October screenshot inventory — schema 8',()=>{
+describe('October screenshot inventory — schema 9',()=>{
   it('captures seven vehicle parts including the newer reversed-stat Manta roll',()=>{
     const parts=screenshotVehicleParts();
     expect(parts).toHaveLength(7);
@@ -61,22 +61,26 @@ describe('October screenshot inventory — schema 8',()=>{
     expect(certs.filter(c=>c.type==='Wooden Certificate of Authenticity')).toHaveLength(4);
     expect(certs.filter(c=>c.type==='Wooden Certificate of Authenticity').every(c=>c.gradeStars===2)).toBe(true);
   });
-  it('upgrades legacy data once, without destroying older rolls or making duplicate new records',()=>{
+  it('upgrades legacy data once, replacing gear/certificates but preserving other inventory domains',()=>{
     const legacy=makeInitialData() as any;
-    legacy.schemaVersion=5;legacy.vehicleParts=legacy.vehicleParts.slice(0,3);
+    legacy.schemaVersion=8;
+    legacy.gear=[];
+    legacy.ownedCertificates=[{id:'stale-cert',type:'Wooden Certificate of Authenticity',quantity:99}];
+    legacy.vehicleParts=legacy.vehicleParts.slice(0,3);
     legacy.trophies=[screenshotTrophies()[0]];
-    legacy.ownedCertificates=[];
     const first=normalizeData(legacy);
-    expect(first.schemaVersion).toBe(8);
-    expect(first.vehicleParts).toHaveLength(10);
-    expect(first.trophies).toHaveLength(12);
+    expect(first.schemaVersion).toBe(9);
+    expect(first.gear).toHaveLength(22);
+    expect(first.vehicleParts).toHaveLength(3);
+    expect(first.trophies).toHaveLength(1);
     expect(first.ownedCertificates).toHaveLength(7);
+    expect(first.ownedCertificates.some(c=>c.id==='stale-cert')).toBe(false);
+
+    // Once schema 9 is saved, deliberate later removals stay removed.
     const again=importJson(exportJson(first));
-    expect(again.vehicleParts).toHaveLength(10);
-    expect(again.trophies).toHaveLength(12);
-    expect(again.ownedCertificates).toHaveLength(7);
-    const deliberatelyRemoved={...again,vehicleParts:[],trophies:[],ownedCertificates:[]};
+    const deliberatelyRemoved={...again,gear:[],vehicleParts:[],trophies:[],ownedCertificates:[]};
     const saved=importJson(exportJson(deliberatelyRemoved));
+    expect(saved.gear).toHaveLength(0);
     expect(saved.vehicleParts).toHaveLength(0);
     expect(saved.trophies).toHaveLength(0);
     expect(saved.ownedCertificates).toHaveLength(0);

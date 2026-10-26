@@ -126,17 +126,20 @@ describe('backup round trips',()=>{
     expect(restored.trophySettings.mutationWeights.find(w=>w.mutation==='Clockwork')?.multiplier).toBe(25);
   });
 
-  it('migrates an older gear-only backup without losing gear',()=>{
+  it('migrates an older backup to the verified schema-9 gear/certificate baseline',()=>{
     const d=makeInitialData() as any;
     d.schemaVersion=1;
     d.gear=[gear];
     delete d.vehicleProfile; delete d.vehicleSettings; delete d.vehicleParts; delete d.trailers; delete d.trophies; delete d.trophySettings;
     const restored=importJson(JSON.stringify(d));
-    expect(restored.gear[0].name).toBe(gear.name);
+    expect(restored.schemaVersion).toBe(9);
+    expect(restored.gear).toHaveLength(22);
+    expect(restored.gear.some((g:any)=>g.id==='abc')).toBe(false);
+    expect(restored.ownedCertificates).toHaveLength(7);
     expect(restored.vehicleProfile.name).toBe('Dumpster Truck');
     expect(restored.vehicleParts.length).toBeGreaterThan(0);
     expect(restored.trailers.find((t:any)=>t.name==='Long Trailer')?.capacityKg).toBe(600);
-    expect(restored.trophies).toHaveLength(12); // v1.8 screenshot inventory migration
+    expect(restored.trophies).toHaveLength(12);
     expect(restored.trophySettings.maxActive).toBe(4);
   });
 });

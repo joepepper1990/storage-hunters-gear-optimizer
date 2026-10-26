@@ -195,7 +195,7 @@ export function makeDefaultAuthModel(): AuthModelEntry[] {
 
 export function makeInitialData(): AppData {
   return {
-    schemaVersion: 8,
+    schemaVersion: 9,
     gear: makeKnownGear(),
     settings: { ...LOCKED_DEFAULT_SETTINGS },
     authModel: makeDefaultAuthModel(),
