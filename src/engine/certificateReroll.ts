@@ -1,7 +1,8 @@
 import type { AppData, CertificateRollLog, OwnedCertificate } from '../types';
 import { analyseCertificate, type CertificateTargetDecision } from './certificateDecision';
+import { MODEL_ASSUMPTIONS } from './modelAssumptions';
 
-export const AUTHENTICATOR_REROLL_COST_ROBUX=199;
+export const AUTHENTICATOR_REROLL_COST_ROBUX=MODEL_ASSUMPTIONS.authenticator.paidRerollRobux;
 
 export interface PostRollOption {
   action:'REROLL EFFECT'|'REROLL NUMBER';
