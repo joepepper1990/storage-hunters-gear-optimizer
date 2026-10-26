@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { makeEmptyData, makeInitialData } from '../defaults';
 import { csvToGear, gearToCsv } from './csv';
-import { exportJson, importJson } from './storage';
+import { exportJson, importJson, selectNewestStoredSnapshot } from './storage';
 import type { GearItem } from '../types';
 
 const now='2026-08-28T00:00:00Z';
@@ -169,6 +169,20 @@ describe('backup round trips',()=>{
     expect(wooden?.typical).toBeUndefined();
     expect(wooden?.observedValues).toEqual([50,60]);
     expect(restored.authModel.some(m=>m.certificateInventoryType==='Ripped Certificate of Authenticity'&&m.outcome==='Sunny')).toBe(true);
+  });
+
+  it('round-trips owned certificate mutation metadata',()=>{
+    const d=makeInitialData();
+    d.ownedCertificates=[{id:'c1',type:'Wooden Certificate of Authenticity',quantity:1,gradeStars:2,mutation:'Secret'}];
+    const restored=importJson(exportJson(d));
+    expect(restored.ownedCertificates[0]).toMatchObject({gradeStars:2,mutation:'Secret'});
+  });
+
+  it('selects the newest valid persisted snapshot regardless of whether it came from IndexedDB or the emergency mirror',()=>{
+    const older={savedAt:100,data:makeInitialData()};
+    const newer={savedAt:200,data:makeEmptyData()};
+    expect(selectNewestStoredSnapshot(older,newer)?.savedAt).toBe(200);
+    expect(selectNewestStoredSnapshot(newer,older)?.savedAt).toBe(200);
   });
 
 });
