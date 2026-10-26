@@ -159,37 +159,37 @@ type ModelSeed={
 
 const WOODEN_MODEL:ModelSeed[]=[
   {outcome:'Luck',slot:'Any',confidence:'Unknown',category:'Wooden basic — range unresolved'},
-  {outcome:'Bid Recovery',slot:'Any',min:5,typical:15,max:25,confidence:'Medium',category:'Wooden basic'},
-  {outcome:'Bid Arrow Speed',slot:'Any',min:-60,typical:-36,max:-12,confidence:'Medium',category:'Wooden basic'},
-  {outcome:'Bid Zone Width',slot:'Any',min:15,typical:45,max:75,confidence:'Medium',category:'Wooden basic'},
-  {outcome:'Energy Drink Time',slot:'Any',min:10,typical:30,max:50,confidence:'Medium',category:'Wooden basic'},
-  {outcome:'Tip Chance',slot:'Any',min:3,typical:9,max:15,confidence:'Medium',category:'Wooden basic'},
-  {outcome:'NPC Offers Bonus',slot:'Any',min:3,typical:9,max:15,confidence:'Medium',category:'Wooden basic'},
-  {outcome:'Walkspeed',slot:'Any',min:10,typical:30,max:50,confidence:'Medium',category:'Wooden basic'},
-  {outcome:'Sunny',slot:'Head',min:10,typical:55,max:100,confidence:'Medium',category:'Wooden exclusive'},
-  {outcome:'Nocturnal',slot:'Head',min:10,typical:55,max:100,confidence:'Medium',category:'Wooden exclusive'},
-  {outcome:'Overcharged',slot:'Head',min:5,typical:12.5,max:20,confidence:'Medium',category:'Wooden exclusive'},
-  {outcome:'Raindrop',slot:'Back',min:10,typical:55,max:100,confidence:'Medium',category:'Wooden exclusive'},
+  {outcome:'Bid Recovery',slot:'Any',min:5,max:25,confidence:'Medium',category:'Wooden basic'},
+  {outcome:'Bid Arrow Speed',slot:'Any',min:-60,max:-12,confidence:'Medium',category:'Wooden basic'},
+  {outcome:'Bid Zone Width',slot:'Any',min:15,max:75,confidence:'Medium',category:'Wooden basic'},
+  {outcome:'Energy Drink Time',slot:'Any',min:10,max:50,confidence:'Medium',category:'Wooden basic'},
+  {outcome:'Tip Chance',slot:'Any',min:3,max:15,confidence:'Medium',category:'Wooden basic'},
+  {outcome:'NPC Offers Bonus',slot:'Any',min:3,max:15,confidence:'Medium',category:'Wooden basic'},
+  {outcome:'Walkspeed',slot:'Any',min:10,max:50,confidence:'Medium',category:'Wooden basic'},
+  {outcome:'Sunny',slot:'Head',min:10,max:100,confidence:'Medium',category:'Wooden exclusive'},
+  {outcome:'Nocturnal',slot:'Head',min:10,max:100,confidence:'Medium',category:'Wooden exclusive'},
+  {outcome:'Overcharged',slot:'Head',min:5,max:20,confidence:'Medium',category:'Wooden exclusive'},
+  {outcome:'Raindrop',slot:'Back',min:10,max:100,confidence:'Medium',category:'Wooden exclusive'},
   {outcome:'Focused',slot:'Back',confidence:'Unknown',category:'Wooden exclusive — formula/range unresolved'},
-  {outcome:'Time Keeper',slot:'Wrist',min:5,typical:22.5,max:40,confidence:'Medium',category:'Wooden exclusive'},
-  {outcome:'Connected',slot:'Wrist',min:2,typical:7,max:12,confidence:'Medium',category:'Wooden exclusive'}
+  {outcome:'Time Keeper',slot:'Wrist',min:5,max:40,confidence:'Medium',category:'Wooden exclusive'},
+  {outcome:'Connected',slot:'Wrist',min:2,max:12,confidence:'Medium',category:'Wooden exclusive'}
 ];
 
 const RIPPED_MODEL:ModelSeed[]=[
   {outcome:'Luck',slot:'Any',confidence:'Unknown',category:'Ripped basic — range unresolved'},
-  {outcome:'Bid Recovery',slot:'Any',min:3.8,typical:8.4,max:13,confidence:'Medium',category:'Ripped basic'},
-  {outcome:'Bid Arrow Speed',slot:'Any',min:-30,typical:-22.5,max:-15,confidence:'Low',category:'Ripped basic — published band remains community/unconfirmed'},
-  {outcome:'Bid Zone Width',slot:'Any',min:11,typical:24.5,max:38,confidence:'Medium',category:'Ripped basic'},
-  {outcome:'Energy Drink Time',slot:'Any',min:7,typical:16,max:25,confidence:'Medium',category:'Ripped basic'},
-  {outcome:'Tip Chance',slot:'Any',min:2.3,typical:4.9,max:7.5,confidence:'Medium',category:'Ripped basic'},
-  {outcome:'NPC Offers Bonus',slot:'Any',min:2.3,typical:4.9,max:7.5,confidence:'Medium',category:'Ripped basic'},
-  {outcome:'Walkspeed',slot:'Any',min:7.5,typical:16.25,max:25,confidence:'Medium',category:'Ripped basic'},
+  {outcome:'Bid Recovery',slot:'Any',min:3.8,max:13,confidence:'Medium',category:'Ripped basic'},
+  {outcome:'Bid Arrow Speed',slot:'Any',min:-30,max:-15,confidence:'Low',category:'Ripped basic — published band remains community/unconfirmed'},
+  {outcome:'Bid Zone Width',slot:'Any',min:11,max:38,confidence:'Medium',category:'Ripped basic'},
+  {outcome:'Energy Drink Time',slot:'Any',min:7,max:25,confidence:'Medium',category:'Ripped basic'},
+  {outcome:'Tip Chance',slot:'Any',min:2.3,max:7.5,confidence:'Medium',category:'Ripped basic'},
+  {outcome:'NPC Offers Bonus',slot:'Any',min:2.3,max:7.5,confidence:'Medium',category:'Ripped basic'},
+  {outcome:'Walkspeed',slot:'Any',min:7.5,max:25,confidence:'Medium',category:'Ripped basic'},
   {outcome:'Sunny',slot:'Head',confidence:'Unknown',category:'Ripped exclusive — availability/range not yet confirmed'},
   {outcome:'Nocturnal',slot:'Head',confidence:'Unknown',category:'Ripped exclusive — availability/range not yet confirmed'},
   {outcome:'Overcharged',slot:'Head',confidence:'Unknown',category:'Ripped exclusive — availability/range not yet confirmed'},
-  {outcome:'Raindrop',slot:'Back',min:8,typical:29,max:50,confidence:'Medium',category:'Ripped exclusive — confirmed'},
+  {outcome:'Raindrop',slot:'Back',min:8,max:50,confidence:'Medium',category:'Ripped exclusive — confirmed'},
   {outcome:'Focused',slot:'Back',confidence:'Unknown',category:'Ripped exclusive — availability/range not yet confirmed'},
-  {outcome:'Time Keeper',slot:'Wrist',min:4,typical:12,max:20,confidence:'Medium',category:'Ripped exclusive — confirmed'},
+  {outcome:'Time Keeper',slot:'Wrist',min:4,max:20,confidence:'Medium',category:'Ripped exclusive — confirmed'},
   {outcome:'Connected',slot:'Wrist',confidence:'Unknown',category:'Ripped exclusive — availability/range not yet confirmed'}
 ];
 
@@ -202,12 +202,12 @@ const PREMIUM_MODEL:ModelSeed[]=[
 ];
 
 const LIMITED_MODEL:ModelSeed[]=[
-  {outcome:'Auto X-Ray',slot:'Head',min:3,typical:16.5,max:30,confidence:'High',category:'Limited passive'},
-  {outcome:'Grade Re-Roll',slot:'Head',min:5,typical:15,max:25,confidence:'High',category:'Limited passive'},
-  {outcome:'Luck Frenzy',slot:'Back',min:10,typical:60,max:110,confidence:'Medium',category:'Limited passive'},
-  {outcome:'Featherweight',slot:'Back',min:3,typical:11.5,max:20,confidence:'High',category:'Limited passive'},
-  {outcome:'Second Chance',slot:'Wrist',min:4,typical:18.5,max:33,confidence:'High',category:'Limited passive'},
-  {outcome:'Steady Hand',slot:'Wrist',min:4,typical:18.5,max:33,confidence:'High',category:'Limited passive'}
+  {outcome:'Auto X-Ray',slot:'Head',min:3,max:30,confidence:'High',category:'Limited passive'},
+  {outcome:'Grade Re-Roll',slot:'Head',min:5,max:25,confidence:'High',category:'Limited passive'},
+  {outcome:'Luck Frenzy',slot:'Back',min:10,max:110,confidence:'Medium',category:'Limited passive'},
+  {outcome:'Featherweight',slot:'Back',min:3,max:20,confidence:'High',category:'Limited passive'},
+  {outcome:'Second Chance',slot:'Wrist',min:4,max:33,confidence:'High',category:'Limited passive'},
+  {outcome:'Steady Hand',slot:'Wrist',min:4,max:33,confidence:'High',category:'Limited passive'}
 ];
 
 function modelEntry(seed:ModelSeed,inventoryType:AuthModelEntry['certificateInventoryType'],certificateType:AuthModelEntry['certificateType']):AuthModelEntry{
