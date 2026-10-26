@@ -196,7 +196,9 @@ function normalizeAuthModel(raw: AppData['authModel'] | undefined, defaults: App
     };
   });
   const existing=new Set(out.map(key));
-  for(const entry of defaults) if(!existing.has(key(entry))) out.push(entry);
+  if(schemaVersion<11){
+    for(const entry of defaults) if(!existing.has(key(entry))) out.push(entry);
+  }
   return out;
 }
 
