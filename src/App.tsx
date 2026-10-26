@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { LOCKED_DEFAULT_SETTINGS, makeInitialData, ZERO_STATS } from './defaults';
 import { analyseItems, optimise, specialistLoadout } from './engine/optimizer';
-import { certificateTargets } from './engine/certificates';
 import { analyseOwnedCertificates } from './engine/certificateDecision';
 import { addOutcomeToItem, removeNumericAuthentication } from './engine/dominance';
 import { effectiveItemStats, gameArrowToReduction, reductionToGameArrow, scoreStandalone } from './engine/scoring';
@@ -12,7 +11,7 @@ import { TrophyScreen } from './components/TrophyScreen';
 import { GearScanner } from './components/GearScanner';
 import { generateGearName } from './naming';
 import { activeAuthenticationOptions, activeCertificateOutcomeOptions, EXCLUSIVE_AUTH_EFFECTS, LEGACY_ALIEN_EFFECTS, LIMITED_AUTH_EFFECTS, PREMIUM_AUTH_EFFECTS, enchantmentDescription } from './authentication';
-import type { AlgorithmSettings, AppData, AuthModelEntry, CertificateRollLog, CertificateTarget, CombinationResult, GearItem, GearStats, ItemAnalysis, Slot } from './types';
+import type { AlgorithmSettings, AppData, AuthModelEntry, CertificateRollLog, CombinationResult, GearItem, GearStats, ItemAnalysis, Slot } from './types';
 
 type Tab = 'Dashboard' | 'Gear' | 'Optimise' | 'Vehicle' | 'Trophies' | 'Certificates' | 'Settings' | 'More';
 const primaryTabs: Tab[] = ['Gear','Optimise','Trophies','Vehicle','More'];
@@ -46,20 +45,17 @@ export default function App() {
   const top100 = computed.top100;
   const best = top100[0];
   const analyses = computed.analyses;
-  const normalTargets = computed.normalTargets;
 
   useEffect(()=>{
     if(!pendingNewItem)return;
     const itemAnalysis=analyses.find(a=>a.item.id===pendingNewItem.item.id);
     if(!itemAnalysis)return; // Worker result still belongs to the previous inventory snapshot.
     const nextBest=top100[0];
-    const normalCert=normalTargets[0];
     const previousBest=pendingNewItem.previousBest;
     const bestChanged=Boolean(nextBest)&&(!previousBest||previousBest.head.id!==nextBest.head.id||previousBest.back.id!==nextBest.back.id||previousBest.wrist.id!==nextBest.wrist.id);
-    const certLabels=[normalCert?.item.id===pendingNewItem.item.id?'Normal certificate target':''].filter(Boolean).join(' + ');
-    setNewAnalysis({name:pendingNewItem.item.name,standalone:scoreStandalone(pendingNewItem.item,data?.settings??LOCKED_DEFAULT_SETTINGS).total,previous:pendingNewItem.previous,next:nextBest?.score.total??0,bestChanged,combined:nextBest?.stats,replaced:previousBest&&nextBest?replacedName(previousBest,nextBest,pendingNewItem.item.slot):undefined,verdict:itemAnalysis.verdict,bestCert:certLabels||undefined});
+    setNewAnalysis({name:pendingNewItem.item.name,standalone:scoreStandalone(pendingNewItem.item,data?.settings??LOCKED_DEFAULT_SETTINGS).total,previous:pendingNewItem.previous,next:nextBest?.score.total??0,bestChanged,combined:nextBest?.stats,replaced:previousBest&&nextBest?replacedName(previousBest,nextBest,pendingNewItem.item.slot):undefined,verdict:itemAnalysis.verdict});
     setPendingNewItem(null);
-  },[pendingNewItem,analyses,top100,normalTargets,data?.settings]);
+  },[pendingNewItem,analyses,top100,data?.settings]);
 
   if (!data) return <div className="splash"><div className="logoMark">SH</div>{loadError?<><strong>Local storage could not be opened</strong><p className="muted storageError">{loadError}</p><button className="danger" onClick={()=>{if(confirm('Start with empty local data? Do this only if you have a backup or are sure no recoverable browser data remains.')){setData(makeInitialData());setLoadError('')}}}>Start empty</button></>:<strong>Loading optimiser…</strong>}</div>;
 
@@ -97,8 +93,8 @@ export default function App() {
     </header>
 
     <main className="content">
-      {tab==='Dashboard' && <Dashboard data={data} best={best} analyses={analyses} bestCert={normalTargets[0]} onGo={setTab} />}
-      {tab==='Gear' && <GearScreen gear={data.gear} analyses={analyses} settings={data.settings} certificateTargets={normalTargets} onAdd={openAdd} onScan={()=>setScannerOpen(true)} onEdit={openEdit} onClone={cloneItem} onDelete={deleteItem} onFav={toggleFav} onBulkDiscard={bulkDiscard} />}
+      {tab==='Dashboard' && <Dashboard data={data} best={best} analyses={analyses} onGo={setTab} />}
+      {tab==='Gear' && <GearScreen gear={data.gear} analyses={analyses} settings={data.settings} onAdd={openAdd} onScan={()=>setScannerOpen(true)} onEdit={openEdit} onClone={cloneItem} onDelete={deleteItem} onFav={toggleFav} onBulkDiscard={bulkDiscard} />}
       {tab==='Optimise' && <OptimiseScreen data={data} combinations={top100.slice(0,comboLimit)} limit={comboLimit} setLimit={setComboLimit} />}
       {tab==='Vehicle' && <VehicleScreen data={data} setData={setData} />}
       {tab==='Trophies' && <TrophyScreen data={data} setData={setData} />}
@@ -117,7 +113,7 @@ export default function App() {
 
 
 function useOptimisationWorker(data: AppData | null) {
-  const [state,setState]=useState<{top100:CombinationResult[];analyses:ItemAnalysis[];normalTargets:CertificateTarget[];computing:boolean;error?:string}>({top100:[],analyses:[],normalTargets:[],computing:false});
+  const [state,setState]=useState<{top100:CombinationResult[];analyses:ItemAnalysis[];computing:boolean;error?:string}>({top100:[],analyses:[],computing:false});
   const requestId=useRef(0);
   useEffect(()=>{
     if(!data)return;
@@ -127,8 +123,7 @@ function useOptimisationWorker(data: AppData | null) {
       try{
         const top100=optimise(data.gear,data.settings,100);
         const analyses=analyseItems(data.gear,top100[0],data.settings);
-        const normalTargets=certificateTargets(data.gear,data.settings,data.authModel,'Normal Certificate of Authenticity',10);
-        setState({top100,analyses,normalTargets,computing:false,error:message});
+        setState({top100,analyses,computing:false,error:message});
       }catch(error){setState(prev=>({...prev,computing:false,error:error instanceof Error?error.message:String(error)}));}
     };
     let worker:Worker;
@@ -137,19 +132,14 @@ function useOptimisationWorker(data: AppData | null) {
       if(event.data.id!==id)return;
       if(event.data.phase==='core'){
         if(event.data.error){worker.terminate();fallback(event.data.error);return;}
-        setState(prev=>({...prev,top100:event.data.top100,analyses:event.data.analyses,computing:true,error:undefined}));
-        return;
-      }
-      if(event.data.phase==='certificates'){
-        if(event.data.error)setState(prev=>({...prev,normalTargets:[],computing:false,error:`Certificate analysis: ${event.data.error}`}));
-        else setState(prev=>({...prev,normalTargets:event.data.normalTargets,computing:false,error:undefined}));
+        setState({top100:event.data.top100,analyses:event.data.analyses,computing:false,error:undefined});
         worker.terminate();
       }
     };
     worker.onerror=()=>{worker.terminate();fallback('Background optimiser failed; using foreground fallback mode.');};
-    worker.postMessage({id,gear:data.gear,settings:data.settings,authModel:data.authModel});
+    worker.postMessage({id,gear:data.gear,settings:data.settings});
     return()=>worker.terminate();
-  },[data?.gear,data?.settings,data?.authModel]);
+  },[data?.gear,data?.settings]);
   return state;
 }
 
@@ -162,7 +152,7 @@ function MoreScreen({data,onGo}:{data:AppData;onGo:(t:Tab)=>void}){
   return <section><div className="pageHeading"><div><h1>More</h1><p>Secondary tools and settings</p></div></div><div className="moreGrid">{options.map(option=><button className="moreCard" key={option.tab} onClick={()=>onGo(option.tab)}><span>{navIcon(option.tab)}</span><div><strong>{option.title}</strong><small>{option.text}</small></div><b>›</b></button>)}</div><div className="sectionTitle"><h2>Data at a glance</h2></div><div className="statsGrid three"><StatTile label="Gear" value={data.gear.length}/><StatTile label="Trophies" value={data.trophies.length}/><StatTile label="Vehicle parts" value={data.vehicleParts.length}/></div></section>;
 }
 
-function Dashboard({data,best,analyses,bestCert,onGo}:{data:AppData;best:any;analyses:any[];bestCert:any;onGo:(t:Tab)=>void}){
+function Dashboard({data,best,analyses,onGo}:{data:AppData;best:any;analyses:any[];onGo:(t:Tab)=>void}){
   const safe=analyses.filter(a=>a.verdict==='SAFE TO DISCARD').length;
   return <section>
     <div className="heroCard">
@@ -181,15 +171,14 @@ function Dashboard({data,best,analyses,bestCert,onGo}:{data:AppData;best:any;ana
     </>}
     <div className="sectionTitle"><h2>Inventory</h2></div>
     <div className="statsGrid three"><StatTile label="Gear items" value={data.gear.length}/><StatTile label="Safe to discard" value={safe}/><StatTile label="Current Luck" value={best?.stats.luck ?? 0} suffix="%"/></div>
-    <div className="sectionTitle"><h2>Certificate target</h2></div>
-    <div className="card">{bestCert?<><div className="rowBetween"><div><strong>{bestCert.item.name}</strong><div className="muted">{bestCert.action} · {bestCert.likelihood}</div></div><span className="badge heuristic">HEURISTIC</span></div><p>{bestCert.reasons[0]}</p><button className="secondary" onClick={()=>onGo('Certificates')}>Open certificate optimiser</button></>:<p className="muted">Add a complete three-slot inventory to generate certificate targeting.</p>}</div>
+    <div className="sectionTitle"><h2>Certificate decisions</h2></div>
+    <div className="card"><p className="muted">Certificate use is assessed by the unified expected-value engine using the complete three-item Main Auction loadout and current authentications.</p><button className="secondary" onClick={()=>onGo('Certificates')}>Open certificate optimiser</button></div>
   </section>;
 }
 
-function GearScreen({gear,analyses,settings,certificateTargets,onAdd,onScan,onEdit,onClone,onDelete,onFav,onBulkDiscard}:{gear:GearItem[];analyses:ItemAnalysis[];settings:AlgorithmSettings;certificateTargets:CertificateTarget[];onAdd:()=>void;onScan:()=>void;onEdit:(i:GearItem)=>void;onClone:(i:GearItem)=>void;onDelete:(i:GearItem)=>void;onFav:(i:GearItem)=>void;onBulkDiscard:()=>void}){
+function GearScreen({gear,analyses,settings,onAdd,onScan,onEdit,onClone,onDelete,onFav,onBulkDiscard}:{gear:GearItem[];analyses:ItemAnalysis[];settings:AlgorithmSettings;onAdd:()=>void;onScan:()=>void;onEdit:(i:GearItem)=>void;onClone:(i:GearItem)=>void;onDelete:(i:GearItem)=>void;onFav:(i:GearItem)=>void;onBulkDiscard:()=>void}){
   const [q,setQ]=useState(''); const [slot,setSlot]=useState<'All'|Slot>('All'); const [status,setStatus]=useState('All'); const [auth,setAuth]=useState('All'); const [sort,setSort]=useState('scoreDesc');
   const map=new Map(analyses.map(a=>[a.item.id,a]));
-  const certMap=new Map<string,CertificateTarget>(); for(const t of certificateTargets){const prior=certMap.get(t.item.id);if(!prior||t.heuristicScore>prior.heuristicScore)certMap.set(t.item.id,t);}
   let items=gear.filter(i=>(slot==='All'||i.slot===slot)&&(!q||i.name.toLowerCase().includes(q.toLowerCase())||i.id.includes(q))&&(status==='All'||map.get(i.id)?.verdict===status)&&(auth==='All'||(auth==='Unauthenticated'?!i.authenticated:i.authentication.kind===auth)));
   items=[...items].sort((a,b)=>sort==='nameAsc'?a.name.localeCompare(b.name):sort==='nameDesc'?b.name.localeCompare(a.name):sort==='scoreAsc'?(map.get(a.id)?.standalone.total??0)-(map.get(b.id)?.standalone.total??0):(map.get(b.id)?.standalone.total??0)-(map.get(a.id)?.standalone.total??0));
   const safe=analyses.filter(a=>a.verdict==='SAFE TO DISCARD');
@@ -200,7 +189,7 @@ function GearScreen({gear,analyses,settings,certificateTargets,onAdd,onScan,onEd
     {safe.length>0 && <details className="dangerPanel"><summary>{safe.length} item{safe.length!==1?'s':''} proven SAFE TO DISCARD</summary><div className="discardList">{safe.map(a=><div key={a.item.id}><strong>{a.item.name}</strong><span>{a.dominance?.reason}</span></div>)}</div><button className="danger" onClick={onBulkDiscard}>Review confirmation & delete all safe items</button></details>}
     <div className="gearList">{items.map(item=>{const a=map.get(item.id);return <article className="gearCard" key={item.id}>
       <div className="rowBetween"><div><div className="slotLabel">{item.slot}{item.mutation&&item.mutation!=='None'?` · ${item.mutation}`:''}{item.conditionPct!==undefined?` · ${item.conditionPct}% condition`:''}</div><h3>{item.baseName||item.name}</h3></div><button className={`star ${item.favourite?'on':''}`} onClick={()=>onFav(item)}>★</button></div>
-      <div className="chipRow"><StatusBadge status={a?.verdict ?? 'KEEP'}/>{certMap.get(item.id)&&<span className="badge certificateAction">{certMap.get(item.id)!.action==='AUTHENTICATE'?'AUTHENTICATE':'RE-AUTH CANDIDATE'}</span>}<span className="chip score">{a?.standalone.total.toFixed(2) ?? scoreStandalone(item,settings).total.toFixed(2)} standalone</span>{item.authenticated&&<span className="chip">{item.authentication.kind==='Alien'?'Legacy Alien':item.authentication.kind}: {item.authentication.effect||'—'} {item.authentication.value?`${item.authentication.value}%`:''}</span>}</div>
+      <div className="chipRow"><StatusBadge status={a?.verdict ?? 'KEEP'}/><span className="chip score">{a?.standalone.total.toFixed(2) ?? scoreStandalone(item,settings).total.toFixed(2)} standalone</span>{item.authenticated&&<span className="chip">{item.authentication.kind==='Alien'?'Legacy Alien':item.authentication.kind}: {item.authentication.effect||'—'} {item.authentication.value?`${item.authentication.value}%`:''}</span>}</div>
       <div className="miniStats">{statLabels.filter(([k])=>Math.abs(effectiveItemStats(item)[k])>1e-12).map(([k,l])=><span key={k}>{shortStat(l)} <b>{displayStat(k,effectiveItemStats(item)[k])}</b></span>)}</div>
       <details className="gearDetails"><summary>Details & verdict explanation</summary>
         {item.authenticated&&enchantmentDescription(item.authentication.effect,item.authentication.value)&&<p><b>{item.authentication.effect}:</b> {enchantmentDescription(item.authentication.effect,item.authentication.value)}</p>}
