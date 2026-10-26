@@ -272,7 +272,7 @@ function targetDecision(data:AppData,cert:OwnedCertificate,item:GearItem):Certif
       }
       const secondary=specialistBenefit(def,value);
       const anyBenefit=delta>1e-4||(Math.abs(delta)<=1e-4&&(contextual>1e-4||secondary>1e-4));
-      const starPenalty=cert.gradeStars&&cert.gradeStars>0?.08:0;
+      const starPenalty=cert.gradeStars && cert.gradeStars>0 ? .08 : 0;
       branches.push({p:p/rolls.length,delta,anyBenefit,confidence:Math.max(.1,def.confidence-starPenalty),label:def.effect+(value?' '+value.toFixed(1)+'%':'')});
     }
   }
