@@ -4,6 +4,15 @@ export type ThemeMode = 'system' | 'light' | 'dark';
 export type Verdict = 'EQUIP' | 'KEEP' | 'SAFE TO DISCARD' | 'PROTECTED / UNKNOWN';
 export type LikelihoodClass = 'VERY HIGH' | 'HIGH' | 'MEDIUM' | 'LOW' | 'VERY LOW';
 export type Confidence = 'Unknown' | 'Low' | 'Medium' | 'High' | 'Empirical';
+export type MainAuctionContext = 'Neutral' | 'Day' | 'Night' | 'Rain';
+export type GearLoadoutName = 'Main Auction' | 'Day Auction' | 'Night Auction' | 'Rain Auction' | 'Drink Prep' | 'Grading' | 'Shop / Idle';
+
+export interface GearLoadoutMembership {
+  loadout: GearLoadoutName;
+  context?: MainAuctionContext;
+  selected: boolean;
+  tied: boolean;
+}
 
 export type VehiclePartSlot = 'Spoiler' | 'Exhaust' | 'Wheel Stack';
 export type VehicleVerdict = 'EQUIP' | 'KEEP' | 'SAFE TO DISCARD';
@@ -154,7 +163,7 @@ export interface GearItem {
 }
 
 export interface AlgorithmSettings {
-  version: '1.2';
+  version: '2.0';
   luckWeight: number;
   luckBreakpoint1: number;
   luckBreakpoint2: number;
@@ -243,6 +252,7 @@ export interface ItemAnalysis {
   standalone: ScoreBreakdown;
   dominance?: DominanceResult;
   currentlyEquipped: boolean;
+  loadoutMemberships: GearLoadoutMembership[];
 }
 
 export interface AuthModelEntry {
@@ -275,6 +285,9 @@ export interface CertificateRollLog {
   improvedBestSet: boolean;
   bestScoreBefore: number;
   bestScoreAfter: number;
+  certificateId?: string;
+  certificateGradeStars?: number;
+  normalizedRollPosition?: number;
 }
 
 export interface CertificateTarget {
@@ -300,7 +313,7 @@ export interface OwnedCertificate {
 }
 
 export interface AppData {
-  schemaVersion: 9;
+  schemaVersion: 10;
   gear: GearItem[];
   settings: AlgorithmSettings;
   authModel: AuthModelEntry[];
