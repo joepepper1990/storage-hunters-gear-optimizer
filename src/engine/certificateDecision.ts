@@ -181,14 +181,13 @@ function authModelType(cert:OwnedCertificate):AuthModelEntry['certificateType'] 
 
 function outcomesFor(data:AppData,cert:OwnedCertificate,slot:Slot):CertificateOutcomeDefinition[] {
   const modelType=authModelType(cert);
-  const scoped=data.authModel.filter(m=>
-    m.enabled &&
+  const scopedAll=data.authModel.filter(m=>
     m.certificateType===modelType &&
     (m.slot==='Any'||m.slot===slot)
   );
-  const exact=scoped.filter(m=>m.certificateInventoryType===cert.type);
-  const legacy=scoped.filter(m=>!m.certificateInventoryType);
-  const entries=exact.length?exact:legacy;
+  const exactAll=scopedAll.filter(m=>m.certificateInventoryType===cert.type);
+  const legacyAll=scopedAll.filter(m=>!m.certificateInventoryType);
+  const entries=(exactAll.length?exactAll:legacyAll).filter(m=>m.enabled);
 
   return entries.map(entry=>{
     const meta=OUTCOME_META[entry.outcome];
