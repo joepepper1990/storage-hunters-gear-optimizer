@@ -46,7 +46,15 @@ export function screenshotTrophies():GavelTrophy[]{
   });
 }
 export function screenshotCertificates():OwnedCertificate[]{
-  return [{id:'verified-oct17-cert-wooden-56',type:'Wooden Certificate of Authenticity',quantity:1,displayedValue:1648,conditionPct:56,rarity:'Epic'}];
+  return [
+    {id:'verified-oct26-cert-limited-6291',type:'Limited Certificate of Authenticity',quantity:1,displayedValue:6291,gradeStars:2,rarity:'Limited'},
+    {id:'verified-oct26-cert-limited-5967',type:'Limited Certificate of Authenticity',quantity:1,displayedValue:5967,gradeStars:2,rarity:'Limited'},
+    {id:'verified-oct26-cert-premium-4641',type:'Premium Certificate of Authenticity',quantity:1,displayedValue:4641,gradeStars:1},
+    {id:'verified-oct26-cert-wooden-2451-60',type:'Wooden Certificate of Authenticity',quantity:1,displayedValue:2451.60,gradeStars:2},
+    {id:'verified-oct26-cert-wooden-2397-60',type:'Wooden Certificate of Authenticity',quantity:1,displayedValue:2397.60,gradeStars:2},
+    {id:'verified-oct26-cert-wooden-2203-20',type:'Wooden Certificate of Authenticity',quantity:1,displayedValue:2203.20,gradeStars:2},
+    {id:'verified-oct26-cert-wooden-2160',type:'Wooden Certificate of Authenticity',quantity:1,displayedValue:2160,gradeStars:2}
+  ];
 }
 
 /** Match exact rolls, not just names. Two different stat rolls of Manta Spoiler must coexist. */
@@ -77,8 +85,13 @@ export function mergeScreenshotTrophies(existing:GavelTrophy[]):GavelTrophy[]{
   }
   return out;
 }
-/** The one photographed Wooden Certificate is tracked separately from used roll history. */
+/** One-off schema-8 certificate refresh. Preserve manual records but replace the old auto-seeded screenshot certificate. */
 export function mergeScreenshotCertificates(existing:OwnedCertificate[]):OwnedCertificate[]{
-  if(existing.some(x=>x.id==='verified-oct17-cert-wooden-56'||(x.type==='Wooden Certificate of Authenticity'&&x.conditionPct===56)))return existing;
-  return [...existing,...screenshotCertificates()];
+  const out=existing.filter(x=>x.id!=='verified-oct17-cert-wooden-56');
+  for(const next of screenshotCertificates()){
+    const duplicate=out.find(x=>x.id===next.id||
+      (x.type===next.type&&x.displayedValue===next.displayedValue&&x.gradeStars===next.gradeStars));
+    if(!duplicate)out.push(next);
+  }
+  return out;
 }
