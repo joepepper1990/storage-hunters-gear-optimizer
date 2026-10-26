@@ -162,4 +162,63 @@ describe('certificate expected-value engine',()=>{
     expect(decision.targets).toEqual([]);
     expect(decision.verdict).toBe('HOLD');
   });
+  it('uses the editable catalogue as the live source for enabled outcomes and ranges',()=>{
+    const data=makeInitialData();
+    data.gear=[gear('H','Head',{}),gear('B','Back',{}),gear('W','Wrist',{})];
+    const wooden={id:'wooden-live',type:'Wooden Certificate of Authenticity' as const,quantity:1};
+    data.authModel=data.authModel.map(m=>({...m,enabled:m.certificateInventoryType==='Wooden Certificate of Authenticity'&&m.outcome==='Bid Zone Width'}));
+    const row=data.authModel.find(m=>m.enabled)!;
+    row.min=10;row.typical=20;row.max=30;
+    const low=analyseCertificate(data,wooden).recommendedTarget!.expectedImprovementPct;
+    row.min=70;row.typical=80;row.max=90;
+    const high=analyseCertificate(data,wooden).recommendedTarget!.expectedImprovementPct;
+    expect(high).toBeGreaterThan(low);
+    row.enabled=false;
+    expect(analyseCertificate(data,wooden).targets).toEqual([]);
+  });
+
+  it('lets explicit catalogue relative-weight assumptions alter EV while MEDIUM remains neutral by default',()=>{
+    const data=makeInitialData();
+    data.gear=[gear('H','Head',{}),gear('B','Back',{}),gear('W','Wrist',{})];
+    const wooden={id:'wooden-weight',type:'Wooden Certificate of Authenticity' as const,quantity:1};
+    for(const m of data.authModel)m.enabled=false;
+    const zone=data.authModel.find(m=>m.certificateInventoryType==='Wooden Certificate of Authenticity'&&m.outcome==='Bid Zone Width')!;
+    const walk=data.authModel.find(m=>m.certificateInventoryType==='Wooden Certificate of Authenticity'&&m.outcome==='Walkspeed')!;
+    zone.enabled=walk.enabled=true;
+    zone.assumedLikelihoodClass='VERY LOW';walk.assumedLikelihoodClass='VERY HIGH';
+    const low=analyseCertificate(data,wooden).recommendedTarget!.expectedImprovementPct;
+    zone.assumedLikelihoodClass='VERY HIGH';walk.assumedLikelihoodClass='VERY LOW';
+    const high=analyseCertificate(data,wooden).recommendedTarget!.expectedImprovementPct;
+    expect(high).toBeGreaterThan(low);
+  });
+
+  it('keeps the full Ripped Wooden outcome pool and treats unconfirmed exclusives as unresolved rather than impossible',()=>{
+    const data=makeInitialData();
+    data.gear=[gear('H','Head',{luck:100}),gear('B','Back',{luck:100}),gear('W','Wrist',{luck:100})];
+    const ripped={id:'ripped',type:'Ripped Certificate of Authenticity' as const,quantity:1};
+    const decision=analyseCertificate(data,ripped);
+    const head=decision.targets.find(t=>t.item.id==='H')!;
+    expect(head.unresolvedEffects).toEqual(expect.arrayContaining(['Luck','Sunny','Nocturnal','Overcharged']));
+    const back=decision.targets.find(t=>t.item.id==='B')!;
+    expect(back.unresolvedEffects).toContain('Focused');
+    const wrist=decision.targets.find(t=>t.item.id==='W')!;
+    expect(wrist.unresolvedEffects).toContain('Connected');
+  });
+
+  it('allows empirical roll strength to progressively outweigh the range prior as samples accumulate',()=>{
+    const base=makeInitialData();
+    base.gear=[gear('H','Head',{}),gear('B','Back',{}),gear('W','Wrist',{})];
+    const wooden={id:'wooden-empirical',type:'Wooden Certificate of Authenticity' as const,quantity:1,gradeStars:2};
+    base.authModel=base.authModel.map(m=>({...m,enabled:m.certificateInventoryType==='Wooden Certificate of Authenticity'&&m.outcome==='Bid Zone Width'}));
+    const prior=analyseCertificate(base,wooden).recommendedTarget!.expectedImprovementPct;
+    const withData=structuredClone(base);
+    for(let i=0;i<80;i++)withData.rollLog.push({
+      id:'r'+i,date:now,certificateType:'Normal Certificate of Authenticity',certificateInventoryType:'Wooden Certificate of Authenticity',
+      certificateGradeStars:2,itemId:'H',itemName:'H',slot:'Head',previousAuthentication:'',previousValue:0,
+      newAuthentication:'Bid Zone Width',newValue:75,improvedBestSet:true,bestScoreBefore:0,bestScoreAfter:1
+    });
+    const empirical=analyseCertificate(withData,wooden).recommendedTarget!.expectedImprovementPct;
+    expect(empirical).toBeGreaterThan(prior);
+  });
+
 });
