@@ -41,7 +41,7 @@ F-tier effects for this profile do not create false protection merely because th
 
 Supported by the shared model:
 
-- **Mutated Luck** — calculated from the actual mutations on the equipped Head + Back + Wrist trio.
+- **Mutated Luck** — calculated from the actual mutations on the equipped Head + Back + Wrist trio. Modelled dynamic Luck is included in the displayed Main Auction Luck total.
 - **Droughtbreaker** — evaluated across low / central / high stack scenarios (0 / 3 / 5 stacks).
 - **Golden Hour** — evaluated across low / central / high session states (0 / 50 / 100 Luck).
 - **Luck Frenzy** — roll magnitude is known; uptime is not published, so the app uses low / central / high sensitivity scenarios rather than presenting one uptime as a game fact.
@@ -89,7 +89,11 @@ Confirmed from the user's in-game certificate screen:
 | Wrist | Second Chance | 4–33% |
 | Wrist | Steady Hand | 4–33% |
 
-Unknown effect-selection odds and certificate-grade transforms are not presented as official probabilities. Neutral priors, sensitivity analysis and recorded roll history are used instead.
+The **Authentication Outcome Catalogue** is the live source of truth for certificate EV. Enabled state, exact certificate tier, min / typical / max, confidence and user-assumed relative-weight class all feed the model. Current built-in rows default to MEDIUM relative weight, so the untouched outcome prior is neutral. Changing that class is an explicit user assumption, not a claim about hidden game odds.
+
+Ripped and Wooden are modelled as the same outcome pool. Confirmed Ripped ranges use their narrower values; Ripped exclusives that are not yet confirmed remain enabled with unresolved range/confidence rather than being treated as impossible.
+
+Unknown certificate-grade transforms are not presented as official probabilities. Sensitivity analysis and exact-tier roll history are used instead.
 
 ### Lucky Grading
 
@@ -97,7 +101,9 @@ Lucky Grading is enabled for this profile. Grade Re-Roll therefore uses the Luck
 
 ## Roll learning
 
-Certificate roll history stores the previous and replacement authentication and can also record the owned certificate ID and star grade. Observed outcome counts update outcome estimates. Known-range effects begin from deterministic coverage of the legal range and increasingly incorporate same-grade observed roll values as data accumulates.
+Certificate roll history stores the previous and replacement authentication, exact owned certificate tier/ID and star grade. Wooden and Ripped observations remain separate. Observed outcome counts update effect-selection estimates.
+
+For roll strength, the configured min / typical / max remains the prior model and is never overwritten by a single observed roll. Empirical samples progressively outweigh that prior using a decaying prior mass, so a large real sample converges toward the observed distribution instead of staying permanently 50% prior / 50% empirical.
 
 ## Verified accessory inventory
 
@@ -107,7 +113,7 @@ The schema-9 inventory reset captured the user's verified **22 accessories** fro
 - 6 Back
 - 5 Wrist
 
-Schema 10 is non-destructive: existing schema-9 gear, certificates, roll history, vehicles and trophies are preserved while Algorithm 2.0 metadata/settings are added.
+Schema 11 is non-destructive: existing schema-9+ inventory, certificates, roll history, vehicles and trophies are preserved while the authentication catalogue is migrated to exact Wooden / Ripped / Premium / Limited tiers. Schema-10 built-in rows inherit known tier ranges without losing observed samples.
 
 ## Other optimisers
 
@@ -165,5 +171,9 @@ The app distinguishes player preference/model assumptions from confirmed game me
 - exact Focused formula.
 
 Where those unknowns can change a recommendation, confidence is reduced and the app should prefer a conservative HOLD/KEEP decision rather than inventing precision.
+
+## Reset behaviour
+
+**Clear all local data** and the storage-recovery **Start empty** action now create a genuinely empty workspace: no gear, certificates, roll history, vehicle parts, trailers or trophies. The default algorithm/settings catalogue remains available so the empty workspace can be rebuilt manually.
 
 Historical design/audit files under `docs/` retain their original dates and model versions for traceability.
