@@ -173,7 +173,7 @@ export function makeDefaultAuthModel(): AuthModelEntry[] {
     Back:['Droughtbreaker','Golden Hour'],
     Wrist:['Club Pact','Temporal Split']
   };
-  for(const [slot,outcomes] of Object.entries(premiumSlots) as Array<['Head'|'Back'|'Wrist',string[]]>
+  for(const [slot,outcomes] of Object.entries(premiumSlots) as Array<['Head'|'Back'|'Wrist',string[]]>)
     for(const outcome of outcomes)entries.push({
       id:crypto.randomUUID(),certificateType:'Premium Certificate of Authenticity',slot,outcome,
       category:'Premium perk — community-documented',assumedLikelihoodClass:'LOW',
@@ -184,7 +184,7 @@ export function makeDefaultAuthModel(): AuthModelEntry[] {
     Back:['Luck Frenzy','Featherweight'],
     Wrist:['Second Chance','Steady Hand']
   };
-  for(const [slot,outcomes] of Object.entries(limitedSlots) as Array<['Head'|'Back'|'Wrist',string[]]>
+  for(const [slot,outcomes] of Object.entries(limitedSlots) as Array<['Head'|'Back'|'Wrist',string[]]>)
     for(const outcome of outcomes)entries.push({
       id:crypto.randomUUID(),certificateType:'Limited Certificate of Authenticity',slot,outcome,
       category:'Limited passive — exact proc range unverified',assumedLikelihoodClass:'MEDIUM',
