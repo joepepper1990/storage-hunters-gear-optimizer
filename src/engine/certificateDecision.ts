@@ -42,8 +42,14 @@ export interface CertificateTargetDecision {
   chanceOfAnyBenefitPct: number;
   chanceOfSecondaryImprovementPct: number;
   chanceOfWorsePct: number;
+  chanceMainWorsePct: number;
+  chancePotentialWorsePct: number;
+  chanceDrinkPrepWorsePct: number;
+  chanceGradingWorsePct: number;
+  chanceShopWorsePct: number;
   expectedImprovementPct: number;
   expectedImprovementLowPct: number;
+  expectedImprovementCentralPct: number;
   expectedImprovementHighPct: number;
   expectedContextualMainPct: number;
   worstContextualMainPct: number;
@@ -64,7 +70,9 @@ export interface CertificateTargetDecision {
   currentAuthenticationGradingRiskPct: number;
   currentAuthenticationShopRiskPct: number;
   unresolvedOutcomeMassPct: number;
+  resolvedOutcomeMassPct: number;
   unresolvedEffects: string[];
+  decisionBasis: 'Main Auction' | 'Contextual Main' | 'Drink Prep' | 'Grading' | 'Shop / Idle' | 'None';
   mainFitPct: number;
   confidencePct: number;
   bestPossibleOutcome: string;
@@ -91,6 +99,7 @@ type RollSupport = {
 type Branch = {
   p:number;
   delta:number;
+  deltaCentral:number;
   deltaLow:number;
   deltaHigh:number;
   contextual:number;
@@ -268,11 +277,14 @@ function empiricalSupports(values:number[],mass:number):Array<{value:number;weig
 }
 
 function rollSupports(def:CertificateOutcomeDefinition,data:AppData,slot:Slot,cert:OwnedCertificate):RollSupport[] {
-  const observed=data.rollLog
+  const gradeMatched=data.rollLog
     .filter(r=>r.slot===slot&&r.newAuthentication===def.effect&&rollMatchesCertificate(r,cert)&&
-      (cert.gradeStars===undefined||r.certificateGradeStars===undefined||r.certificateGradeStars===cert.gradeStars))
-    .map(r=>r.newValue)
-    .filter(v=>Number.isFinite(v));
+      (cert.gradeStars===undefined||r.certificateGradeStars===undefined||r.certificateGradeStars===cert.gradeStars));
+  const mutationMatched=cert.mutation?.trim()
+    ?gradeMatched.filter(r=>r.certificateMutation===cert.mutation)
+    :gradeMatched.filter(r=>!r.certificateMutation);
+  const evidenceRows=mutationMatched.length?mutationMatched:gradeMatched;
+  const observed=evidenceRows.map(r=>r.newValue).filter(v=>Number.isFinite(v));
 
   const mechanicUnknown=!def.modeledMechanic;
 
@@ -359,7 +371,7 @@ function bestMainContaining(data:AppData,item:GearItem):number|undefined {
   for(const h of heads)for(const b of backs)for(const w of wrists){
     const trio=[h,b,w];
     if(!trio.some(x=>x.id===item.id))continue;
-    best=Math.max(best,mainAuctionUtility(trio,data.settings,'Neutral','central'));
+    best=Math.max(best,mainAuctionUtility(trio,data.settings,'Neutral','low'));
   }
   return Number.isFinite(best)?best:undefined;
 }
@@ -403,7 +415,7 @@ function targetDecision(
   item:GearItem,
   baselines:Record<'low'|'central'|'high',ReturnType<typeof buildGearLoadouts>>
 ):CertificateTargetDecision|undefined {
-  const baseline=baselines.central;
+  const baseline=baselines.low;
   if(!baseline.main||baseline.main.utility===0)return undefined;
 
   const defs=outcomesFor(data,cert,item.slot);
@@ -412,7 +424,7 @@ function targetDecision(
   const containing=bestMainContaining(data,item);
   const bare={...item,authenticated:false,authentication:{kind:'None' as const,effect:'',value:0}};
   const withoutGear=data.gear.map(g=>g.id===item.id?bare:g);
-  const without=buildGearLoadouts(withoutGear,data.settings,'central');
+  const without=buildGearLoadouts(withoutGear,data.settings,'low');
 
   const mainRisk=riskPct(baseline.main?.utility,without.main?.utility);
   const contextRisk=Math.max(
@@ -443,7 +455,8 @@ function targetDecision(
         pct(nextCentral.main?.utility,baselines.central.main?.utility),
         pct(nextHigh.main?.utility,baselines.high.main?.utility)
       ];
-      const delta=mainDeltas[1];
+      const delta=mainDeltas[0];
+      const deltaCentral=mainDeltas[1];
       const deltaLow=Math.min(...mainDeltas);
       const deltaHigh=Math.max(...mainDeltas);
 
@@ -452,14 +465,14 @@ function targetDecision(
         ...contextualDeltas(baselines.central,nextCentral),
         ...contextualDeltas(baselines.high,nextHigh)
       ];
-      const centralContext=contextualDeltas(baselines.central,nextCentral);
-      const contextual=centralContext.reduce((sum,x)=>sum+x,0)/centralContext.length;
+      const robustContext=contextualDeltas(baselines.low,nextLow);
+      const contextual=robustContext.reduce((sum,x)=>sum+x,0)/robustContext.length;
       const contextualWorst=Math.min(...contextAll);
       const contextualBest=Math.max(...contextAll);
 
-      const drink=pct(nextCentral.drink?.utility,baseline.drink?.utility);
-      const grading=pct(nextCentral.grading?.utility,baseline.grading?.utility);
-      const shop=pct(nextCentral.shop?.utility,baseline.shop?.utility);
+      const drink=pct(nextLow.drink?.utility,baseline.drink?.utility);
+      const grading=pct(nextLow.grading?.utility,baseline.grading?.utility);
+      const shop=pct(nextLow.shop?.utility,baseline.shop?.utility);
       const potential=support.unresolved
         ?unresolvedPotential(def.effect,item,def.modeledMechanic)
         :{main:false,secondary:false};
@@ -474,10 +487,10 @@ function targetDecision(
         potential.main||
         potential.secondary;
 
-      const gradePenalty=cert.gradeStars!==undefined ? .08 : .04;
+      const gradePenalty=cert.gradeStars!==undefined ? .04 : .08;
       branches.push({
         p:p*support.weight,
-        delta,deltaLow,deltaHigh,contextual,contextualWorst,contextualBest,drink,grading,shop,anyBenefit,
+        delta,deltaCentral,deltaLow,deltaHigh,contextual,contextualWorst,contextualBest,drink,grading,shop,anyBenefit,
         unresolved:support.unresolved,
         unresolvedMainPotential:potential.main,
         unresolvedSecondaryPotential:potential.secondary,
@@ -492,45 +505,65 @@ function targetDecision(
   const total=branches.reduce((s,b)=>s+b.p,0)||1;
   for(const b of branches)b.p/=total;
 
-  const robustImprove=branches.filter(b=>b.deltaLow>1e-4);
+  const resolved=branches.filter(b=>!b.unresolved);
+  const resolvedMass=resolved.reduce((sum,b)=>sum+b.p,0);
+  const robustImprove=resolved.filter(b=>b.deltaLow>1e-4);
   const potentialImprove=branches.filter(b=>b.deltaHigh>1e-4||b.unresolvedMainPotential);
-  const meaningful=branches.filter(b=>b.deltaLow>=1);
-  const worse=branches.filter(b=>!b.unresolvedMainPotential&&(b.deltaLow<-1e-4||b.contextualWorst<-1e-4));
+  const meaningful=resolved.filter(b=>b.deltaLow>=1);
+  const mainWorse=resolved.filter(b=>b.deltaLow<-1e-4||b.contextualWorst<-1e-4);
+  const drinkWorse=resolved.filter(b=>b.drink<-1e-4);
+  const gradingWorse=resolved.filter(b=>b.grading<-1e-4);
+  const shopWorse=resolved.filter(b=>b.shop<-1e-4);
+  const anyWorse=resolved.filter(b=>Math.min(b.deltaLow,b.contextualWorst,b.drink,b.grading,b.shop)<-1e-4);
+  const unresolvedAtRisk=branches.filter(b=>b.unresolved&&authRisk>1e-9);
   const secondary=branches.filter(b=>
     Math.max(b.contextualBest,b.drink,b.grading,b.shop)>1e-4||
     b.unresolvedSecondaryPotential
   );
 
-  const chance=robustImprove.reduce((s,b)=>s+b.p,0)*100;
-  const potentialChance=potentialImprove.reduce((s,b)=>s+b.p,0)*100;
-  const meaningfulChance=meaningful.reduce((s,b)=>s+b.p,0)*100;
-  const any=branches.filter(b=>b.anyBenefit).reduce((s,b)=>s+b.p,0)*100;
-  const secondaryChance=secondary.reduce((s,b)=>s+b.p,0)*100;
-  const chanceWorse=worse.reduce((s,b)=>s+b.p,0)*100;
-  const unresolvedMass=branches.filter(b=>b.unresolved).reduce((s,b)=>s+b.p,0)*100;
+  const chance=robustImprove.reduce((sum,b)=>sum+b.p,0)*100;
+  const potentialChance=potentialImprove.reduce((sum,b)=>sum+b.p,0)*100;
+  const meaningfulChance=meaningful.reduce((sum,b)=>sum+b.p,0)*100;
+  const any=branches.filter(b=>b.anyBenefit).reduce((sum,b)=>sum+b.p,0)*100;
+  const secondaryChance=secondary.reduce((sum,b)=>sum+b.p,0)*100;
+  const chanceWorse=anyWorse.reduce((sum,b)=>sum+b.p,0)*100;
+  const chanceMainWorse=mainWorse.reduce((sum,b)=>sum+b.p,0)*100;
+  const chancePotentialWorse=Math.min(100,chanceWorse+unresolvedAtRisk.reduce((sum,b)=>sum+b.p,0)*100);
+  const chanceDrinkWorse=drinkWorse.reduce((sum,b)=>sum+b.p,0)*100;
+  const chanceGradingWorse=gradingWorse.reduce((sum,b)=>sum+b.p,0)*100;
+  const chanceShopWorse=shopWorse.reduce((sum,b)=>sum+b.p,0)*100;
+  const unresolvedMass=branches.filter(b=>b.unresolved).reduce((sum,b)=>sum+b.p,0)*100;
 
-  const expected=branches.reduce((s,b)=>s+b.p*b.delta,0);
-  const expectedLow=branches.reduce((s,b)=>s+b.p*b.deltaLow,0);
-  const expectedHigh=branches.reduce((s,b)=>s+b.p*b.deltaHigh,0);
-  const expectedContextual=branches.reduce((s,b)=>s+b.p*b.contextual,0);
-  const worstContextual=branches.reduce((s,b)=>s+b.p*b.contextualWorst,0);
-  const expectedDrink=branches.reduce((s,b)=>s+b.p*b.drink,0);
-  const expectedGrading=branches.reduce((s,b)=>s+b.p*b.grading,0);
-  const expectedShop=branches.reduce((s,b)=>s+b.p*b.shop,0);
-
-  const avgGain=robustImprove.length
-    ?robustImprove.reduce((s,b)=>s+b.p*b.deltaLow,0)/(robustImprove.reduce((s,b)=>s+b.p,0)||1)
+  const resolvedExpected=(pick:(b:Branch)=>number)=>resolvedMass>1e-12
+    ?resolved.reduce((sum,b)=>sum+b.p*pick(b),0)/resolvedMass
     :0;
-  const avgLoss=worse.length
-    ?worse.reduce((s,b)=>s+b.p*Math.min(b.deltaLow,b.contextualWorst),0)/(worse.reduce((s,b)=>s+b.p,0)||1)
-    :0;
-  const best=branches.reduce((a,b)=>b.deltaHigh>a.deltaHigh?b:a,branches[0]);
-  const worst=branches.reduce((a,b)=>
-    Math.min(b.deltaLow,b.contextualWorst)<Math.min(a.deltaLow,a.contextualWorst)?b:a,
-    branches[0]
-  );
+  // Unresolved branches are deliberately excluded instead of being assigned a fake zero value.
+  const expected=resolvedExpected(b=>b.delta);
+  const expectedLow=resolvedExpected(b=>b.deltaLow);
+  const expectedCentral=resolvedExpected(b=>b.deltaCentral);
+  const expectedHigh=resolvedExpected(b=>b.deltaHigh);
+  const expectedContextual=resolvedExpected(b=>b.contextual);
+  const worstContextual=resolvedExpected(b=>b.contextualWorst);
+  const expectedDrink=resolvedExpected(b=>b.drink);
+  const expectedGrading=resolvedExpected(b=>b.grading);
+  const expectedShop=resolvedExpected(b=>b.shop);
 
-  let confidence=branches.reduce((s,b)=>s+b.p*b.confidence,0)*100;
+  const robustImproveMass=robustImprove.reduce((sum,b)=>sum+b.p,0);
+  const anyWorseMass=anyWorse.reduce((sum,b)=>sum+b.p,0);
+  const avgGain=robustImproveMass>1e-12
+    ?robustImprove.reduce((sum,b)=>sum+b.p*b.deltaLow,0)/robustImproveMass
+    :0;
+  const avgLoss=anyWorseMass>1e-12
+    ?anyWorse.reduce((sum,b)=>sum+b.p*Math.min(b.deltaLow,b.contextualWorst,b.drink,b.grading,b.shop),0)/anyWorseMass
+    :0;
+  const numericBranches=resolved.length?resolved:[];
+  const best=numericBranches.length?numericBranches.reduce((a,b)=>b.deltaHigh>a.deltaHigh?b:a,numericBranches[0]):undefined;
+  const worst=numericBranches.length?numericBranches.reduce((a,b)=>
+    Math.min(b.deltaLow,b.contextualWorst,b.drink,b.grading,b.shop)<Math.min(a.deltaLow,a.contextualWorst,a.drink,a.grading,a.shop)?b:a,
+    numericBranches[0]
+  ):undefined;
+
+  let confidence=branches.reduce((sum,b)=>sum+b.p*b.confidence,0)*100;
   if(cert.type==='Wooden Certificate of Authenticity'||cert.type==='Ripped Certificate of Authenticity')confidence*=.72;
   if(cert.type==='Limited Certificate of Authenticity')confidence*=.85;
   if(cert.type==='Premium Certificate of Authenticity')confidence*=.80;
@@ -538,18 +571,48 @@ function targetDecision(
 
   const mainFit=containing!==undefined?Math.max(0,containing/baseline.main.utility*100):0;
   const rare=cert.type==='Limited Certificate of Authenticity'||cert.type==='Premium Certificate of Authenticity';
-  const strongestSecondary=Math.max(expectedContextual,expectedDrink,expectedGrading,expectedShop);
   let verdict:CertificateDecisionVerdict='HOLD';
+  let decisionBasis:CertificateTargetDecision['decisionBasis']='None';
+
+  const mainBlocked=expectedLow<-.5||chanceMainWorse>=55;
+  const mainUse=expectedLow>(rare?2:1)&&chance>=(rare?45:35)&&chanceMainWorse<=25&&confidence>=45;
+  const mainConsider=expected>.25&&potentialChance>=20&&chanceMainWorse<45;
+  const contextualConsider=expected>=-.05&&expectedContextual>=1&&chanceMainWorse<30;
 
   if(unresolvedMass>1e-6){
-    if(expectedLow>.5&&chance>=25&&chanceWorse<30)verdict='CONSIDER';
-    else if(strongestSecondary>=3&&secondaryChance>=40&&chanceWorse<20)verdict='CONSIDER';
-    else verdict='HOLD';
+    if(!mainBlocked&&expectedLow>.5&&chance>=25&&chancePotentialWorse<30){
+      verdict='CONSIDER';decisionBasis='Main Auction';
+    }else if(!mainBlocked&&expected>=-.05&&expectedContextual>=1&&chancePotentialWorse<25){
+      verdict='CONSIDER';decisionBasis='Contextual Main';
+    }else{
+      verdict='HOLD';
+    }
+  }else if(mainBlocked){
+    verdict='DO NOT USE';decisionBasis='Main Auction';
+  }else if(mainUse){
+    verdict='USE';decisionBasis='Main Auction';
+  }else if(mainConsider){
+    verdict='CONSIDER';decisionBasis='Main Auction';
+  }else if(contextualConsider){
+    verdict='CONSIDER';decisionBasis='Contextual Main';
   }else{
-    if(expectedLow<-.5||chanceWorse>=55)verdict='DO NOT USE';
-    else if(expectedLow>(rare?2:1)&&chance>=(rare?45:35)&&chanceWorse<=25&&confidence>=45)verdict='USE';
-    else if(expected>.25&&potentialChance>=20&&chanceWorse<45)verdict='CONSIDER';
-    else if(expected>=-.05&&strongestSecondary>=3&&secondaryChance>=40&&chanceWorse<20)verdict='CONSIDER';
+    // Main is neutral: only now may specialist value matter. Specialists are lexicographic,
+    // not pooled: Drink Prep -> Grading -> Shop / Idle.
+    const specialistSignal=(ev:number,improve:(b:Branch)=>boolean,worseChance:number)=>
+      ev>=3&&resolved.filter(improve).reduce((sum,b)=>sum+b.p,0)*100>=40&&worseChance<20;
+    const neutral=(ev:number,worseChance:number)=>Math.abs(ev)<.25&&worseChance<10;
+
+    if(specialistSignal(expectedDrink,b=>b.drink>1e-4,chanceDrinkWorse)){
+      verdict='CONSIDER';decisionBasis='Drink Prep';
+    }else if(neutral(expectedDrink,chanceDrinkWorse)&&specialistSignal(expectedGrading,b=>b.grading>1e-4,chanceGradingWorse)){
+      verdict='CONSIDER';decisionBasis='Grading';
+    }else if(
+      neutral(expectedDrink,chanceDrinkWorse)&&
+      neutral(expectedGrading,chanceGradingWorse)&&
+      specialistSignal(expectedShop,b=>b.shop>1e-4,chanceShopWorse)
+    ){
+      verdict='CONSIDER';decisionBasis='Shop / Idle';
+    }
   }
 
   const existing=item.authentication.effect.trim();
@@ -566,8 +629,14 @@ function targetDecision(
     chanceOfAnyBenefitPct:any,
     chanceOfSecondaryImprovementPct:secondaryChance,
     chanceOfWorsePct:chanceWorse,
+    chanceMainWorsePct:chanceMainWorse,
+    chancePotentialWorsePct:chancePotentialWorse,
+    chanceDrinkPrepWorsePct:chanceDrinkWorse,
+    chanceGradingWorsePct:chanceGradingWorse,
+    chanceShopWorsePct:chanceShopWorse,
     expectedImprovementPct:expected,
     expectedImprovementLowPct:expectedLow,
+    expectedImprovementCentralPct:expectedCentral,
     expectedImprovementHighPct:expectedHigh,
     expectedContextualMainPct:expectedContextual,
     worstContextualMainPct:worstContextual,
@@ -578,9 +647,9 @@ function targetDecision(
     averageLossWhenWorsePct:avgLoss,
     bestCasePct:best?.deltaHigh??0,
     worstCasePct:worst?Math.min(worst.deltaLow,worst.contextualWorst):0,
-    p10Pct:percentile(branches.map(b=>({x:b.delta,p:b.p})),.10),
-    medianPct:percentile(branches.map(b=>({x:b.delta,p:b.p})),.50),
-    p90Pct:percentile(branches.map(b=>({x:b.delta,p:b.p})),.90),
+    p10Pct:numericBranches.length?percentile(numericBranches.map(b=>({x:b.delta,p:b.p/resolvedMass})),.10):0,
+    medianPct:numericBranches.length?percentile(numericBranches.map(b=>({x:b.delta,p:b.p/resolvedMass})),.50):0,
+    p90Pct:numericBranches.length?percentile(numericBranches.map(b=>({x:b.delta,p:b.p/resolvedMass})),.90):0,
     currentAuthenticationValueAtRiskPct:authRisk,
     currentAuthenticationMainRiskPct:mainRisk,
     currentAuthenticationContextRiskPct:contextRisk,
@@ -588,7 +657,9 @@ function targetDecision(
     currentAuthenticationGradingRiskPct:gradingRisk,
     currentAuthenticationShopRiskPct:shopRisk,
     unresolvedOutcomeMassPct:unresolvedMass,
+    resolvedOutcomeMassPct:resolvedMass*100,
     unresolvedEffects:[...unresolvedEffects],
+    decisionBasis,
     mainFitPct:mainFit,
     confidencePct:Math.max(0,Math.min(100,confidence)),
     bestPossibleOutcome:best?.label??'—',
@@ -599,15 +670,18 @@ function targetDecision(
         ?'Replaces current '+item.authentication.kind+' authentication: '+(existing||'unspecified')+(item.authentication.value?' '+item.authentication.value+'%':'')+'.'
         :'Clean target: no current authentication is destroyed.',
       'Main Fit '+mainFit.toFixed(1)+'%: best current Main Auction trio containing this item versus the absolute best trio.',
-      'Low / central / high dynamic states are sensitivity-tested without assigning probabilities to those states.',
+      'Robust / central / high dynamic states are sensitivity-tested without assigning probabilities to those states. The default Main verdict uses the robust zero-state baseline.',
       'Day, Night and Rain losses are signed and included in downside rather than clamped to zero.',
       unresolvedMass>0
-        ?'Some catalogue outcome magnitude/mechanic remains unresolved; that probability mass cannot produce a USE verdict.'
+        ?'Some catalogue outcome magnitude/mechanic remains unresolved. It is excluded from numeric EV instead of being assigned a fake zero, and that probability mass cannot produce a USE verdict.'
         :'All enabled catalogue outcomes for this slot have mapped numeric/mechanic support.',
       'Outcome selection uses the editable catalogue relative-weight class plus exact-certificate roll history. Default current rows are MEDIUM, so the starting prior is neutral.',
       cert.gradeStars!==undefined
-        ?String(cert.gradeStars)+'★ quality is recorded, but the exact star-to-roll transform is unpublished; confidence is reduced instead of inventing a multiplier.'
+        ?String(cert.gradeStars)+'★ quality is recorded. Higher grade is known to push rolls upward, but the exact transform is unpublished; the unshifted range is therefore treated as a conservative floor rather than inventing a multiplier.'
         :'Certificate grade effect is not assumed.',
+      cert.mutation
+        ?'Certificate mutation '+cert.mutation+' is recorded and exact-mutation roll evidence is preferred when available; its unpublished strength shift is not fabricated.'
+        :'No certificate mutation is recorded.',
       'Lucky Grading is ON.'
     ]
   };
@@ -681,7 +755,7 @@ export function analyseCertificate(
     targets,
     modelNotes:[
       'The Authentication Outcome Catalogue is the live source of truth for enabled outcomes, ranges, confidence and user-assumed relative weighting.',
-      'Default current rows use MEDIUM relative weight, so unknown game outcome odds begin neutral.',
+      'Default current rows use MEDIUM relative weight unless edited; hidden exact game odds are not claimed.',
       'Exact-certificate observations update outcome weights and progressively dominate roll-strength priors as samples grow.',
       'Unresolved Luck/Focused/custom mechanics are never silently treated as known zero-value rolls.',
       'Main Auction is solved first with the same shared engine used everywhere else.',
@@ -710,7 +784,7 @@ export function analyseOwnedCertificates(data:AppData):OwnedCertificateDecision[
         ].join(':'))
         .sort()
         .join('|');
-      const key=cert.type+'|'+String(cert.gradeStars??'')+'|'+catalogueSignature;
+      const key=cert.type+'|'+String(cert.gradeStars??'')+'|'+String(cert.mutation??'')+'|'+catalogueSignature;
       const cached=cache.get(key);
       if(cached)return {...cached,certificate:cert};
       const decision=analyseCertificate(data,cert,baselines);
