@@ -17,6 +17,7 @@ export const MODEL_ASSUMPTIONS = {
   },
   certificate: {
     priorStrength: 8,
+    outcomePriorStrength: 40, // Virtual samples across the whole effect pool, not per outcome; user calibration, not Roblox odds.
     use: {
       normalMinWorstStateEvPct: 1,
       rareMinWorstStateEvPct: 2,
