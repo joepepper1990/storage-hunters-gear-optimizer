@@ -3,6 +3,7 @@ import { makeInitialData } from '../defaults';
 import type { GearItem, GearStats, OwnedCertificate, Slot } from '../types';
 import {
   analyseCertificate,
+  analyseOwnedCertificates,
   gradeRerollExpectedValueGainPct,
   LUCKY_GRADING,
   mainAuctionUtility,
@@ -91,6 +92,66 @@ describe('certificate expected-value engine',()=>{
     const head=decision.targets.find(t=>t.item.id==='H')!;
     expect(head.chanceOfSecondaryImprovementPct).toBeGreaterThan(0);
     expect(head.expectedGradingPct).toBeGreaterThan(0);
+  });
+
+  it('does not silently score unresolved Luck or Focused as known zero-value outcomes',()=>{
+    const data=makeInitialData();
+    data.gear=[gear('H','Head',{luck:100}),gear('B','Back',{luck:100}),gear('W','Wrist',{luck:100})];
+    const wooden={id:'wooden',type:'Wooden Certificate of Authenticity' as const,quantity:1,gradeStars:2};
+    const decision=analyseCertificate(data,wooden);
+    const head=decision.targets.find(t=>t.item.id==='H')!;
+    const back=decision.targets.find(t=>t.item.id==='B')!;
+    expect(head.unresolvedOutcomeMassPct).toBeGreaterThan(0);
+    expect(head.unresolvedEffects).toContain('Luck');
+    expect(back.unresolvedEffects).toEqual(expect.arrayContaining(['Luck','Focused']));
+    expect(head.verdict).not.toBe('USE');
+  });
+
+  it('counts Day/Night/Rain authentication loss as downside',()=>{
+    const data=makeInitialData();
+    data.gear=[
+      gear('H','Head',{},'None',{kind:'Normal',effect:'Nocturnal',value:100}),
+      gear('B','Back',{luck:100}),
+      gear('W','Wrist',{luck:100})
+    ];
+    const cert={id:'limited-head',type:'Limited Certificate of Authenticity' as const,quantity:1,gradeStars:2};
+    const decision=analyseCertificate(data,cert);
+    const head=decision.targets.find(t=>t.item.id==='H')!;
+    expect(head.currentAuthenticationMainRiskPct).toBeCloseTo(0,8);
+    expect(head.currentAuthenticationContextRiskPct).toBeGreaterThan(0);
+    expect(head.chanceOfWorsePct).toBeGreaterThan(0);
+    expect(head.worstContextualMainPct).toBeLessThan(0);
+  });
+
+  it('sensitivity-tests dynamic certificate effects rather than using only one central state',()=>{
+    const data=makeInitialData();
+    data.gear=[gear('H','Head',{luck:100}),gear('B','Back',{luck:100}),gear('W','Wrist',{luck:100})];
+    const decision=analyseCertificate(data,limited);
+    const back=decision.targets.find(t=>t.item.id==='B')!;
+    expect(back.expectedImprovementHighPct).toBeGreaterThan(back.expectedImprovementLowPct);
+    expect(back.chanceOfPotentialImprovementPct).toBeGreaterThanOrEqual(back.chanceOfImprovementPct);
+  });
+
+  it('reports specialist authentication replacement risk separately',()=>{
+    const data=makeInitialData();
+    data.gear=[
+      gear('H','Head',{luck:100},'None',{kind:'Limited',effect:'Grade Re-Roll',value:25}),
+      gear('B','Back',{luck:100}),
+      gear('W','Wrist',{luck:100})
+    ];
+    const decision=analyseCertificate(data,limited);
+    const head=decision.targets.find(t=>t.item.id==='H')!;
+    expect(head.currentAuthenticationGradingRiskPct).toBeGreaterThan(0);
+    expect(head.currentAuthenticationValueAtRiskPct).toBeGreaterThanOrEqual(head.currentAuthenticationGradingRiskPct);
+  });
+
+  it('evaluates Wooden to Premium conversion as an explicit opportunity cost',()=>{
+    const data=makeInitialData();
+    data.gear=[gear('H','Head',{luck:100}),gear('B','Back',{luck:100}),gear('W','Wrist',{luck:100})];
+    data.ownedCertificates=[{id:'wooden',type:'Wooden Certificate of Authenticity',quantity:1,gradeStars:2}];
+    const decision=analyseOwnedCertificates(data)[0];
+    expect(decision.conversion?.diamondCost).toBe(150);
+    expect(decision.conversion?.recommendation).toBeTruthy();
   });
 
   it('does not produce a target without a complete Head + Back + Wrist inventory',()=>{
