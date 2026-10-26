@@ -84,7 +84,7 @@ describe('verified 26 October 2026 accessory inventory',()=>{
 
   it('evaluates authenticated gear as certificate targets with the current auth retained as replacement cost',()=>{
     const data=makeInitialData();
-    const cert=data.ownedCertificates.find(c=>c.type==='Wooden Certificate of Authenticity')!;
+    const cert=data.ownedCertificates.find(c=>c.type==='Limited Certificate of Authenticity')!;
     const decision=analyseCertificate(data,cert);
     const premium=decision.targets.find(t=>t.item.authentication.kind==='Premium');
     expect(premium).toBeDefined();
