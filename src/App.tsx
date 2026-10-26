@@ -2,8 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { LOCKED_DEFAULT_SETTINGS, makeInitialData, ZERO_STATS } from './defaults';
 import { analyseItems, optimise, specialistLoadout } from './engine/optimizer';
 import { certificateTargets } from './engine/certificates';
-import { assessPremiumUpgrades } from './engine/premiumAdvice';
-import { assessLimitedUpgrades, LIMITED_PASSIVE_PROFILES } from './engine/limitedAdvice';
+import { analyseOwnedCertificates } from './engine/certificateDecision';
 import { addOutcomeToItem, removeNumericAuthentication } from './engine/dominance';
 import { effectiveItemStats, gameArrowToReduction, reductionToGameArrow, scoreStandalone } from './engine/scoring';
 import { csvToGear, gearToCsv } from './data/csv';
@@ -93,7 +92,7 @@ export default function App() {
 
   return <div className="appShell">
     <header className="topbar">
-      <div className="brand"><div className="logoMark small">SH</div><div><strong>Storage Hunters Optimiser</strong><span>Algorithm 1.1{computed.computing?' · recalculating…':computed.error?' · fallback mode':''}</span></div></div>
+      <div className="brand"><div className="logoMark small">SH</div><div><strong>Storage Hunters Optimiser</strong><span>Algorithm 1.2{computed.computing?' · recalculating…':computed.error?' · fallback mode':''}</span></div></div>
       <button className="iconButton" onClick={()=>downloadText(`storage-hunters-backup-${dateStamp()}.json`,exportJson(data),'application/json')} title="Backup">⇩</button>
     </header>
 
@@ -103,7 +102,7 @@ export default function App() {
       {tab==='Optimise' && <OptimiseScreen data={data} combinations={top100.slice(0,comboLimit)} limit={comboLimit} setLimit={setComboLimit} />}
       {tab==='Vehicle' && <VehicleScreen data={data} setData={setData} />}
       {tab==='Trophies' && <TrophyScreen data={data} setData={setData} />}
-      {tab==='Certificates' && <CertificateScreen data={data} setData={setData} normal={normalTargets} />}
+      {tab==='Certificates' && <CertificateScreen data={data} setData={setData} />}
       {tab==='Settings' && <SettingsScreen data={data} setData={setData} showToast={showToast} />}
       {tab==='More' && <MoreScreen data={data} onGo={setTab} />}
     </main>
@@ -234,75 +233,86 @@ function OptimiseScreen({data,combinations,limit,setLimit}:{data:AppData;combina
   </section>;
 }
 
-function CertificateScreen({data,setData,normal}:{data:AppData;setData:(d:AppData)=>void;normal:any[]}){
+function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppData)=>void}){
   const [logOpen,setLogOpen]=useState(false);
-  const [certificateMode,setCertificateMode]=useState<'Normal'|'Premium'|'Limited'>('Normal');
-  const [premiumSlot,setPremiumSlot]=useState<'All'|Slot>('All');
-  const [premiumSearch,setPremiumSearch]=useState('');
-  const [limitedSlot,setLimitedSlot]=useState<'All'|Slot>('All');
-  const [limitedSearch,setLimitedSearch]=useState('');
-  const premiumAdvice=useMemo(()=>assessPremiumUpgrades(data.gear,data.settings),[data.gear,data.settings]);
-  const limitedAdvice=useMemo(()=>assessLimitedUpgrades(data.gear,data.settings),[data.gear,data.settings]);
-  const premiumVisible=premiumAdvice.filter(a=>(premiumSlot==='All'||a.item.slot===premiumSlot)
-    && (!premiumSearch||a.item.baseName.toLowerCase().includes(premiumSearch.toLowerCase())
-      ||a.item.authentication.effect.toLowerCase().includes(premiumSearch.toLowerCase())));
-  const premiumCandidates=premiumAdvice.filter(a=>a.verdict==='CONSIDER PREMIUM').length;
-  const limitedVisible=limitedAdvice.filter(a=>(limitedSlot==='All'||a.item.slot===limitedSlot)
-    && (!limitedSearch||a.item.baseName.toLowerCase().includes(limitedSearch.toLowerCase())
-      ||a.item.authentication.effect.toLowerCase().includes(limitedSearch.toLowerCase())));
-  const limitedRanking=Object.values(LIMITED_PASSIVE_PROFILES).flat().slice().sort((a,b)=>a.overallRank-b.overallRank);
-  const firstLimited=limitedAdvice.find(a=>a.verdict==='CONSIDER LIMITED');
-  const targets=normal;
-  const type:AuthModelEntry['certificateType']=certificateMode==='Premium'?'Premium Certificate of Authenticity':certificateMode==='Limited'?'Limited Certificate of Authenticity':'Normal Certificate of Authenticity';
+  const [certificateMode,setCertificateMode]=useState<'Normal'|'Premium'|'Limited'>('Limited');
   const [editInventory,setEditInventory]=useState(false);
+  const decisions=useMemo(()=>analyseOwnedCertificates(data),[data]);
+  const type:AuthModelEntry['certificateType']=certificateMode==='Premium'?'Premium Certificate of Authenticity':certificateMode==='Limited'?'Limited Certificate of Authenticity':'Normal Certificate of Authenticity';
   const changeQty=(id:string,amount:number)=>setData({...data,ownedCertificates:data.ownedCertificates.map(x=>x.id===id?{...x,quantity:Math.max(0,x.quantity+amount)}:x)});
-  return <section><div className="pageHeading"><div><h1>Certificates</h1><p>Owned certificates · Normal, Premium and Limited decision support</p></div></div>
-    <div className="card"><div className="sectionTitle"><h2>Owned certificates</h2><button className="secondary compact" onClick={()=>setEditInventory(!editInventory)}>{editInventory?'Done':'Update counts'}</button></div><div className="gearList">{data.ownedCertificates.map(cert=><div className="gearCard" key={cert.id}><strong>{cert.type}</strong><p>{cert.rarity||'Certificate'}{cert.gradeStars!==undefined?' · '+'★'.repeat(cert.gradeStars):''}{cert.displayedValue!==undefined?' · $'+cert.displayedValue.toLocaleString():''}{cert.conditionPct!==undefined?' · '+cert.conditionPct+'% condition':''} · Owned: {cert.quantity}</p>{editInventory&&<div className="actions"><button onClick={()=>changeQty(cert.id,-1)} disabled={cert.quantity===0}>− Used one</button><button onClick={()=>changeQty(cert.id,1)}>＋ Add one</button></div>}</div>)}</div><div className="notice">Premium Certificate Shop: community reports a Wooden Certificate + 150 Diamonds for one Premium Certificate. Use the counts above to track conversion manually; no purchase or conversion is made in the app.</div></div>
+  const signed=(n:number)=>(n>=0?'+':'')+n.toFixed(2)+'%';
+
+  return <section>
+    <div className="pageHeading"><div><h1>Certificates</h1><p>Expected-value decisions · Main Auction first · Lucky Grading ON</p></div></div>
+
+    <div className="notice"><b>Decision rule:</b> every certificate is tested against every eligible item, and every hypothetical result re-optimises exactly one Head + one Back + one Wrist. Existing authentication is included as replacement cost. Drink Prep, Grading and Shop/Idle are secondary only and can never compensate for a weaker Main Auction trio.</div>
+
+    <div className="sectionTitle"><h2>What should I do now?</h2></div>
+    <div className="premiumAdviceList">
+      {decisions.map(decision=>{
+        const target=decision.recommendedTarget;
+        return <details className="certCard premiumAdviceCard" key={decision.certificate.id} open={decision.verdict==='USE'||decision.verdict==='CONSIDER'}>
+          <summary>
+            <div>
+              <strong>{decision.certificate.type}</strong>
+              <span>{decision.certificate.gradeStars!==undefined?'★'.repeat(decision.certificate.gradeStars)+' · ':''}Owned {decision.certificate.quantity}{decision.certificate.displayedValue!==undefined?' · $'+decision.certificate.displayedValue.toLocaleString():''}</span>
+            </div>
+            <div className="premiumVerdict">{decision.verdict}</div>
+          </summary>
+          <div className="comboBody">
+            {target?<>
+
+              <div className="rowBetween"><div><span className="eyebrow">BEST CURRENT TARGET</span><h3>{target.item.baseName||target.item.name}</h3><p>{target.item.slot}{target.item.authenticated?' · replacing '+target.item.authentication.effect:''}</p></div><span className="badge heuristic">{target.confidencePct.toFixed(0)}% CONFIDENCE</span></div>
+
+              <div className="statsGrid three">
+                <StatTile label="Chance Main improves" value={target.chanceOfImprovementPct} suffix="%"/>
+                <StatTile label="Expected Main change" value={target.expectedImprovementPct} suffix="%"/>
+                <StatTile label="Chance Main worsens" value={target.chanceOfWorsePct} suffix="%"/>
+                <StatTile label="Meaningful gain ≥1%" value={target.chanceOfMeaningfulImprovementPct} suffix="%"/>
+                <StatTile label="Any benefit" value={target.chanceOfAnyBenefitPct} suffix="%"/>
+                <StatTile label="Current Main fit" value={target.mainFitPct} suffix="%"/>
+              </div>
+
+              <div className="thresholdTable">
+                <div><b>Average gain when successful</b><span>{signed(target.averageGainWhenSuccessfulPct)}</span></div>
+                <div><b>Average loss when worse</b><span>{signed(target.averageLossWhenWorsePct)}</span></div>
+                <div><b>10th / median / 90th percentile</b><span>{signed(target.p10Pct)} / {signed(target.medianPct)} / {signed(target.p90Pct)}</span></div>
+                <div><b>Best possible branch</b><span>{target.bestPossibleOutcome} · {signed(target.bestCasePct)}</span></div>
+                <div><b>Worst possible branch</b><span>{target.worstPossibleOutcome} · {signed(target.worstCasePct)}</span></div>
+                <div><b>Current authentication at risk</b><span>{signed(target.currentAuthenticationValueAtRiskPct)}</span></div>
+              </div>
+
+              <ul>{target.reasons.map((reason,i)=><li key={i}>{reason}</li>)}</ul>
+
+              <details>
+                <summary>Other targets</summary>
+                <div className="thresholdTable">{decision.targets.slice(1,7).map((alt,index)=><div key={alt.item.id}><b>#{index+2} {alt.item.baseName||alt.item.name} · {alt.verdict}</b><span>{alt.chanceOfImprovementPct.toFixed(1)}% improve · EV {signed(alt.expectedImprovementPct)}</span></div>)}</div>
+              </details>
+            </>:<p className="muted">A complete Head, Back and Wrist inventory is required.</p>}
+
+            <div className="notice warning"><b>Evidence boundary:</b> these are modelled decision percentages, not hidden Roblox loot odds. Unknown certificate outcome weighting, star-grade transforms and dynamic perk behaviour reduce the confidence score instead of being invented.</div>
+          </div>
+        </details>;
+      })}
+    </div>
+
+    <div className="card">
+      <div className="sectionTitle"><h2>Owned certificates</h2><button className="secondary compact" onClick={()=>setEditInventory(!editInventory)}>{editInventory?'Done':'Update counts'}</button></div>
+      <div className="gearList">{data.ownedCertificates.map(cert=><div className="gearCard" key={cert.id}><strong>{cert.type}</strong><p>{cert.rarity||'Certificate'}{cert.gradeStars!==undefined?' · '+'★'.repeat(cert.gradeStars):''}{cert.displayedValue!==undefined?' · $'+cert.displayedValue.toLocaleString():''} · Owned: {cert.quantity}</p>{editInventory&&<div className="actions"><button onClick={()=>changeQty(cert.id,-1)} disabled={cert.quantity===0}>− Used one</button><button onClick={()=>changeQty(cert.id,1)}>＋ Add one</button></div>}</div>)}</div>
+      <div className="notice">Wooden → Premium conversion remains an opportunity-cost consideration. The engine is deliberately conservative where the exact Premium/Normal roll distributions are not published.</div>
+    </div>
+
+    <div className="sectionTitle"><h2>Record a result</h2></div>
     <div className="segmented"><button className={certificateMode==='Normal'?'active':''} onClick={()=>setCertificateMode('Normal')}>Normal</button><button className={certificateMode==='Premium'?'active':''} onClick={()=>setCertificateMode('Premium')}>Premium</button><button className={certificateMode==='Limited'?'active':''} onClick={()=>setCertificateMode('Limited')}>Limited</button></div>
-    {certificateMode==='Normal'&&<><div className="notice"><b>Recommendation rule:</b> maximise estimated likelihood of improving the current best overall loadout, not jackpot size. Recalculate after every roll. Alien certificates are historical only and are not targeted.</div>
-    {targets.length?targets.map((t,idx)=><details className={`certCard ${idx===0?'best':''}`} key={t.item.id} open={idx===0}><summary><div className="certRank">{idx+1}</div><div><strong>{t.item.name}</strong><span>{t.action} · {t.item.slot}</span></div><div className={`likelihood ${t.likelihood.replaceAll(' ','').toLowerCase()}`}>{t.likelihood}</div></summary><div className="comboBody"><div className="statsGrid three"><StatTile label="Heuristic rank" value={t.heuristicScore}/><StatTile label="Auth value at risk" value={t.currentAuthMarginalValue}/><StatTile label="Gap without auth" value={t.gapWithoutCurrentAuth}/></div><ul>{t.reasons.map((r:string)=><li key={r}>{r}</li>)}</ul><details><summary>Minimum replacement roll thresholds</summary><div className="thresholdTable">{t.outcomeThresholds.map((o:any)=><div key={o.outcome}><b>{o.outcome}</b><span>{o.minimumRoll!==undefined?`${o.minimumRoll.toFixed(2)}%`:o.note}</span></div>)}</div></details></div></details>):<EmptyState title="No certificate target yet" text="A complete Head/Back/Wrist inventory is required."/>}
-    {targets.length>0&&['LOW','VERY LOW'].includes(targets[0].likelihood)&&<div className="notice warning"><b>HOLD CERTIFICATE</b> — no current target has a convincing heuristic case.</div>}</> }
-    {certificateMode==='Premium'&&<>
-      <div className="notice"><b>Wooden → Premium decision guide.</b> {premiumCandidates} current unechanted competitive item{premiumCandidates===1?'':'s'} to consider. The classifications use your current three-slot loadout scoring and existing enchantments, <b>not</b> actual Premium-roll odds. A Premium roll may replace a valuable existing effect; it is not a guaranteed upgrade.</div>
-      <div className="notice"><b>Conversion cost reported by the community:</b> one Wooden Certificate plus 150 Diamonds at the Premium shop. Verify the price and eligibility in game before spending. Owned Wooden Certificates: {data.ownedCertificates.filter(c=>c.type==='Wooden Certificate of Authenticity').reduce((total,c)=>total+c.quantity,0)}. Your Diamond balance is not tracked here.</div>
-      <div className="toolbarRow premiumAdviceFilters"><input aria-label="Search premium upgrade targets" placeholder="Search gear or enchantment" value={premiumSearch} onChange={e=>setPremiumSearch(e.target.value)}/><select aria-label="Filter premium gear by slot" value={premiumSlot} onChange={e=>setPremiumSlot(e.target.value as 'All'|Slot)}><option value="All">All slots</option><option>Head</option><option>Back</option><option>Wrist</option></select></div>
-      <div className="premiumAdviceList">
-        {premiumVisible.map((advice,index)=><details className="certCard premiumAdviceCard" key={advice.item.id} open={index===0}>
-          <summary><div><strong>{advice.item.baseName||advice.item.name}</strong><span>{advice.item.slot} · {advice.item.authenticated?`${advice.item.authentication.kind}: ${advice.item.authentication.effect||'unknown'}`:'Not authenticated'}</span></div><div className="premiumVerdict">{advice.verdict}</div></summary>
-          <div className="comboBody">
-            {advice.gapToBest!==undefined&&<p className="fieldHelp">{advice.inCompetitiveSet?'Competitive in the current best three-slot setup':`Current loadout score gap: ${advice.gapToBest.toFixed(2)} points`}. Unmodelled Premium effects are not counted.</p>}
-            <p><b>Available Premium outcomes for {advice.item.slot}:</b> {advice.premiumOutcomes.join(' / ')}</p>
-            <ul>{advice.reasons.slice(0,-1).map((reason,i)=><li key={i}>{reason}</li>)}</ul>
-          </div>
-        </details>)}
-        {!premiumVisible.length&&<div className="empty">No gear matches these filters.</div>}
-      </div>
-      <div className="notice warning"><b>Evidence boundary:</b> CONSIDER PREMIUM means a sensible candidate, not a promise of better gear. HOLD and PROTECT statuses are conservative because Premium outcomes, probabilities and situational benefits cannot yet be compared numerically with a Wooden roll. Favourited/locked gear stays protected.</div>
-    </>}
-    {certificateMode==='Limited'&&<>
-      <div className="notice"><b>Limited Certificate guide.</b> The six current slot outcomes are ranked by practical utility, not invented proc odds. Exact trigger percentages/ranges are still unverified, so Limited passives stay outside the numeric gear score.</div>
-      {firstLimited&&<div className="card"><div className="rowBetween"><div><span className="eyebrow">RECOMMENDED FIRST USE</span><h3>{firstLimited.item.baseName||firstLimited.item.name}</h3><p>{firstLimited.item.slot} · {firstLimited.item.mutation&&firstLimited.item.mutation!=='None'?firstLimited.item.mutation+' · ':''}{firstLimited.item.conditionPct!==undefined?firstLimited.item.conditionPct+'% condition':''}</p></div><span className="badge heuristic">#1 TARGET</span></div><ul>{firstLimited.reasons.slice(0,3).map((reason,i)=><li key={i}>{reason}</li>)}</ul></div>}
-      <div className="card"><div className="sectionTitle"><h2>Passive ranking</h2></div><div className="thresholdTable">{limitedRanking.map(p=><div key={p.effect}><b>#{p.overallRank} · {p.effect} · Tier {p.tier}</b><span>{p.slot} · {p.role} — {p.description}</span></div>)}</div><p className="fieldHelp">Broad-use order: Luck Frenzy → Auto X-Ray → Grade Re-Roll → Featherweight → Second Chance → Steady Hand. Context can change this: Grade Re-Roll can be the best effect during heavy grading, and Featherweight can be the best effect when vehicle capacity is the bottleneck.</p></div>
-      <div className="notice"><b>Default slot order:</b> Back first, Head second, Wrist third. Back has the strongest general result (Luck Frenzy) plus a strong hauling specialist (Featherweight); Head has Auto X-Ray plus Grade Re-Roll; both Wrist outcomes only activate after a missed bid.</div>
-      <div className="toolbarRow premiumAdviceFilters"><input aria-label="Search limited upgrade targets" placeholder="Search gear or enchantment" value={limitedSearch} onChange={e=>setLimitedSearch(e.target.value)}/><select aria-label="Filter limited gear by slot" value={limitedSlot} onChange={e=>setLimitedSlot(e.target.value as 'All'|Slot)}><option value="All">All slots</option><option>Head</option><option>Back</option><option>Wrist</option></select></div>
-      <div className="premiumAdviceList">
-        {limitedVisible.map((advice,index)=><details className="certCard premiumAdviceCard" key={advice.item.id} open={index===0}>
-          <summary><div><strong>{advice.item.baseName||advice.item.name}</strong><span>{advice.item.slot} · {advice.item.authenticated?`${advice.item.authentication.kind}: ${advice.item.authentication.effect||'unknown'}`:'Not authenticated'}{advice.item.mutation&&advice.item.mutation!=='None'?` · ${advice.item.mutation}`:''}</span></div><div className="premiumVerdict">{advice.verdict}</div></summary>
-          <div className="comboBody">
-            {advice.gapToBest!==undefined&&<p className="fieldHelp">{advice.inCompetitiveSet?'Competitive in the current best three-slot setup':`Core-loadout score gap: ${advice.gapToBest.toFixed(2)} points`}. Limited utility is deliberately not converted to fake score points.</p>}
-            <p><b>Possible Limited outcomes for {advice.item.slot}:</b> {advice.limitedOutcomes.map(p=>`${p.effect} (Tier ${p.tier}, ${p.role})`).join(' / ')}</p>
-            <ul>{advice.reasons.map((reason,i)=><li key={i}>{reason}</li>)}</ul>
-          </div>
-        </details>)}
-        {!limitedVisible.length&&<div className="empty">No gear matches these filters.</div>}
-      </div>
-      <div className="notice warning"><b>Two-certificate plan:</b> use the first Limited certificate on the highest-ranked clean Back target. Re-run the advisor after the result. For balanced coverage, the second certificate normally moves to the best clean Head target. If your only goal is maximum auction Luck, a second Back attempt may be worth considering after a Featherweight roll, but the app does not assume the unknown roll odds.</div>
-    </>}
-    <div className="sectionTitle"><h2>Roll history</h2><button className="secondary compact" onClick={()=>setLogOpen(true)}>＋ Record {certificateMode} roll</button></div>
+    <button className="secondary" onClick={()=>setLogOpen(true)}>＋ Record {certificateMode} roll</button>
+
+    <div className="sectionTitle"><h2>Roll history</h2></div>
     <div className="card tableCard">{data.rollLog.length?data.rollLog.slice().reverse().map(r=><div className="logRow" key={r.id}><div><strong>{r.itemName}</strong><span>{new Date(r.date).toLocaleDateString()} · {r.certificateType.startsWith('Normal')?'Normal':r.certificateType.startsWith('Premium')?'Premium':r.certificateType.startsWith('Limited')?'Limited':'Legacy Alien'}</span></div><div><b>{r.newAuthentication} {r.newValue}%</b><span>{r.bestScoreBefore.toFixed(2)} → {r.bestScoreAfter.toFixed(2)}</span></div></div>):<p className="muted">No certificate rolls recorded yet.</p>}</div>
+
     {logOpen&&<RollLogEditor data={data} type={type} onClose={()=>setLogOpen(false)} onSave={(r,updated)=>{const authModel=recordEmpiricalRoll(data.authModel,r);setData({...data,gear:data.gear.map(g=>g.id===updated.id?updated:g),authModel,rollLog:[...data.rollLog,r]});setLogOpen(false)}}/>}
   </section>;
 }
+
 function SettingsScreen({data,setData,showToast}:{data:AppData;setData:(d:AppData)=>void;showToast:(s:string)=>void}){
   const jsonRef=useRef<HTMLInputElement>(null),csvRef=useRef<HTMLInputElement>(null);
   function setS<K extends keyof AlgorithmSettings>(k:K,v:AlgorithmSettings[K]){setData({...data,settings:{...data.settings,[k]:v}})}
