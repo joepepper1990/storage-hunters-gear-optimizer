@@ -7,22 +7,24 @@ export function authModelTypeForOwnedCertificate(cert:OwnedCertificate):AuthMode
 }
 
 export function recordEmpiricalRoll(model:AuthModelEntry[],roll:CertificateRollLog):AuthModelEntry[] {
-  const candidates=model.filter(m=>m.certificateType===roll.certificateType&&m.outcome===roll.newAuthentication&&(m.slot==='Any'||m.slot===roll.slot));
+  const candidates=model.filter(m=>
+    m.certificateType===roll.certificateType &&
+    (!roll.certificateInventoryType||m.certificateInventoryType===roll.certificateInventoryType) &&
+    m.outcome===roll.newAuthentication &&
+    (m.slot==='Any'||m.slot===roll.slot)
+  );
   const target=candidates.find(m=>m.slot===roll.slot)??candidates[0];
   if(!target)return model;
   return model.map(m=>{
     if(m.id!==target.id)return m;
     const values=[...m.observedValues,roll.newValue].filter(Number.isFinite);
     if(!values.length)return m;
-    const sorted=[...values].sort((a,b)=>a-b);
-    const mid=sorted.length%2?sorted[(sorted.length-1)/2]:(sorted[sorted.length/2-1]+sorted[sorted.length/2])/2;
     return {
       ...m,
       observedValues:values,
       observedSampleCount:values.length,
-      min:Math.min(...values),
-      typical:mid,
-      max:Math.max(...values),
+      // Keep catalogue min/typical/max as the prior/legal model. Observations are
+      // stored separately and progressively outweigh that prior in certificate EV.
       confidence:values.length>=10?'Empirical':values.length>=4?'Medium':'Low'
     };
   });
