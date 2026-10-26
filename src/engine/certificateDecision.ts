@@ -308,7 +308,7 @@ function normalizedPriorWeights(values:number[],min:number,max:number,typical?:n
   return raw.map(x=>x/total);
 }
 
-function empiricalSupports(values:number[],mass:number):Array<{value:number;weight:number}> {
+export function empiricalSupports(values:number[],mass:number):Array<{value:number;weight:number}> {
   if(!values.length||mass<=0)return [];
   const sorted=[...values].sort((a,b)=>a-b);
   const count=Math.min(5,sorted.length);
@@ -879,6 +879,14 @@ function withConversionAdvice(
   };
 }
 
+export function compareCertificateTargets(a:CertificateTargetDecision,b:CertificateTargetDecision):number {
+  const vr=(v:CertificateDecisionVerdict)=>({USE:0,CONSIDER:1,HOLD:2,'DO NOT USE':3}[v]);
+  return vr(a.verdict)-vr(b.verdict)||
+    b.expectedImprovementLowPct-a.expectedImprovementLowPct||
+    b.chanceOfImprovementPct-a.chanceOfImprovementPct||
+    b.mainFitPct-a.mainFitPct;
+}
+
 export function analyseCertificate(
   data:AppData,
   cert:OwnedCertificate,
@@ -894,13 +902,7 @@ export function analyseCertificate(
     .map(item=>targetDecision(data,cert,item,baselines))
     .filter((x):x is CertificateTargetDecision=>Boolean(x));
 
-  const vr=(v:CertificateDecisionVerdict)=>({USE:0,CONSIDER:1,HOLD:2,'DO NOT USE':3}[v]);
-  targets.sort((a,b)=>
-    vr(a.verdict)-vr(b.verdict)||
-    b.expectedImprovementLowPct-a.expectedImprovementLowPct||
-    b.chanceOfImprovementPct-a.chanceOfImprovementPct||
-    b.mainFitPct-a.mainFitPct
-  );
+  targets.sort(compareCertificateTargets);
 
   const recommendedTarget=targets[0];
   return {
@@ -963,3 +965,4 @@ export function analyseOwnedCertificates(data:AppData):OwnedCertificateDecision[
 
   return decisions;
 }
+
