@@ -91,18 +91,18 @@ describe('verified 26 October 2026 accessory inventory',()=>{
     expect(premium?.reasons.some(r=>r.includes('Replaces current Premium authentication'))).toBe(true);
   });
 
-  it('upgrades pre-schema-12 data by replacing all old gear with the complete verified inventory',()=>{
+  it('upgrades pre-schema-13 data by replacing all old gear with the complete verified inventory',()=>{
     const manual={...one('Cow Dominus'),id:'manual-cow',stats:{...one('Cow Dominus').stats,luck:59}};
     const stale={...one('Luxury Ice Crown'),id:'verified-20261017-old-luxury'};
     const old={...makeInitialData(),schemaVersion:8,gear:[stale,manual]} as any;
     const upgraded=normalizeData(old);
-    expect(upgraded.schemaVersion).toBe(12);
+    expect(upgraded.schemaVersion).toBe(13);
     expect(upgraded.gear).toHaveLength(22);
     expect(upgraded.gear.some(g=>g.id==='verified-20261017-old-luxury')).toBe(false);
     expect(upgraded.gear.some(g=>g.id==='manual-cow')).toBe(false);
     expect(upgraded.gear.every(g=>g.id.startsWith('verified-20261026-'))).toBe(true);
 
-    // Once schema 12 has been saved, later user edits are respected.
+    // Once schema 13 has been saved, later user edits are respected.
     const edited={...upgraded,gear:upgraded.gear.slice(1)};
     const again=importJson(exportJson(edited));
     expect(again.gear).toHaveLength(21);
