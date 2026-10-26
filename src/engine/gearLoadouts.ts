@@ -136,7 +136,7 @@ export function mainAuctionUtility(
   items:GearItem[],
   settings:AlgorithmSettings,
   context:MainAuctionContext='Neutral',
-  dynamic:DynamicScenario|DynamicState='central'
+  dynamic:DynamicScenario|DynamicState='low'
 ):number {
   const stats=combineStats(items);
   const luck=stats.luck+dynamicLuck(items,context,dynamic);
