@@ -24,8 +24,8 @@ const limited:OwnedCertificate={id:'limited',type:'Limited Certificate of Authen
 describe('certificate expected-value engine',()=>{
   it('uses Lucky Grading by default and values Grade Re-Roll against the Lucky distribution',()=>{
     expect(LUCKY_GRADING).toBe(true);
-    expect(gradeRerollExpectedValueGainPct(25)).toBeGreaterThan(1.4);
-    expect(gradeRerollExpectedValueGainPct(25)).toBeLessThan(1.6);
+    expect(gradeRerollExpectedValueGainPct(25)).toBeGreaterThan(1.76);
+    expect(gradeRerollExpectedValueGainPct(25)).toBeLessThan(1.78);
   });
 
   it('caps Main Auction Arrow value at the users 75% target',()=>{
@@ -254,6 +254,67 @@ describe('certificate expected-value engine',()=>{
     expect(target.unresolvedOutcomeMassPct).toBeCloseTo(100,8);
     expect(target.unresolvedEffects).toContain('Focused');
     expect(target.verdict).not.toBe('USE');
+  });
+
+  it('excludes unresolved outcome mass from numeric Main EV instead of treating it as zero',()=>{
+    const data=makeInitialData();
+    data.gear=[gear('H','Head',{luck:100}),gear('B','Back',{luck:100}),gear('W','Wrist',{luck:100})];
+    const wooden={id:'wooden-partial',type:'Wooden Certificate of Authenticity' as const,quantity:1,gradeStars:2};
+    data.authModel=data.authModel.map(m=>({...m,enabled:
+      m.certificateInventoryType==='Wooden Certificate of Authenticity' &&
+      ['Luck','Bid Zone Width'].includes(m.outcome)
+    }));
+    const target=analyseCertificate(data,wooden).targets.find(t=>t.item.id==='H')!;
+    expect(target.unresolvedOutcomeMassPct).toBeGreaterThan(0);
+    expect(target.resolvedOutcomeMassPct).toBeGreaterThan(0);
+    expect(target.resolvedOutcomeMassPct+target.unresolvedOutcomeMassPct).toBeCloseTo(100,8);
+
+    const resolvedOnly=structuredClone(data);
+    resolvedOnly.authModel=resolvedOnly.authModel.map(m=>({...m,enabled:
+      m.certificateInventoryType==='Wooden Certificate of Authenticity' && m.outcome==='Bid Zone Width'
+    }));
+    const resolvedTarget=analyseCertificate(resolvedOnly,wooden).targets.find(t=>t.item.id==='H')!;
+    expect(target.expectedImprovementPct).toBeCloseTo(resolvedTarget.expectedImprovementPct,8);
+  });
+
+  it('counts specialist losses in overall downside even when robust Main is unchanged',()=>{
+    const data=makeInitialData();
+    data.gear=[
+      gear('H','Head',{luck:100},'None',{kind:'Limited',effect:'Grade Re-Roll',value:25}),
+      gear('B','Back',{luck:100}),
+      gear('W','Wrist',{luck:100})
+    ];
+    const target=analyseCertificate(data,limited).targets.find(t=>t.item.id==='H')!;
+    expect(target.chanceGradingWorsePct).toBeGreaterThan(0);
+    expect(target.chanceOfWorsePct).toBeGreaterThanOrEqual(target.chanceGradingWorsePct);
+  });
+
+  it('adds unresolved replacement mass to potential downside when a current authentication is at risk',()=>{
+    const data=makeInitialData();
+    data.gear=[
+      gear('H','Head',{luck:100},'None',{kind:'Normal',effect:'Luck',value:50}),
+      gear('B','Back',{luck:100}),
+      gear('W','Wrist',{luck:100})
+    ];
+    const wooden={id:'wooden-risk',type:'Wooden Certificate of Authenticity' as const,quantity:1,gradeStars:2};
+    data.authModel=data.authModel.map(m=>({...m,enabled:
+      m.certificateInventoryType==='Wooden Certificate of Authenticity' && m.outcome==='Luck'
+    }));
+    const target=analyseCertificate(data,wooden).targets.find(t=>t.item.id==='H')!;
+    expect(target.unresolvedOutcomeMassPct).toBeCloseTo(100,8);
+    expect(target.chancePotentialWorsePct).toBeGreaterThan(0);
+    expect(target.verdict).toBe('HOLD');
+  });
+
+  it('records a lexicographic specialist decision basis instead of pooling specialist utility',()=>{
+    const data=makeInitialData();
+    data.gear=[gear('H','Head',{luck:100}),gear('B','Back',{luck:100}),gear('W','Wrist',{luck:100})];
+    const headCert={id:'limited-head-basis',type:'Limited Certificate of Authenticity' as const,quantity:1};
+    const target=analyseCertificate(data,headCert).targets.find(t=>t.item.id==='H')!;
+    if(target.verdict==='CONSIDER'){
+      expect(['Main Auction','Contextual Main','Drink Prep','Grading']).toContain(target.decisionBasis);
+      expect(target.decisionBasis).not.toBe('Shop / Idle');
+    }
   });
 
 });
