@@ -62,12 +62,12 @@ export async function loadData(): Promise<AppData> {
  */
 export function saveData(data: AppData): Promise<void> {
   const snapshot = structuredClone(data);
-  saveChain = saveChain.catch(() => undefined).then(() => writeSnapshot(snapshot));
+  const savedAt=Date.now();
+  saveChain = saveChain.catch(() => undefined).then(() => writeSnapshot(snapshot,savedAt));
   return saveChain;
 }
 
-async function writeSnapshot(data: AppData): Promise<void> {
-  const savedAt=Date.now();
+async function writeSnapshot(data: AppData,savedAt:number): Promise<void> {
   const envelope:StoredEnvelope={storageEnvelopeVersion:STORAGE_ENVELOPE_VERSION,savedAt,data};
   let idbSaved = false;
   let mirrorSaved = false;
@@ -81,7 +81,8 @@ async function writeSnapshot(data: AppData): Promise<void> {
     idbError = error;
   }
   try {
-    saveEmergencyMirror(data,savedAt);
+    const currentMirror=loadEmergencyMirror();
+    if(!currentMirror||savedAt>=currentMirror.savedAt)saveEmergencyMirror(data,savedAt);
     mirrorSaved = true;
   } catch {
     // A large inventory can exceed localStorage quota; IndexedDB remains authoritative.
@@ -121,7 +122,7 @@ function request<T = unknown>(req: IDBRequest<T>): Promise<T> {
 export function normalizeData(raw: AppData): AppData {
   const initial = makeInitialData();
   return {
-    schemaVersion: 11,
+    schemaVersion: 12,
     // Schema 9 is a deliberate one-time inventory reset from the user's complete
     // 26 October 2026 screenshots. Any pre-schema-9 gear rows are replaced, not
     // merged, because the verified 22-item list is the user's entire owned gear.
@@ -227,11 +228,21 @@ function normalizeAuthModel(raw: AppData['authModel'] | undefined, defaults: App
       max:oldBuiltIn?fallback.max:(entry.max??fallback.max)
     };
   });
-  const existing=new Set(out.map(key));
+  const upgraded=out.map(entry=>{
+    if(
+      schemaVersion<12 &&
+      entry.assumedLikelihoodClass==='MEDIUM' &&
+      (entry.category.startsWith('Wooden exclusive')||entry.category.startsWith('Ripped exclusive'))
+    ){
+      return {...entry,assumedLikelihoodClass:'LOW' as const};
+    }
+    return entry;
+  });
+  const existing=new Set(upgraded.map(key));
   if(schemaVersion<11){
-    for(const entry of defaults) if(!existing.has(key(entry))) out.push(entry);
+    for(const entry of defaults) if(!existing.has(key(entry))) upgraded.push(entry);
   }
-  return out;
+  return upgraded;
 }
 
 function normalizeVehicleProfile(raw: Partial<AppData['vehicleProfile']> | undefined): AppData['vehicleProfile'] {
