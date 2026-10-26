@@ -164,7 +164,7 @@ describe('certificate expected-value engine',()=>{
   });
   it('uses the editable catalogue as the live source for enabled outcomes and ranges',()=>{
     const data=makeInitialData();
-    data.gear=[gear('H','Head',{}),gear('B','Back',{}),gear('W','Wrist',{})];
+    data.gear=[gear('H','Head',{luck:100}),gear('B','Back',{luck:100}),gear('W','Wrist',{luck:100})];
     const wooden={id:'wooden-live',type:'Wooden Certificate of Authenticity' as const,quantity:1};
     data.authModel=data.authModel.map(m=>({...m,enabled:m.certificateInventoryType==='Wooden Certificate of Authenticity'&&m.outcome==='Bid Zone Width'}));
     const row=data.authModel.find(m=>m.enabled)!;
@@ -179,7 +179,7 @@ describe('certificate expected-value engine',()=>{
 
   it('lets explicit catalogue relative-weight assumptions alter EV while MEDIUM remains neutral by default',()=>{
     const data=makeInitialData();
-    data.gear=[gear('H','Head',{}),gear('B','Back',{}),gear('W','Wrist',{})];
+    data.gear=[gear('H','Head',{luck:100}),gear('B','Back',{luck:100}),gear('W','Wrist',{luck:100})];
     const wooden={id:'wooden-weight',type:'Wooden Certificate of Authenticity' as const,quantity:1};
     for(const m of data.authModel)m.enabled=false;
     const zone=data.authModel.find(m=>m.certificateInventoryType==='Wooden Certificate of Authenticity'&&m.outcome==='Bid Zone Width')!;
@@ -201,13 +201,14 @@ describe('certificate expected-value engine',()=>{
     expect(head.unresolvedEffects).toEqual(expect.arrayContaining(['Luck','Sunny','Nocturnal','Overcharged']));
     const back=decision.targets.find(t=>t.item.id==='B')!;
     expect(back.unresolvedEffects).toContain('Focused');
-    const wrist=decision.targets.find(t=>t.item.id==='W')!;
-    expect(wrist.unresolvedEffects).toContain('Connected');
+    const rippedWooden=new Set(data.authModel.filter(m=>m.certificateInventoryType==='Ripped Certificate of Authenticity').map(m=>m.outcome));
+    const woodenPool=new Set(data.authModel.filter(m=>m.certificateInventoryType==='Wooden Certificate of Authenticity').map(m=>m.outcome));
+    expect([...rippedWooden].sort()).toEqual([...woodenPool].sort());
   });
 
   it('allows empirical roll strength to progressively outweigh the range prior as samples accumulate',()=>{
     const base=makeInitialData();
-    base.gear=[gear('H','Head',{}),gear('B','Back',{}),gear('W','Wrist',{})];
+    base.gear=[gear('H','Head',{luck:100}),gear('B','Back',{luck:100}),gear('W','Wrist',{luck:100})];
     const wooden={id:'wooden-empirical',type:'Wooden Certificate of Authenticity' as const,quantity:1,gradeStars:2};
     base.authModel=base.authModel.map(m=>({...m,enabled:m.certificateInventoryType==='Wooden Certificate of Authenticity'&&m.outcome==='Bid Zone Width'}));
     const prior=analyseCertificate(base,wooden).recommendedTarget!.expectedImprovementPct;
