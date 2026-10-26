@@ -273,7 +273,7 @@ function normalizedPriorWeights(values:number[],min:number,max:number,typical?:n
 function empiricalSupports(values:number[],mass:number):Array<{value:number;weight:number}> {
   if(!values.length||mass<=0)return [];
   const sorted=[...values].sort((a,b)=>a-b);
-  const count=Math.min(7,sorted.length);
+  const count=Math.min(5,sorted.length);
   const points=Array.from({length:count},(_,i)=>
     sorted[Math.round((sorted.length-1)*(count===1?0:i/(count-1)))]
   );
@@ -299,7 +299,9 @@ function rollSupports(def:CertificateOutcomeDefinition,data:AppData,slot:Slot,ce
     const empiricalMass=inRange.length/(PRIOR_STRENGTH+inRange.length);
     const priorMass=1-empiricalMass;
 
-    const priorValues=Array.from({length:7},(_,i)=>min+(max-min)*(i/6));
+    // Five deterministic quadrature points retain min, quartiles, midpoint and max
+    // while avoiding redundant full Head × Back × Wrist recomputation.
+    const priorValues=Array.from({length:5},(_,i)=>min+(max-min)*(i/4));
     const priorWeights=normalizedPriorWeights(priorValues,min,max,def.typical);
     const prior=priorValues.map((value,i)=>({
       value,
