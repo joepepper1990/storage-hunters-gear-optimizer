@@ -218,7 +218,7 @@ function modelEntry(seed:ModelSeed,inventoryType:AuthModelEntry['certificateInve
     slot:seed.slot,
     outcome:seed.outcome,
     category:seed.category,
-    assumedLikelihoodClass:'MEDIUM',
+    assumedLikelihoodClass:seed.category.includes('exclusive')?'LOW':'MEDIUM',
     observedSampleCount:0,
     observedValues:[],
     min:seed.min,
@@ -240,7 +240,7 @@ export function makeDefaultAuthModel(): AuthModelEntry[] {
 
 export function makeEmptyData():AppData{
   return {
-    schemaVersion:11,
+    schemaVersion:12,
     gear:[],
     settings:{...LOCKED_DEFAULT_SETTINGS},
     authModel:makeDefaultAuthModel(),
