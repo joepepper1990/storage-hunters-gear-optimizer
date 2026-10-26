@@ -263,7 +263,7 @@ export function GearScreen({gear,analyses,settings,analysisCurrent,onAdd,onScan,
 }
 
 function OptimiseScreen({data,combinations,limit,setLimit}:{data:AppData;combinations:CombinationResult[];limit:number;setLimit:(n:number)=>void}){
-  const loadouts=useMemo(()=>buildGearLoadouts(data.gear,data.settings,'central'),[data.gear,data.settings]);
+  const loadouts=useMemo(()=>buildGearLoadouts(data.gear,data.settings,'low'),[data.gear,data.settings]);
   const primary=[loadouts.main,loadouts.drink,loadouts.grading,loadouts.shop].filter(Boolean);
   const contextual=[loadouts.day,loadouts.night,loadouts.rain].filter(Boolean);
   const slotCounts={Head:data.gear.filter(g=>g.slot==='Head').length,Back:data.gear.filter(g=>g.slot==='Back').length,Wrist:data.gear.filter(g=>g.slot==='Wrist').length};
@@ -350,13 +350,15 @@ export function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppDat
               </div>
 
               <div className="thresholdTable">
-                <div><b>Robust / central / high Main EV</b><span>{signed(target.expectedImprovementPct)} / {signed(target.expectedImprovementCentralPct)} / {signed(target.expectedImprovementHighPct)}</span></div>
-                <div><b>Worst dynamic-state Main EV</b><span>{signed(target.expectedImprovementLowPct)}</span></div>
+                <div><b>Conditional EV · robust / central / high</b><span>{signed(target.expectedImprovementPct)} / {signed(target.expectedImprovementCentralPct)} / {signed(target.expectedImprovementHighPct)}</span></div>
+                <div><b>Conditional EV · worst dynamic state</b><span>{signed(target.expectedImprovementLowPct)}</span></div>
+                <div><b>Full-certificate Main EV</b><span>{target.fullExpectedMainPct===null?'Unavailable — unresolved outcomes':signed(target.fullExpectedMainPct)}</span></div>
+                <div><b>Full Main EV bounds</b><span>{signed(target.fullMainLowerBoundPct)} to {target.fullMainUpperBoundPct===null?'unknown upper bound':signed(target.fullMainUpperBoundPct)}</span></div>
                 <div><b>Decision basis</b><span>{target.decisionBasis}</span></div>
                 <div><b>Resolved / unresolved probability mass</b><span>{target.resolvedOutcomeMassPct.toFixed(1)}% / {target.unresolvedOutcomeMassPct.toFixed(1)}%</span></div>
                 <div><b>Average robust gain when successful</b><span>{signed(target.averageGainWhenSuccessfulPct)}</span></div>
                 <div><b>Average demonstrated loss when worse</b><span>{signed(target.averageLossWhenWorsePct)}</span></div>
-                <div><b>10th / median / 90th central percentile</b><span>{signed(target.p10Pct)} / {signed(target.medianPct)} / {signed(target.p90Pct)}</span></div>
+                <div><b>Resolved outcomes · 10th / median / 90th percentile</b><span>{signed(target.p10Pct)} / {signed(target.medianPct)} / {signed(target.p90Pct)}</span></div>
                 <div><b>Best possible modelled branch</b><span>{target.bestPossibleOutcome} · {signed(target.bestCasePct)}</span></div>
                 <div><b>Worst modelled Main/context branch</b><span>{target.worstPossibleOutcome} · {signed(target.worstCasePct)}</span></div>
                 <div><b>Authentication risk — neutral Main</b><span>{signed(target.currentAuthenticationMainRiskPct)}</span></div>
@@ -376,7 +378,7 @@ export function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppDat
               {target.unresolvedEffects.length>0&&<div className="notice warning"><b>Unresolved outcome mass:</b> {target.unresolvedEffects.join(', ')}. Those branches are excluded from the numeric EV rather than scored as zero. The displayed EV therefore describes only the resolved {target.resolvedOutcomeMassPct.toFixed(1)}% of the model, and a USE verdict remains blocked.</div>}
               <ul>{target.reasons.map((reason,i)=><li key={i}>{reason}</li>)}</ul>
 
-              {decision.conversion&&<div className="notice"><b>Wooden → Premium opportunity cost:</b> {decision.conversion.recommendation}. Direct Wooden EV {signed(decision.conversion.directExpectedMainPct)} vs synthetic Premium EV {signed(decision.conversion.premiumExpectedMainPct)}. Conversion costs {decision.conversion.diamondCost} Diamonds. {decision.conversion.reason}</div>}
+              {decision.conversion&&<div className="notice"><b>Wooden → Premium opportunity cost:</b> {decision.conversion.recommendation}. Conditional Wooden EV {signed(decision.conversion.directExpectedMainPct)} vs conditional synthetic Premium EV {signed(decision.conversion.premiumExpectedMainPct)}. Conversion costs {decision.conversion.diamondCost} Diamonds. {decision.conversion.reason}</div>}
 
               <details>
                 <summary>Other targets</summary>
@@ -409,8 +411,8 @@ export function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppDat
       <div className="rowBetween"><div><span className="eyebrow">MODELLED CHOICE</span><h3>{certificateState.postRoll.recommendation}</h3><p>{certificateState.postRoll.reason}</p></div></div>
       <div className="thresholdTable">
         <div><b>Accept current result</b><span>0.00% change · no extra cost</span></div>
-        {certificateState.postRoll.effectReroll&&<div><b>Reroll effect · {certificateState.postRoll.costRobux} Robux</b><span>{signed(certificateState.postRoll.effectReroll.expectedMainPct)} robust Main EV · downside {certificateState.postRoll.effectReroll.chancePotentialWorsePct.toFixed(1)}%{certificateState.postRoll.effectReroll.unresolvedOutcomeMassPct>0?' · unresolved '+certificateState.postRoll.effectReroll.unresolvedOutcomeMassPct.toFixed(1)+'%':''}</span></div>}
-        {certificateState.postRoll.numberReroll&&<div><b>Reroll Number · {certificateState.postRoll.costRobux} Robux</b><span>{signed(certificateState.postRoll.numberReroll.expectedMainPct)} robust Main EV · downside {certificateState.postRoll.numberReroll.chancePotentialWorsePct.toFixed(1)}%{certificateState.postRoll.numberReroll.unresolvedOutcomeMassPct>0?' · unresolved '+certificateState.postRoll.numberReroll.unresolvedOutcomeMassPct.toFixed(1)+'%':''}</span></div>}
+        {certificateState.postRoll.effectReroll&&<div><b>Reroll effect · {certificateState.postRoll.costRobux} Robux</b><span>{signed(certificateState.postRoll.effectReroll.expectedMainPct)} conditional Main EV · downside {certificateState.postRoll.effectReroll.chancePotentialWorsePct.toFixed(1)}%{certificateState.postRoll.effectReroll.unresolvedOutcomeMassPct>0?' · unresolved '+certificateState.postRoll.effectReroll.unresolvedOutcomeMassPct.toFixed(1)+'%':''}</span></div>}
+        {certificateState.postRoll.numberReroll&&<div><b>Reroll Number · {certificateState.postRoll.costRobux} Robux</b><span>{signed(certificateState.postRoll.numberReroll.expectedMainPct)} conditional Main EV · downside {certificateState.postRoll.numberReroll.chancePotentialWorsePct.toFixed(1)}%{certificateState.postRoll.numberReroll.unresolvedOutcomeMassPct>0?' · unresolved '+certificateState.postRoll.numberReroll.unresolvedOutcomeMassPct.toFixed(1)+'%':''}</span></div>}
       </div>
     </div>}
 
@@ -624,3 +626,4 @@ function dateStamp(){return new Date().toISOString().slice(0,10)}
 function downloadText(name:string,text:string,type:string){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 function applyTheme(theme:AppData['theme']){document.documentElement.dataset.theme=theme;if(theme==='system')delete document.documentElement.dataset.theme}
 function navIcon(t:Tab){return ({Dashboard:'▦',Gear:'◆',Optimise:'◎',Vehicle:'▰',Trophies:'♜',Certificates:'◈',Settings:'⚙',More:'•••'} as Record<Tab,string>)[t]}
+
