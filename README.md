@@ -113,7 +113,7 @@ The schema-9 inventory reset captured the user's verified **22 accessories** fro
 - 6 Back
 - 5 Wrist
 
-Schema 12 is non-destructive: existing schema-9+ inventory, certificates, roll history, vehicles and trophies are preserved while the authentication catalogue is migrated to exact Wooden / Ripped / Premium / Limited tiers. Schema-10 built-in rows inherit known tier ranges without losing observed samples.
+Schema 13 is non-destructive: existing schema-9+ inventory, certificates, roll history, vehicles and trophies are preserved while the authentication catalogue is migrated to exact Wooden / Ripped / Premium / Limited tiers. Schema-10 built-in rows inherit known tier ranges without losing observed samples.
 
 ## Other optimisers
 
