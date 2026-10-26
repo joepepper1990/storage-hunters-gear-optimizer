@@ -317,4 +317,39 @@ describe('certificate expected-value engine',()=>{
     }
   });
 
+  it('uses LOW as the qualitative default prior for documented rarer Wooden/Ripped exclusives',()=>{
+    const data=makeInitialData();
+    expect(data.authModel.find(m=>m.certificateInventoryType==='Wooden Certificate of Authenticity'&&m.outcome==='Sunny')?.assumedLikelihoodClass).toBe('LOW');
+    expect(data.authModel.find(m=>m.certificateInventoryType==='Wooden Certificate of Authenticity'&&m.outcome==='Luck')?.assumedLikelihoodClass).toBe('MEDIUM');
+    expect(data.authModel.find(m=>m.certificateInventoryType==='Ripped Certificate of Authenticity'&&m.outcome==='Raindrop')?.assumedLikelihoodClass).toBe('LOW');
+  });
+
+  it('lets personal Limited Back tiers support a Main-competitive target without creating hauling utility',()=>{
+    const data=makeInitialData();
+    const cert=data.ownedCertificates.find(c=>c.type==='Limited Certificate of Authenticity')!;
+    const decision=analyseCertificate(data,cert);
+    const elegant=decision.targets.find(t=>t.item.baseName==='Elegant Business Backpack')!;
+    expect(elegant.mainFitPct).toBeGreaterThanOrEqual(95);
+    expect(elegant.chancePersonalPreferenceImprovesPct).toBeGreaterThan(0);
+    expect(elegant.expectedPersonalPreferenceDelta).toBeGreaterThan(0);
+    if(elegant.decisionBasis==='Main secondary preference'){
+      expect(elegant.verdict).toBe('CONSIDER');
+      expect(elegant.expectedImprovementPct).toBeGreaterThanOrEqual(-0.05);
+    }
+  });
+
+  it('does not let a preferred secondary effect rescue a materially weaker Main target',()=>{
+    const data=makeInitialData();
+    data.gear=[
+      gear('H','Head',{luck:100}),
+      gear('Strong','Back',{luck:200}),
+      gear('Weak','Back',{luck:1}),
+      gear('W','Wrist',{luck:100})
+    ];
+    const cert={id:'limited-back-pref',type:'Limited Certificate of Authenticity' as const,quantity:1};
+    const weak=analyseCertificate(data,cert).targets.find(t=>t.item.id==='Weak')!;
+    expect(weak.mainFitPct).toBeLessThan(95);
+    expect(weak.decisionBasis).not.toBe('Main secondary preference');
+  });
+
 });
