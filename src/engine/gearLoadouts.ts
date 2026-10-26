@@ -115,8 +115,9 @@ export function mainCombination(
   const zone=zoneEffective(stats.zone,settings)*settings.zoneWeight;
   const recovery=stats.recovery*settings.recoveryWeight;
   const total=luck+arrow+zone+recovery;
+  const passive=dynamic*settings.luckWeight;
   const score:ScoreBreakdown={
-    core:total, passive:dynamic*settings.luckWeight, total,
+    core:total-passive, passive, total,
     luck, arrow, zone, recovery,
     npc:0, energy:0, tip:0, vehicle:0, walk:0,
     passiveDetails: dynamic?[{label:'Dynamic / contextual Luck',score:dynamic*settings.luckWeight}]:[],
@@ -156,14 +157,17 @@ function allTrios(gear:GearItem[]):GearItem[][] {
 
 function makeResult(
   name:GearLoadoutName, trios:GearItem[][], utility:(items:GearItem[])=>number,
-  settings:AlgorithmSettings, context?:MainAuctionContext, rationale=''
+  settings:AlgorithmSettings, context?:MainAuctionContext, rationale='', requirePositive=false
 ):GearLoadoutResult|undefined {
   if(!trios.length)return undefined;
   const scored=trios.map(items=>({items,u:utility(items),main:mainAuctionUtility(items,settings,'Neutral','central')}));
   scored.sort((a,b)=>b.u-a.u||b.main-a.main||a.items.map(x=>x.id).join('|').localeCompare(b.items.map(x=>x.id).join('|')));
   const best=scored[0];
+  if(requirePositive&&best.u<=1e-9)return undefined;
   const epsilon=1e-9;
-  const tied=scored.filter(x=>Math.abs(x.u-best.u)<=epsilon);
+  // Specialist objective is primary; Main Auction utility breaks otherwise-irrelevant
+  // Head/Back/Wrist ties so a specialist does not retain the entire inventory.
+  const tied=scored.filter(x=>Math.abs(x.u-best.u)<=epsilon&&Math.abs(x.main-best.main)<=epsilon);
   const tiedItemIds=new Set(tied.flatMap(x=>x.items.map(i=>i.id)));
   return {
     name,context,head:best.items[0],back:best.items[1],wrist:best.items[2],
@@ -180,9 +184,9 @@ export function buildGearLoadouts(
     day:makeResult('Day Auction',trios,items=>mainAuctionUtility(items,settings,'Day',scenario),settings,'Day','Main Auction with Sunny effects active.'),
     night:makeResult('Night Auction',trios,items=>mainAuctionUtility(items,settings,'Night',scenario),settings,'Night','Main Auction with Nocturnal effects active.'),
     rain:makeResult('Rain Auction',trios,items=>mainAuctionUtility(items,settings,'Rain',scenario),settings,'Rain','Main Auction with Raindrop effects active.'),
-    drink:makeResult('Drink Prep',trios,items=>drinkValue(items,settings),settings,undefined,'Temporary set used while consuming an Energy Drink; Energy duration and Overcharged matter.'),
-    grading:makeResult('Grading',trios,items=>gradeRerollValue(items),settings,undefined,'Temporary grading set; Lucky Grading is owned and Grade Re-Roll is valued against that distribution.'),
-    shop:makeResult('Shop / Idle',trios,items=>shopValue(items),settings,undefined,'Optional selling set for deliberate shop/idle sessions; Tip Chance and NPC Offers matter.')
+    drink:makeResult('Drink Prep',trios,items=>drinkValue(items,settings),settings,undefined,'Temporary set used while consuming an Energy Drink; Energy duration and Overcharged matter.',true),
+    grading:makeResult('Grading',trios,items=>gradeRerollValue(items),settings,undefined,'Temporary grading set; Lucky Grading is owned and Grade Re-Roll is valued against that distribution.',true),
+    shop:makeResult('Shop / Idle',trios,items=>shopValue(items),settings,undefined,'Optional selling set for deliberate shop/idle sessions; Tip Chance and NPC Offers matter.',true)
   };
 }
 
