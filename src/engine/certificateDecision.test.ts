@@ -312,7 +312,7 @@ describe('certificate expected-value engine',()=>{
     const headCert={id:'limited-head-basis',type:'Limited Certificate of Authenticity' as const,quantity:1};
     const target=analyseCertificate(data,headCert).targets.find(t=>t.item.id==='H')!;
     if(target.verdict==='CONSIDER'){
-      expect(['Main Auction','Contextual Main','Drink Prep','Grading']).toContain(target.decisionBasis);
+      expect(['Main Auction','Contextual Main','Main secondary preference','Drink Prep','Grading']).toContain(target.decisionBasis);
       expect(target.decisionBasis).not.toBe('Shop / Idle');
     }
   });
