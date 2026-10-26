@@ -7,6 +7,7 @@ import {
   mutationLuckForItem
 } from './gearLoadouts';
 import { catalogueRowsFor } from './authModel';
+import { MODEL_ASSUMPTIONS } from './modelAssumptions';
 
 export type CertificateDecisionVerdict = 'USE' | 'CONSIDER' | 'HOLD' | 'DO NOT USE';
 
@@ -183,7 +184,7 @@ const LIKELIHOOD_WEIGHT:Record<AuthModelEntry['assumedLikelihoodClass'],number>=
   'VERY LOW':.25
 };
 
-const PRIOR_STRENGTH=8;
+const PRIOR_STRENGTH=MODEL_ASSUMPTIONS.certificate.priorStrength;
 
 export { gradeRerollExpectedValueGainPct, mutationLuckForItem, LUCKY_GRADING, mainAuctionUtility };
 
@@ -618,8 +619,14 @@ function targetDecision(
   let decisionBasis:CertificateTargetDecision['decisionBasis']='None';
 
   const mainBlocked=expectedLow<-.5||chanceMainWorse>=55;
-  const mainUse=expectedLow>(rare?2:1)&&chance>=(rare?45:35)&&chanceMainWorse<=25&&confidence>=45;
-  const mainConsider=expected>.25&&potentialChance>=20&&chanceMainWorse<45;
+  const usePolicy=MODEL_ASSUMPTIONS.certificate.use;
+  const considerPolicy=MODEL_ASSUMPTIONS.certificate.consider;
+  const mainUse=expectedLow>(rare?usePolicy.rareMinWorstStateEvPct:usePolicy.normalMinWorstStateEvPct)&&
+    chance>=(rare?usePolicy.rareMinImproveChancePct:usePolicy.normalMinImproveChancePct)&&
+    chanceMainWorse<=usePolicy.maxMainWorsePct&&confidence>=usePolicy.minConfidencePct;
+  const mainConsider=expected>considerPolicy.minResolvedEvPct&&
+    potentialChance>=considerPolicy.minPotentialImproveChancePct&&
+    chanceMainWorse<considerPolicy.maxMainWorsePct;
   const contextualConsider=expected>=-.05&&expectedContextual>=1&&chanceMainWorse<30;
 
   if(unresolvedMass>1e-6){
