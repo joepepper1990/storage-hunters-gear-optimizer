@@ -237,11 +237,13 @@ function rollSupports(def:CertificateOutcomeDefinition,data:AppData,slot:Slot,ce
     const inRange=observed.filter(v=>v>=configured.min&&v<=configured.max);
     if(inRange.length>=4){
       const sorted=[...inRange].sort((a,b)=>a-b);
-      const quantiles=Array.from({length:7},(_,i)=>sorted[Math.round((sorted.length-1)*(i/6))]);
-      const prior=Array.from({length:7},(_,i)=>configured.min+(configured.max-configured.min)*(i/6));
+      const quantiles=Array.from({length:5},(_,i)=>sorted[Math.round((sorted.length-1)*(i/4))]);
+      const prior=Array.from({length:5},(_,i)=>configured.min+(configured.max-configured.min)*(i/4));
       return [...prior,...quantiles].map(value=>({value,unresolved:false}));
     }
-    return Array.from({length:11},(_,i)=>({value:configured.min+(configured.max-configured.min)*(i/10),unresolved:false}));
+    // Seven deterministic support points retain the legal min/max and threshold crossings
+    // while keeping three-state full-inventory sensitivity analysis responsive.
+    return Array.from({length:7},(_,i)=>({value:configured.min+(configured.max-configured.min)*(i/6),unresolved:false}));
   }
 
   if(observed.length)return [...new Set(observed)].sort((a,b)=>a-b).map(value=>({value,unresolved:false}));
