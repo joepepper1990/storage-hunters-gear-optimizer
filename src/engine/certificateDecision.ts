@@ -80,6 +80,8 @@ export interface CertificateTargetDecision {
   currentAuthenticationShopRiskPct: number;
   unresolvedOutcomeMassPct: number;
   resolvedOutcomeMassPct: number;
+  outcomeLikelihoods: ReturnType<typeof certificateOutcomeLikelihoods>;
+  evidenceCoverage: ReturnType<typeof certificateEvidenceCoverage>;
   unresolvedEffects: string[];
   decisionBasis: 'Main Auction' | 'Contextual Main' | 'Main secondary preference' | 'Drink Prep' | 'Grading' | 'Shop / Idle' | 'None';
   mainFitPct: number;
@@ -274,9 +276,8 @@ function observedEffectCounts(data:AppData,cert:OwnedCertificate,slot:Slot):Map<
   return counts;
 }
 
-function outcomeProbabilities(defs:CertificateOutcomeDefinition[],counts:Map<string,number>) {
+function outcomeProbabilities(defs:CertificateOutcomeDefinition[],counts:Map<string,number>,strength:number=MODEL_ASSUMPTIONS.certificate.outcomePriorStrength) {
   const priorTotal=defs.reduce((sum,def)=>sum+LIKELIHOOD_WEIGHT[def.assumedLikelihoodClass],0)||1;
-  const strength=MODEL_ASSUMPTIONS.certificate.outcomePriorStrength;
   const weighted=defs.map(def=>({
     def,
     w:strength*LIKELIHOOD_WEIGHT[def.assumedLikelihoodClass]/priorTotal+(counts.get(def.effect)??0)
@@ -286,9 +287,25 @@ function outcomeProbabilities(defs:CertificateOutcomeDefinition[],counts:Map<str
 }
 
 /** Diagnostic probabilities; these are model estimates, not published Roblox odds. */
-export function certificateOutcomeLikelihoods(data:AppData,cert:OwnedCertificate,slot:Slot):Array<{effect:string;probability:number}> {
-  return outcomeProbabilities(outcomesFor(data,cert,slot),observedEffectCounts(data,cert,slot))
-    .map(({def,p})=>({effect:def.effect,probability:p}));
+export function certificateOutcomeLikelihoods(data:AppData,cert:OwnedCertificate,slot:Slot):Array<{effect:string;probability:number;minProbability:number;maxProbability:number}> {
+  const defs=outcomesFor(data,cert,slot),counts=observedEffectCounts(data,cert,slot);
+  const strength=MODEL_ASSUMPTIONS.certificate.outcomePriorStrength;
+  const weak=outcomeProbabilities(defs,counts,strength/2);
+  const strong=outcomeProbabilities(defs,counts,strength*2);
+  return outcomeProbabilities(defs,counts).map(({def,p},i)=>({
+    effect:def.effect,probability:p,
+    minProbability:Math.min(p,weak[i].p,strong[i].p),
+    maxProbability:Math.max(p,weak[i].p,strong[i].p)
+  }));
+}
+
+export function certificateEvidenceCoverage(data:AppData,cert:OwnedCertificate,slot:Slot):{exact:number;partial:number;excluded:number} {
+  const relevant=data.rollLog.filter(r=>r.slot===slot&&rollMatchesCertificate(r,cert));
+  return {
+    exact:relevant.filter(r=>evidenceWeight(r,cert)===1).length,
+    partial:relevant.filter(r=>evidenceWeight(r,cert)>0&&evidenceWeight(r,cert)<1).length,
+    excluded:relevant.filter(r=>evidenceWeight(r,cert)===0).length
+  };
 }
 
 function effectNeedsNumericMagnitude(effect:string):boolean {
@@ -753,6 +770,8 @@ function targetDecision(
     currentAuthenticationShopRiskPct:shopRisk,
     unresolvedOutcomeMassPct:unresolvedMass,
     resolvedOutcomeMassPct:resolvedMass*100,
+    outcomeLikelihoods:certificateOutcomeLikelihoods(data,cert,item.slot),
+    evidenceCoverage:certificateEvidenceCoverage(data,cert,item.slot),
     unresolvedEffects:[...unresolvedEffects],
     decisionBasis,
     mainFitPct:mainFit,

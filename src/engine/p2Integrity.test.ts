@@ -1,7 +1,7 @@
 import {describe,it,expect} from 'vitest';
 import {makeInitialData,makeEmptyData} from '../defaults';
 import {selectNewestStoredSnapshot,saveEmergencyMirror} from '../data/storage';
-import {empiricalSupports,compareCertificateTargets,analyseOwnedCertificates,analyseCertificate,certificateOutcomeLikelihoods} from './certificateDecision';
+import {empiricalSupports,compareCertificateTargets,analyseOwnedCertificates,analyseCertificate,certificateOutcomeLikelihoods,certificateEvidenceCoverage} from './certificateDecision';
 
 describe('P2 statistical and recovery integrity',()=>{
   it('preserves observed frequencies and rare tails without quantile compression',()=>{
@@ -22,6 +22,7 @@ describe('P2 statistical and recovery integrity',()=>{
   });
   it('keeps a complete EV unavailable when the outcome range is unresolved',()=>{
     const data=makeInitialData();
+    data.gear=[...new Map(data.gear.map(g=>[g.slot,g])).values()];
     data.authModel=data.authModel.map(m=>({...m,enabled:m.outcome==='Luck'&&m.certificateInventoryType==='Wooden Certificate of Authenticity'}));
     const cert={id:'test',type:'Wooden Certificate of Authenticity' as const,quantity:1};
     const target=analyseCertificate(data,cert).targets[0];
@@ -31,12 +32,27 @@ describe('P2 statistical and recovery integrity',()=>{
   });
   it('exposes sensitivity to weaker and stronger outcome priors',()=>{
     const data=makeInitialData();
+    data.gear=[...new Map(data.gear.map(g=>[g.slot,g])).values()];
     const cert={id:'test',type:'Wooden Certificate of Authenticity' as const,quantity:1,gradeStars:2};
     const item=data.gear.find(g=>g.slot==='Head')!;
     data.rollLog=[{id:'one',date:'2026-10-26',certificateType:'Normal Certificate of Authenticity',certificateInventoryType:cert.type,certificateGradeStars:2,itemId:item.id,itemName:item.name,slot:'Head',previousAuthentication:'',previousValue:0,newAuthentication:'Bid Zone Width',newValue:50,improvedBestSet:false,bestScoreBefore:0,bestScoreAfter:0}];
     const row=certificateOutcomeLikelihoods(data,cert,'Head').find(r=>r.effect==='Bid Zone Width')!;
     expect(row.minProbability).toBeLessThan(row.probability);
     expect(row.maxProbability).toBeGreaterThan(row.probability);
+  });
+  it('does not reintroduce mismatched rolls through derived catalogue counts',()=>{
+    const data=makeInitialData();
+    const cert={id:'known',type:'Wooden Certificate of Authenticity' as const,quantity:1,gradeStars:2,mutation:'Onyx'};
+    const before=certificateOutcomeLikelihoods(data,cert,'Head');
+    data.rollLog=[{id:'mismatch',date:'2026-10-26',certificateType:'Normal Certificate of Authenticity',certificateInventoryType:cert.type,certificateGradeStars:1,certificateMutation:'Diamond',itemId:'h',itemName:'h',slot:'Head',previousAuthentication:'',previousValue:0,newAuthentication:'Bid Zone Width',newValue:75,improvedBestSet:false,bestScoreBefore:0,bestScoreAfter:0}];
+    data.authModel=data.authModel.map(m=>m.certificateInventoryType===cert.type&&m.outcome==='Bid Zone Width'?{...m,observedValues:[75],observedSampleCount:1}:m);
+    expect(certificateOutcomeLikelihoods(data,cert,'Head')).toEqual(before);
+    expect(certificateEvidenceCoverage(data,cert,'Head')).toEqual({exact:0,partial:0,excluded:1});
+  });
+  it('orders modern revisions correctly when the wall clock moves backwards',()=>{
+    const a={savedAt:200,revision:1,data:makeEmptyData()};
+    const b={savedAt:100,revision:2,data:makeEmptyData()};
+    expect(selectNewestStoredSnapshot(a,b)).toBe(b);
   });
   it('allocates distinct mirror revisions even within one millisecond',()=>{
     const memory=new Map<string,string>();
@@ -53,6 +69,7 @@ describe('P2 statistical and recovery integrity',()=>{
   });
   it('never presents an unpriced conversion as an economic recommendation',()=>{
     const data=makeInitialData();
+    data.gear=[...new Map(data.gear.map(g=>[g.slot,g])).values()];
     const decision=analyseOwnedCertificates(data).find(d=>d.conversion);
     expect(decision?.conversion?.recommendation).not.toBe('PREFER PREMIUM CONVERSION');
     expect(decision?.conversion?.reason).toContain('affordability');

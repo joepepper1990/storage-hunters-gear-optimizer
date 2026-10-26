@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { CertificateScreen, GearScreen, SettingsScreen } from './App';
+import { CertificateScreen, GearScreen, SettingsScreen, OptimiseScreen } from './App';
 import { makeInitialData } from './defaults';
+import { optimise } from './engine/optimizer';
 import { scoreStandalone } from './engine/scoring';
 import type { ItemAnalysis } from './types';
 
@@ -32,6 +33,21 @@ describe('component safety states',()=>{
     expect(html).not.toContain('BEST CURRENT TARGET');
   });
 
+  it('Optimise displays the robust Main winner rather than the central-only winner',()=>{
+    const data=makeInitialData();
+    const h={...data.gear.find(g=>g.slot==='Head')!,id:'h',authenticated:false};
+    const w={...data.gear.find(g=>g.slot==='Wrist')!,id:'w',authenticated:false};
+    const base={...data.gear.find(g=>g.slot==='Back')!,authenticated:false};
+    const staticBack={...base,id:'static',baseName:'Robust static winner',stats:{...base.stats,luck:80}};
+    const dynamicBack={...base,id:'dynamic',baseName:'Central-only winner',stats:{...base.stats,luck:10},authenticated:true,authentication:{kind:'Premium' as const,effect:'Droughtbreaker',value:100}};
+    data.gear=[h,w,staticBack,dynamicBack];
+    const html=renderToStaticMarkup(<OptimiseScreen data={data} combinations={optimise(data.gear,data.settings,1)} limit={1} setLimit={()=>{}}/>);
+    // First loadout is Main Auction. The chosen Back must match the optimiser.
+    const firstLoadout=html.slice(html.indexOf('Your loadouts'),html.indexOf('SPECIALIST'));
+    expect(firstLoadout).toContain('Robust static winner');
+    expect(firstLoadout).not.toContain('Central-only winner');
+  });
+
   it('surfaces catalogue conflicts in Settings',()=>{
     const data=makeInitialData();
     const row=data.authModel.find(m=>m.certificateInventoryType==='Wooden Certificate of Authenticity'&&m.outcome==='Bid Recovery')!;
@@ -41,3 +57,4 @@ describe('component safety states',()=>{
     expect(html).toContain('Duplicate live catalogue row');
   });
 });
+

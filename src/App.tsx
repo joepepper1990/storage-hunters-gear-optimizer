@@ -262,7 +262,7 @@ export function GearScreen({gear,analyses,settings,analysisCurrent,onAdd,onScan,
   </section>;
 }
 
-function OptimiseScreen({data,combinations,limit,setLimit}:{data:AppData;combinations:CombinationResult[];limit:number;setLimit:(n:number)=>void}){
+export function OptimiseScreen({data,combinations,limit,setLimit}:{data:AppData;combinations:CombinationResult[];limit:number;setLimit:(n:number)=>void}){
   const loadouts=useMemo(()=>buildGearLoadouts(data.gear,data.settings,'low'),[data.gear,data.settings]);
   const primary=[loadouts.main,loadouts.drink,loadouts.grading,loadouts.shop].filter(Boolean);
   const contextual=[loadouts.day,loadouts.night,loadouts.rain].filter(Boolean);
@@ -355,6 +355,7 @@ export function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppDat
                 <div><b>Full-certificate Main EV</b><span>{target.fullExpectedMainPct===null?'Unavailable — unresolved outcomes':signed(target.fullExpectedMainPct)}</span></div>
                 <div><b>Full Main EV bounds</b><span>{signed(target.fullMainLowerBoundPct)} to {target.fullMainUpperBoundPct===null?'unknown upper bound':signed(target.fullMainUpperBoundPct)}</span></div>
                 <div><b>Decision basis</b><span>{target.decisionBasis}</span></div>
+                <div><b>Historical evidence · exact / partial / excluded</b><span>{target.evidenceCoverage.exact} / {target.evidenceCoverage.partial} / {target.evidenceCoverage.excluded}</span></div>
                 <div><b>Resolved / unresolved probability mass</b><span>{target.resolvedOutcomeMassPct.toFixed(1)}% / {target.unresolvedOutcomeMassPct.toFixed(1)}%</span></div>
                 <div><b>Average robust gain when successful</b><span>{signed(target.averageGainWhenSuccessfulPct)}</span></div>
                 <div><b>Average demonstrated loss when worse</b><span>{signed(target.averageLossWhenWorsePct)}</span></div>
@@ -376,13 +377,14 @@ export function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppDat
               </div>
 
               {target.unresolvedEffects.length>0&&<div className="notice warning"><b>Unresolved outcome mass:</b> {target.unresolvedEffects.join(', ')}. Those branches are excluded from the numeric EV rather than scored as zero. The displayed EV therefore describes only the resolved {target.resolvedOutcomeMassPct.toFixed(1)}% of the model, and a USE verdict remains blocked.</div>}
+              <details><summary>Outcome prior sensitivity (20 / 40 / 80 virtual observations)</summary><p className="muted">Policy sensitivity, not statistical confidence intervals or published game odds. Exact grade/mutation evidence has full weight; missing metadata has reduced weight; explicit mismatches are excluded.</p><div className="thresholdTable">{target.outcomeLikelihoods.map(row=><div key={row.effect}><b>{row.effect}</b><span>{(row.probability*100).toFixed(1)}% · sensitivity {(row.minProbability*100).toFixed(1)}–{(row.maxProbability*100).toFixed(1)}%</span></div>)}</div></details>
               <ul>{target.reasons.map((reason,i)=><li key={i}>{reason}</li>)}</ul>
 
               {decision.conversion&&<div className="notice"><b>Wooden → Premium opportunity cost:</b> {decision.conversion.recommendation}. Conditional Wooden EV {signed(decision.conversion.directExpectedMainPct)} vs conditional synthetic Premium EV {signed(decision.conversion.premiumExpectedMainPct)}. Conversion costs {decision.conversion.diamondCost} Diamonds. {decision.conversion.reason}</div>}
 
               <details>
                 <summary>Other targets</summary>
-                <div className="thresholdTable">{decision.targets.slice(1,7).map((alt,index)=><div key={alt.item.id}><b>#{index+2} {alt.item.baseName||alt.item.name} · {alt.verdict}</b><span>{alt.chanceOfImprovementPct.toFixed(1)}% robust improve · EV {signed(alt.expectedImprovementPct)}</span></div>)}</div>
+                <div className="thresholdTable">{decision.targets.slice(1,7).map((alt,index)=><div key={alt.item.id}><b>#{index+2} {alt.item.baseName||alt.item.name} · {alt.verdict}</b><span>{alt.chanceOfImprovementPct.toFixed(1)}% robust improve · conditional EV {signed(alt.expectedImprovementPct)} · coverage {alt.resolvedOutcomeMassPct.toFixed(1)}%</span></div>)}</div>
               </details>
             </>:<p className="muted">A complete Head, Back and Wrist inventory is required.</p>}
 
