@@ -284,8 +284,10 @@ function buildMembershipMap(gear:GearItem[],settings:AlgorithmSettings):Map<stri
 }
 
 export function analyseGearRetention(gear:GearItem[],settings:AlgorithmSettings):ItemAnalysis[] {
-  const central=buildGearLoadouts(gear,settings,'central');
-  const mainIds=new Set(central.main?[central.main.head.id,central.main.back.id,central.main.wrist.id]:[]);
+  // EQUIP must agree with Dashboard/Optimise, which use the robust ('low') Main baseline.
+  // Central/high alternatives are still retained by buildMembershipMap as KEEP.
+  const active=buildGearLoadouts(gear,settings,'low');
+  const mainIds=new Set(active.main?[active.main.head.id,active.main.back.id,active.main.wrist.id]:[]);
   const membershipMap=buildMembershipMap(gear,settings);
   return gear.map(item=>{
     const standalone=scoreStandalone(item,settings);
