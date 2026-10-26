@@ -104,7 +104,7 @@ function seededTrailers(): Trailer[] {
 }
 
 export const LOCKED_DEFAULT_SETTINGS: AlgorithmSettings = {
-  version: '1.2',
+  version: '2.0',
   luckWeight: 1,
   luckBreakpoint1: 100,
   luckBreakpoint2: 150,
@@ -195,7 +195,7 @@ export function makeDefaultAuthModel(): AuthModelEntry[] {
 
 export function makeInitialData(): AppData {
   return {
-    schemaVersion: 9,
+    schemaVersion: 10,
     gear: makeKnownGear(),
     settings: { ...LOCKED_DEFAULT_SETTINGS },
     authModel: makeDefaultAuthModel(),
