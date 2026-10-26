@@ -47,6 +47,9 @@ export interface CertificateTargetDecision {
   chanceDrinkPrepWorsePct: number;
   chanceGradingWorsePct: number;
   chanceShopWorsePct: number;
+  chancePersonalPreferenceImprovesPct: number;
+  chancePersonalPreferenceWorsePct: number;
+  expectedPersonalPreferenceDelta: number;
   expectedImprovementPct: number;
   expectedImprovementLowPct: number;
   expectedImprovementCentralPct: number;
@@ -72,7 +75,7 @@ export interface CertificateTargetDecision {
   unresolvedOutcomeMassPct: number;
   resolvedOutcomeMassPct: number;
   unresolvedEffects: string[];
-  decisionBasis: 'Main Auction' | 'Contextual Main' | 'Drink Prep' | 'Grading' | 'Shop / Idle' | 'None';
+  decisionBasis: 'Main Auction' | 'Contextual Main' | 'Main secondary preference' | 'Drink Prep' | 'Grading' | 'Shop / Idle' | 'None';
   mainFitPct: number;
   confidencePct: number;
   bestPossibleOutcome: string;
@@ -108,6 +111,7 @@ type Branch = {
   drink:number;
   grading:number;
   shop:number;
+  preferenceDelta:number;
   anyBenefit:boolean;
   unresolved:boolean;
   unresolvedMainPotential:boolean;
@@ -409,6 +413,15 @@ function unresolvedPotential(effect:string,item:GearItem,modeledMechanic:boolean
   };
 }
 
+function effectTierValue(effect:string):number {
+  const tier=USER_EFFECT_TIER[effect];
+  return tier ? TIER[tier] : 0;
+}
+
+function loadoutUsesItem(loadout:ReturnType<typeof buildGearLoadouts>['main'],itemId:string):boolean {
+  return Boolean(loadout&&[loadout.head.id,loadout.back.id,loadout.wrist.id].includes(itemId));
+}
+
 function targetDecision(
   data:AppData,
   cert:OwnedCertificate,
@@ -439,6 +452,8 @@ function targetDecision(
 
   const probs=outcomeProbabilities(defs,observedEffectCounts(data,cert,item.slot));
   const branches:Branch[]=[];
+  const baselineUsesTarget=loadoutUsesItem(baseline.main,item.id);
+  const baselinePreference=baselineUsesTarget?effectTierValue(item.authentication.effect.trim()):0;
   const unresolvedEffects=new Set<string>();
 
   for(const {def,p} of probs){
@@ -473,6 +488,10 @@ function targetDecision(
       const drink=pct(nextLow.drink?.utility,baseline.drink?.utility);
       const grading=pct(nextLow.grading?.utility,baseline.grading?.utility);
       const shop=pct(nextLow.shop?.utility,baseline.shop?.utility);
+      const nextUsesTarget=loadoutUsesItem(nextLow.main,item.id);
+      const preferenceDelta=!support.unresolved&&nextUsesTarget
+        ?effectTierValue(def.effect)-baselinePreference
+        :0;
       const potential=support.unresolved
         ?unresolvedPotential(def.effect,item,def.modeledMechanic)
         :{main:false,secondary:false};
@@ -490,7 +509,7 @@ function targetDecision(
       const gradePenalty=cert.gradeStars!==undefined ? .04 : .08;
       branches.push({
         p:p*support.weight,
-        delta,deltaCentral,deltaLow,deltaHigh,contextual,contextualWorst,contextualBest,drink,grading,shop,anyBenefit,
+        delta,deltaCentral,deltaLow,deltaHigh,contextual,contextualWorst,contextualBest,drink,grading,shop,preferenceDelta,anyBenefit,
         unresolved:support.unresolved,
         unresolvedMainPotential:potential.main,
         unresolvedSecondaryPotential:potential.secondary,
@@ -514,6 +533,8 @@ function targetDecision(
   const drinkWorse=resolved.filter(b=>b.drink<-1e-4);
   const gradingWorse=resolved.filter(b=>b.grading<-1e-4);
   const shopWorse=resolved.filter(b=>b.shop<-1e-4);
+  const preferenceImprove=resolved.filter(b=>b.preferenceDelta>1e-9);
+  const preferenceWorse=resolved.filter(b=>b.preferenceDelta<-1e-9);
   const anyWorse=resolved.filter(b=>Math.min(b.deltaLow,b.contextualWorst,b.drink,b.grading,b.shop)<-1e-4);
   const unresolvedAtRisk=branches.filter(b=>b.unresolved&&authRisk>1e-9);
   const secondary=branches.filter(b=>
@@ -532,6 +553,8 @@ function targetDecision(
   const chanceDrinkWorse=drinkWorse.reduce((sum,b)=>sum+b.p,0)*100;
   const chanceGradingWorse=gradingWorse.reduce((sum,b)=>sum+b.p,0)*100;
   const chanceShopWorse=shopWorse.reduce((sum,b)=>sum+b.p,0)*100;
+  const chancePreferenceImprove=preferenceImprove.reduce((sum,b)=>sum+b.p,0)*100;
+  const chancePreferenceWorse=preferenceWorse.reduce((sum,b)=>sum+b.p,0)*100;
   const unresolvedMass=branches.filter(b=>b.unresolved).reduce((sum,b)=>sum+b.p,0)*100;
 
   const resolvedExpected=(pick:(b:Branch)=>number)=>resolvedMass>1e-12
@@ -547,6 +570,7 @@ function targetDecision(
   const expectedDrink=resolvedExpected(b=>b.drink);
   const expectedGrading=resolvedExpected(b=>b.grading);
   const expectedShop=resolvedExpected(b=>b.shop);
+  const expectedPreference=resolvedExpected(b=>b.preferenceDelta);
 
   const robustImproveMass=robustImprove.reduce((sum,b)=>sum+b.p,0);
   const anyWorseMass=anyWorse.reduce((sum,b)=>sum+b.p,0);
@@ -595,6 +619,15 @@ function targetDecision(
     verdict='CONSIDER';decisionBasis='Main Auction';
   }else if(contextualConsider){
     verdict='CONSIDER';decisionBasis='Contextual Main';
+  }else if(
+    mainFit>=95 &&
+    expectedPreference>=0.20 &&
+    chancePreferenceImprove>=40 &&
+    chancePreferenceWorse<20
+  ){
+    // Personal effect tiers are an ordinal secondary preference only. They can support
+    // a Main-competitive item, but never override a weaker Main Auction result.
+    verdict='CONSIDER';decisionBasis='Main secondary preference';
   }else{
     // Main is neutral: only now may specialist value matter. Specialists are lexicographic,
     // not pooled: Drink Prep -> Grading -> Shop / Idle.
@@ -634,6 +667,9 @@ function targetDecision(
     chanceDrinkPrepWorsePct:chanceDrinkWorse,
     chanceGradingWorsePct:chanceGradingWorse,
     chanceShopWorsePct:chanceShopWorse,
+    chancePersonalPreferenceImprovesPct:chancePreferenceImprove,
+    chancePersonalPreferenceWorsePct:chancePreferenceWorse,
+    expectedPersonalPreferenceDelta:expectedPreference,
     expectedImprovementPct:expected,
     expectedImprovementLowPct:expectedLow,
     expectedImprovementCentralPct:expectedCentral,
@@ -682,6 +718,7 @@ function targetDecision(
       cert.mutation
         ?'Certificate mutation '+cert.mutation+' is recorded and exact-mutation roll evidence is preferred when available; its unpublished strength shift is not fabricated.'
         :'No certificate mutation is recorded.',
+      'Personal effect tiers are used only as an ordinal secondary signal when the target remains in a robust Main Auction trio; they never compensate for weaker Main utility.',
       'Lucky Grading is ON.'
     ]
   };
