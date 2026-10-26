@@ -277,7 +277,10 @@ export interface AuthModelEntry {
   min?: number;
   typical?: number;
   max?: number;
+  /** Confidence in the mechanic/range model itself. */
   confidence: Confidence;
+  /** Confidence arising only from observed roll sample size. */
+  empiricalConfidence?: Confidence;
   enabled: boolean;
 }
 
@@ -303,6 +306,8 @@ export interface CertificateRollLog {
   normalizedRollPosition?: number;
   /** Authentication-owned stat deltas observed on the resulting item. */
   observedStatDeltas?: Partial<GearStats>;
+  /** Data/model conflicts detected when the roll was recorded or corrected. */
+  modelWarnings?: string[];
 }
 
 export interface CertificateTarget {
@@ -330,7 +335,7 @@ export interface OwnedCertificate {
 }
 
 export interface AppData {
-  schemaVersion: 12;
+  schemaVersion: 13;
   gear: GearItem[];
   settings: AlgorithmSettings;
   authModel: AuthModelEntry[];
