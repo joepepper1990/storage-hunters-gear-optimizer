@@ -46,7 +46,7 @@ describe('combination optimiser',()=>{
   });
 
   it('protects unknown passives from safe discard',()=>{
-    const unknown=g('Unknown','Wrist',{},'Haggler',10); unknown.authentication.kind='Alien';
+    const unknown=g('Unknown','Wrist',{},'Unmodelled Alien Effect',10); unknown.authentication.kind='Alien';
     const strong=g('Strong','Wrist',{luck:100});
     const gear=[g('H','Head',{}),g('B','Back',{}),unknown,strong];
     const results=analyseItems(gear,optimise(gear,LOCKED_DEFAULT_SETTINGS,1)[0],LOCKED_DEFAULT_SETTINGS);

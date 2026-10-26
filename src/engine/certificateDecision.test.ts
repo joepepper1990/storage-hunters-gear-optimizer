@@ -23,16 +23,15 @@ const limited:OwnedCertificate={id:'limited',type:'Limited Certificate of Authen
 describe('certificate expected-value engine',()=>{
   it('uses Lucky Grading by default and values Grade Re-Roll against the Lucky distribution',()=>{
     expect(LUCKY_GRADING).toBe(true);
-    expect(gradeRerollExpectedValueGainPct(25,true)).toBeGreaterThan(1.4);
-    expect(gradeRerollExpectedValueGainPct(25,true)).toBeLessThan(1.6);
-    expect(gradeRerollExpectedValueGainPct(25,false)).toBeGreaterThan(gradeRerollExpectedValueGainPct(25,true));
+    expect(gradeRerollExpectedValueGainPct(25)).toBeGreaterThan(1.4);
+    expect(gradeRerollExpectedValueGainPct(25)).toBeLessThan(1.6);
   });
 
   it('caps Main Auction Arrow value at the users 75% target',()=>{
     const h75=gear('H75','Head',{arrowReduction:75});
     const h110=gear('H110','Head',{arrowReduction:110});
     const b=gear('B','Back',{}),w=gear('W','Wrist',{});
-    expect(mainAuctionUtility([h75,b,w])).toBe(mainAuctionUtility([h110,b,w]));
+    expect(mainAuctionUtility([h75,b,w],makeInitialData().settings)).toBe(mainAuctionUtility([h110,b,w],makeInitialData().settings));
   });
 
   it('calculates Mutated Luck from the actual three equipped mutations',()=>{
@@ -42,7 +41,7 @@ describe('certificate expected-value engine',()=>{
     expect(mutationLuckForItem(h)).toBe(20);
     expect(mutationLuckForItem(b)).toBe(40);
     expect(mutationLuckForItem(w)).toBe(30);
-    expect(mainAuctionUtility([h,b,w])).toBeCloseTo(100,8);
+    expect(mainAuctionUtility([h,b,w],makeInitialData().settings)).toBeCloseTo(100,8);
   });
 
   it('prefers a Limited Back opportunity over Head/Wrist on the verified current inventory',()=>{
@@ -78,6 +77,20 @@ describe('certificate expected-value engine',()=>{
     const wrist=decision.targets.find(t=>t.item.id==='W')!;
     expect(wrist.chanceOfImprovementPct).toBe(0);
     expect(wrist.verdict).toBe('HOLD');
+  });
+
+  it('re-optimises specialist loadouts instead of treating them as loose additive bonuses',()=>{
+    const data=makeInitialData();
+    data.gear=[
+      gear('H','Head',{luck:100}),
+      gear('B','Back',{luck:100}),
+      gear('W','Wrist',{luck:100})
+    ];
+    const cert={id:'limited-head',type:'Limited Certificate of Authenticity' as const,quantity:1,gradeStars:2};
+    const decision=analyseCertificate(data,cert);
+    const head=decision.targets.find(t=>t.item.id==='H')!;
+    expect(head.chanceOfSecondaryImprovementPct).toBeGreaterThan(0);
+    expect(head.expectedGradingPct).toBeGreaterThan(0);
   });
 
   it('does not produce a target without a complete Head + Back + Wrist inventory',()=>{

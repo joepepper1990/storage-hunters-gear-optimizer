@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { makeInitialData } from '../defaults';
-import { analyseItems } from '../engine/optimizer';
-import { certificateTargets } from '../engine/certificates';
-import { effectiveItemStats, scoreStandalone } from '../engine/scoring';
+import { analyseGearRetention } from '../engine/gearLoadouts';
+import { analyseCertificate } from '../engine/certificateDecision';
+import { effectiveItemStats } from '../engine/scoring';
 import { exportJson, importJson, normalizeData } from './storage';
 import { csvToGear, gearToCsv } from './csv';
 import { makeKnownGear, makeMapleWristband, mergeKnownGear } from './knownGear';
@@ -69,39 +69,40 @@ describe('verified 26 October 2026 accessory inventory',()=>{
     expect(fox.stats).toMatchObject({luck:73,zone:55,npc:-1.5});
   });
 
-  it('protects dynamic Premium/Normal effects from irreversible discard',()=>{
-    const settings=makeInitialData().settings;
+  it('uses the unified retention model for current dynamic and F-tier authentications',()=>{
+    const data=makeInitialData();
+    const analyses=analyseGearRetention(data.gear,data.settings);
     for(const item of [
       by('Steampunk Goggle').find(g=>g.authentication.effect==='Mutated Luck')!,
       one('Jellyfish Wristband'),
-      one('Reactor Wristband')
+      one('Reactor Wristband'),
+      by('Dark Heart Backpack').find(g=>g.authentication.effect==='Droughtbreaker')!
     ]){
-      const scored=scoreStandalone(item,settings);
-      const verdict=analyseItems([item],undefined,settings)[0];
-      expect(verdict.verdict).toBe('PROTECTED / UNKNOWN');
-      expect(scored.total).toBeGreaterThanOrEqual(scored.core);
+      expect(analyses.find(a=>a.item.id===item.id)?.verdict).not.toBe('PROTECTED / UNKNOWN');
     }
   });
 
-  it('never suggests a Normal certificate on Premium-authenticated gear',()=>{
+  it('evaluates authenticated gear as certificate targets with the current auth retained as replacement cost',()=>{
     const data=makeInitialData();
-    const targets=certificateTargets(data.gear,data.settings,data.authModel,'Normal Certificate of Authenticity',100);
-    expect(targets.some(t=>t.item.authentication.kind==='Premium')).toBe(false);
-    expect(targets.some(t=>t.item.authentication.kind==='Limited')).toBe(false);
+    const cert=data.ownedCertificates.find(c=>c.type==='Limited Certificate of Authenticity')!;
+    const decision=analyseCertificate(data,cert);
+    const premium=decision.targets.find(t=>t.item.authentication.kind==='Premium');
+    expect(premium).toBeDefined();
+    expect(premium?.reasons.some(r=>r.includes('Replaces current Premium authentication'))).toBe(true);
   });
 
-  it('upgrades pre-schema-9 data by replacing all old gear with the complete verified inventory',()=>{
+  it('upgrades pre-schema-10 data by replacing all old gear with the complete verified inventory',()=>{
     const manual={...one('Cow Dominus'),id:'manual-cow',stats:{...one('Cow Dominus').stats,luck:59}};
     const stale={...one('Luxury Ice Crown'),id:'verified-20261017-old-luxury'};
     const old={...makeInitialData(),schemaVersion:8,gear:[stale,manual]} as any;
     const upgraded=normalizeData(old);
-    expect(upgraded.schemaVersion).toBe(9);
+    expect(upgraded.schemaVersion).toBe(10);
     expect(upgraded.gear).toHaveLength(22);
     expect(upgraded.gear.some(g=>g.id==='verified-20261017-old-luxury')).toBe(false);
     expect(upgraded.gear.some(g=>g.id==='manual-cow')).toBe(false);
     expect(upgraded.gear.every(g=>g.id.startsWith('verified-20261026-'))).toBe(true);
 
-    // Once schema 9 has been saved, later user edits are respected.
+    // Once schema 10 has been saved, later user edits are respected.
     const edited={...upgraded,gear:upgraded.gear.slice(1)};
     const again=importJson(exportJson(edited));
     expect(again.gear).toHaveLength(21);

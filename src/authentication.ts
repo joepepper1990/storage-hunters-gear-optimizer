@@ -47,15 +47,15 @@ export function activeCertificateOutcomeOptions(slot:Slot|undefined,model:AuthMo
 /** Player-reported enchantment behaviour; informational, not an official score formula. */
 export function enchantmentDescription(effect:string,value:number):string {
   switch(effect){
-    case 'Mutated Luck': return 'Each worn accessory adds extra Luck based on its mutator. The amount is not yet modelled.';
-    case 'Nocturnal': return `Adds +${value}% Luck at night. The optimiser uses adjustable expected nighttime uptime.`;
+    case 'Mutated Luck': return 'Adds Luck from the actual mutations on the equipped Head + Back + Wrist trio; calculated by the unified loadout engine.';
+    case 'Nocturnal': return `Adds +${value}% Luck at night. Evaluated in the Night Auction context rather than averaged with invented uptime.`;
     case 'Temporal Split': return `${value}% chance for an item to instantly mutate when placed in the Time Capsule. Not counted as ordinary gear Luck.`;
-    case 'Club Pact': return 'Premium wrist enchantment increasing club-associated Luck; the exact added amount depends on club context and is not safely modelled.';
+    case 'Club Pact': return 'Premium wrist effect. It is F-tier for this profile, so it does not create Main or specialist retention value.';
     case 'Club Packed': return 'Legacy spelling of Club Pact; kept for older saved data.';
-    case 'Connected': return `Each friend grants +${value}% Luck. Friend count is unknown, so this benefit is not added to gear score.`;
-    case 'Auto X-Ray': return 'Limited Head passive: chance for an auction to begin with X-Ray already active. Exact proc rate is not yet verified.';
-    case 'Grade Re-Roll': return 'Limited Head passive: chance for a free automatic second grade roll after Replica or 1-Star. Exact proc rate is not yet verified.';
-    case 'Luck Frenzy': return 'Limited Back passive: can trigger a large temporary Luck burst while equipped. Trigger rate, duration and magnitude are not yet verified.';
+    case 'Connected': return `Friend-based Luck effect. It is F-tier for this profile, so unknown friend count does not protect the item from discard.`;
+    case 'Auto X-Ray': return `Limited Head passive: ${value}% roll shown by the game. It is F-tier for this profile.`;
+    case 'Grade Re-Roll': return `Limited Head passive: ${value}% chance for a free automatic second grade roll after a low grade. Lucky Grading is owned and included in the grading model.`;
+    case 'Luck Frenzy': return `Limited Back passive: ${value}% Luck burst magnitude. Trigger uptime is scenario-modelled because frequency/duration are not published.`;
     case 'Featherweight': return 'Limited Back passive: chance for an auction item loaded onto the vehicle to add no weight. Exact proc rate is not yet verified.';
     case 'Second Chance': return 'Limited Wrist passive: chance to skip the bidding cooldown after a missed bid. Exact proc rate is not yet verified.';
     case 'Steady Hand': return 'Limited Wrist passive: chance for the next bid zone to be wider after a missed bid. Exact proc rate and width increase are not yet verified.';

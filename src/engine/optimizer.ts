@@ -1,17 +1,9 @@
 import type { AlgorithmSettings, CombinationResult, GearItem, ItemAnalysis, Slot } from '../types';
-import { arrowEffective, combineStats, scoreItemOrCombination, scoreStandalone } from './scoring';
-import { findDominator } from './dominance';
+import { arrowEffective, combineStats } from './scoring';
+import { analyseGearRetention, mainCombination } from './gearLoadouts';
 
 export function evaluateCombination(head: GearItem, back: GearItem, wrist: GearItem, settings: AlgorithmSettings): CombinationResult {
-  const items = [head, back, wrist];
-  const stats = combineStats(items);
-  const score = scoreItemOrCombination(stats, items, settings);
-  return {
-    head, back, wrist, stats, score,
-    wastedArrow: Math.max(0, stats.arrowReduction - settings.arrowSweetSpot),
-    penalisedArrow: 0,
-    wastedEnergy: Math.max(0, stats.energy - settings.energyCeiling)
-  };
+  return mainCombination(head, back, wrist, settings, 'Neutral', 'central');
 }
 
 export function optimise(gear: GearItem[], settings: AlgorithmSettings, limit = 100): CombinationResult[] {
@@ -21,8 +13,7 @@ export function optimise(gear: GearItem[], settings: AlgorithmSettings, limit = 
   if (!heads.length || !backs.length || !wrists.length) return [];
   const best: CombinationResult[] = [];
   for (const head of heads) for (const back of backs) for (const wrist of wrists) {
-    const result = evaluateCombination(head, back, wrist, settings);
-    insertRanked(best, result, limit);
+    insertRanked(best, evaluateCombination(head, back, wrist, settings), limit);
   }
   return best;
 }
@@ -37,6 +28,7 @@ function insertRanked(list: CombinationResult[], value: CombinationResult, limit
   if (list.length > limit) list.pop();
 }
 
+/** Compatibility helper for diagnostics. User-facing specialist loadouts are now defined in gearLoadouts.ts. */
 export function specialistLoadout(gear: GearItem[], key: keyof CombinationResult['stats'], settings: AlgorithmSettings): CombinationResult | undefined {
   const heads = gear.filter(i => i.slot === 'Head');
   const backs = gear.filter(i => i.slot === 'Back');
@@ -51,40 +43,9 @@ export function specialistLoadout(gear: GearItem[], key: keyof CombinationResult
   return best;
 }
 
-export function analyseItems(gear: GearItem[], best: CombinationResult | undefined, settings: AlgorithmSettings): ItemAnalysis[] {
-  const equippedIds = new Set(best ? [best.head.id, best.back.id, best.wrist.id] : []);
-  return gear.map(item => {
-    const standalone = scoreStandalone(item, settings);
-    if (equippedIds.has(item.id)) return { item, verdict: 'EQUIP', reason: 'Part of the current highest-scoring loadout.', standalone, currentlyEquipped: true };
-    const sameSlot = gear.filter(x => x.slot === item.slot && x.id !== item.id);
-    const protection = protectionReason(item, settings);
-    if (protection) return { item, verdict: 'PROTECTED / UNKNOWN', reason: protection, standalone, currentlyEquipped: false };
-    const dominance = findDominator(item, sameSlot, settings);
-    if (dominance.dominated) return {
-      item, verdict: 'SAFE TO DISCARD', standalone, currentlyEquipped: false, dominance,
-      reason: dominance.reason
-    };
-    return {
-      item, verdict: 'KEEP', standalone, currentlyEquipped: false, dominance,
-      reason: dominance.reason || 'Not globally dominated; a complementary future state can preserve or create value.'
-    };
-  });
-}
-
-function protectionReason(item: GearItem, settings: AlgorithmSettings): string | undefined {
-  const effect = item.authentication.effect.trim();
-  if (!item.authenticated || !effect) return undefined;
-  if (item.authentication.kind === 'Limited') return `${effect} is a Limited passive with unverified proc rates, so it is protected from SAFE TO DISCARD and ranked by the Limited advisor instead.`;
-  if (['Haggler', 'Anti-Gravity Field', 'Safecracker', 'Exhibitor'].includes(effect)) return `${effect} has unknown mechanics/value, so this item is protected from irreversible discard classification.`;
-  if (effect === 'Time Keeper') return 'Time Keeper has a provisional coefficient and is protected from SAFE TO DISCARD.';
-  if (effect === 'Grade Re-Roll') return 'Grade Re-Roll has a provisional coefficient and is protected from SAFE TO DISCARD.';
-  if (effect === 'Connected') return 'Connected depends on the current number of friends; its +2% per friend is not counted without that context, so the item is protected.';
-  if (!knownOrIgnored(effect)) return `${effect} is not yet modelled and is therefore protected.`;
-  return undefined;
-}
-
-function knownOrIgnored(effect: string): boolean {
-  return ['Luck','Bid Recovery','Bid Arrow Speed','Bid Zone Width','Energy Drink Time','Tip Chance','NPC Offers Bonus','Walkspeed','Sunny','Nocturnal','Overcharged','Raindrop','Focused','Time Keeper','Grade Re-Roll','Rush','Fossil Finder','Luck Frenzy','Auto X-Ray','Featherweight','Second Chance','Steady Hand'].includes(effect);
+/** Retention is now derived from the union of Main, contextual and specialist loadouts. */
+export function analyseItems(gear: GearItem[], _best: CombinationResult | undefined, settings: AlgorithmSettings): ItemAnalysis[] {
+  return analyseGearRetention(gear, settings);
 }
 
 export function slotItems(gear: GearItem[], slot: Slot) { return gear.filter(g => g.slot === slot); }

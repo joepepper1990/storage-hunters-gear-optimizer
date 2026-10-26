@@ -9,9 +9,9 @@ function item(name:string,stats:Partial<GearStats>,effect='',value=0,kind?:GearI
   return {id:name,baseName:name,name,slot:'Wrist',stats:{luck:0,energy:0,tip:0,walk:0,vehicle:0,recovery:0,zone:0,arrowReduction:0,npc:0,...stats},authenticated:!!effect,authentication:{kind:kind??(effect?'Normal':'None'),effect,value},favourite:false,createdAt:now,updatedAt:now};
 }
 
-describe('Main Auction scoring 1.2',()=>{
+describe('Main Auction scoring 2.0',()=>{
   it('uses the user-approved priorities',()=>{
-    expect(s.version).toBe('1.2');
+    expect(s.version).toBe('2.0');
     expect(s.luckWeight).toBe(1);
     expect(s.arrowWeight).toBe(.8);
     expect(s.arrowSweetSpot).toBe(75);
