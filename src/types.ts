@@ -145,6 +145,12 @@ export interface Authentication {
   value: number;
   secondaryValue?: number;
   notes?: string;
+  /**
+   * Observed stat change caused by the current authentication itself.
+   * Kept separate from GearItem.stats so rerolling cannot permanently bake
+   * Focused (or another authentication-derived display change) into base stats.
+   */
+  statDeltas?: Partial<GearStats>;
 }
 
 export interface GearItem {
@@ -294,6 +300,8 @@ export interface CertificateRollLog {
   /** Exact owned certificate inventory type used for this roll (Wooden, Ripped, Premium or Limited). */
   certificateInventoryType?: OwnedCertificate['type'];
   normalizedRollPosition?: number;
+  /** Authentication-owned stat deltas observed on the resulting item. */
+  observedStatDeltas?: Partial<GearStats>;
 }
 
 export interface CertificateTarget {

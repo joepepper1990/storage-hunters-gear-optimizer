@@ -40,4 +40,22 @@ describe('analytical dominance proof',()=>{
     const weakerMain=g('WeakerMain',{});
     expect(findDominator(weakerMain,[betterMain],LOCKED_DEFAULT_SETTINGS).dominated).toBe(true);
   });
+  it('never proves a contextual-authentication item safe through static dominance',()=>{
+    const candidate=g('StaticBetter',{luck:200});
+    for(const effect of ['Sunny','Nocturnal','Raindrop','Overcharged']){
+      const target=g(effect,{luck:1},effect);
+      target.authentication.kind='Normal';
+      target.authentication.value=100;
+      expect(findDominator(target,[candidate],LOCKED_DEFAULT_SETTINGS).dominated).toBe(false);
+    }
+  });
+
+  it('never uses a stateful authentication as a static dominance comparator',()=>{
+    const stateful=g('Frenzy',{luck:500},'Luck Frenzy');
+    stateful.authentication.kind='Limited';
+    stateful.authentication.value=110;
+    const target=g('Target',{});
+    expect(findDominator(target,[stateful],LOCKED_DEFAULT_SETTINGS).dominated).toBe(false);
+  });
+
 });

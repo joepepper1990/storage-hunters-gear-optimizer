@@ -139,17 +139,22 @@ export function scoreItemOrCombination(stats: GearStats, items: GearItem[], s: A
 
 export function effectiveItemStats(item: GearItem): GearStats {
   const stats: GearStats = { ...item.stats };
-  if (!item.authenticated || item.authentication.kind === 'None' || !isNumericAuth(item.authentication.effect)) return stats;
-  const value = finite(item.authentication.value);
-  switch (item.authentication.effect) {
-    case 'Luck': stats.luck += value; break;
-    case 'Bid Recovery': stats.recovery += value; break;
-    case 'Bid Arrow Speed': stats.arrowReduction += -value; break;
-    case 'Bid Zone Width': stats.zone += value; break;
-    case 'Energy Drink Time': stats.energy += value; break;
-    case 'Tip Chance': stats.tip += value; break;
-    case 'NPC Offers Bonus': stats.npc += value; break;
-    case 'Walkspeed': stats.walk += value; break;
+  if (!item.authenticated || item.authentication.kind === 'None') return stats;
+  if (isNumericAuth(item.authentication.effect)) {
+    const value = finite(item.authentication.value);
+    switch (item.authentication.effect) {
+      case 'Luck': stats.luck += value; break;
+      case 'Bid Recovery': stats.recovery += value; break;
+      case 'Bid Arrow Speed': stats.arrowReduction += -value; break;
+      case 'Bid Zone Width': stats.zone += value; break;
+      case 'Energy Drink Time': stats.energy += value; break;
+      case 'Tip Chance': stats.tip += value; break;
+      case 'NPC Offers Bonus': stats.npc += value; break;
+      case 'Walkspeed': stats.walk += value; break;
+    }
+  }
+  for (const [key,delta] of Object.entries(item.authentication.statDeltas ?? {}) as Array<[keyof GearStats, number]>) {
+    stats[key] += finite(delta);
   }
   return stats;
 }

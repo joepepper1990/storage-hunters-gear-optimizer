@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { LOCKED_DEFAULT_SETTINGS, makeEmptyData, makeInitialData, ZERO_STATS } from './defaults';
 import { analyseItems, optimise } from './engine/optimizer';
 import type { OwnedCertificateDecision } from './engine/certificateDecision';
-import { applyRecordedCertificateRoll, authModelTypeForOwnedCertificate } from './engine/certificateRolls';
+import { applyRecordedCertificateRoll, authModelTypeForOwnedCertificate, withObservedAuthenticationStats } from './engine/certificateRolls';
+import { optimisationInputKey } from './engine/analysisFreshness';
 import { buildGearLoadouts } from './engine/gearLoadouts';
 import { addOutcomeToItem, removeNumericAuthentication } from './engine/dominance';
 import { effectiveItemStats, gameArrowToReduction, reductionToGameArrow, scoreStandalone } from './engine/scoring';
@@ -44,9 +45,9 @@ export default function App() {
   }, [data]);
 
   const computed = useOptimisationWorker(data);
-  const top100 = computed.top100;
+  const top100 = computed.current ? computed.top100 : [];
   const best = top100[0];
-  const analyses = computed.analyses;
+  const analyses = computed.current ? computed.analyses : [];
 
   useEffect(()=>{
     if(!pendingNewItem)return;
@@ -85,7 +86,14 @@ export default function App() {
   }
 
   function deleteItem(item:GearItem){ if(confirm(`Delete ${item.name}? This cannot be undone except from a backup.`)) setData({...data!,gear:data!.gear.filter(g=>g.id!==item.id)}); }
-  function bulkDiscard(){ const safe=analyses.filter(a=>a.verdict==='SAFE TO DISCARD'&&!a.item.favourite); const ids=safe.map(a=>a.item.id); if(!ids.length){showToast('All safe items are locked/favourites');return;} const names=safe.map(a=>`• ${a.item.name}`).join('\n'); if(confirm(`Delete these ${ids.length} proven SAFE TO DISCARD items?\n\n${names}\n\nFavourite/locked items are excluded.`)) setData({...data!,gear:data!.gear.filter(g=>!ids.includes(g.id))}); }
+  function bulkDiscard(){
+    if(!computed.current){showToast('Recalculation in progress — discard decisions are temporarily locked');return;}
+    const safe=analyses.filter(a=>a.verdict==='SAFE TO DISCARD'&&!a.item.favourite);
+    const ids=safe.map(a=>a.item.id);
+    if(!ids.length){showToast('No current safe-to-discard items');return;}
+    const names=safe.map(a=>`• ${a.item.name}`).join('\n');
+    if(confirm(`Delete these ${ids.length} proven SAFE TO DISCARD items?\n\n${names}\n\nFavourite/locked items are excluded.`)) setData({...data!,gear:data!.gear.filter(g=>!ids.includes(g.id))});
+  }
   function toggleFav(item:GearItem){ setData({...data!,gear:data!.gear.map(g=>g.id===item.id?{...g,favourite:!g.favourite,updatedAt:new Date().toISOString()}:g)}); }
 
   return <div className="appShell">
@@ -96,7 +104,7 @@ export default function App() {
 
     <main className="content">
       {tab==='Dashboard' && <Dashboard data={data} best={best} analyses={analyses} onGo={setTab} />}
-      {tab==='Gear' && <GearScreen gear={data.gear} analyses={analyses} settings={data.settings} onAdd={openAdd} onScan={()=>setScannerOpen(true)} onEdit={openEdit} onClone={cloneItem} onDelete={deleteItem} onFav={toggleFav} onBulkDiscard={bulkDiscard} />}
+      {tab==='Gear' && <GearScreen gear={data.gear} analyses={analyses} settings={data.settings} analysisCurrent={computed.current} onAdd={openAdd} onScan={()=>setScannerOpen(true)} onEdit={openEdit} onClone={cloneItem} onDelete={deleteItem} onFav={toggleFav} onBulkDiscard={bulkDiscard} />}
       {tab==='Optimise' && <OptimiseScreen data={data} combinations={top100.slice(0,comboLimit)} limit={comboLimit} setLimit={setComboLimit} />}
       {tab==='Vehicle' && <VehicleScreen data={data} setData={setData} />}
       {tab==='Trophies' && <TrophyScreen data={data} setData={setData} />}
@@ -115,36 +123,49 @@ export default function App() {
 
 
 function useOptimisationWorker(data: AppData | null) {
-  const [state,setState]=useState<{top100:CombinationResult[];analyses:ItemAnalysis[];computing:boolean;error?:string}>({top100:[],analyses:[],computing:false});
+  const inputKey=useMemo(()=>data?optimisationInputKey(data.gear,data.settings):'',[data?.gear,data?.settings]);
+  const [state,setState]=useState<{top100:CombinationResult[];analyses:ItemAnalysis[];computing:boolean;resultKey:string;error?:string}>({
+    top100:[],analyses:[],computing:false,resultKey:''
+  });
   const requestId=useRef(0);
   useEffect(()=>{
     if(!data)return;
     const id=++requestId.current;
+    const requestKey=inputKey;
     setState(prev=>({...prev,computing:true,error:undefined}));
     const fallback=(message:string)=>{
       try{
         const top100=optimise(data.gear,data.settings,100);
         const analyses=analyseItems(data.gear,top100[0],data.settings);
-        setState({top100,analyses,computing:false,error:message});
-      }catch(error){setState(prev=>({...prev,computing:false,error:error instanceof Error?error.message:String(error)}));}
+        setState({top100,analyses,computing:false,resultKey:requestKey,error:message});
+      }catch(error){
+        setState(prev=>({...prev,computing:false,error:error instanceof Error?error.message:String(error)}));
+      }
     };
     let worker:Worker;
-    try{worker=new Worker(new URL('./workers/optimiser.worker.ts',import.meta.url),{type:'module'});}catch(error){fallback(error instanceof Error?error.message:'Background optimiser unavailable.');return;}
+    try{
+      worker=new Worker(new URL('./workers/optimiser.worker.ts',import.meta.url),{type:'module'});
+    }catch(error){
+      fallback(error instanceof Error?error.message:'Background optimiser unavailable.');
+      return;
+    }
     worker.onmessage=(event:MessageEvent<any>)=>{
       if(event.data.id!==id)return;
       if(event.data.phase==='core'){
         if(event.data.error){worker.terminate();fallback(event.data.error);return;}
-        setState({top100:event.data.top100,analyses:event.data.analyses,computing:false,error:undefined});
+        setState({top100:event.data.top100,analyses:event.data.analyses,computing:false,resultKey:requestKey,error:undefined});
         worker.terminate();
       }
     };
-    worker.onerror=()=>{worker.terminate();fallback('Background optimiser failed; using foreground fallback mode.');};
+    worker.onerror=()=>{
+      worker.terminate();
+      fallback('Background optimiser failed; using foreground fallback mode.');
+    };
     worker.postMessage({id,gear:data.gear,settings:data.settings});
     return()=>worker.terminate();
-  },[data?.gear,data?.settings]);
-  return state;
+  },[data?.gear,data?.settings,inputKey]);
+  return {...state,current:Boolean(data)&&state.resultKey===inputKey&&!state.computing};
 }
-
 
 function useCertificateWorker(data:AppData) {
   const [state,setState]=useState<{decisions:OwnedCertificateDecision[];computing:boolean;error?:string}>({decisions:[],computing:false});
@@ -208,7 +229,7 @@ function Dashboard({data,best,analyses,onGo}:{data:AppData;best:any;analyses:any
   </section>;
 }
 
-function GearScreen({gear,analyses,settings,onAdd,onScan,onEdit,onClone,onDelete,onFav,onBulkDiscard}:{gear:GearItem[];analyses:ItemAnalysis[];settings:AlgorithmSettings;onAdd:()=>void;onScan:()=>void;onEdit:(i:GearItem)=>void;onClone:(i:GearItem)=>void;onDelete:(i:GearItem)=>void;onFav:(i:GearItem)=>void;onBulkDiscard:()=>void}){
+function GearScreen({gear,analyses,settings,analysisCurrent,onAdd,onScan,onEdit,onClone,onDelete,onFav,onBulkDiscard}:{gear:GearItem[];analyses:ItemAnalysis[];settings:AlgorithmSettings;analysisCurrent:boolean;onAdd:()=>void;onScan:()=>void;onEdit:(i:GearItem)=>void;onClone:(i:GearItem)=>void;onDelete:(i:GearItem)=>void;onFav:(i:GearItem)=>void;onBulkDiscard:()=>void}){
   const [q,setQ]=useState(''); const [slot,setSlot]=useState<'All'|Slot>('All'); const [status,setStatus]=useState('All'); const [auth,setAuth]=useState('All'); const [sort,setSort]=useState('scoreDesc');
   const map=new Map(analyses.map(a=>[a.item.id,a]));
   let items=gear.filter(i=>(slot==='All'||i.slot===slot)&&(!q||i.name.toLowerCase().includes(q.toLowerCase())||i.id.includes(q))&&(status==='All'||map.get(i.id)?.verdict===status)&&(auth==='All'||(auth==='Unauthenticated'?!i.authenticated:i.authentication.kind===auth)));
@@ -218,7 +239,8 @@ function GearScreen({gear,analyses,settings,onAdd,onScan,onEdit,onClone,onDelete
     <div className="pageHeading"><div><h1>Gear</h1><p>{gear.length} items · fast entry first</p></div><div className="headingActions"><button className="secondary" onClick={onScan}>▣ Scan screenshot</button><button className="primary" onClick={onAdd}>＋ Add gear</button></div></div>
     <div className="gearQuickBar"><input placeholder="Search gear" value={q} onChange={e=>setQ(e.target.value)}/><div className="segmented compactSegments">{(['All','Head','Back','Wrist'] as const).map(value=><button key={value} className={slot===value?'active':''} onClick={()=>setSlot(value)}>{value}</button>)}</div></div>
     <details className="filterPanel"><summary>Filters & sorting</summary><div className="filters compactFilters"><select value={status} onChange={e=>setStatus(e.target.value)}><option>All</option><option>EQUIP</option><option>KEEP</option><option>SAFE TO DISCARD</option><option>PROTECTED / UNKNOWN</option></select><select value={auth} onChange={e=>setAuth(e.target.value)}><option>All</option><option>Unauthenticated</option><option>Normal</option><option>Premium</option><option>Limited</option><option value="Alien">Legacy Alien</option></select><select value={sort} onChange={e=>setSort(e.target.value)}><option value="scoreDesc">Score: highest → lowest</option><option value="scoreAsc">Score: lowest → highest</option><option value="nameAsc">Name: A → Z</option><option value="nameDesc">Name: Z → A</option></select></div></details>
-    {safe.length>0 && <details className="dangerPanel"><summary>{safe.length} item{safe.length!==1?'s':''} proven SAFE TO DISCARD</summary><div className="discardList">{safe.map(a=><div key={a.item.id}><strong>{a.item.name}</strong><span>{a.reason}</span></div>)}</div><button className="danger" onClick={onBulkDiscard}>Review confirmation & delete all safe items</button></details>}
+    {!analysisCurrent&&<div className="notice warning"><b>Recalculating gear verdicts.</b> SAFE TO DISCARD actions are locked until the result matches the current inventory.</div>}
+    {analysisCurrent&&safe.length>0 && <details className="dangerPanel"><summary>{safe.length} item{safe.length!==1?'s':''} proven SAFE TO DISCARD</summary><div className="discardList">{safe.map(a=><div key={a.item.id}><strong>{a.item.name}</strong><span>{a.reason}</span></div>)}</div><button className="danger" onClick={onBulkDiscard}>Review confirmation & delete all safe items</button></details>}
     <div className="gearList">{items.map(item=>{const a=map.get(item.id);return <article className="gearCard" key={item.id}>
       <div className="rowBetween"><div><div className="slotLabel">{item.slot}{item.mutation&&item.mutation!=='None'?` · ${item.mutation}`:''}{item.conditionPct!==undefined?` · ${item.conditionPct}% condition`:''}</div><h3>{item.baseName||item.name}</h3></div><button className={`star ${item.favourite?'on':''}`} onClick={()=>onFav(item)}>★</button></div>
       <div className="chipRow"><StatusBadge status={a?.verdict ?? 'KEEP'}/><span className="chip score">{a?.standalone.total.toFixed(2) ?? scoreStandalone(item,settings).total.toFixed(2)} standalone</span>{a?.loadoutMemberships.map((m,i)=><span className="chip" key={m.loadout+'-'+(m.context??'')+'-'+i}>{m.loadout}{m.tied?' · tied':''}{m.scenario?' · '+m.scenario:''}</span>)}{item.authenticated&&<span className="chip">{item.authentication.kind==='Alien'?'Legacy Alien':item.authentication.kind}: {item.authentication.effect||'—'} {item.authentication.value?`${item.authentication.value}%`:''}</span>}</div>
@@ -430,10 +452,15 @@ function RollLogEditor({data,certificate,onClose,onSave}:{data:AppData;certifica
   const [newAuth,setNewAuth]=useState('');
   const [newValue,setNewValue]=useState(0);
   const autoPreview=useMemo(()=>item&&newAuth?applyRollToItem(item,newAuth,newValue,type):item,[item,newAuth,newValue,type]);
-  const [finalStats,setFinalStats]=useState<GearStats|undefined>(autoPreview?{...autoPreview.stats}:undefined);
-  useEffect(()=>{setFinalStats(autoPreview?{...autoPreview.stats}:undefined)},[autoPreview]);
+  const expectedDisplayedStats=useMemo(()=>autoPreview?effectiveItemStats(autoPreview):undefined,[autoPreview]);
+  const [finalStats,setFinalStats]=useState<GearStats|undefined>(expectedDisplayedStats?{...expectedDisplayedStats}:undefined);
+  useEffect(()=>{setFinalStats(expectedDisplayedStats?{...expectedDisplayedStats}:undefined)},[expectedDisplayedStats]);
   useEffect(()=>{setNewAuth('');setNewValue(0)},[itemId,type]);
-  const preview=autoPreview&&finalStats?{...autoPreview,stats:finalStats,name:generateGearName(autoPreview.baseName,finalStats,autoPreview.authenticated,autoPreview.authentication)}:autoPreview;
+  const preview=useMemo(()=>{
+    if(!autoPreview||!finalStats)return autoPreview;
+    const observed=withObservedAuthenticationStats(autoPreview,finalStats);
+    return {...observed,name:generateGearName(observed.baseName,observed.stats,observed.authenticated,observed.authentication)};
+  },[autoPreview,finalStats]);
   const before=optimise(data.gear,data.settings,1)[0]?.score.total??0;
   const previewGear=preview?data.gear.map(g=>g.id===preview.id?preview:g):data.gear;
   const after=optimise(previewGear,data.settings,1)[0]?.score.total??before;
@@ -441,7 +468,7 @@ function RollLogEditor({data,certificate,onClose,onSave}:{data:AppData;certifica
   const authKind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
   return <div className="modalBackdrop"><div className="modal"><div className="modalHeader"><h2>Record certificate roll</h2><button className="iconButton" onClick={onClose}>×</button></div>
     <div className="notice"><b>Certificate being consumed:</b> {certificate.type}{certificate.gradeStars!==undefined?' · '+'★'.repeat(certificate.gradeStars):''}{certificate.displayedValue!==undefined?' · $'+certificate.displayedValue.toLocaleString():''}. Saving this roll reduces its owned quantity by one.</div>
-    <div className="formGrid"><label className="wide">Item<select value={itemId} onChange={e=>setItemId(e.target.value)}>{data.gear.map(g=><option value={g.id} key={g.id}>{g.name} · {g.slot}</option>)}</select></label><label>New authentication<select value={newAuth} onChange={e=>setNewAuth(e.target.value)}><option value="">Select result</option>{activeCertificateOutcomeOptions(item?.slot,data.authModel,authKind,certificate.type).map(a=><option key={a}>{a}</option>)}</select></label><label>New value %<input type="number" step="any" value={newValue} onChange={e=>setNewValue(Number(e.target.value))}/></label><label>Best score before<input type="number" value={before} readOnly/></label><label>Calculated score after<input type="number" value={after} readOnly/></label><p className="wide fieldHelp">Numeric authentication is stored separately and applied automatically. Only edit the core stats below if the underlying item stats themselves changed; this is especially important when Focused was gained or lost.</p></div>
+    <div className="formGrid"><label className="wide">Item<select value={itemId} onChange={e=>setItemId(e.target.value)}>{data.gear.map(g=><option value={g.id} key={g.id}>{g.name} · {g.slot}</option>)}</select></label><label>New authentication<select value={newAuth} onChange={e=>setNewAuth(e.target.value)}><option value="">Select result</option>{activeCertificateOutcomeOptions(item?.slot,data.authModel,authKind,certificate.type).map(a=><option key={a}>{a}</option>)}</select></label><label>New value %<input type="number" step="any" value={newValue} onChange={e=>setNewValue(Number(e.target.value))}/></label><label>Best score before<input type="number" value={before} readOnly/></label><label>Calculated score after<input type="number" value={after} readOnly/></label><p className="wide fieldHelp">These are the final stats displayed in game after the new authentication. Any difference caused by the authentication (especially Focused) is stored on that authentication only; the item's base stats are not overwritten.</p></div>
     {finalStats&&<details className="finalStatsEditor"><summary>Confirm / correct final displayed stats</summary><div className="formGrid">{statLabels.filter(([k])=>k!=='arrowReduction').map(([k,l])=><label key={k}>{l} %<input type="number" inputMode="decimal" step="any" value={finalStats[k]} onChange={e=>setFinalStat(k,Number(e.target.value))}/></label>)}<label className="wide arrowInput">Bid Arrow Speed — game display %<input type="number" inputMode="decimal" step="any" value={reductionToGameArrow(finalStats.arrowReduction)} onChange={e=>setFinalStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><span>Enter the signed value shown by the game.</span></label></div></details>}
     <div className="stickyActions"><button className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={!item||!newAuth||!preview||certificate.quantity<1} onClick={()=>{item&&preview&&onSave({id:crypto.randomUUID(),date:new Date().toISOString(),certificateType:type,itemId:item.id,itemName:item.name,slot:item.slot,previousAuthentication:item.authentication.effect,previousValue:item.authentication.value,newAuthentication:newAuth,newValue,improvedBestSet:after>before,bestScoreBefore:before,bestScoreAfter:after,certificateId:certificate.id,certificateGradeStars:certificate.gradeStars,certificateInventoryType:certificate.type},preview)}}>Apply, record & consume</button></div>
   </div></div>;

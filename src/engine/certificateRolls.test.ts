@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { makeInitialData } from '../defaults';
 import type { CertificateRollLog, GearItem } from '../types';
-import { applyRecordedCertificateRoll } from './certificateRolls';
+import { applyRecordedCertificateRoll, withObservedAuthenticationStats } from './certificateRolls';
+import { effectiveItemStats } from './scoring';
 
 describe('certificate roll inventory integrity',()=>{
   it('consumes exactly the selected physical certificate and records its identity',()=>{
@@ -59,6 +60,28 @@ describe('certificate roll inventory integrity',()=>{
     expect(nextWooden.observedValues).toContain(70);
     expect({min:nextWooden.min,typical:nextWooden.typical,max:nextWooden.max}).toEqual(beforeWooden);
     expect(nextRipped.observedSampleCount).toBe(beforeRippedCount);
+  });
+
+  it('stores Focused display changes on the authentication instead of baking them into base stats',()=>{
+    const data=makeInitialData();
+    const base=data.gear.find(g=>g.slot==='Back')!;
+    const focused:GearItem={
+      ...base,
+      stats:{...base.stats,luck:50,zone:20},
+      authenticated:true,
+      authentication:{kind:'Normal',effect:'Focused',value:30}
+    };
+    const observed=withObservedAuthenticationStats(focused,{...effectiveItemStats(focused),luck:80});
+    expect(observed.stats.luck).toBe(50);
+    expect(observed.authentication.statDeltas?.luck).toBe(30);
+    expect(effectiveItemStats(observed).luck).toBe(80);
+
+    const rerolled:GearItem={
+      ...observed,
+      authenticated:true,
+      authentication:{kind:'Normal',effect:'Luck',value:10}
+    };
+    expect(effectiveItemStats(rerolled).luck).toBe(60);
   });
 
 });
