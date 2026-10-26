@@ -258,7 +258,7 @@ export function makeEmptyData():AppData{
 
 export function makeInitialData(): AppData {
   return {
-    schemaVersion: 11,
+    schemaVersion: 12,
     gear: makeKnownGear(),
     settings: { ...LOCKED_DEFAULT_SETTINGS },
     authModel: makeDefaultAuthModel(),
