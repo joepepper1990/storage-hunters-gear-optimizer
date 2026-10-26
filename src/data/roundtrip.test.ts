@@ -164,7 +164,8 @@ describe('backup round trips',()=>{
     }];
     const restored=importJson(JSON.stringify(d));
     const wooden=restored.authModel.find(m=>m.certificateInventoryType==='Wooden Certificate of Authenticity'&&m.outcome==='Bid Zone Width');
-    expect(wooden).toMatchObject({assumedLikelihoodClass:'MEDIUM',min:15,typical:45,max:75});
+    expect(wooden).toMatchObject({assumedLikelihoodClass:'MEDIUM',min:15,max:75});
+    expect(wooden?.typical).toBeUndefined();
     expect(wooden?.observedValues).toEqual([50,60]);
     expect(restored.authModel.some(m=>m.certificateInventoryType==='Ripped Certificate of Authenticity'&&m.outcome==='Sunny')).toBe(true);
   });
