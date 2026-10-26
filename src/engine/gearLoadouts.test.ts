@@ -70,6 +70,20 @@ describe('unified gear loadouts and retention',()=>{
     expect(result.verdict).not.toBe('PROTECTED / UNKNOWN');
   });
 
+  it('does not auto-protect the four previously stale authenticated inventory items',()=>{
+    const data=makeInitialData();
+    const analyses=analyseGearRetention(data.gear,data.settings);
+    const ids=[
+      'verified-20261026-head-reactor-fedora-a',
+      'verified-20261026-back-dark-heart-b',
+      'verified-20261026-wrist-jellyfish',
+      'verified-20261026-wrist-reactor'
+    ];
+    for(const id of ids){
+      expect(analyses.find(a=>a.item.id===id)?.verdict).not.toBe('PROTECTED / UNKNOWN');
+    }
+  });
+
   it('never marks an item SAFE TO DISCARD if it belongs to any relevant loadout',()=>{
     const data=makeInitialData();
     const analyses=analyseGearRetention(data.gear,data.settings);
