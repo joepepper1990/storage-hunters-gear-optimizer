@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LOCKED_DEFAULT_SETTINGS, makeInitialData } from '../defaults';
 import type { GearItem, GearStats, Slot } from '../types';
-import { analyseGearRetention, buildGearLoadouts, mainAuctionUtility } from './gearLoadouts';
+import { gradeRerollExpectedValueGainPct, analyseGearRetention, buildGearLoadouts, mainAuctionUtility } from './gearLoadouts';
 import { optimise } from './optimizer';
 
 const now='2026-10-26T00:00:00Z';
