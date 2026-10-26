@@ -259,6 +259,8 @@ export interface ItemAnalysis {
 
 export interface AuthModelEntry {
   id: string;
+  /** Exact owned certificate tier this model row applies to. Legacy rows may omit this. */
+  certificateInventoryType?: OwnedCertificate['type'];
   certificateType: 'Normal Certificate of Authenticity' | 'Premium Certificate of Authenticity' | 'Limited Certificate of Authenticity' | 'Certificate of Alienticity';
   slot: Slot | 'Any';
   outcome: string;
@@ -317,7 +319,7 @@ export interface OwnedCertificate {
 }
 
 export interface AppData {
-  schemaVersion: 10;
+  schemaVersion: 11;
   gear: GearItem[];
   settings: AlgorithmSettings;
   authModel: AuthModelEntry[];
