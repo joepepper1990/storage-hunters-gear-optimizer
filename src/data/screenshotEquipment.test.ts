@@ -4,7 +4,7 @@ import {screenshotVehicleParts,screenshotTrophies,screenshotCertificates,mergeSc
 import {exportJson,importJson,normalizeData} from './storage';
 import {optimiseTrophies,specialistTrophyLoadout,analyseTrophyRetention,evaluateTrophySet} from '../engine/trophies';
 
-describe('October screenshot inventory — schema 6',()=>{
+describe('October screenshot inventory — schema 8',()=>{
   it('captures seven vehicle parts including the newer reversed-stat Manta roll',()=>{
     const parts=screenshotVehicleParts();
     expect(parts).toHaveLength(7);
@@ -50,8 +50,16 @@ describe('October screenshot inventory — schema 6',()=>{
     expect(result.totalBoosts.Chrome).toBe(76);
     expect(result.weightedContributions.Hologram).toBe(311*15);
   });
-  it('records Wooden Certificate quantity 1, Epic, 56% condition',()=>{
-    expect(screenshotCertificates()).toEqual([{id:'verified-oct17-cert-wooden-56',type:'Wooden Certificate of Authenticity',quantity:1,displayedValue:1648,conditionPct:56,rarity:'Epic'}]);
+  it('records the seven current certificates including two 2-star Limited certificates',()=>{
+    const certs=screenshotCertificates();
+    expect(certs).toHaveLength(7);
+    expect(certs.filter(c=>c.type==='Limited Certificate of Authenticity')).toEqual([
+      {id:'verified-oct26-cert-limited-6291',type:'Limited Certificate of Authenticity',quantity:1,displayedValue:6291,gradeStars:2,rarity:'Limited'},
+      {id:'verified-oct26-cert-limited-5967',type:'Limited Certificate of Authenticity',quantity:1,displayedValue:5967,gradeStars:2,rarity:'Limited'}
+    ]);
+    expect(certs.filter(c=>c.type==='Premium Certificate of Authenticity')).toHaveLength(1);
+    expect(certs.filter(c=>c.type==='Wooden Certificate of Authenticity')).toHaveLength(4);
+    expect(certs.filter(c=>c.type==='Wooden Certificate of Authenticity').every(c=>c.gradeStars===2)).toBe(true);
   });
   it('upgrades legacy data once, without destroying older rolls or making duplicate new records',()=>{
     const legacy=makeInitialData() as any;
@@ -59,14 +67,14 @@ describe('October screenshot inventory — schema 6',()=>{
     legacy.trophies=[screenshotTrophies()[0]];
     legacy.ownedCertificates=[];
     const first=normalizeData(legacy);
-    expect(first.schemaVersion).toBe(7);
+    expect(first.schemaVersion).toBe(8);
     expect(first.vehicleParts).toHaveLength(10);
     expect(first.trophies).toHaveLength(12);
-    expect(first.ownedCertificates).toHaveLength(1);
+    expect(first.ownedCertificates).toHaveLength(7);
     const again=importJson(exportJson(first));
     expect(again.vehicleParts).toHaveLength(10);
     expect(again.trophies).toHaveLength(12);
-    expect(again.ownedCertificates).toHaveLength(1);
+    expect(again.ownedCertificates).toHaveLength(7);
     const deliberatelyRemoved={...again,vehicleParts:[],trophies:[],ownedCertificates:[]};
     const saved=importJson(exportJson(deliberatelyRemoved));
     expect(saved.vehicleParts).toHaveLength(0);
@@ -74,6 +82,6 @@ describe('October screenshot inventory — schema 6',()=>{
     expect(saved.ownedCertificates).toHaveLength(0);
     expect(mergeScreenshotParts(screenshotVehicleParts())).toHaveLength(7);
     expect(mergeScreenshotTrophies(screenshotTrophies())).toHaveLength(12);
-    expect(mergeScreenshotCertificates(screenshotCertificates())).toHaveLength(1);
+    expect(mergeScreenshotCertificates(screenshotCertificates())).toHaveLength(7);
   });
 });
