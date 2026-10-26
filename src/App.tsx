@@ -170,8 +170,9 @@ function useOptimisationWorker(data: AppData | null) {
   return {...state,current:Boolean(data)&&state.resultKey===inputKey&&!state.computing};
 }
 
-function useCertificateWorker(data:AppData) {
-  const inputKey=useMemo(()=>certificateInputKey(data),[data.gear,data.settings,data.rollLog,data.ownedCertificates,data.authModel]);
+function useCertificateWorker(data:AppData,activePostRollId?:string) {
+  const sourceKey=useMemo(()=>certificateInputKey(data),[data.gear,data.settings,data.rollLog,data.ownedCertificates,data.authModel]);
+  const inputKey=sourceKey+'|postroll:'+(activePostRollId??'none');
   const [state,setState]=useState<{decisions:OwnedCertificateDecision[];postRoll?:PostRollDecision;computing:boolean;resultKey:string;error?:string}>({decisions:[],computing:false,resultKey:''});
   const requestId=useRef(0);
   useEffect(()=>{
@@ -195,7 +196,7 @@ function useCertificateWorker(data:AppData) {
       setState(prev=>({...prev,computing:false,error:'Certificate analysis failed in the background worker.'}));
       worker.terminate();
     };
-    worker.postMessage({id,data});
+    worker.postMessage({id,data,activePostRollId});
     return()=>worker.terminate();
   },[inputKey]);
   return {...state,current:state.resultKey===inputKey&&!state.computing};
@@ -298,9 +299,11 @@ export function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppDat
   const [logOpen,setLogOpen]=useState(false);
   const [editInventory,setEditInventory]=useState(false);
   const [editingRoll,setEditingRoll]=useState<CertificateRollLog|null>(null);
+  // Ephemeral: never persisted or reconstructed from rollLog after navigation/reload.
+  const [activePostRollId,setActivePostRollId]=useState<string|undefined>();
   const availableCertificates=data.ownedCertificates.filter(c=>c.quantity>0);
   const [selectedCertificateId,setSelectedCertificateId]=useState(availableCertificates[0]?.id??'');
-  const certificateState=useCertificateWorker(data);
+  const certificateState=useCertificateWorker(data,activePostRollId);
   const decisions=certificateState.current?certificateState.decisions:[];
   useEffect(()=>{
     if(!availableCertificates.some(c=>c.id===selectedCertificateId))setSelectedCertificateId(availableCertificates[0]?.id??'');
@@ -401,13 +404,13 @@ export function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppDat
     </div>:<p className="muted">No certificate with quantity remaining is available to record.</p>}
 
     {certificateState.current&&certificateState.postRoll&&<div className="card">
-      <div className="sectionTitle"><h2>Immediate post-roll choice</h2></div>
+      <div className="sectionTitle"><h2>Immediate post-roll choice</h2><button className="secondary compact" onClick={()=>setActivePostRollId(undefined)}>Authenticator prompt closed</button></div>
       <div className="notice warning"><b>Only while the Authenticator prompt is still open.</b> The game offers Reroll and Reroll Number immediately after authentication for {certificateState.postRoll.costRobux} Robux each; neither consumes another certificate. This model ranks gear utility only and does not decide whether {certificateState.postRoll.costRobux} Robux is financially worth spending.</div>
       <div className="rowBetween"><div><span className="eyebrow">MODELLED CHOICE</span><h3>{certificateState.postRoll.recommendation}</h3><p>{certificateState.postRoll.reason}</p></div></div>
       <div className="thresholdTable">
         <div><b>Accept current result</b><span>0.00% change · no extra cost</span></div>
-        {certificateState.postRoll.effectReroll&&<div><b>Reroll effect · {certificateState.postRoll.costRobux} Robux</b><span>{signed(certificateState.postRoll.effectReroll.target.expectedImprovementPct)} robust Main EV · downside {certificateState.postRoll.effectReroll.target.chancePotentialWorsePct.toFixed(1)}%{certificateState.postRoll.effectReroll.target.unresolvedOutcomeMassPct>0?' · unresolved '+certificateState.postRoll.effectReroll.target.unresolvedOutcomeMassPct.toFixed(1)+'%':''}</span></div>}
-        {certificateState.postRoll.numberReroll&&<div><b>Reroll Number · {certificateState.postRoll.costRobux} Robux</b><span>{signed(certificateState.postRoll.numberReroll.target.expectedImprovementPct)} robust Main EV · downside {certificateState.postRoll.numberReroll.target.chancePotentialWorsePct.toFixed(1)}%{certificateState.postRoll.numberReroll.target.unresolvedOutcomeMassPct>0?' · unresolved '+certificateState.postRoll.numberReroll.target.unresolvedOutcomeMassPct.toFixed(1)+'%':''}</span></div>}
+        {certificateState.postRoll.effectReroll&&<div><b>Reroll effect · {certificateState.postRoll.costRobux} Robux</b><span>{signed(certificateState.postRoll.effectReroll.expectedMainPct)} robust Main EV · downside {certificateState.postRoll.effectReroll.chancePotentialWorsePct.toFixed(1)}%{certificateState.postRoll.effectReroll.unresolvedOutcomeMassPct>0?' · unresolved '+certificateState.postRoll.effectReroll.unresolvedOutcomeMassPct.toFixed(1)+'%':''}</span></div>}
+        {certificateState.postRoll.numberReroll&&<div><b>Reroll Number · {certificateState.postRoll.costRobux} Robux</b><span>{signed(certificateState.postRoll.numberReroll.expectedMainPct)} robust Main EV · downside {certificateState.postRoll.numberReroll.chancePotentialWorsePct.toFixed(1)}%{certificateState.postRoll.numberReroll.unresolvedOutcomeMassPct>0?' · unresolved '+certificateState.postRoll.numberReroll.unresolvedOutcomeMassPct.toFixed(1)+'%':''}</span></div>}
       </div>
     </div>}
 
@@ -418,15 +421,16 @@ export function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppDat
     {logOpen&&selectedCertificate&&<RollLogEditor data={data} certificate={selectedCertificate} onClose={()=>setLogOpen(false)} onSave={(r,updated)=>{
       try{
         setData(applyRecordedCertificateRoll(data,selectedCertificate.id,r,updated));
+        setActivePostRollId(r.id);
         setLogOpen(false);
       }catch(error){alert(error instanceof Error?error.message:'Could not record certificate roll.')}
     }}/>}
     {editingRoll&&<RollHistoryEditor data={data} roll={editingRoll} onClose={()=>setEditingRoll(null)} onSave={(effect,value)=>{
-      try{setData(correctRecordedCertificateRoll(data,editingRoll.id,{newAuthentication:effect,newValue:value}));setEditingRoll(null);}
+      try{setActivePostRollId(undefined);setData(correctRecordedCertificateRoll(data,editingRoll.id,{newAuthentication:effect,newValue:value}));setEditingRoll(null);}
       catch(error){alert(error instanceof Error?error.message:'Could not correct roll history.')}
     }} onDelete={()=>{
       if(confirm('Delete this roll-history evidence? This does not refund the certificate or change current gear.')){
-        setData(deleteRecordedCertificateRoll(data,editingRoll.id));setEditingRoll(null);
+        setActivePostRollId(undefined);setData(deleteRecordedCertificateRoll(data,editingRoll.id));setEditingRoll(null);
       }
     }}/>}
   </section>;

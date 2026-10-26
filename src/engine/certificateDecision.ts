@@ -237,28 +237,53 @@ function rollMatchesCertificate(r:AppData['rollLog'][number],cert:OwnedCertifica
   return false;
 }
 
+/** Only fully matching grade + mutation observations are exact evidence.
+ * Unknown metadata has limited transferability; explicit mismatches are excluded.
+ */
+function evidenceWeight(roll:AppData['rollLog'][number],cert:OwnedCertificate):number {
+  if(!rollMatchesCertificate(roll,cert))return 0;
+  let weight=1;
+  if(cert.gradeStars===undefined||roll.certificateGradeStars===undefined)weight*=.20;
+  else if(cert.gradeStars!==roll.certificateGradeStars)return 0;
+  const wanted=(cert.mutation??'').trim().toLowerCase();
+  const observed=(roll.certificateMutation??'').trim().toLowerCase();
+  if(wanted&&observed&&wanted!==observed)return 0;
+  if(wanted!==observed)weight*=.20;
+  return weight;
+}
+
 function observedEffectCounts(data:AppData,cert:OwnedCertificate,slot:Slot):Map<string,number> {
   const counts=new Map<string,number>();
   for(const r of data.rollLog){
-    if(r.slot===slot&&rollMatchesCertificate(r,cert)){
-      counts.set(r.newAuthentication,(counts.get(r.newAuthentication)??0)+1);
-    }
+    if(r.slot!==slot)continue;
+    const weight=evidenceWeight(r,cert);
+    if(weight>0)counts.set(r.newAuthentication,(counts.get(r.newAuthentication)??0)+weight);
   }
-  // Model-only historical observations remain useful when no full roll-log entry
-  // exists. Use max(), not addition, so mirrored rollLog samples are not double-counted.
+  // Historical model-only samples have no grade/mutation provenance. Include them
+  // with low evidential weight and never add them twice to the matching rollLog.
   for(const row of catalogueRowsFor(data.authModel,cert.type,slot)){
-    counts.set(row.outcome,Math.max(counts.get(row.outcome)??0,row.observedSampleCount??0));
+    const existing=counts.get(row.outcome)??0;
+    const modelOnly=Math.max(0,(row.observedSampleCount??0)-Math.round(existing));
+    counts.set(row.outcome,existing+Math.min(modelOnly,20)*.10);
   }
   return counts;
 }
 
 function outcomeProbabilities(defs:CertificateOutcomeDefinition[],counts:Map<string,number>) {
+  const priorTotal=defs.reduce((sum,def)=>sum+LIKELIHOOD_WEIGHT[def.assumedLikelihoodClass],0)||1;
+  const strength=MODEL_ASSUMPTIONS.certificate.outcomePriorStrength;
   const weighted=defs.map(def=>({
     def,
-    w:LIKELIHOOD_WEIGHT[def.assumedLikelihoodClass]+(counts.get(def.effect)??0)
+    w:strength*LIKELIHOOD_WEIGHT[def.assumedLikelihoodClass]/priorTotal+(counts.get(def.effect)??0)
   }));
-  const total=weighted.reduce((s,x)=>s+x.w,0)||1;
+  const total=weighted.reduce((sum,x)=>sum+x.w,0)||1;
   return weighted.map(x=>({def:x.def,p:x.w/total}));
+}
+
+/** Diagnostic probabilities; these are model estimates, not published Roblox odds. */
+export function certificateOutcomeLikelihoods(data:AppData,cert:OwnedCertificate,slot:Slot):Array<{effect:string;probability:number}> {
+  return outcomeProbabilities(outcomesFor(data,cert,slot),observedEffectCounts(data,cert,slot))
+    .map(({def,p})=>({effect:def.effect,probability:p}));
 }
 
 function effectNeedsNumericMagnitude(effect:string):boolean {
@@ -294,18 +319,17 @@ function empiricalSupports(values:number[],mass:number):Array<{value:number;weig
 }
 
 function rollSupports(def:CertificateOutcomeDefinition,data:AppData,slot:Slot,cert:OwnedCertificate):RollSupport[] {
-  const gradeMatched=data.rollLog
-    .filter(r=>r.slot===slot&&r.newAuthentication===def.effect&&rollMatchesCertificate(r,cert)&&
-      (cert.gradeStars===undefined||r.certificateGradeStars===undefined||r.certificateGradeStars===cert.gradeStars));
-  const mutationMatched=cert.mutation?.trim()
-    ?gradeMatched.filter(r=>r.certificateMutation===cert.mutation)
-    :gradeMatched.filter(r=>!r.certificateMutation);
-  const evidenceRows=mutationMatched.length?mutationMatched:gradeMatched;
-  let observed=evidenceRows.map(r=>r.newValue).filter(v=>Number.isFinite(v));
-  if(!observed.length){
-    const modelEntry=data.authModel.find(m=>m.id===def.modelEntryId);
-    observed=(modelEntry?.observedValues??[]).filter(v=>Number.isFinite(v));
-  }
+  const relevant=data.rollLog
+    .filter(r=>r.slot===slot&&r.newAuthentication===def.effect&&rollMatchesCertificate(r,cert)&&Number.isFinite(r.newValue));
+  const exact=relevant.filter(r=>evidenceWeight(r,cert)===1);
+  const partial=relevant.filter(r=>evidenceWeight(r,cert)>0&&evidenceWeight(r,cert)<1);
+  // Exact observations carry empirical mass. Incomplete metadata is a weak
+  // sensitivity signal, not equivalent to an exact same-grade/mutation roll.
+  const observed=exact.map(r=>r.newValue);
+  const legacyEntry=data.authModel.find(m=>m.id===def.modelEntryId);
+  const legacyValues=observed.length||cert.gradeStars!==undefined||Boolean(cert.mutation)
+    ?[]:(legacyEntry?.observedValues??[]).filter(v=>Number.isFinite(v));
+  const fallbackValues=partial.map(r=>r.newValue).concat(legacyValues);
 
   const mechanicUnknown=!def.modeledMechanic;
 
@@ -314,7 +338,9 @@ function rollSupports(def:CertificateOutcomeDefinition,data:AppData,slot:Slot,ce
     const max=Math.max(def.min,def.max);
     // Real observations outside the configured range are model-conflict evidence,
     // not data to silently discard. Include them in the empirical support.
-    const empiricalMass=observed.length/(PRIOR_STRENGTH+observed.length);
+    const exactMass=observed.length/(PRIOR_STRENGTH+observed.length);
+    const weakMass=exactMass>0?0:Math.min(.15,fallbackValues.length/(PRIOR_STRENGTH*8+fallbackValues.length));
+    const empiricalMass=exactMass+weakMass;
     const priorMass=1-empiricalMass;
 
     // Five deterministic quadrature points retain min, quartiles, midpoint and max
@@ -326,17 +352,17 @@ function rollSupports(def:CertificateOutcomeDefinition,data:AppData,slot:Slot,ce
       weight:priorMass*priorWeights[i],
       unresolved:mechanicUnknown
     }));
-    const empirical=empiricalSupports(observed,empiricalMass).map(x=>({
-      ...x,
-      unresolved:mechanicUnknown
-    }));
+    const empirical=[
+      ...empiricalSupports(observed,exactMass),
+      ...empiricalSupports(fallbackValues,weakMass)
+    ].map(x=>({...x,unresolved:mechanicUnknown}));
     return [...prior,...empirical].filter(x=>x.weight>1e-12);
   }
 
-  if(observed.length){
+  if(observed.length||fallbackValues.length){
     // Observations without a configured/legal range are evidence about realised values,
     // not proof of the full roll distribution. Keep the branch unresolved.
-    return empiricalSupports(observed,1).map(x=>({...x,unresolved:true}));
+    return empiricalSupports(observed.length?observed:fallbackValues,1).map(x=>({...x,unresolved:true}));
   }
 
   const kind=cert.type==='Premium Certificate of Authenticity'?'Premium':cert.type==='Limited Certificate of Authenticity'?'Limited':'Normal';
@@ -747,6 +773,72 @@ function targetDecision(
       'Personal effect tiers are used only as an ordinal secondary signal when the target remains in a robust Main Auction trio; they never compensate for weaker Main utility.',
       'Lucky Grading is ON.'
     ]
+  };
+}
+
+/**
+ * Conditional 199-Robux "Reroll Number" distribution. The effect is fixed:
+ * calculate fresh same-effect numeric outcomes against accepting the current roll.
+ * The caller must exclude the current observation from the training dataset.
+ */
+export function analyseConditionalNumberReroll(
+  data:AppData,
+  roll:AppData['rollLog'][number],
+  cert:OwnedCertificate
+):{
+  expectedMainPct:number;
+  chanceMainWorsePct:number;
+  chanceAnyWorsePct:number;
+  resolvedMassPct:number;
+  unresolvedMassPct:number;
+  expectedContextualMainPct:number;
+  expectedDrinkPrepPct:number;
+  expectedGradingPct:number;
+  expectedShopPct:number;
+  modelNote:string;
+}|undefined {
+  const original=data.gear.find(g=>g.id===roll.itemId);
+  if(!original)return undefined;
+  const def=outcomesFor(data,cert,original.slot).find(d=>d.effect===roll.newAuthentication);
+  if(!def)return undefined;
+  const supports=rollSupports(def,data,original.slot,cert);
+  if(!supports.length)return undefined;
+  const baseline=buildGearLoadouts(data.gear,data.settings,'low');
+  let resolvedMass=0,main=0,mainWorse=0,anyWorse=0,context=0,drink=0,grading=0,shop=0;
+  for(const support of supports){
+    if(support.unresolved)continue;
+    const hypothetical=replaceAuthentication(original,cert,roll.newAuthentication,support.value);
+    const nextGear=data.gear.map(item=>item.id===original.id?hypothetical:item);
+    const result=buildGearLoadouts(nextGear,data.settings,'low');
+    const mainDelta=pct(result.main?.utility,baseline.main?.utility);
+    const day=pct(result.day?.utility,baseline.day?.utility);
+    const night=pct(result.night?.utility,baseline.night?.utility);
+    const rain=pct(result.rain?.utility,baseline.rain?.utility);
+    const drinkDelta=pct(result.drink?.utility,baseline.drink?.utility);
+    const gradingDelta=pct(result.grading?.utility,baseline.grading?.utility);
+    const shopDelta=pct(result.shop?.utility,baseline.shop?.utility);
+    const weight=support.weight;
+    resolvedMass+=weight;
+    main+=weight*mainDelta;
+    context+=weight*(day+night+rain)/3;
+    drink+=weight*drinkDelta;
+    grading+=weight*gradingDelta;
+    shop+=weight*shopDelta;
+    if(mainDelta < -1e-4)mainWorse+=weight;
+    if(Math.min(mainDelta,day,night,rain,drinkDelta,gradingDelta,shopDelta)<-1e-4)anyWorse+=weight;
+  }
+  const divisor=resolvedMass>1e-10?resolvedMass:1;
+  return {
+    expectedMainPct:main/divisor,
+    chanceMainWorsePct:mainWorse*100,
+    chanceAnyWorsePct:anyWorse*100,
+    resolvedMassPct:resolvedMass*100,
+    unresolvedMassPct:Math.max(0,1-resolvedMass)*100,
+    expectedContextualMainPct:context/divisor,
+    expectedDrinkPrepPct:drink/divisor,
+    expectedGradingPct:grading/divisor,
+    expectedShopPct:shop/divisor,
+    modelNote:'Same authentication effect only. Roll strengths are conditioned on this certificate tier, grade and mutation; the current roll is excluded from training. No unknown effect-selection odds are used.'
   };
 }
 
