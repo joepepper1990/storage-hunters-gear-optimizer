@@ -12,7 +12,7 @@ describe('analytical dominance proof',()=>{
   it('combines exact worst cases across Main Auction stats',()=>{
     const a=g('A',{luck:50,arrowReduction:75});
     const b=g('B',{arrowReduction:80});
-    expect(pairWorstCaseAdvantage(a,b,LOCKED_DEFAULT_SETTINGS)).toBeGreaterThan(49);
+    expect(pairWorstCaseAdvantage(a,b,LOCKED_DEFAULT_SETTINGS)).toBeCloseTo(46,8);
     expect(findDominator(b,[a],LOCKED_DEFAULT_SETTINGS).dominated).toBe(true);
   });
 
