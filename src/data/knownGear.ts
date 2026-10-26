@@ -37,7 +37,7 @@ const KNOWN_GEAR:InventorySeed[]=[
   {id:'head-pearl-dominus',baseName:'Pearl Dominus',slot:'Head',mutation:'None',conditionPct:51,
     stats:{zone:76,luck:100},authentication:{kind:'Normal',effect:'Nocturnal',value:35}},
   {id:'head-race-valk',baseName:'Race Valk',slot:'Head',mutation:'Cobwebbed',conditionPct:56,
-    stats:{arrowReduction:76,energy:64,npc:7.7}},
+    stats:{arrowReduction:76,energy:64},authentication:{kind:'Normal',effect:'NPC Offers Bonus',value:7.7}},
   {id:'head-reactor-fedora-a',baseName:'Reactor Fedora',slot:'Head',mutation:'None',conditionPct:55,
     stats:{arrowReduction:45,luck:75},authentication:{kind:'Premium',effect:'Mutated Luck',value:0}},
   {id:'head-reactor-fedora-b',baseName:'Reactor Fedora',slot:'Head',mutation:'Saloon + unknown',conditionPct:64,
