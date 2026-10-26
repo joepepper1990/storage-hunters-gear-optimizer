@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { makeInitialData } from '../defaults';
+import { makeEmptyData, makeInitialData } from '../defaults';
 import { csvToGear, gearToCsv } from './csv';
 import { exportJson, importJson } from './storage';
 import type { GearItem } from '../types';
@@ -126,13 +126,13 @@ describe('backup round trips',()=>{
     expect(restored.trophySettings.mutationWeights.find(w=>w.mutation==='Clockwork')?.multiplier).toBe(25);
   });
 
-  it('migrates an older backup to the verified schema-10 gear/certificate baseline',()=>{
+  it('migrates an older backup to the verified schema-11 gear/certificate baseline',()=>{
     const d=makeInitialData() as any;
     d.schemaVersion=1;
     d.gear=[gear];
     delete d.vehicleProfile; delete d.vehicleSettings; delete d.vehicleParts; delete d.trailers; delete d.trophies; delete d.trophySettings;
     const restored=importJson(JSON.stringify(d));
-    expect(restored.schemaVersion).toBe(10);
+    expect(restored.schemaVersion).toBe(11);
     expect(restored.gear).toHaveLength(22);
     expect(restored.gear.some((g:any)=>g.id==='abc')).toBe(false);
     expect(restored.ownedCertificates).toHaveLength(7);
@@ -142,4 +142,31 @@ describe('backup round trips',()=>{
     expect(restored.trophies).toHaveLength(12);
     expect(restored.trophySettings.maxActive).toBe(4);
   });
+  it('creates a genuinely empty workspace for destructive reset/start-empty actions',()=>{
+    const empty=makeEmptyData();
+    expect(empty.schemaVersion).toBe(11);
+    expect(empty.gear).toEqual([]);
+    expect(empty.ownedCertificates).toEqual([]);
+    expect(empty.vehicleParts).toEqual([]);
+    expect(empty.trailers).toEqual([]);
+    expect(empty.trophies).toEqual([]);
+    expect(empty.rollLog).toEqual([]);
+    expect(empty.authModel.length).toBeGreaterThan(0);
+  });
+
+  it('migrates schema-10 auth rows into tier-specific schema-11 catalogue rows without losing observations',()=>{
+    const d=makeInitialData() as any;
+    d.schemaVersion=10;
+    d.authModel=[{
+      id:'legacy-zone',certificateType:'Normal Certificate of Authenticity',slot:'Any',outcome:'Bid Zone Width',
+      category:'Normal numeric',assumedLikelihoodClass:'HIGH',observedSampleCount:2,observedValues:[50,60],
+      confidence:'Low',enabled:true
+    }];
+    const restored=importJson(JSON.stringify(d));
+    const wooden=restored.authModel.find(m=>m.certificateInventoryType==='Wooden Certificate of Authenticity'&&m.outcome==='Bid Zone Width');
+    expect(wooden).toMatchObject({assumedLikelihoodClass:'MEDIUM',min:15,typical:45,max:75});
+    expect(wooden?.observedValues).toEqual([50,60]);
+    expect(restored.authModel.some(m=>m.certificateInventoryType==='Ripped Certificate of Authenticity'&&m.outcome==='Sunny')).toBe(true);
+  });
+
 });
