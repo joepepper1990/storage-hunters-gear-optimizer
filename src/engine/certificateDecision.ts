@@ -378,7 +378,7 @@ function targetDecision(
       if(support.unresolved)unresolvedEffects.add(def.effect);
 
       const anyBenefit=deltaHigh>1e-4||contextualBest>1e-4||drink>1e-4||grading>1e-4||shop>1e-4||potential.main||potential.secondary;
-      const gradePenalty=cert.gradeStars!==undefined?.08:.04;
+      const gradePenalty=cert.gradeStars!==undefined ? .08 : .04;
       branches.push({
         p:p/supports.length,
         delta,deltaLow,deltaHigh,contextual,contextualWorst,contextualBest,drink,grading,shop,anyBenefit,
