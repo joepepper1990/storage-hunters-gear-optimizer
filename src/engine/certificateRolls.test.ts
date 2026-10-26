@@ -8,6 +8,7 @@ describe('certificate roll inventory integrity',()=>{
   it('consumes exactly the selected physical certificate and records its identity',()=>{
     const data=makeInitialData();
     const selected=data.ownedCertificates.find(c=>c.type==='Limited Certificate of Authenticity')!;
+    selected.mutation='Secret';
     const other=data.ownedCertificates.filter(c=>c.type==='Limited Certificate of Authenticity').find(c=>c.id!==selected.id)!;
     const item=data.gear.find(g=>g.slot==='Head')!;
     const updated:GearItem={...item,authenticated:true,authentication:{kind:'Limited',effect:'Grade Re-Roll',value:25}};
@@ -23,6 +24,7 @@ describe('certificate roll inventory integrity',()=>{
     const saved=next.rollLog.at(-1)!;
     expect(saved.certificateId).toBe(selected.id);
     expect(saved.certificateGradeStars).toBe(selected.gradeStars);
+    expect(saved.certificateMutation).toBe('Secret');
     expect(saved.certificateInventoryType).toBe(selected.type);
   });
 
