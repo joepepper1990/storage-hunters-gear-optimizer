@@ -62,6 +62,7 @@ export function applyRecordedCertificateRoll(
     ...roll,
     certificateId:certificate.id,
     certificateGradeStars:certificate.gradeStars,
+    certificateMutation:certificate.mutation,
     certificateInventoryType:certificate.type,
     certificateType:authModelTypeForOwnedCertificate(certificate),
     observedStatDeltas:updated.authentication.statDeltas
