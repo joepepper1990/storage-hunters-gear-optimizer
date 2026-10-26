@@ -30,13 +30,17 @@ describe('verified 26 October 2026 accessory inventory',()=>{
     const xrayCandidate=one('Crypto Necklace');
     expect(xrayCandidate.stats).toMatchObject({luck:95,energy:18,arrowReduction:-3});
     expect(xrayCandidate.mutation).toBe('Hologram');
-    expect(one('Race Valk').stats).toMatchObject({arrowReduction:76,energy:64,npc:7.7});
+    expect(one('Race Valk').stats).toMatchObject({arrowReduction:76,energy:64,npc:0});
   });
 
   it('keeps blue authentication effects separate from base stats',()=>{
     const steampunk=by('Steampunk Goggle').find(g=>g.authentication.effect==='Mutated Luck')!;
     expect(steampunk.stats).toMatchObject({luck:136,zone:64,tip:-2});
     expect(steampunk.authentication).toMatchObject({kind:'Premium',effect:'Mutated Luck',value:0});
+
+    const race=one('Race Valk');
+    expect(race.authentication).toMatchObject({kind:'Normal',effect:'NPC Offers Bonus',value:7.7});
+    expect(effectiveItemStats(race).npc).toBe(7.7);
 
     const police=one('Police Vest');
     expect(police.stats.zone).toBe(0);
