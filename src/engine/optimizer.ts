@@ -3,7 +3,7 @@ import { arrowEffective, combineStats } from './scoring';
 import { analyseGearRetention, mainCombination } from './gearLoadouts';
 
 export function evaluateCombination(head: GearItem, back: GearItem, wrist: GearItem, settings: AlgorithmSettings): CombinationResult {
-  return mainCombination(head, back, wrist, settings, 'Neutral', 'central');
+  return mainCombination(head, back, wrist, settings, 'Neutral', 'low');
 }
 
 export function optimise(gear: GearItem[], settings: AlgorithmSettings, limit = 100): CombinationResult[] {

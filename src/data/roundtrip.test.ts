@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { makeEmptyData, makeInitialData } from '../defaults';
 import { csvToGear, gearToCsv } from './csv';
-import { exportJson, importJson } from './storage';
+import { exportJson, importJson, selectNewestStoredSnapshot } from './storage';
 import type { GearItem } from '../types';
 
 const now='2026-08-28T00:00:00Z';
@@ -127,13 +127,13 @@ describe('backup round trips',()=>{
     expect(restored.trophySettings.mutationWeights.find(w=>w.mutation==='Clockwork')?.multiplier).toBe(25);
   });
 
-  it('migrates an older backup to the verified schema-11 gear/certificate baseline',()=>{
+  it('migrates an older backup to the verified schema-12 gear/certificate baseline',()=>{
     const d=makeInitialData() as any;
     d.schemaVersion=1;
     d.gear=[gear];
     delete d.vehicleProfile; delete d.vehicleSettings; delete d.vehicleParts; delete d.trailers; delete d.trophies; delete d.trophySettings;
     const restored=importJson(JSON.stringify(d));
-    expect(restored.schemaVersion).toBe(11);
+    expect(restored.schemaVersion).toBe(12);
     expect(restored.gear).toHaveLength(22);
     expect(restored.gear.some((g:any)=>g.id==='abc')).toBe(false);
     expect(restored.ownedCertificates).toHaveLength(7);
@@ -145,7 +145,7 @@ describe('backup round trips',()=>{
   });
   it('creates a genuinely empty workspace for destructive reset/start-empty actions',()=>{
     const empty=makeEmptyData();
-    expect(empty.schemaVersion).toBe(11);
+    expect(empty.schemaVersion).toBe(12);
     expect(empty.gear).toEqual([]);
     expect(empty.ownedCertificates).toEqual([]);
     expect(empty.vehicleParts).toEqual([]);
@@ -155,7 +155,7 @@ describe('backup round trips',()=>{
     expect(empty.authModel.length).toBeGreaterThan(0);
   });
 
-  it('migrates schema-10 auth rows into tier-specific schema-11 catalogue rows without losing observations',()=>{
+  it('migrates schema-10 auth rows into tier-specific schema-12 catalogue rows without losing observations',()=>{
     const d=makeInitialData() as any;
     d.schemaVersion=10;
     d.authModel=[{
@@ -169,6 +169,33 @@ describe('backup round trips',()=>{
     expect(wooden?.typical).toBeUndefined();
     expect(wooden?.observedValues).toEqual([50,60]);
     expect(restored.authModel.some(m=>m.certificateInventoryType==='Ripped Certificate of Authenticity'&&m.outcome==='Sunny')).toBe(true);
+  });
+
+  it('round-trips owned certificate mutation metadata',()=>{
+    const d=makeInitialData();
+    d.ownedCertificates=[{id:'c1',type:'Wooden Certificate of Authenticity',quantity:1,gradeStars:2,mutation:'Secret'}];
+    const restored=importJson(exportJson(d));
+    expect(restored.ownedCertificates[0]).toMatchObject({gradeStars:2,mutation:'Secret'});
+  });
+
+  it('selects the newest valid persisted snapshot regardless of whether it came from IndexedDB or the emergency mirror',()=>{
+    const older={savedAt:100,data:makeInitialData()};
+    const newer={savedAt:200,data:makeEmptyData()};
+    expect(selectNewestStoredSnapshot(older,newer)?.savedAt).toBe(200);
+    expect(selectNewestStoredSnapshot(newer,older)?.savedAt).toBe(200);
+  });
+
+  it('migrates untouched schema-11 exclusive outcome priors to LOW while preserving non-default user choices',()=>{
+    const d=makeInitialData() as any;
+    d.schemaVersion=11;
+    const woodenSunny=d.authModel.find((m:any)=>m.certificateInventoryType==='Wooden Certificate of Authenticity'&&m.outcome==='Sunny');
+    const woodenNocturnal=d.authModel.find((m:any)=>m.certificateInventoryType==='Wooden Certificate of Authenticity'&&m.outcome==='Nocturnal');
+    woodenSunny.assumedLikelihoodClass='MEDIUM';
+    woodenNocturnal.assumedLikelihoodClass='HIGH';
+    const restored=importJson(JSON.stringify(d));
+    expect(restored.schemaVersion).toBe(12);
+    expect(restored.authModel.find(m=>m.id===woodenSunny.id)?.assumedLikelihoodClass).toBe('LOW');
+    expect(restored.authModel.find(m=>m.id===woodenNocturnal.id)?.assumedLikelihoodClass).toBe('HIGH');
   });
 
 });

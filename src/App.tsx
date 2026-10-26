@@ -301,12 +301,13 @@ function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppData)=>voi
   },[data.ownedCertificates,selectedCertificateId]);
   const selectedCertificate=availableCertificates.find(c=>c.id===selectedCertificateId);
   const changeQty=(id:string,amount:number)=>setData({...data,ownedCertificates:data.ownedCertificates.map(x=>x.id===id?{...x,quantity:Math.max(0,x.quantity+amount)}:x)});
+  const patchCertificate=(id:string,patch:Partial<OwnedCertificate>)=>setData({...data,ownedCertificates:data.ownedCertificates.map(x=>x.id===id?{...x,...patch}:x)});
   const signed=(n:number)=>(n>=0?'+':'')+n.toFixed(2)+'%';
 
   return <section>
     <div className="pageHeading"><div><h1>Certificates</h1><p>Expected-value decisions · Main Auction first · Lucky Grading ON</p></div></div>
 
-    <div className="notice"><b>Decision rule:</b> every certificate is tested against every eligible item. Unknown Luck/Focused magnitude is shown as unresolved probability mass rather than a fake zero roll. Low/central/high dynamic states are sensitivity-tested, and Day/Night/Rain losses count as downside.</div>
+    <div className="notice"><b>Decision rule:</b> every certificate is tested against every eligible item. Main Auction uses the robust zero-state baseline first, with central/high states shown only as sensitivity. Unknown Luck/Focused magnitude is explicit unresolved mass rather than fake zero EV. Specialists are considered only after Main, in the order Drink Prep → Grading → Shop/Idle.</div>
 
     {certificateState.computing&&<div className="notice">Recalculating certificate decisions in the background…</div>}
     {certificateState.error&&<div className="notice dangerNotice"><b>Certificate analysis error:</b> {certificateState.error}</div>}
@@ -319,7 +320,7 @@ function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppData)=>voi
           <summary>
             <div>
               <strong>{decision.certificate.type}</strong>
-              <span>{decision.certificate.gradeStars!==undefined?'★'.repeat(decision.certificate.gradeStars)+' · ':''}Owned {decision.certificate.quantity}{decision.certificate.displayedValue!==undefined?' · $'+decision.certificate.displayedValue.toLocaleString():''}</span>
+              <span>{decision.certificate.mutation?decision.certificate.mutation+' · ':''}{decision.certificate.gradeStars!==undefined?'★'.repeat(decision.certificate.gradeStars)+' · ':''}Owned {decision.certificate.quantity}{decision.certificate.displayedValue!==undefined?' · $'+decision.certificate.displayedValue.toLocaleString():''}</span>
             </div>
             <div className="premiumVerdict">{decision.verdict}</div>
           </summary>
@@ -330,15 +331,20 @@ function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppData)=>voi
               <div className="statsGrid three">
                 <StatTile label="Robust Main improves" value={target.chanceOfImprovementPct} suffix="%"/>
                 <StatTile label="Potential Main improves" value={target.chanceOfPotentialImprovementPct} suffix="%"/>
-                <StatTile label="Expected Main change" value={target.expectedImprovementPct} suffix="%"/>
-                <StatTile label="Chance Main/context worsens" value={target.chanceOfWorsePct} suffix="%"/>
+                <StatTile label={target.unresolvedOutcomeMassPct>0?"Resolved-branch robust Main EV":"Robust Main EV"} value={target.expectedImprovementPct} suffix="%"/>
+                <StatTile label="Chance Main/context worsens" value={target.chanceMainWorsePct} suffix="%"/>
+                <StatTile label="Chance any relevant loadout worsens" value={target.chanceOfWorsePct} suffix="%"/>
+                <StatTile label="Potential downside incl. unresolved" value={target.chancePotentialWorsePct} suffix="%"/>
                 <StatTile label="Meaningful robust gain ≥1%" value={target.chanceOfMeaningfulImprovementPct} suffix="%"/>
                 <StatTile label="Unresolved outcome mass" value={target.unresolvedOutcomeMassPct} suffix="%"/>
                 <StatTile label="Current Main fit" value={target.mainFitPct} suffix="%"/>
               </div>
 
               <div className="thresholdTable">
-                <div><b>Main sensitivity low / central / high</b><span>{signed(target.expectedImprovementLowPct)} / {signed(target.expectedImprovementPct)} / {signed(target.expectedImprovementHighPct)}</span></div>
+                <div><b>Robust / central / high Main EV</b><span>{signed(target.expectedImprovementPct)} / {signed(target.expectedImprovementCentralPct)} / {signed(target.expectedImprovementHighPct)}</span></div>
+                <div><b>Worst dynamic-state Main EV</b><span>{signed(target.expectedImprovementLowPct)}</span></div>
+                <div><b>Decision basis</b><span>{target.decisionBasis}</span></div>
+                <div><b>Resolved / unresolved probability mass</b><span>{target.resolvedOutcomeMassPct.toFixed(1)}% / {target.unresolvedOutcomeMassPct.toFixed(1)}%</span></div>
                 <div><b>Average robust gain when successful</b><span>{signed(target.averageGainWhenSuccessfulPct)}</span></div>
                 <div><b>Average demonstrated loss when worse</b><span>{signed(target.averageLossWhenWorsePct)}</span></div>
                 <div><b>10th / median / 90th central percentile</b><span>{signed(target.p10Pct)} / {signed(target.medianPct)} / {signed(target.p90Pct)}</span></div>
@@ -352,12 +358,13 @@ function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppData)=>voi
                 <div><b>Worst authentication risk anywhere relevant</b><span>{signed(target.currentAuthenticationValueAtRiskPct)}</span></div>
                 <div><b>Average Day/Night/Rain impact</b><span>{signed(target.expectedContextualMainPct)}</span></div>
                 <div><b>Worst Day/Night/Rain impact</b><span>{signed(target.worstContextualMainPct)}</span></div>
-                <div><b>Expected Drink Prep impact</b><span>{signed(target.expectedDrinkPrepPct)}</span></div>
-                <div><b>Expected Grading impact</b><span>{signed(target.expectedGradingPct)}</span></div>
-                <div><b>Expected Shop/Idle impact</b><span>{signed(target.expectedShopPct)}</span></div>
+                <div><b>Expected Drink Prep impact</b><span>{signed(target.expectedDrinkPrepPct)} · worse {target.chanceDrinkPrepWorsePct.toFixed(1)}%</span></div>
+                <div><b>Expected Grading impact</b><span>{signed(target.expectedGradingPct)} · worse {target.chanceGradingWorsePct.toFixed(1)}%</span></div>
+                <div><b>Expected Shop/Idle impact</b><span>{signed(target.expectedShopPct)} · worse {target.chanceShopWorsePct.toFixed(1)}%</span></div>
+                <div><b>Personal effect-tier signal</b><span>{target.expectedPersonalPreferenceDelta>=0?'+':''}{target.expectedPersonalPreferenceDelta.toFixed(2)} · improve {target.chancePersonalPreferenceImprovesPct.toFixed(1)}% · worse {target.chancePersonalPreferenceWorsePct.toFixed(1)}%</span></div>
               </div>
 
-              {target.unresolvedEffects.length>0&&<div className="notice warning"><b>Unresolved magnitude:</b> {target.unresolvedEffects.join(', ')}. These branches are not treated as zero-value known outcomes and cannot produce a USE verdict until supported by numeric evidence.</div>}
+              {target.unresolvedEffects.length>0&&<div className="notice warning"><b>Unresolved outcome mass:</b> {target.unresolvedEffects.join(', ')}. Those branches are excluded from the numeric EV rather than scored as zero. The displayed EV therefore describes only the resolved {target.resolvedOutcomeMassPct.toFixed(1)}% of the model, and a USE verdict remains blocked.</div>}
               <ul>{target.reasons.map((reason,i)=><li key={i}>{reason}</li>)}</ul>
 
               {decision.conversion&&<div className="notice"><b>Wooden → Premium opportunity cost:</b> {decision.conversion.recommendation}. Direct Wooden EV {signed(decision.conversion.directExpectedMainPct)} vs synthetic Premium EV {signed(decision.conversion.premiumExpectedMainPct)}. Conversion costs {decision.conversion.diamondCost} Diamonds. {decision.conversion.reason}</div>}
@@ -368,7 +375,7 @@ function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppData)=>voi
               </details>
             </>:<p className="muted">A complete Head, Back and Wrist inventory is required.</p>}
 
-            <div className="notice warning"><b>Evidence boundary:</b> these are modelled decision percentages, not hidden Roblox loot odds. Effect selection uses a neutral equal prior until exact-certificate observations exist. Unknown star transforms and unresolved magnitudes reduce confidence instead of being invented.</div>
+            <div className="notice warning"><b>Evidence boundary:</b> these are modelled decision percentages, not hidden Roblox loot odds. Basic outcomes start at MEDIUM relative weight and documented rarer Wooden/Ripped exclusives at LOW; these are editable qualitative priors, not hidden exact percentages. Higher certificate grade/mutation is treated as directionally favourable but its unpublished roll-strength transform is not invented. Unresolved branches remain explicit.</div>
           </div>
         </details>;
       })}
@@ -377,13 +384,13 @@ function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppData)=>voi
 
     <div className="card">
       <div className="sectionTitle"><h2>Owned certificates</h2><button className="secondary compact" onClick={()=>setEditInventory(!editInventory)}>{editInventory?'Done':'Manual adjustment'}</button></div>
-      <div className="gearList">{data.ownedCertificates.map(cert=><div className="gearCard" key={cert.id}><strong>{cert.type}</strong><p>{cert.rarity||'Certificate'}{cert.gradeStars!==undefined?' · '+'★'.repeat(cert.gradeStars):''}{cert.displayedValue!==undefined?' · $'+cert.displayedValue.toLocaleString():''} · Owned: {cert.quantity}</p>{editInventory&&<div className="actions"><button onClick={()=>changeQty(cert.id,-1)} disabled={cert.quantity===0}>− Remove one</button><button onClick={()=>changeQty(cert.id,1)}>＋ Add one</button></div>}</div>)}</div>
-      <div className="notice">Recording a roll below now consumes the exact selected certificate automatically. Wooden → Premium is compared explicitly against direct Wooden use at the current 150-Diamond conversion cost.</div>
+      <div className="gearList">{data.ownedCertificates.map(cert=><div className="gearCard" key={cert.id}><strong>{cert.type}</strong><p>{cert.rarity||'Certificate'}{cert.mutation?' · '+cert.mutation:''}{cert.gradeStars!==undefined?' · '+'★'.repeat(cert.gradeStars):''}{cert.displayedValue!==undefined?' · $'+cert.displayedValue.toLocaleString():''} · Owned: {cert.quantity}</p>{editInventory&&<div className="formGrid"><label>Mutation<input value={cert.mutation??''} placeholder="None / Secret / …" onChange={e=>patchCertificate(cert.id,{mutation:e.target.value.trim()||undefined})}/></label><label>Grade stars<input type="number" min="0" max="5" step="1" value={cert.gradeStars??''} onChange={e=>patchCertificate(cert.id,{gradeStars:e.target.value===''?undefined:Math.max(0,Math.min(5,Math.trunc(Number(e.target.value)||0)))})}/></label><div className="actions wide"><button onClick={()=>changeQty(cert.id,-1)} disabled={cert.quantity===0}>− Remove one</button><button onClick={()=>changeQty(cert.id,1)}>＋ Add one</button></div></div>}</div>)}</div>
+      <div className="notice">Recording a roll below consumes the exact selected certificate automatically and stores its grade and mutation. Wooden → Premium is compared explicitly against direct Wooden use at the current 150-Diamond conversion cost.</div>
     </div>
 
     <div className="sectionTitle"><h2>Record a result</h2></div>
     {availableCertificates.length?<div className="card">
-      <label>Certificate actually used<select value={selectedCertificateId} onChange={e=>setSelectedCertificateId(e.target.value)}>{availableCertificates.map(cert=><option value={cert.id} key={cert.id}>{cert.type} · {cert.gradeStars!==undefined?'★'.repeat(cert.gradeStars)+' · ':''}{cert.displayedValue!==undefined?'$'+cert.displayedValue.toLocaleString()+' · ':''}owned {cert.quantity}</option>)}</select></label>
+      <label>Certificate actually used<select value={selectedCertificateId} onChange={e=>setSelectedCertificateId(e.target.value)}>{availableCertificates.map(cert=><option value={cert.id} key={cert.id}>{cert.type} · {cert.mutation?cert.mutation+' · ':''}{cert.gradeStars!==undefined?'★'.repeat(cert.gradeStars)+' · ':''}{cert.displayedValue!==undefined?'$'+cert.displayedValue.toLocaleString()+' · ':''}owned {cert.quantity}</option>)}</select></label>
       <button className="secondary" disabled={!selectedCertificate} onClick={()=>setLogOpen(true)}>＋ Record selected certificate roll</button>
     </div>:<p className="muted">No certificate with quantity remaining is available to record.</p>}
 
@@ -410,7 +417,7 @@ function SettingsScreen({data,setData,showToast}:{data:AppData;setData:(d:AppDat
     <div className="settingsGrid">{fields.map(([k,label])=><label className="settingField" key={k}><span>{label}</span><input type="number" step="any" value={data.settings[k]} onChange={e=>setS(k,Number(e.target.value) as never)}/></label>)}</div>
     {issues.length>0&&<div className="notice dangerNotice"><b>Settings need correction:</b> {issues.join(' · ')}</div>}
     <div className="notice">Algorithm 2.0 uses one shared model for Main Auction, retention and certificate decisions. Displayed Luck is linear. Bid Arrow benefit caps at your 75% sweet spot with no invented over-cap penalty. Drink Prep, Grading and Shop/Idle are separate loadouts and never compensate for a weaker Main Auction result. Day, Night and Rain are evaluated as contextual Main variants instead of fake uptime averages.</div>
-    <div className="sectionTitle"><h2>Authentication outcome catalogue</h2><button className="secondary compact" onClick={()=>setData({...data,authModel:[...data.authModel,newAuthModelEntry()]})}>＋ Add outcome</button></div><div className="card authModel"><p className="muted">This is the live certificate model. Enabled rows, certificate tier, min / typical / max, confidence and relative-weight class all feed directly into certificate EV. MEDIUM is the neutral default because the real per-effect odds are unpublished; changing the class is an explicit user assumption, not a game fact.</p>{data.authModel.filter(m=>m.certificateType!=='Certificate of Alienticity'&&!LEGACY_ALIEN_EFFECTS.includes(m.outcome as never)).slice().sort((a,b)=>(a.certificateInventoryType??'').localeCompare(b.certificateInventoryType??'')||a.slot.localeCompare(b.slot)||a.outcome.localeCompare(b.outcome)).map(m=><AuthModelRow key={m.id} entry={m} onChange={entry=>setData({...data,authModel:data.authModel.map(x=>x.id===entry.id?entry:x)})} onDelete={()=>{if(confirm(`Remove authentication model outcome ${m.outcome}? Roll history is not deleted.`))setData({...data,authModel:data.authModel.filter(x=>x.id!==m.id)})}}/>)}</div>
+    <div className="sectionTitle"><h2>Authentication outcome catalogue</h2><button className="secondary compact" onClick={()=>setData({...data,authModel:[...data.authModel,newAuthModelEntry()]})}>＋ Add outcome</button></div><div className="card authModel"><p className="muted">This is the live certificate model. Enabled rows, certificate tier, min / typical / max, confidence and relative-weight class all feed directly into certificate EV. Basic outcomes default to MEDIUM. Wooden/Ripped slot-exclusive outcomes default to LOW because current guides consistently describe them as less common; LOW is a qualitative model assumption, not a claimed hidden percentage, and remains editable.</p>{data.authModel.filter(m=>m.certificateType!=='Certificate of Alienticity'&&!LEGACY_ALIEN_EFFECTS.includes(m.outcome as never)).slice().sort((a,b)=>(a.certificateInventoryType??'').localeCompare(b.certificateInventoryType??'')||a.slot.localeCompare(b.slot)||a.outcome.localeCompare(b.outcome)).map(m=><AuthModelRow key={m.id} entry={m} onChange={entry=>setData({...data,authModel:data.authModel.map(x=>x.id===entry.id?entry:x)})} onDelete={()=>{if(confirm(`Remove authentication model outcome ${m.outcome}? Roll history is not deleted.`))setData({...data,authModel:data.authModel.filter(x=>x.id!==m.id)})}}/>)}</div>
     <div className="sectionTitle"><h2>Backup & data safety</h2></div><div className="card buttonStack"><button className="primary" onClick={()=>downloadText(`storage-hunters-backup-${dateStamp()}.json`,exportJson(data),'application/json')}>Download JSON backup</button><button className="secondary" onClick={()=>jsonRef.current?.click()}>Restore JSON backup</button><button className="secondary" onClick={()=>downloadText(`storage-hunters-gear-${dateStamp()}.csv`,gearToCsv(data.gear),'text/csv')}>Export gear CSV</button><button className="secondary" onClick={()=>csvRef.current?.click()}>Import gear CSV</button><input hidden type="file" accept="application/json,.json" ref={jsonRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const d=importJson(await f.text());if(confirm(`Restore backup containing ${d.gear.length} gear items? This replaces current local data.`)){setData(d);showToast('Backup restored')}}catch(err){alert(err instanceof Error?err.message:'Invalid backup')}}}/><input hidden type="file" accept="text/csv,.csv" ref={csvRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const g=csvToGear(await f.text());if(confirm(`Import ${g.length} gear items? They will be added to the current inventory.`)){const imported=prepareImportedGear(data.gear,g);setData({...data,gear:[...data.gear,...imported]});showToast('CSV imported')}}catch(err){alert(err instanceof Error?err.message:'Invalid CSV')}}}/><button className="danger" onClick={()=>{const phrase=prompt('Type RESET ALL DATA to permanently clear all local inventory, certificates, roll history, vehicle parts, trophies and settings back to an empty workspace.');if(phrase==='RESET ALL DATA')setData(makeEmptyData())}}>Clear all local data</button></div>
   </section>;
 }
@@ -467,10 +474,10 @@ function RollLogEditor({data,certificate,onClose,onSave}:{data:AppData;certifica
   const setFinalStat=(key:keyof GearStats,value:number)=>setFinalStats(current=>({...ZERO_STATS,...current,[key]:Number.isFinite(value)?value:0}));
   const authKind=type.startsWith('Premium')?'Premium':type.startsWith('Limited')?'Limited':'Normal';
   return <div className="modalBackdrop"><div className="modal"><div className="modalHeader"><h2>Record certificate roll</h2><button className="iconButton" onClick={onClose}>×</button></div>
-    <div className="notice"><b>Certificate being consumed:</b> {certificate.type}{certificate.gradeStars!==undefined?' · '+'★'.repeat(certificate.gradeStars):''}{certificate.displayedValue!==undefined?' · $'+certificate.displayedValue.toLocaleString():''}. Saving this roll reduces its owned quantity by one.</div>
+    <div className="notice"><b>Certificate being consumed:</b> {certificate.type}{certificate.mutation?' · '+certificate.mutation:''}{certificate.gradeStars!==undefined?' · '+'★'.repeat(certificate.gradeStars):''}{certificate.displayedValue!==undefined?' · $'+certificate.displayedValue.toLocaleString():''}. Saving this roll reduces its owned quantity by one.</div>
     <div className="formGrid"><label className="wide">Item<select value={itemId} onChange={e=>setItemId(e.target.value)}>{data.gear.map(g=><option value={g.id} key={g.id}>{g.name} · {g.slot}</option>)}</select></label><label>New authentication<select value={newAuth} onChange={e=>setNewAuth(e.target.value)}><option value="">Select result</option>{activeCertificateOutcomeOptions(item?.slot,data.authModel,authKind,certificate.type).map(a=><option key={a}>{a}</option>)}</select></label><label>New value %<input type="number" step="any" value={newValue} onChange={e=>setNewValue(Number(e.target.value))}/></label><label>Best score before<input type="number" value={before} readOnly/></label><label>Calculated score after<input type="number" value={after} readOnly/></label><p className="wide fieldHelp">These are the final stats displayed in game after the new authentication. Any difference caused by the authentication (especially Focused) is stored on that authentication only; the item's base stats are not overwritten.</p></div>
     {finalStats&&<details className="finalStatsEditor"><summary>Confirm / correct final displayed stats</summary><div className="formGrid">{statLabels.filter(([k])=>k!=='arrowReduction').map(([k,l])=><label key={k}>{l} %<input type="number" inputMode="decimal" step="any" value={finalStats[k]} onChange={e=>setFinalStat(k,Number(e.target.value))}/></label>)}<label className="wide arrowInput">Bid Arrow Speed — game display %<input type="number" inputMode="decimal" step="any" value={reductionToGameArrow(finalStats.arrowReduction)} onChange={e=>setFinalStat('arrowReduction',gameArrowToReduction(Number(e.target.value)))}/><span>Enter the signed value shown by the game.</span></label></div></details>}
-    <div className="stickyActions"><button className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={!item||!newAuth||!preview||certificate.quantity<1} onClick={()=>{item&&preview&&onSave({id:crypto.randomUUID(),date:new Date().toISOString(),certificateType:type,itemId:item.id,itemName:item.name,slot:item.slot,previousAuthentication:item.authentication.effect,previousValue:item.authentication.value,newAuthentication:newAuth,newValue,improvedBestSet:after>before,bestScoreBefore:before,bestScoreAfter:after,certificateId:certificate.id,certificateGradeStars:certificate.gradeStars,certificateInventoryType:certificate.type},preview)}}>Apply, record & consume</button></div>
+    <div className="stickyActions"><button className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={!item||!newAuth||!preview||certificate.quantity<1} onClick={()=>{item&&preview&&onSave({id:crypto.randomUUID(),date:new Date().toISOString(),certificateType:type,itemId:item.id,itemName:item.name,slot:item.slot,previousAuthentication:item.authentication.effect,previousValue:item.authentication.value,newAuthentication:newAuth,newValue,improvedBestSet:after>before,bestScoreBefore:before,bestScoreAfter:after,certificateId:certificate.id,certificateGradeStars:certificate.gradeStars,certificateMutation:certificate.mutation,certificateInventoryType:certificate.type},preview)}}>Apply, record & consume</button></div>
   </div></div>;
 }
 

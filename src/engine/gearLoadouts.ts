@@ -11,6 +11,8 @@ export interface DynamicState {
   droughtbreakerStacks: number;
   goldenHourLuck: number;
   luckFrenzyUptime: number;
+  /** Base Luck supplied by an active Energy Drink before Overcharged is applied. */
+  drinkLuckBoost: number;
   label: string;
 }
 
@@ -62,24 +64,27 @@ const TRIO_DEPENDENT_OR_STATEFUL = new Set([
 ]);
 
 const LUCKY_GRADES = [
-  {p:.28,value:1.05,eligible:true},
-  {p:.62,value:1.35,eligible:false},
+  // Lucky Grading gamepass: Replica 0%, 1★ 36%, 2★ 54%, 3★ 10%.
+  {p:.36,value:1.05,eligible:true},
+  {p:.54,value:1.35,eligible:false},
   {p:.10,value:2.00,eligible:false}
 ] as const;
 
 const PRESET_STATES: Record<DynamicScenario,DynamicState> = {
-  low:{droughtbreakerStacks:0,goldenHourLuck:0,luckFrenzyUptime:.05,label:'Low dynamic state'},
-  central:{droughtbreakerStacks:3,goldenHourLuck:50,luckFrenzyUptime:.15,label:'Central dynamic state'},
-  high:{droughtbreakerStacks:5,goldenHourLuck:100,luckFrenzyUptime:.30,label:'High dynamic state'}
+  low:{droughtbreakerStacks:0,goldenHourLuck:0,luckFrenzyUptime:0,drinkLuckBoost:0,label:'Robust baseline'},
+  central:{droughtbreakerStacks:3,goldenHourLuck:50,luckFrenzyUptime:.15,drinkLuckBoost:150,label:'Central sensitivity · Drink 2'},
+  high:{droughtbreakerStacks:5,goldenHourLuck:100,luckFrenzyUptime:.30,drinkLuckBoost:300,label:'High sensitivity · Drink 3'}
 };
 
 export const RETENTION_DYNAMIC_STATES: DynamicState[] = [
   ...[0,5].flatMap(droughtbreakerStacks=>
     [0,100].flatMap(goldenHourLuck=>
-      [0,1].map(luckFrenzyUptime=>({
-        droughtbreakerStacks,goldenHourLuck,luckFrenzyUptime,
-        label:'DB '+droughtbreakerStacks+' · GH '+goldenHourLuck+' · Frenzy '+(luckFrenzyUptime?'active':'inactive')
-      }))
+      [0,1].flatMap(luckFrenzyUptime=>
+        [0,50,150,300].map(drinkLuckBoost=>({
+          droughtbreakerStacks,goldenHourLuck,luckFrenzyUptime,drinkLuckBoost,
+          label:'DB '+droughtbreakerStacks+' · GH '+goldenHourLuck+' · Frenzy '+(luckFrenzyUptime?'active':'inactive')+' · Drink '+drinkLuckBoost
+        }))
+      )
     )
   ),
   PRESET_STATES.central
@@ -95,14 +100,14 @@ export function mutationLuckForItem(item:GearItem):number {
   return (item.mutation??'').split('+').map(x=>x.trim()).reduce((best,name)=>Math.max(best,MUTATED_LUCK[name]??0),0);
 }
 
-export function resolveDynamicState(input:DynamicScenario|DynamicState='central'):DynamicState {
+export function resolveDynamicState(input:DynamicScenario|DynamicState='low'):DynamicState {
   return typeof input==='string'?PRESET_STATES[input]:input;
 }
 
 export function dynamicLuck(
   items:GearItem[],
   context:MainAuctionContext='Neutral',
-  dynamic:DynamicScenario|DynamicState='central'
+  dynamic:DynamicScenario|DynamicState='low'
 ):number {
   const state=resolveDynamicState(dynamic);
   let luck=0;
@@ -118,6 +123,8 @@ export function dynamicLuck(
       luck += state.goldenHourLuck;
     } else if(effect==='Luck Frenzy') {
       luck += value*state.luckFrenzyUptime;
+    } else if(effect==='Overcharged'&&state.drinkLuckBoost>0) {
+      luck += state.drinkLuckBoost*(Math.max(0,value)/100);
     } else if(effect==='Sunny'&&context==='Day') luck += value;
     else if(effect==='Nocturnal'&&context==='Night') luck += value;
     else if(effect==='Raindrop'&&context==='Rain') luck += value;
@@ -129,7 +136,7 @@ export function mainAuctionUtility(
   items:GearItem[],
   settings:AlgorithmSettings,
   context:MainAuctionContext='Neutral',
-  dynamic:DynamicScenario|DynamicState='central'
+  dynamic:DynamicScenario|DynamicState='low'
 ):number {
   const stats=combineStats(items);
   const luck=stats.luck+dynamicLuck(items,context,dynamic);
@@ -141,7 +148,7 @@ export function mainAuctionUtility(
 
 export function mainCombination(
   head:GearItem, back:GearItem, wrist:GearItem, settings:AlgorithmSettings,
-  context:MainAuctionContext='Neutral', dynamic:DynamicScenario|DynamicState='central'
+  context:MainAuctionContext='Neutral', dynamic:DynamicScenario|DynamicState='low'
 ):CombinationResult {
   const items=[head,back,wrist];
   const stats=combineStats(items);
@@ -168,9 +175,6 @@ export function mainCombination(
   };
 }
 
-function overchargedValue(items:GearItem[]):number {
-  return items.reduce((sum,item)=>sum+(item.authenticated&&item.authentication.effect.trim()==='Overcharged'?Math.max(0,item.authentication.value):0),0);
-}
 function gradeRerollValue(items:GearItem[]):number {
   return items.reduce((sum,item)=>sum+(item.authenticated&&item.authentication.effect.trim()==='Grade Re-Roll'
     ?gradeRerollExpectedValueGainPct(Math.max(0,item.authentication.value)):0),0);
@@ -181,7 +185,7 @@ function shopValue(items:GearItem[]):number {
 }
 function drinkValue(items:GearItem[],settings:AlgorithmSettings):number {
   const stats=combineStats(items);
-  return energyEffective(stats.energy,settings)+overchargedValue(items)*.6;
+  return energyEffective(stats.energy,settings);
 }
 
 function allTrios(gear:GearItem[]):GearItem[][] {
@@ -197,7 +201,7 @@ function makeResult(
   settings:AlgorithmSettings, context?:MainAuctionContext, rationale='', requirePositive=false
 ):GearLoadoutResult|undefined {
   if(!trios.length)return undefined;
-  const scored=trios.map(items=>({items,u:utility(items),main:mainAuctionUtility(items,settings,'Neutral','central')}));
+  const scored=trios.map(items=>({items,u:utility(items),main:mainAuctionUtility(items,settings,'Neutral','low')}));
   scored.sort((a,b)=>b.u-a.u||b.main-a.main||a.items.map(x=>x.id).join('|').localeCompare(b.items.map(x=>x.id).join('|')));
   const best=scored[0];
   if(requirePositive&&best.u<=1e-9)return undefined;
@@ -211,7 +215,7 @@ function makeResult(
 }
 
 export function buildGearLoadouts(
-  gear:GearItem[], settings:AlgorithmSettings, dynamic:DynamicScenario|DynamicState='central'
+  gear:GearItem[], settings:AlgorithmSettings, dynamic:DynamicScenario|DynamicState='low'
 ):GearLoadoutCollection {
   const trios=allTrios(gear);
   return {
@@ -219,7 +223,7 @@ export function buildGearLoadouts(
     day:makeResult('Day Auction',trios,items=>mainAuctionUtility(items,settings,'Day',dynamic),settings,'Day','Main Auction with Sunny effects active.'),
     night:makeResult('Night Auction',trios,items=>mainAuctionUtility(items,settings,'Night',dynamic),settings,'Night','Main Auction with Nocturnal effects active.'),
     rain:makeResult('Rain Auction',trios,items=>mainAuctionUtility(items,settings,'Rain',dynamic),settings,'Rain','Main Auction with Raindrop effects active.'),
-    drink:makeResult('Drink Prep',trios,items=>drinkValue(items,settings),settings,undefined,'Temporary set used while consuming an Energy Drink; Energy duration and Overcharged matter.',true),
+    drink:makeResult('Drink Prep',trios,items=>drinkValue(items,settings),settings,undefined,'Temporary set used while consuming an Energy Drink; Energy duration matters. Overcharged is auction-time Luck and is evaluated in Main sensitivity states instead.',true),
     grading:makeResult('Grading',trios,items=>gradeRerollValue(items),settings,undefined,'Temporary grading set; Lucky Grading is owned and Grade Re-Roll is valued against that distribution.',true),
     shop:makeResult('Shop / Idle',trios,items=>shopValue(items),settings,undefined,'Optional selling set for deliberate shop/idle sessions; Tip Chance and NPC Offers matter.',true)
   };
