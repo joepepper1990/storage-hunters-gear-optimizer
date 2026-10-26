@@ -7,22 +7,16 @@ export const UNKNOWN_PROTECTED_PASSIVES = new Set(['Haggler', 'Anti-Gravity Fiel
 export const PROVISIONAL_PASSIVES = new Set(['Time Keeper', 'Grade Re-Roll']);
 
 export function arrowEffective(r: number, s: AlgorithmSettings): number {
-  if (r <= s.arrowSweetSpot) return r;
-  const plateau = s.arrowSweetSpot + (s.arrowCeiling - s.arrowSweetSpot) * s.arrowDiminishingMultiplier;
-  if (r <= s.arrowCeiling) return s.arrowSweetSpot + (r - s.arrowSweetSpot) * s.arrowDiminishingMultiplier;
-  if (r <= s.arrowPenaltyThreshold) return plateau;
-  return plateau - (r - s.arrowPenaltyThreshold) * s.arrowOvercapPenaltyMultiplier;
+  // User preference: 75% combined Bid Arrow reduction is the practical sweet spot.
+  // Above that we award no further Main Auction benefit; we do not invent a game penalty.
+  if (r < 0) return r;
+  return Math.min(r, s.arrowSweetSpot);
 }
 
-export function luckEffective(l: number, s: AlgorithmSettings): number {
-  if (l <= s.luckBreakpoint1) return l;
-  if (l <= s.luckBreakpoint2) return s.luckBreakpoint1 + (l - s.luckBreakpoint1) * s.luckMultiplier2;
-  const at2 = s.luckBreakpoint1 + (s.luckBreakpoint2 - s.luckBreakpoint1) * s.luckMultiplier2;
-  if (l <= s.luckBreakpoint3) return at2 + (l - s.luckBreakpoint2) * s.luckMultiplier3;
-  const at3 = at2 + (s.luckBreakpoint3 - s.luckBreakpoint2) * s.luckMultiplier3;
-  if (l <= s.luckBreakpoint4) return at3 + (l - s.luckBreakpoint3) * s.luckMultiplier4;
-  const at4 = at3 + (s.luckBreakpoint4 - s.luckBreakpoint3) * s.luckMultiplier4;
-  return at4 + (l - s.luckBreakpoint4) * s.luckMultiplier5;
+export function luckEffective(l: number, _s: AlgorithmSettings): number {
+  // No published game formula justifies diminishing displayed Luck in the optimiser.
+  // Keep displayed Luck linear and never present this as hidden mutation/drop probability.
+  return l;
 }
 
 export function npcEffective(n: number, s: AlgorithmSettings): number {

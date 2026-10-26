@@ -154,7 +154,7 @@ export interface GearItem {
 }
 
 export interface AlgorithmSettings {
-  version: '1.1';
+  version: '1.2';
   luckWeight: number;
   luckBreakpoint1: number;
   luckBreakpoint2: number;

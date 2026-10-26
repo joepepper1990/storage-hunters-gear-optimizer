@@ -36,18 +36,18 @@ describe('backup round trips',()=>{
     expect(()=>importJson(JSON.stringify(d))).toThrow();
   });
 
-  it('migrates stored scoring 1.0 settings to the approved 1.1 model',()=>{
+  it('migrates stored scoring settings to the approved 1.2 Main Auction model',()=>{
     const d=makeInitialData() as any;
     d.settings={...d.settings,version:'1.0',arrowOvercapPenaltyMultiplier:1,zoneWeight:0.4,npcWeight:0.75,recoveryWeight:0.01,walkWeight:0.01};
     delete d.settings.luckBreakpoint1;
     delete d.settings.npcBreakpoint1;
     const restored=importJson(JSON.stringify(d));
-    expect(restored.settings.version).toBe('1.1');
-    expect(restored.settings.arrowOvercapPenaltyMultiplier).toBe(0.25);
-    expect(restored.settings.zoneWeight).toBe(0.5);
-    expect(restored.settings.npcWeight).toBe(0.35);
-    expect(restored.settings.recoveryWeight).toBe(0.05);
-    expect(restored.settings.walkWeight).toBe(0.02);
+    expect(restored.settings.version).toBe('1.2');
+    expect(restored.settings.arrowOvercapPenaltyMultiplier).toBe(0);
+    expect(restored.settings.zoneWeight).toBe(0.6);
+    expect(restored.settings.npcWeight).toBe(0);
+    expect(restored.settings.recoveryWeight).toBe(0.2);
+    expect(restored.settings.walkWeight).toBe(0);
     expect((restored.settings as any).luckBreakpoint1).toBe(100);
     expect((restored.settings as any).npcBreakpoint1).toBe(20);
   });
