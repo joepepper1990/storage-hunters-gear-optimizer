@@ -58,55 +58,19 @@ export function scoreCore(stats: GearStats, s: AlgorithmSettings): Omit<ScoreBre
   return { core, luck, arrow, npc, energy, zone, tip, recovery, vehicle, walk };
 }
 
-export function expectedConditionalLuck(item: GearItem, s: AlgorithmSettings): number {
-  if (!item.authenticated || item.authentication.kind === 'None') return 0;
+export function passiveScore(item: GearItem, _s: AlgorithmSettings) {
   const effect = item.authentication.effect.trim();
-  const value = finite(item.authentication.value);
-  if (effect === 'Sunny') return value * s.sunnyUptime;
-  if (effect === 'Nocturnal') return value * s.nocturnalUptime;
-  if (effect === 'Raindrop') return value * s.raindropUptime;
-  if (effect === 'Overcharged') return value * s.overchargedMultiplier;
-  return 0;
-}
-
-function conditionalLuckLabel(item: GearItem, s: AlgorithmSettings): string | undefined {
-  const expected = expectedConditionalLuck(item, s);
-  if (!expected) return undefined;
-  const effect = item.authentication.effect.trim();
-  const value = finite(item.authentication.value);
-  const multiplier = value ? expected / value : 0;
-  const suffix = effect === 'Overcharged' ? 'theoretical extra Luck' : 'Luck';
-  return `${effect}: ${value}% ${suffix} × ${Math.round(multiplier * 100)}%`;
-}
-
-export function passiveScore(item: GearItem, s: AlgorithmSettings) {
-  const effect = item.authentication.effect.trim();
-  const value = finite(item.authentication.value);
   if (!item.authenticated || item.authentication.kind === 'None' || !effect) {
     return { score: 0, details: [], unknown: false, provisional: false };
   }
   if (item.authentication.kind === 'Limited') {
-    return { score: 0, details: [{ label: `${effect} (Limited utility — not numerically scored)`, score: 0 }], unknown: false, provisional: false };
+    return { score: 0, details: [{ label: `${effect} (Limited utility — evaluated by loadout/certificate engines)`, score: 0 }], unknown: false, provisional: false };
   }
-  if (EVENT_PASSIVES.has(effect) || SHARED_MODELED_PASSIVES.has(effect) || effect === 'Focused' || isNumericAuth(effect)) {
-    return { score: 0, details: [], unknown: false, provisional: false };
-  }
-  if (['Sunny', 'Nocturnal', 'Raindrop', 'Overcharged'].includes(effect)) {
-    // Conditional Luck is scored at combination level so it passes through the same
-    // diminishing-return curve as ordinary Luck and can interact correctly with other gear.
+  if (EVENT_PASSIVES.has(effect) || SHARED_MODELED_PASSIVES.has(effect) || effect === 'Focused' || isNumericAuth(effect) || ['Sunny','Nocturnal','Raindrop','Overcharged','Rush'].includes(effect)) {
     return { score: 0, details: [], unknown: false, provisional: false };
   }
   if (UNKNOWN_PROTECTED_PASSIVES.has(effect)) {
     return { score: 0, details: [{ label: `${effect} (unknown/protected)`, score: 0 }], unknown: true, provisional: false };
-  }
-  if (effect === 'Rush') return { score: value * s.rushWeight, details: [{ label: `Rush ${value}%`, score: value * s.rushWeight }], unknown: false, provisional: false };
-  if (effect === 'Time Keeper') {
-    const score = value * s.timeKeeperWeight;
-    return { score, details: [{ label: `Time Keeper (provisional)`, score, provisional: true }], unknown: false, provisional: true };
-  }
-  if (effect === 'Grade Re-Roll') {
-    const score = value * s.gradeRerollWeight;
-    return { score, details: [{ label: `Grade Re-Roll (provisional)`, score, provisional: true }], unknown: false, provisional: true };
   }
   return { score: 0, details: [{ label: `${effect} (unmodelled/protected)`, score: 0 }], unknown: true, provisional: false };
 }
@@ -114,24 +78,12 @@ export function passiveScore(item: GearItem, s: AlgorithmSettings) {
 export function scoreItemOrCombination(stats: GearStats, items: GearItem[], s: AlgorithmSettings): ScoreBreakdown {
   const core = scoreCore(stats, s);
   const passives = items.map(i => passiveScore(i, s));
-  const conditional = items
-    .map(item => ({ item, expectedLuck: expectedConditionalLuck(item, s), label: conditionalLuckLabel(item, s) }))
-    .filter(x => x.expectedLuck !== 0 && x.label);
-  const totalExpectedLuck = conditional.reduce((sum, x) => sum + x.expectedLuck, 0);
-  const conditionalLuckScore = (
-    luckEffective(finite(stats.luck) + totalExpectedLuck, s) - luckEffective(finite(stats.luck), s)
-  ) * s.luckWeight;
-  const ordinaryPassive = passives.reduce((sum, p) => sum + p.score, 0);
-  const passive = ordinaryPassive + conditionalLuckScore;
-  const conditionalDetails = conditional.map(x => ({
-    label: x.label!,
-    score: totalExpectedLuck === 0 ? 0 : conditionalLuckScore * (x.expectedLuck / totalExpectedLuck)
-  }));
+  const passive = passives.reduce((sum, p) => sum + p.score, 0);
   return {
     ...core,
     passive,
     total: core.core + passive,
-    passiveDetails: [...passives.flatMap(p => p.details), ...conditionalDetails],
+    passiveDetails: passives.flatMap(p => p.details),
     hasUnknownProtectedPassive: passives.some(p => p.unknown),
     hasProvisionalPassive: passives.some(p => p.provisional)
   };

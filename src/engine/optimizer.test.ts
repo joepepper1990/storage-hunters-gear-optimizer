@@ -52,4 +52,17 @@ describe('combination optimiser',()=>{
     const results=analyseItems(gear,optimise(gear,LOCKED_DEFAULT_SETTINGS,1)[0],LOCKED_DEFAULT_SETTINGS);
     expect(results.find(x=>x.item.id==='Unknown')?.verdict).toBe('PROTECTED / UNKNOWN');
   });
+  it('resolves exact-score ties deterministically by Head/Back/Wrist IDs',()=>{
+    const gear=[
+      g('H2','Head',{luck:100}),g('H1','Head',{luck:100}),
+      g('B2','Back',{luck:100}),g('B1','Back',{luck:100}),
+      g('W2','Wrist',{luck:100}),g('W1','Wrist',{luck:100})
+    ];
+    const first=optimise(gear,LOCKED_DEFAULT_SETTINGS,8);
+    const second=optimise([...gear].reverse(),LOCKED_DEFAULT_SETTINGS,8);
+    const keys=(values:ReturnType<typeof optimise>)=>values.map(v=>[v.head.id,v.back.id,v.wrist.id].join('|'));
+    expect(keys(first)).toEqual(keys(second));
+    expect(keys(first)[0]).toBe('H1|B1|W1');
+  });
+
 });

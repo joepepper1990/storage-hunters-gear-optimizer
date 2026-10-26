@@ -122,7 +122,7 @@ function request<T = unknown>(req: IDBRequest<T>): Promise<T> {
 export function normalizeData(raw: AppData): AppData {
   const initial = makeInitialData();
   return {
-    schemaVersion: 12,
+    schemaVersion: 13,
     // Schema 9 is a deliberate one-time inventory reset from the user's complete
     // 26 October 2026 screenshots. Any pre-schema-9 gear rows are replaced, not
     // merged, because the verified 22-item list is the user's entire owned gear.
@@ -229,14 +229,28 @@ function normalizeAuthModel(raw: AppData['authModel'] | undefined, defaults: App
     };
   });
   const upgraded=out.map(entry=>{
+    let next={...entry};
     if(
       schemaVersion<12 &&
-      entry.assumedLikelihoodClass==='MEDIUM' &&
-      (entry.category.startsWith('Wooden exclusive')||entry.category.startsWith('Ripped exclusive'))
+      next.assumedLikelihoodClass==='MEDIUM' &&
+      (next.category.startsWith('Wooden exclusive')||next.category.startsWith('Ripped exclusive'))
     ){
-      return {...entry,assumedLikelihoodClass:'LOW' as const};
+      next={...next,assumedLikelihoodClass:'LOW' as const};
     }
-    return entry;
+    if(schemaVersion<13){
+      const fallback=defaultsByKey.get(key(next));
+      const empiricalConfidence=next.observedSampleCount>=10?'Empirical':next.observedSampleCount>=4?'Medium':next.observedSampleCount>=1?'Low':'Unknown';
+      // Older builds overwrote mechanic confidence with sample-size confidence.
+      // Restore the built-in mechanic/range confidence where known.
+      next={
+        ...next,
+        confidence:fallback?.confidence??next.confidence,
+        empiricalConfidence
+      };
+    }else if(!next.empiricalConfidence){
+      next={...next,empiricalConfidence:next.observedSampleCount>=10?'Empirical':next.observedSampleCount>=4?'Medium':next.observedSampleCount>=1?'Low':'Unknown'};
+    }
+    return next;
   });
   const existing=new Set(upgraded.map(key));
   if(schemaVersion<11){
@@ -326,9 +340,7 @@ function normalizeSettings(raw: Partial<AppData['settings']> | undefined): AppDa
   // while retaining unrelated user settings and all inventory/history data.
   if (sourceVersion !== '2.0') {
     const v20Keys: Array<keyof AppData['settings']> = [
-      'luckWeight','luckBreakpoint1','luckBreakpoint2','luckBreakpoint3','luckBreakpoint4',
-      'luckMultiplier2','luckMultiplier3','luckMultiplier4','luckMultiplier5',
-      'arrowWeight','arrowSweetSpot','arrowDiminishingMultiplier','arrowCeiling','arrowPenaltyThreshold','arrowOvercapPenaltyMultiplier',
+      'luckWeight','arrowWeight','arrowSweetSpot',
       'npcWeight','npcBreakpoint1','npcBreakpoint2','npcMultiplier2','npcMultiplier3',
       'zoneWeight','zoneBreakpoint1','zoneBreakpoint2','zoneMultiplier2','zoneMultiplier3',
       'tipWeight','recoveryWeight','walkWeight','vehicleWeight'

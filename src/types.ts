@@ -173,20 +173,8 @@ export interface GearItem {
 export interface AlgorithmSettings {
   version: '2.0';
   luckWeight: number;
-  luckBreakpoint1: number;
-  luckBreakpoint2: number;
-  luckBreakpoint3: number;
-  luckBreakpoint4: number;
-  luckMultiplier2: number;
-  luckMultiplier3: number;
-  luckMultiplier4: number;
-  luckMultiplier5: number;
   arrowWeight: number;
   arrowSweetSpot: number;
-  arrowDiminishingMultiplier: number;
-  arrowCeiling: number;
-  arrowPenaltyThreshold: number;
-  arrowOvercapPenaltyMultiplier: number;
   npcWeight: number;
   npcBreakpoint1: number;
   npcBreakpoint2: number;
@@ -205,13 +193,6 @@ export interface AlgorithmSettings {
   recoveryWeight: number;
   vehicleWeight: number;
   walkWeight: number;
-  rushWeight: number;
-  sunnyUptime: number;
-  nocturnalUptime: number;
-  raindropUptime: number;
-  overchargedMultiplier: number;
-  timeKeeperWeight: number;
-  gradeRerollWeight: number;
 }
 
 export interface ScoreBreakdown {
@@ -277,7 +258,10 @@ export interface AuthModelEntry {
   min?: number;
   typical?: number;
   max?: number;
+  /** Confidence in the mechanic/range model itself. */
   confidence: Confidence;
+  /** Confidence arising only from observed roll sample size. */
+  empiricalConfidence?: Confidence;
   enabled: boolean;
 }
 
@@ -303,6 +287,8 @@ export interface CertificateRollLog {
   normalizedRollPosition?: number;
   /** Authentication-owned stat deltas observed on the resulting item. */
   observedStatDeltas?: Partial<GearStats>;
+  /** Data/model conflicts detected when the roll was recorded or corrected. */
+  modelWarnings?: string[];
 }
 
 export interface CertificateTarget {
@@ -330,7 +316,7 @@ export interface OwnedCertificate {
 }
 
 export interface AppData {
-  schemaVersion: 12;
+  schemaVersion: 13;
   gear: GearItem[];
   settings: AlgorithmSettings;
   authModel: AuthModelEntry[];

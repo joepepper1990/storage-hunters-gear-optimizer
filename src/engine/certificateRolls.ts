@@ -1,5 +1,6 @@
 import type { AppData, AuthModelEntry, CertificateRollLog, GearItem, GearStats, OwnedCertificate } from '../types';
 import { effectiveItemStats } from './scoring';
+import { empiricalConfidenceForCount } from './authModel';
 
 export function authModelTypeForOwnedCertificate(cert:OwnedCertificate):AuthModelEntry['certificateType'] {
   if(cert.type==='Premium Certificate of Authenticity') return 'Premium Certificate of Authenticity';
@@ -7,28 +8,81 @@ export function authModelTypeForOwnedCertificate(cert:OwnedCertificate):AuthMode
   return 'Normal Certificate of Authenticity';
 }
 
-export function recordEmpiricalRoll(model:AuthModelEntry[],roll:CertificateRollLog):AuthModelEntry[] {
+function matchingModelEntry(model:AuthModelEntry[],roll:CertificateRollLog):AuthModelEntry|undefined {
   const candidates=model.filter(m=>
     m.certificateType===roll.certificateType &&
     (!roll.certificateInventoryType||m.certificateInventoryType===roll.certificateInventoryType) &&
     m.outcome===roll.newAuthentication &&
     (m.slot==='Any'||m.slot===roll.slot)
   );
-  const target=candidates.find(m=>m.slot===roll.slot)??candidates[0];
+  return candidates.find(m=>m.slot===roll.slot)??candidates.find(m=>m.slot==='Any');
+}
+
+function rollBelongsToEntry(roll:CertificateRollLog,entry:AuthModelEntry):boolean {
+  return roll.certificateType===entry.certificateType &&
+    (!entry.certificateInventoryType||roll.certificateInventoryType===entry.certificateInventoryType) &&
+    roll.newAuthentication===entry.outcome &&
+    (entry.slot==='Any'||roll.slot===entry.slot);
+}
+
+export function rollModelWarnings(model:AuthModelEntry[],roll:CertificateRollLog):string[] {
+  const target=matchingModelEntry(model,roll);
+  if(!target)return [`No catalogue row currently matches ${roll.newAuthentication} for this certificate tier/slot.`];
+  const warnings:string[]=[];
+  if(target.min!==undefined&&roll.newValue<target.min){
+    warnings.push(`Observed ${roll.newValue}% is below the configured minimum ${target.min}% for ${target.outcome}.`);
+  }
+  if(target.max!==undefined&&roll.newValue>target.max){
+    warnings.push(`Observed ${roll.newValue}% is above the configured maximum ${target.max}% for ${target.outcome}.`);
+  }
+  return warnings;
+}
+
+export function recordEmpiricalRoll(model:AuthModelEntry[],roll:CertificateRollLog):AuthModelEntry[] {
+  const target=matchingModelEntry(model,roll);
   if(!target)return model;
   return model.map(m=>{
     if(m.id!==target.id)return m;
     const values=[...m.observedValues,roll.newValue].filter(Number.isFinite);
-    if(!values.length)return m;
     return {
       ...m,
       observedValues:values,
       observedSampleCount:values.length,
-      // Keep catalogue min/typical/max as the prior/legal model. Observations are
-      // stored separately and progressively outweigh that prior in certificate EV.
-      confidence:values.length>=10?'Empirical':values.length>=4?'Medium':'Low'
+      empiricalConfidence:empiricalConfidenceForCount(values.length)
+      // Mechanic/range confidence deliberately remains unchanged.
     };
   });
+}
+
+/**
+ * Remove observations already represented by rollLog, leaving only imported/manual
+ * legacy evidence. This lets a historical roll be corrected/deleted without either
+ * duplicating samples or throwing away model-only evidence.
+ */
+function stripRollDerivedObservations(model:AuthModelEntry[],rollLog:CertificateRollLog[]):AuthModelEntry[] {
+  return model.map(entry=>{
+    const remaining=[...(entry.observedValues??[])];
+    for(const roll of rollLog.filter(r=>rollBelongsToEntry(r,entry))){
+      const index=remaining.findIndex(value=>Math.abs(value-roll.newValue)<1e-9);
+      if(index>=0)remaining.splice(index,1);
+    }
+    return {
+      ...entry,
+      observedValues:remaining,
+      observedSampleCount:remaining.length,
+      empiricalConfidence:empiricalConfidenceForCount(remaining.length)
+    };
+  });
+}
+
+export function rebuildEmpiricalModel(
+  model:AuthModelEntry[],
+  oldRollLog:CertificateRollLog[],
+  nextRollLog:CertificateRollLog[]
+):AuthModelEntry[] {
+  let rebuilt=stripRollDerivedObservations(model,oldRollLog);
+  for(const roll of nextRollLog)rebuilt=recordEmpiricalRoll(rebuilt,roll);
+  return rebuilt;
 }
 
 export function withObservedAuthenticationStats(item:GearItem, displayed:GearStats):GearItem {
@@ -58,7 +112,7 @@ export function applyRecordedCertificateRoll(
   if(!certificate)throw new Error('The selected owned certificate no longer exists.');
   if(certificate.quantity<1)throw new Error('The selected certificate has already been used.');
 
-  const normalizedRoll:CertificateRollLog={
+  const baseRoll:CertificateRollLog={
     ...roll,
     certificateId:certificate.id,
     certificateGradeStars:certificate.gradeStars,
@@ -67,12 +121,44 @@ export function applyRecordedCertificateRoll(
     certificateType:authModelTypeForOwnedCertificate(certificate),
     observedStatDeltas:updated.authentication.statDeltas
   };
+  const normalizedRoll={...baseRoll,modelWarnings:rollModelWarnings(data.authModel,baseRoll)};
+  const nextRollLog=[...data.rollLog,normalizedRoll];
 
   return {
     ...data,
     gear:data.gear.map(g=>g.id===updated.id?updated:g),
-    authModel:recordEmpiricalRoll(data.authModel,normalizedRoll),
-    rollLog:[...data.rollLog,normalizedRoll],
+    authModel:rebuildEmpiricalModel(data.authModel,data.rollLog,nextRollLog),
+    rollLog:nextRollLog,
     ownedCertificates:data.ownedCertificates.map(c=>c.id===certificate.id?{...c,quantity:c.quantity-1}:c)
+  };
+}
+
+export function correctRecordedCertificateRoll(
+  data:AppData,
+  rollId:string,
+  patch:Pick<CertificateRollLog,'newAuthentication'|'newValue'>
+):AppData {
+  const existing=data.rollLog.find(r=>r.id===rollId);
+  if(!existing)throw new Error('Roll history entry no longer exists.');
+  if(!patch.newAuthentication.trim())throw new Error('Authentication effect is required.');
+  if(!Number.isFinite(patch.newValue))throw new Error('Authentication value must be finite.');
+
+  const correctedBase={...existing,newAuthentication:patch.newAuthentication.trim(),newValue:patch.newValue};
+  const corrected={...correctedBase,modelWarnings:rollModelWarnings(data.authModel,correctedBase)};
+  const nextRollLog=data.rollLog.map(r=>r.id===rollId?corrected:r);
+  return {
+    ...data,
+    authModel:rebuildEmpiricalModel(data.authModel,data.rollLog,nextRollLog),
+    rollLog:nextRollLog
+  };
+}
+
+export function deleteRecordedCertificateRoll(data:AppData,rollId:string):AppData {
+  if(!data.rollLog.some(r=>r.id===rollId))return data;
+  const nextRollLog=data.rollLog.filter(r=>r.id!==rollId);
+  return {
+    ...data,
+    authModel:rebuildEmpiricalModel(data.authModel,data.rollLog,nextRollLog),
+    rollLog:nextRollLog
   };
 }

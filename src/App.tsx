@@ -2,8 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { LOCKED_DEFAULT_SETTINGS, makeEmptyData, makeInitialData, ZERO_STATS } from './defaults';
 import { analyseItems, optimise } from './engine/optimizer';
 import type { OwnedCertificateDecision } from './engine/certificateDecision';
-import { applyRecordedCertificateRoll, authModelTypeForOwnedCertificate, withObservedAuthenticationStats } from './engine/certificateRolls';
-import { optimisationInputKey } from './engine/analysisFreshness';
+import type { PostRollDecision } from './engine/certificateReroll';
+import { applyRecordedCertificateRoll, authModelTypeForOwnedCertificate, correctRecordedCertificateRoll, deleteRecordedCertificateRoll, withObservedAuthenticationStats } from './engine/certificateRolls';
+import { certificateInputKey, optimisationInputKey } from './engine/analysisFreshness';
+import { authenticationCatalogueIssues } from './engine/authModel';
+import { MODEL_ASSUMPTIONS } from './engine/modelAssumptions';
 import { buildGearLoadouts } from './engine/gearLoadouts';
 import { addOutcomeToItem, removeNumericAuthentication } from './engine/dominance';
 import { effectiveItemStats, gameArrowToReduction, reductionToGameArrow, scoreStandalone } from './engine/scoring';
@@ -168,10 +171,12 @@ function useOptimisationWorker(data: AppData | null) {
 }
 
 function useCertificateWorker(data:AppData) {
-  const [state,setState]=useState<{decisions:OwnedCertificateDecision[];computing:boolean;error?:string}>({decisions:[],computing:false});
+  const inputKey=useMemo(()=>certificateInputKey(data),[data.gear,data.settings,data.rollLog,data.ownedCertificates,data.authModel]);
+  const [state,setState]=useState<{decisions:OwnedCertificateDecision[];postRoll?:PostRollDecision;computing:boolean;resultKey:string;error?:string}>({decisions:[],computing:false,resultKey:''});
   const requestId=useRef(0);
   useEffect(()=>{
     const id=++requestId.current;
+    const requestKey=inputKey;
     setState(prev=>({...prev,computing:true,error:undefined}));
     let worker:Worker;
     try{
@@ -183,7 +188,7 @@ function useCertificateWorker(data:AppData) {
     worker.onmessage=(event:MessageEvent<any>)=>{
       if(event.data.id!==id)return;
       if(event.data.error)setState(prev=>({...prev,computing:false,error:event.data.error}));
-      else setState({decisions:event.data.decisions??[],computing:false,error:undefined});
+      else setState({decisions:event.data.decisions??[],postRoll:event.data.postRoll,computing:false,resultKey:requestKey,error:undefined});
       worker.terminate();
     };
     worker.onerror=()=>{
@@ -192,8 +197,8 @@ function useCertificateWorker(data:AppData) {
     };
     worker.postMessage({id,data});
     return()=>worker.terminate();
-  },[data.gear,data.settings,data.rollLog,data.ownedCertificates,data.authModel]);
-  return state;
+  },[inputKey]);
+  return {...state,current:state.resultKey===inputKey&&!state.computing};
 }
 
 function MoreScreen({data,onGo}:{data:AppData;onGo:(t:Tab)=>void}){
@@ -229,7 +234,7 @@ function Dashboard({data,best,analyses,onGo}:{data:AppData;best:any;analyses:any
   </section>;
 }
 
-function GearScreen({gear,analyses,settings,analysisCurrent,onAdd,onScan,onEdit,onClone,onDelete,onFav,onBulkDiscard}:{gear:GearItem[];analyses:ItemAnalysis[];settings:AlgorithmSettings;analysisCurrent:boolean;onAdd:()=>void;onScan:()=>void;onEdit:(i:GearItem)=>void;onClone:(i:GearItem)=>void;onDelete:(i:GearItem)=>void;onFav:(i:GearItem)=>void;onBulkDiscard:()=>void}){
+export function GearScreen({gear,analyses,settings,analysisCurrent,onAdd,onScan,onEdit,onClone,onDelete,onFav,onBulkDiscard}:{gear:GearItem[];analyses:ItemAnalysis[];settings:AlgorithmSettings;analysisCurrent:boolean;onAdd:()=>void;onScan:()=>void;onEdit:(i:GearItem)=>void;onClone:(i:GearItem)=>void;onDelete:(i:GearItem)=>void;onFav:(i:GearItem)=>void;onBulkDiscard:()=>void}){
   const [q,setQ]=useState(''); const [slot,setSlot]=useState<'All'|Slot>('All'); const [status,setStatus]=useState('All'); const [auth,setAuth]=useState('All'); const [sort,setSort]=useState('scoreDesc');
   const map=new Map(analyses.map(a=>[a.item.id,a]));
   let items=gear.filter(i=>(slot==='All'||i.slot===slot)&&(!q||i.name.toLowerCase().includes(q.toLowerCase())||i.id.includes(q))&&(status==='All'||map.get(i.id)?.verdict===status)&&(auth==='All'||(auth==='Unauthenticated'?!i.authenticated:i.authentication.kind===auth)));
@@ -238,12 +243,12 @@ function GearScreen({gear,analyses,settings,analysisCurrent,onAdd,onScan,onEdit,
   return <section>
     <div className="pageHeading"><div><h1>Gear</h1><p>{gear.length} items · fast entry first</p></div><div className="headingActions"><button className="secondary" onClick={onScan}>▣ Scan screenshot</button><button className="primary" onClick={onAdd}>＋ Add gear</button></div></div>
     <div className="gearQuickBar"><input placeholder="Search gear" value={q} onChange={e=>setQ(e.target.value)}/><div className="segmented compactSegments">{(['All','Head','Back','Wrist'] as const).map(value=><button key={value} className={slot===value?'active':''} onClick={()=>setSlot(value)}>{value}</button>)}</div></div>
-    <details className="filterPanel"><summary>Filters & sorting</summary><div className="filters compactFilters"><select value={status} onChange={e=>setStatus(e.target.value)}><option>All</option><option>EQUIP</option><option>KEEP</option><option>SAFE TO DISCARD</option><option>PROTECTED / UNKNOWN</option></select><select value={auth} onChange={e=>setAuth(e.target.value)}><option>All</option><option>Unauthenticated</option><option>Normal</option><option>Premium</option><option>Limited</option><option value="Alien">Legacy Alien</option></select><select value={sort} onChange={e=>setSort(e.target.value)}><option value="scoreDesc">Score: highest → lowest</option><option value="scoreAsc">Score: lowest → highest</option><option value="nameAsc">Name: A → Z</option><option value="nameDesc">Name: Z → A</option></select></div></details>
+    <details className="filterPanel"><summary>Filters & sorting</summary><div className="filters compactFilters"><select value={status} onChange={e=>setStatus(e.target.value)}><option>All</option><option>EQUIP</option><option>KEEP</option><option>SAFE TO DISCARD</option><option>PROTECTED / UNKNOWN</option></select><select value={auth} onChange={e=>setAuth(e.target.value)}><option>All</option><option>Unauthenticated</option><option>Normal</option><option>Premium</option><option>Limited</option><option value="Alien">Legacy Alien</option></select><select value={sort} onChange={e=>setSort(e.target.value)}><option value="scoreDesc">Static/base score: highest → lowest</option><option value="scoreAsc">Static/base score: lowest → highest</option><option value="nameAsc">Name: A → Z</option><option value="nameDesc">Name: Z → A</option></select></div></details>
     {!analysisCurrent&&<div className="notice warning"><b>Recalculating gear verdicts.</b> SAFE TO DISCARD actions are locked until the result matches the current inventory.</div>}
     {analysisCurrent&&safe.length>0 && <details className="dangerPanel"><summary>{safe.length} item{safe.length!==1?'s':''} proven SAFE TO DISCARD</summary><div className="discardList">{safe.map(a=><div key={a.item.id}><strong>{a.item.name}</strong><span>{a.reason}</span></div>)}</div><button className="danger" onClick={onBulkDiscard}>Review confirmation & delete all safe items</button></details>}
     <div className="gearList">{items.map(item=>{const a=map.get(item.id);return <article className="gearCard" key={item.id}>
       <div className="rowBetween"><div><div className="slotLabel">{item.slot}{item.mutation&&item.mutation!=='None'?` · ${item.mutation}`:''}{item.conditionPct!==undefined?` · ${item.conditionPct}% condition`:''}</div><h3>{item.baseName||item.name}</h3></div><button className={`star ${item.favourite?'on':''}`} onClick={()=>onFav(item)}>★</button></div>
-      <div className="chipRow"><StatusBadge status={a?.verdict ?? 'KEEP'}/><span className="chip score">{a?.standalone.total.toFixed(2) ?? scoreStandalone(item,settings).total.toFixed(2)} standalone</span>{a?.loadoutMemberships.map((m,i)=><span className="chip" key={m.loadout+'-'+(m.context??'')+'-'+i}>{m.loadout}{m.tied?' · tied':''}{m.scenario?' · '+m.scenario:''}</span>)}{item.authenticated&&<span className="chip">{item.authentication.kind==='Alien'?'Legacy Alien':item.authentication.kind}: {item.authentication.effect||'—'} {item.authentication.value?`${item.authentication.value}%`:''}</span>}</div>
+      <div className="chipRow"><StatusBadge status={a?.verdict ?? 'KEEP'}/><span className="chip score">{a?.standalone.total.toFixed(2) ?? scoreStandalone(item,settings).total.toFixed(2)} static/base</span>{isStatefulDisplayAuth(item)&&<span className="chip">dynamic value shown by loadout memberships</span>}{a?.loadoutMemberships.map((m,i)=><span className="chip" key={m.loadout+'-'+(m.context??'')+'-'+i}>{m.loadout}{m.tied?' · tied':''}{m.scenario?' · '+m.scenario:''}</span>)}{item.authenticated&&<span className="chip">{item.authentication.kind==='Alien'?'Legacy Alien':item.authentication.kind}: {item.authentication.effect||'—'} {item.authentication.value?`${item.authentication.value}%`:''}</span>}</div>
       <div className="miniStats">{statLabels.filter(([k])=>Math.abs(effectiveItemStats(item)[k])>1e-12).map(([k,l])=><span key={k}>{shortStat(l)} <b>{displayStat(k,effectiveItemStats(item)[k])}</b></span>)}</div>
       <details className="gearDetails"><summary>Details & verdict explanation</summary>
         {item.authenticated&&enchantmentDescription(item.authentication.effect,item.authentication.value)&&<p><b>{item.authentication.effect}:</b> {enchantmentDescription(item.authentication.effect,item.authentication.value)}</p>}
@@ -289,13 +294,14 @@ function OptimiseScreen({data,combinations,limit,setLimit}:{data:AppData;combina
   </section>;
 }
 
-function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppData)=>void}){
+export function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppData)=>void}){
   const [logOpen,setLogOpen]=useState(false);
   const [editInventory,setEditInventory]=useState(false);
+  const [editingRoll,setEditingRoll]=useState<CertificateRollLog|null>(null);
   const availableCertificates=data.ownedCertificates.filter(c=>c.quantity>0);
   const [selectedCertificateId,setSelectedCertificateId]=useState(availableCertificates[0]?.id??'');
   const certificateState=useCertificateWorker(data);
-  const decisions=certificateState.decisions;
+  const decisions=certificateState.current?certificateState.decisions:[];
   useEffect(()=>{
     if(!availableCertificates.some(c=>c.id===selectedCertificateId))setSelectedCertificateId(availableCertificates[0]?.id??'');
   },[data.ownedCertificates,selectedCertificateId]);
@@ -309,7 +315,7 @@ function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppData)=>voi
 
     <div className="notice"><b>Decision rule:</b> every certificate is tested against every eligible item. Main Auction uses the robust zero-state baseline first, with central/high states shown only as sensitivity. Unknown Luck/Focused magnitude is explicit unresolved mass rather than fake zero EV. Specialists are considered only after Main, in the order Drink Prep → Grading → Shop/Idle.</div>
 
-    {certificateState.computing&&<div className="notice">Recalculating certificate decisions in the background…</div>}
+    {!certificateState.current&&<div className="notice warning"><b>Recalculating certificate decisions.</b> Previous recommendations are hidden until the result matches the current inventory, certificates, catalogue and roll history.</div>}
     {certificateState.error&&<div className="notice dangerNotice"><b>Certificate analysis error:</b> {certificateState.error}</div>}
 
     <div className="sectionTitle"><h2>What should I do now?</h2></div>
@@ -394,8 +400,20 @@ function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppData)=>voi
       <button className="secondary" disabled={!selectedCertificate} onClick={()=>setLogOpen(true)}>＋ Record selected certificate roll</button>
     </div>:<p className="muted">No certificate with quantity remaining is available to record.</p>}
 
+    {certificateState.current&&certificateState.postRoll&&<div className="card">
+      <div className="sectionTitle"><h2>Immediate post-roll choice</h2></div>
+      <div className="notice warning"><b>Only while the Authenticator prompt is still open.</b> The game offers Reroll and Reroll Number immediately after authentication for {certificateState.postRoll.costRobux} Robux each; neither consumes another certificate. This model ranks gear utility only and does not decide whether {certificateState.postRoll.costRobux} Robux is financially worth spending.</div>
+      <div className="rowBetween"><div><span className="eyebrow">MODELLED CHOICE</span><h3>{certificateState.postRoll.recommendation}</h3><p>{certificateState.postRoll.reason}</p></div></div>
+      <div className="thresholdTable">
+        <div><b>Accept current result</b><span>0.00% change · no extra cost</span></div>
+        {certificateState.postRoll.effectReroll&&<div><b>Reroll effect · {certificateState.postRoll.costRobux} Robux</b><span>{signed(certificateState.postRoll.effectReroll.target.expectedImprovementPct)} robust Main EV · downside {certificateState.postRoll.effectReroll.target.chancePotentialWorsePct.toFixed(1)}%{certificateState.postRoll.effectReroll.target.unresolvedOutcomeMassPct>0?' · unresolved '+certificateState.postRoll.effectReroll.target.unresolvedOutcomeMassPct.toFixed(1)+'%':''}</span></div>}
+        {certificateState.postRoll.numberReroll&&<div><b>Reroll Number · {certificateState.postRoll.costRobux} Robux</b><span>{signed(certificateState.postRoll.numberReroll.target.expectedImprovementPct)} robust Main EV · downside {certificateState.postRoll.numberReroll.target.chancePotentialWorsePct.toFixed(1)}%{certificateState.postRoll.numberReroll.target.unresolvedOutcomeMassPct>0?' · unresolved '+certificateState.postRoll.numberReroll.target.unresolvedOutcomeMassPct.toFixed(1)+'%':''}</span></div>}
+      </div>
+    </div>}
+
     <div className="sectionTitle"><h2>Roll history</h2></div>
-    <div className="card tableCard">{data.rollLog.length?data.rollLog.slice().reverse().map(r=><div className="logRow" key={r.id}><div><strong>{r.itemName}</strong><span>{new Date(r.date).toLocaleDateString()} · {r.certificateInventoryType??(r.certificateType.startsWith('Normal')?'Legacy Normal':r.certificateType.startsWith('Premium')?'Premium':r.certificateType.startsWith('Limited')?'Limited':'Legacy Alien')}</span></div><div><b>{r.newAuthentication} {r.newValue}%</b><span>{r.bestScoreBefore.toFixed(2)} → {r.bestScoreAfter.toFixed(2)}</span></div></div>):<p className="muted">No certificate rolls recorded yet.</p>}</div>
+    <div className="card tableCard">{data.rollLog.length?data.rollLog.slice().reverse().map(r=><div className="logRow" key={r.id}><div><strong>{r.itemName}</strong><span>{new Date(r.date).toLocaleDateString()} · {r.certificateInventoryType??(r.certificateType.startsWith('Normal')?'Legacy Normal':r.certificateType.startsWith('Premium')?'Premium':r.certificateType.startsWith('Limited')?'Limited':'Legacy Alien')}{r.certificateGradeStars!==undefined?' · '+'★'.repeat(r.certificateGradeStars):''}{r.certificateMutation?' · '+r.certificateMutation:''}</span>{r.modelWarnings?.map((warning,index)=><small className="warningText" key={index}>⚠ {warning}</small>)}</div><div><b>{r.newAuthentication} {r.newValue}%</b><span>{r.bestScoreBefore.toFixed(2)} → {r.bestScoreAfter.toFixed(2)}</span><button className="secondary compact" onClick={()=>setEditingRoll(r)}>Correct evidence</button></div></div>):<p className="muted">No certificate rolls recorded yet.</p>}</div>
+    <div className="notice"><b>History corrections are evidence-only.</b> Editing or deleting a history row rebuilds the empirical certificate model but does not refund a consumed certificate or rewrite your current gear. Use the normal Gear editor if the accessory itself is wrong.</div>
 
     {logOpen&&selectedCertificate&&<RollLogEditor data={data} certificate={selectedCertificate} onClose={()=>setLogOpen(false)} onSave={(r,updated)=>{
       try{
@@ -403,21 +421,41 @@ function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppData)=>voi
         setLogOpen(false);
       }catch(error){alert(error instanceof Error?error.message:'Could not record certificate roll.')}
     }}/>}
+    {editingRoll&&<RollHistoryEditor data={data} roll={editingRoll} onClose={()=>setEditingRoll(null)} onSave={(effect,value)=>{
+      try{setData(correctRecordedCertificateRoll(data,editingRoll.id,{newAuthentication:effect,newValue:value}));setEditingRoll(null);}
+      catch(error){alert(error instanceof Error?error.message:'Could not correct roll history.')}
+    }} onDelete={()=>{
+      if(confirm('Delete this roll-history evidence? This does not refund the certificate or change current gear.')){
+        setData(deleteRecordedCertificateRoll(data,editingRoll.id));setEditingRoll(null);
+      }
+    }}/>}
   </section>;
 }
 
-function SettingsScreen({data,setData,showToast}:{data:AppData;setData:(d:AppData)=>void;showToast:(s:string)=>void}){
+export function SettingsScreen({data,setData,showToast}:{data:AppData;setData:(d:AppData)=>void;showToast:(s:string)=>void}){
   const jsonRef=useRef<HTMLInputElement>(null),csvRef=useRef<HTMLInputElement>(null);
   function setS<K extends keyof AlgorithmSettings>(k:K,v:AlgorithmSettings[K]){setData({...data,settings:{...data.settings,[k]:v}})}
   const fields:Array<[keyof AlgorithmSettings,string]>=[['luckWeight','Main Auction Luck weight'],['arrowWeight','Main Auction Bid Arrow weight'],['arrowSweetSpot','Bid Arrow sweet spot'],['zoneWeight','Main Auction Bid Zone weight'],['zoneBreakpoint1','Bid Zone breakpoint 1'],['zoneBreakpoint2','Bid Zone breakpoint 2'],['zoneMultiplier2','Bid Zone middle multiplier'],['zoneMultiplier3','Bid Zone upper multiplier'],['recoveryWeight','Main Auction Bid Recovery weight'],['energyTarget','Drink Prep Energy target'],['energyCeiling','Drink Prep Energy ceiling'],['energySecondStageMultiplier','Drink Prep above-target multiplier']];
   const issues=algorithmIssues(data.settings);
+  const catalogueIssues=authenticationCatalogueIssues(data.authModel);
   return <section><div className="pageHeading"><div><h1>Settings</h1><p>Algorithm Version 2.0</p></div></div>
     <div className="sectionTitle"><h2>Appearance</h2></div><div className="card"><label>Theme<select value={data.theme} onChange={e=>setData({...data,theme:e.target.value as any})}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label></div>
     <div className="sectionTitle"><h2>Algorithm editor</h2><button className="secondary compact" onClick={()=>setData({...data,settings:{...LOCKED_DEFAULT_SETTINGS}})}>Reset to locked defaults</button></div>
     <div className="settingsGrid">{fields.map(([k,label])=><label className="settingField" key={k}><span>{label}</span><input type="number" step="any" value={data.settings[k]} onChange={e=>setS(k,Number(e.target.value) as never)}/></label>)}</div>
     {issues.length>0&&<div className="notice dangerNotice"><b>Settings need correction:</b> {issues.join(' · ')}</div>}
     <div className="notice">Algorithm 2.0 uses one shared model for Main Auction, retention and certificate decisions. Displayed Luck is linear. Bid Arrow benefit caps at your 75% sweet spot with no invented over-cap penalty. Drink Prep, Grading and Shop/Idle are separate loadouts and never compensate for a weaker Main Auction result. Day, Night and Rain are evaluated as contextual Main variants instead of fake uptime averages.</div>
-    <div className="sectionTitle"><h2>Authentication outcome catalogue</h2><button className="secondary compact" onClick={()=>setData({...data,authModel:[...data.authModel,newAuthModelEntry()]})}>＋ Add outcome</button></div><div className="card authModel"><p className="muted">This is the live certificate model. Enabled rows, certificate tier, min / typical / max, confidence and relative-weight class all feed directly into certificate EV. Basic outcomes default to MEDIUM. Wooden/Ripped slot-exclusive outcomes default to LOW because current guides consistently describe them as less common; LOW is a qualitative model assumption, not a claimed hidden percentage, and remains editable.</p>{data.authModel.filter(m=>m.certificateType!=='Certificate of Alienticity'&&!LEGACY_ALIEN_EFFECTS.includes(m.outcome as never)).slice().sort((a,b)=>(a.certificateInventoryType??'').localeCompare(b.certificateInventoryType??'')||a.slot.localeCompare(b.slot)||a.outcome.localeCompare(b.outcome)).map(m=><AuthModelRow key={m.id} entry={m} onChange={entry=>setData({...data,authModel:data.authModel.map(x=>x.id===entry.id?entry:x)})} onDelete={()=>{if(confirm(`Remove authentication model outcome ${m.outcome}? Roll history is not deleted.`))setData({...data,authModel:data.authModel.filter(x=>x.id!==m.id)})}}/>)}</div>
+    <div className="sectionTitle"><h2>Model assumptions</h2></div>
+    <div className="card">
+      <div className="thresholdTable">
+        <div><b>Central dynamic sensitivity</b><span>DB {MODEL_ASSUMPTIONS.dynamic.central.droughtbreakerStacks} · GH +{MODEL_ASSUMPTIONS.dynamic.central.goldenHourLuck} Luck · Frenzy {(MODEL_ASSUMPTIONS.dynamic.central.luckFrenzyUptime*100).toFixed(0)}% uptime · Drink +{MODEL_ASSUMPTIONS.dynamic.central.drinkLuckBoost}</span></div>
+        <div><b>High dynamic sensitivity</b><span>DB {MODEL_ASSUMPTIONS.dynamic.high.droughtbreakerStacks} · GH +{MODEL_ASSUMPTIONS.dynamic.high.goldenHourLuck} Luck · Frenzy {(MODEL_ASSUMPTIONS.dynamic.high.luckFrenzyUptime*100).toFixed(0)}% uptime · Drink +{MODEL_ASSUMPTIONS.dynamic.high.drinkLuckBoost}</span></div>
+        <div><b>Certificate prior strength</b><span>{MODEL_ASSUMPTIONS.certificate.priorStrength} prior-equivalent samples</span></div>
+        <div><b>Normal / rare USE EV threshold</b><span>{MODEL_ASSUMPTIONS.certificate.use.normalMinWorstStateEvPct}% / {MODEL_ASSUMPTIONS.certificate.use.rareMinWorstStateEvPct}% worst-state EV</span></div>
+        <div><b>Immediate Authenticator reroll price</b><span>{MODEL_ASSUMPTIONS.authenticator.paidRerollRobux} Robux</span></div>
+      </div>
+      <p className="muted">These are named sensitivity/decision-policy assumptions, not hidden Roblox probabilities. Their provenance is documented in the engine source; certificate outcome ranges and relative weights remain editable in the catalogue below.</p>
+    </div>
+    <div className="sectionTitle"><h2>Authentication outcome catalogue</h2><button className="secondary compact" onClick={()=>setData({...data,authModel:[...data.authModel,newAuthModelEntry()]})}>＋ Add outcome</button></div>{catalogueIssues.length>0&&<div className="notice warning"><b>Catalogue conflicts:</b> {catalogueIssues.join(' · ')}</div>}<div className="card authModel"><p className="muted">This is the live certificate model. Enabled rows, certificate tier, min / typical / max, confidence and relative-weight class all feed directly into certificate EV. Basic outcomes default to MEDIUM. Wooden/Ripped slot-exclusive outcomes default to LOW because current guides consistently describe them as less common; LOW is a qualitative model assumption, not a claimed hidden percentage, and remains editable.</p>{data.authModel.filter(m=>m.certificateType!=='Certificate of Alienticity'&&!LEGACY_ALIEN_EFFECTS.includes(m.outcome as never)).slice().sort((a,b)=>(a.certificateInventoryType??'').localeCompare(b.certificateInventoryType??'')||a.slot.localeCompare(b.slot)||a.outcome.localeCompare(b.outcome)).map(m=><AuthModelRow key={m.id} entry={m} onChange={entry=>setData({...data,authModel:data.authModel.map(x=>x.id===entry.id?entry:x)})} onDelete={()=>{if(confirm(`Remove authentication model outcome ${m.outcome}? Roll history is not deleted.`))setData({...data,authModel:data.authModel.filter(x=>x.id!==m.id)})}}/>)}</div>
     <div className="sectionTitle"><h2>Backup & data safety</h2></div><div className="card buttonStack"><button className="primary" onClick={()=>downloadText(`storage-hunters-backup-${dateStamp()}.json`,exportJson(data),'application/json')}>Download JSON backup</button><button className="secondary" onClick={()=>jsonRef.current?.click()}>Restore JSON backup</button><button className="secondary" onClick={()=>downloadText(`storage-hunters-gear-${dateStamp()}.csv`,gearToCsv(data.gear),'text/csv')}>Export gear CSV</button><button className="secondary" onClick={()=>csvRef.current?.click()}>Import gear CSV</button><input hidden type="file" accept="application/json,.json" ref={jsonRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const d=importJson(await f.text());if(confirm(`Restore backup containing ${d.gear.length} gear items? This replaces current local data.`)){setData(d);showToast('Backup restored')}}catch(err){alert(err instanceof Error?err.message:'Invalid backup')}}}/><input hidden type="file" accept="text/csv,.csv" ref={csvRef} onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const g=csvToGear(await f.text());if(confirm(`Import ${g.length} gear items? They will be added to the current inventory.`)){const imported=prepareImportedGear(data.gear,g);setData({...data,gear:[...data.gear,...imported]});showToast('CSV imported')}}catch(err){alert(err instanceof Error?err.message:'Invalid CSV')}}}/><button className="danger" onClick={()=>{const phrase=prompt('Type RESET ALL DATA to permanently clear all local inventory, certificates, roll history, vehicle parts, trophies and settings back to an empty workspace.');if(phrase==='RESET ALL DATA')setData(makeEmptyData())}}>Clear all local data</button></div>
   </section>;
 }
@@ -481,6 +519,18 @@ function RollLogEditor({data,certificate,onClose,onSave}:{data:AppData;certifica
   </div></div>;
 }
 
+function RollHistoryEditor({data,roll,onClose,onSave,onDelete}:{data:AppData;roll:CertificateRollLog;onClose:()=>void;onSave:(effect:string,value:number)=>void;onDelete:()=>void}){
+  const kind=roll.certificateType.startsWith('Premium')?'Premium':roll.certificateType.startsWith('Limited')?'Limited':'Normal';
+  const [effect,setEffect]=useState(roll.newAuthentication);
+  const [value,setValue]=useState(roll.newValue);
+  const options=activeCertificateOutcomeOptions(roll.slot,data.authModel,kind,roll.certificateInventoryType);
+  return <div className="modalBackdrop"><div className="modal"><div className="modalHeader"><h2>Correct roll-history evidence</h2><button className="iconButton" onClick={onClose}>×</button></div>
+    <div className="notice warning"><b>This does not change current gear or certificate quantity.</b> It only corrects the historical evidence used by the learning model.</div>
+    <div className="formGrid"><label className="wide">Item<input value={roll.itemName} readOnly/></label><label>Authentication<select value={effect} onChange={e=>setEffect(e.target.value)}>{[...new Set([effect,...options])].filter(Boolean).map(option=><option key={option}>{option}</option>)}</select></label><label>Value %<input type="number" step="any" value={value} onChange={e=>setValue(Number(e.target.value))}/></label></div>
+    <div className="stickyActions"><button className="danger" onClick={onDelete}>Delete evidence</button><button className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={!effect.trim()||!Number.isFinite(value)} onClick={()=>onSave(effect,value)}>Save correction</button></div>
+  </div></div>;
+}
+
 function authModelCertificateType(type:OwnedCertificate['type']):AuthModelEntry['certificateType']{
   return type==='Premium Certificate of Authenticity'
     ?'Premium Certificate of Authenticity'
@@ -503,12 +553,13 @@ function AuthModelRow({entry,onChange,onDelete}:{entry:AuthModelEntry;onChange:(
       <label>Slot<select value={entry.slot} onChange={e=>onChange({...entry,slot:e.target.value as AuthModelEntry['slot']})}><option>Any</option><option>Head</option><option>Back</option><option>Wrist</option></select></label>
       <label className="wide">Category<input value={entry.category} onChange={e=>onChange({...entry,category:e.target.value})}/></label>
       <label>Relative-weight class<select value={entry.assumedLikelihoodClass} onChange={e=>onChange({...entry,assumedLikelihoodClass:e.target.value as AuthModelEntry['assumedLikelihoodClass']})}>{['VERY HIGH','HIGH','MEDIUM','LOW','VERY LOW'].map(x=><option key={x}>{x}</option>)}</select></label>
-      <label>Confidence<select value={entry.confidence} onChange={e=>onChange({...entry,confidence:e.target.value as AuthModelEntry['confidence']})}>{['Unknown','Low','Medium','High','Empirical'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Mechanic/range confidence<select value={entry.confidence} onChange={e=>onChange({...entry,confidence:e.target.value as AuthModelEntry['confidence']})}>{['Unknown','Low','Medium','High','Empirical'].map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>Empirical confidence<input value={entry.empiricalConfidence??'Unknown'} readOnly/></label>
       <label>Optional min<input type="number" step="any" value={entry.min??''} onChange={e=>onChange({...entry,min:e.target.value===''?undefined:Number(e.target.value)})}/></label>
       <label>Optional typical<input type="number" step="any" value={entry.typical??''} onChange={e=>onChange({...entry,typical:e.target.value===''?undefined:Number(e.target.value)})}/></label>
       <label>Optional max<input type="number" step="any" value={entry.max??''} onChange={e=>onChange({...entry,max:e.target.value===''?undefined:Number(e.target.value)})}/></label>
       <label className="check"><input type="checkbox" checked={entry.enabled} onChange={e=>onChange({...entry,enabled:e.target.checked})}/> Enabled in live EV</label>
-      <div className="wide fieldHelp">Observed samples: {entry.observedSampleCount}. Values: {entry.observedValues.length?entry.observedValues.join(', '):'none yet'}. As exact-tier samples accumulate, empirical roll strength progressively outweighs the min/typical/max prior.</div>
+      <div className="wide fieldHelp">Observed samples: {entry.observedSampleCount}. Values: {entry.observedValues.length?entry.observedValues.join(', '):'none yet'}. Mechanic/range confidence and empirical sample confidence are separate. Exact-tier samples progressively outweigh the min/typical/max prior without claiming the mechanic itself became proven.</div>
       <button className="danger wide" onClick={onDelete}>Delete model outcome</button>
     </div>
   </details>;
@@ -521,8 +572,12 @@ function ThresholdCard({label,value,target,ceiling}:{label:string;value:number;t
 function StatusBadge({status}:{status:string}){return <span className={`badge status ${status.toLowerCase().replaceAll(' ','-').replaceAll('/','')}`}>{status}</span>}
 function EmptyState({title,text,action,onClick}:{title:string;text:string;action?:string;onClick?:()=>void}){return <div className="empty"><div className="emptyIcon">⌁</div><h3>{title}</h3><p>{text}</p>{action&&<button className="primary" onClick={onClick}>{action}</button>}</div>}
 
+function isStatefulDisplayAuth(item:GearItem):boolean{
+  return item.authenticated&&['Sunny','Nocturnal','Raindrop','Overcharged','Focused','Mutated Luck','Droughtbreaker','Drought Breaker','Golden Hour','Luck Frenzy'].includes(item.authentication.effect.trim());
+}
+
 function algorithmIssues(s:AlgorithmSettings):string[]{const issues:string[]=[];for(const [k,v] of Object.entries(s))if(k!=='version'&&!Number.isFinite(Number(v)))issues.push(`${k} is not finite`);if(s.arrowSweetSpot<0)issues.push('Arrow sweet spot cannot be negative');if(s.energyTarget>s.energyCeiling)issues.push('Energy target must be ≤ Energy ceiling');if(s.zoneBreakpoint1>s.zoneBreakpoint2)issues.push('Zone breakpoint 1 must be ≤ breakpoint 2');for(const [label,value] of [['Luck weight',s.luckWeight],['Arrow weight',s.arrowWeight],['Zone weight',s.zoneWeight],['Recovery weight',s.recoveryWeight],['Zone middle multiplier',s.zoneMultiplier2],['Zone upper multiplier',s.zoneMultiplier3]] as const)if(value<0)issues.push(`${label} cannot be negative`);return issues;}
-function newAuthModelEntry():AuthModelEntry{return{id:crypto.randomUUID(),certificateInventoryType:'Wooden Certificate of Authenticity',certificateType:'Normal Certificate of Authenticity',slot:'Any',outcome:'Custom outcome',category:'Custom / unknown',assumedLikelihoodClass:'MEDIUM',observedSampleCount:0,observedValues:[],confidence:'Unknown',enabled:true}}
+function newAuthModelEntry():AuthModelEntry{return{id:crypto.randomUUID(),certificateInventoryType:'Wooden Certificate of Authenticity',certificateType:'Normal Certificate of Authenticity',slot:'Any',outcome:'Custom outcome',category:'Custom / unknown',assumedLikelihoodClass:'MEDIUM',observedSampleCount:0,observedValues:[],confidence:'Unknown',empiricalConfidence:'Unknown',enabled:true}}
 function blankItem(slot:Slot='Head'):GearItem{const now=new Date().toISOString();return{id:crypto.randomUUID(),baseName:'',name:'',slot,stats:{...ZERO_STATS},authenticated:false,authentication:{kind:'None',effect:'',value:0},favourite:false,createdAt:now,updatedAt:now}}
 function applyRollToItem(item:GearItem,effect:string,value:number,type:AuthModelEntry['certificateType']):GearItem{
   let base=removeNumericAuthentication(item);

@@ -98,4 +98,16 @@ describe('vehicle optimiser',()=>{
     expect(analyses.find(a=>a.item.id==='wood')?.verdict).toBe('SAFE TO DISCARD');
     expect(analyses.find(a=>a.item.id==='long')?.verdict).toBe('EQUIP');
   });
+  it('never marks favourite vehicle parts or trailers SAFE TO DISCARD',()=>{
+    const strong=part('strong','Strong wheels','Wheel Stack',20,20,100);
+    const locked={...part('locked','Locked wheels','Wheel Stack',1,1,1),favourite:true};
+    const partAnalysis=analyseVehicleParts([strong,locked],optimiseVehicle([strong,locked],[],profile,settings,10)[0]);
+    expect(partAnalysis.find(a=>a.item.id==='locked')?.verdict).toBe('KEEP');
+
+    const big=trailer('big','Big',1000);
+    const lockedTrailer={...trailer('locked-trailer','Locked trailer',1),favourite:true};
+    const trailerAnalysis=analyseTrailers([big,lockedTrailer],optimiseVehicle([], [big,lockedTrailer],profile,settings,10)[0]);
+    expect(trailerAnalysis.find(a=>a.item.id==='locked-trailer')?.verdict).toBe('KEEP');
+  });
+
 });

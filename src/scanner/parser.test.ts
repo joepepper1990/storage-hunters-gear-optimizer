@@ -95,6 +95,18 @@ Mutated Luck +75%
     }
   });
 
+  it('recognises a blue visual Grade Re-Roll as current Limited rather than legacy Alien',()=>{
+    const raw='Pearl Dominus\\n+100% Luck\\nGrade Re-Roll +20%';
+    const lines=[
+      {text:'Pearl Dominus',bbox:{x0:500,y0:100,x1:720,y1:135},color:'neutral'},
+      {text:'+100% Luck',bbox:{x0:500,y0:150,x1:760,y1:185},color:'green'},
+      {text:'Grade Re-Roll +20%',bbox:{x0:500,y0:200,x1:830,y1:235},color:'blue'}
+    ] as const;
+    const scan=parseGearOcrText(raw,lines as any);
+    expect(scan.authentication).toMatchObject({kind:'Limited',effect:'Grade Re-Roll',value:20});
+    expect(scan.warnings.some(w=>w.includes('Legacy Alien'))).toBe(false);
+  });
+
   it('recognises Club Pact as Premium',()=>{
     const scan=parseGearOcrText('Jellyfish Wristband\nWrist\n+54% Luck\nAUTHENTICATED\nClub Pact +4%');
     expect(scan.authentication).toMatchObject({kind:'Premium',effect:'Club Pact',value:4});

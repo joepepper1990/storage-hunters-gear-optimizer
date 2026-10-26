@@ -4,6 +4,7 @@ import type {
 } from '../types';
 import { findDominator } from './dominance';
 import { arrowEffective, combineStats, energyEffective, scoreStandalone, zoneEffective } from './scoring';
+import { MODEL_ASSUMPTIONS } from './modelAssumptions';
 
 export type DynamicScenario = 'low' | 'central' | 'high';
 
@@ -72,8 +73,8 @@ const LUCKY_GRADES = [
 
 const PRESET_STATES: Record<DynamicScenario,DynamicState> = {
   low:{droughtbreakerStacks:0,goldenHourLuck:0,luckFrenzyUptime:0,drinkLuckBoost:0,label:'Robust baseline'},
-  central:{droughtbreakerStacks:3,goldenHourLuck:50,luckFrenzyUptime:.15,drinkLuckBoost:150,label:'Central sensitivity · Drink 2'},
-  high:{droughtbreakerStacks:5,goldenHourLuck:100,luckFrenzyUptime:.30,drinkLuckBoost:300,label:'High sensitivity · Drink 3'}
+  central:{...MODEL_ASSUMPTIONS.dynamic.central,label:'Central sensitivity · Drink 2'},
+  high:{...MODEL_ASSUMPTIONS.dynamic.high,label:'High sensitivity · Drink 3'}
 };
 
 export const RETENTION_DYNAMIC_STATES: DynamicState[] = [

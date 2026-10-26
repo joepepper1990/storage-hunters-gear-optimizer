@@ -32,23 +32,22 @@ describe('backup round trips',()=>{
   });
   it('rejects malformed algorithm settings from backups',()=>{
     const d=makeInitialData() as any;
-    d.settings.arrowPenaltyThreshold='not-a-number';
+    d.settings.zoneWeight='not-a-number';
     expect(()=>importJson(JSON.stringify(d))).toThrow();
   });
 
-  it('migrates stored scoring settings to the unified 2.0 model',()=>{
+  it('migrates stored scoring settings to the unified 2.0 model and drops removed legacy fields',()=>{
     const d=makeInitialData() as any;
-    d.settings={...d.settings,version:'1.0',arrowOvercapPenaltyMultiplier:1,zoneWeight:0.4,npcWeight:0.75,recoveryWeight:0.01,walkWeight:0.01};
-    delete d.settings.luckBreakpoint1;
+    d.settings={...d.settings,version:'1.0',arrowOvercapPenaltyMultiplier:1,luckBreakpoint1:100,zoneWeight:0.4,npcWeight:0.75,recoveryWeight:0.01,walkWeight:0.01};
     delete d.settings.npcBreakpoint1;
     const restored=importJson(JSON.stringify(d));
     expect(restored.settings.version).toBe('2.0');
-    expect(restored.settings.arrowOvercapPenaltyMultiplier).toBe(0);
     expect(restored.settings.zoneWeight).toBe(0.6);
     expect(restored.settings.npcWeight).toBe(0);
     expect(restored.settings.recoveryWeight).toBe(0.2);
     expect(restored.settings.walkWeight).toBe(0);
-    expect((restored.settings as any).luckBreakpoint1).toBe(100);
+    expect((restored.settings as any).arrowOvercapPenaltyMultiplier).toBeUndefined();
+    expect((restored.settings as any).luckBreakpoint1).toBeUndefined();
     expect((restored.settings as any).npcBreakpoint1).toBe(20);
   });
   it('round-trips vehicle parts, trailers and active vehicle configuration',()=>{
@@ -127,13 +126,13 @@ describe('backup round trips',()=>{
     expect(restored.trophySettings.mutationWeights.find(w=>w.mutation==='Clockwork')?.multiplier).toBe(25);
   });
 
-  it('migrates an older backup to the verified schema-12 gear/certificate baseline',()=>{
+  it('migrates an older backup to the verified schema-13 gear/certificate baseline',()=>{
     const d=makeInitialData() as any;
     d.schemaVersion=1;
     d.gear=[gear];
     delete d.vehicleProfile; delete d.vehicleSettings; delete d.vehicleParts; delete d.trailers; delete d.trophies; delete d.trophySettings;
     const restored=importJson(JSON.stringify(d));
-    expect(restored.schemaVersion).toBe(12);
+    expect(restored.schemaVersion).toBe(13);
     expect(restored.gear).toHaveLength(22);
     expect(restored.gear.some((g:any)=>g.id==='abc')).toBe(false);
     expect(restored.ownedCertificates).toHaveLength(7);
@@ -145,7 +144,7 @@ describe('backup round trips',()=>{
   });
   it('creates a genuinely empty workspace for destructive reset/start-empty actions',()=>{
     const empty=makeEmptyData();
-    expect(empty.schemaVersion).toBe(12);
+    expect(empty.schemaVersion).toBe(13);
     expect(empty.gear).toEqual([]);
     expect(empty.ownedCertificates).toEqual([]);
     expect(empty.vehicleParts).toEqual([]);
@@ -155,7 +154,7 @@ describe('backup round trips',()=>{
     expect(empty.authModel.length).toBeGreaterThan(0);
   });
 
-  it('migrates schema-10 auth rows into tier-specific schema-12 catalogue rows without losing observations',()=>{
+  it('migrates schema-10 auth rows into tier-specific schema-13 catalogue rows without losing observations',()=>{
     const d=makeInitialData() as any;
     d.schemaVersion=10;
     d.authModel=[{
@@ -193,9 +192,24 @@ describe('backup round trips',()=>{
     woodenSunny.assumedLikelihoodClass='MEDIUM';
     woodenNocturnal.assumedLikelihoodClass='HIGH';
     const restored=importJson(JSON.stringify(d));
-    expect(restored.schemaVersion).toBe(12);
+    expect(restored.schemaVersion).toBe(13);
     expect(restored.authModel.find(m=>m.id===woodenSunny.id)?.assumedLikelihoodClass).toBe('LOW');
     expect(restored.authModel.find(m=>m.id===woodenNocturnal.id)?.assumedLikelihoodClass).toBe('HIGH');
+  });
+
+  it('migrates schema-12 mechanic confidence into separate empirical confidence without losing samples',()=>{
+    const d=makeInitialData() as any;
+    d.schemaVersion=12;
+    const row=d.authModel.find((m:any)=>m.certificateInventoryType==='Wooden Certificate of Authenticity'&&m.outcome==='Bid Zone Width');
+    row.confidence='Empirical';
+    row.observedSampleCount=10;
+    row.observedValues=Array(10).fill(50);
+    const restored=importJson(JSON.stringify(d));
+    const next=restored.authModel.find(m=>m.id===row.id)!;
+    expect(restored.schemaVersion).toBe(13);
+    expect(next.confidence).toBe('Medium');
+    expect(next.empiricalConfidence).toBe('Empirical');
+    expect(next.observedValues).toHaveLength(10);
   });
 
 });

@@ -18,13 +18,17 @@ export function optimise(gear: GearItem[], settings: AlgorithmSettings, limit = 
   return best;
 }
 
+function combinationKey(value:CombinationResult):string {
+  return [value.head.id,value.back.id,value.wrist.id].join('|');
+}
+
+function compareCombination(a:CombinationResult,b:CombinationResult):number {
+  return b.score.total-a.score.total || combinationKey(a).localeCompare(combinationKey(b));
+}
+
 function insertRanked(list: CombinationResult[], value: CombinationResult, limit: number) {
-  let lo = 0, hi = list.length;
-  while (lo < hi) {
-    const mid = (lo + hi) >>> 1;
-    if (list[mid].score.total >= value.score.total) lo = mid + 1; else hi = mid;
-  }
-  list.splice(lo, 0, value);
+  const index=list.findIndex(existing=>compareCombination(value,existing)<0);
+  if(index<0)list.push(value);else list.splice(index,0,value);
   if (list.length > limit) list.pop();
 }
 
