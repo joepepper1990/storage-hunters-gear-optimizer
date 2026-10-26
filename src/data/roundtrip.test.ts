@@ -74,8 +74,9 @@ describe('backup round trips',()=>{
     expect(restored.trophySettings.mutationWeights.find(w=>w.mutation==='Rainbow')?.multiplier).toBe(90);
   });
 
-  it('preserves historical Alien authentication and legacy roll history while adding current normal auth defaults',()=>{
+  it('preserves historical Alien authentication and legacy roll history while adding current auth defaults during migration',()=>{
     const d=makeInitialData() as any;
+    d.schemaVersion=10;
     d.gear=[{...gear,id:'legacy-alien',baseName:'Legacy Wrist',slot:'Wrist',authenticated:true,authentication:{kind:'Alien',effect:'Rush',value:10}}];
     d.authModel=[{id:'old-rush',certificateType:'Certificate of Alienticity',slot:'Any',outcome:'Rush',category:'Alien',assumedLikelihoodClass:'MEDIUM',observedSampleCount:1,observedValues:[10],confidence:'Low',enabled:true}];
     d.rollLog=[{id:'r1',date:now,certificateType:'Certificate of Alienticity',itemId:'legacy-alien',itemName:'Legacy Wrist',slot:'Wrist',previousAuthentication:'',previousValue:0,newAuthentication:'Rush',newValue:10,improvedBestSet:true,bestScoreBefore:0,bestScoreAfter:1.5}];
