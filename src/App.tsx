@@ -228,7 +228,7 @@ function OptimiseScreen({data,combinations,limit,setLimit}:{data:AppData;combina
     <div className="sectionTitle"><h2>Top Main Auction combinations</h2></div>
     <div className="toolbarRow"><div className="segmented">{[10,25,100].map(n=><button className={limit===n?'active':''} onClick={()=>setLimit(n)} key={n}>Top {n}</button>)}</div></div>
     {!combinations.length&&<EmptyState title="A complete loadout is required" text="Add at least one item in each slot." />}
-    {combinations.map((c,idx)=><details className={\`comboCard \${idx===0?'best':''}\`} key={\`\${c.head.id}-\${c.back.id}-\${c.wrist.id}\`} open={idx===0}>
+    {combinations.map((c,idx)=><details className={`comboCard ${idx===0?'best':''}`} key={`${c.head.id}-${c.back.id}-${c.wrist.id}`} open={idx===0}>
       <summary><div><span className="rank">#{idx+1}</span><strong>{c.score.total.toFixed(2)}</strong><span>{c.head.name} · {c.back.name} · {c.wrist.name}</span></div></summary>
       <div className="comboBody"><div className="loadoutGrid"><LoadoutCard slot="Head" item={c.head}/><LoadoutCard slot="Back" item={c.back}/><LoadoutCard slot="Wrist" item={c.wrist}/></div><div className="statsGrid">{statLabels.map(([k,l])=><StatTile key={k} label={l} value={c.stats[k]} suffix="%" />)}</div>
       <div className="scoreBreakdown"><b>Main utility {c.score.total.toFixed(2)}</b>{c.wastedArrow>0&&<span>Wasted Arrow above 75%: {c.wastedArrow.toFixed(1)}%</span>}</div></div>
