@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { LOCKED_DEFAULT_SETTINGS, makeEmptyData, makeInitialData, ZERO_STATS } from './defaults';
 import { analyseItems, optimise } from './engine/optimizer';
 import type { OwnedCertificateDecision } from './engine/certificateDecision';
+import type { PostRollDecision } from './engine/certificateReroll';
 import { applyRecordedCertificateRoll, authModelTypeForOwnedCertificate, correctRecordedCertificateRoll, deleteRecordedCertificateRoll, withObservedAuthenticationStats } from './engine/certificateRolls';
 import { certificateInputKey, optimisationInputKey } from './engine/analysisFreshness';
 import { authenticationCatalogueIssues } from './engine/authModel';
@@ -170,7 +171,7 @@ function useOptimisationWorker(data: AppData | null) {
 
 function useCertificateWorker(data:AppData) {
   const inputKey=useMemo(()=>certificateInputKey(data),[data.gear,data.settings,data.rollLog,data.ownedCertificates,data.authModel]);
-  const [state,setState]=useState<{decisions:OwnedCertificateDecision[];computing:boolean;resultKey:string;error?:string}>({decisions:[],computing:false,resultKey:''});
+  const [state,setState]=useState<{decisions:OwnedCertificateDecision[];postRoll?:PostRollDecision;computing:boolean;resultKey:string;error?:string}>({decisions:[],computing:false,resultKey:''});
   const requestId=useRef(0);
   useEffect(()=>{
     const id=++requestId.current;
@@ -186,7 +187,7 @@ function useCertificateWorker(data:AppData) {
     worker.onmessage=(event:MessageEvent<any>)=>{
       if(event.data.id!==id)return;
       if(event.data.error)setState(prev=>({...prev,computing:false,error:event.data.error}));
-      else setState({decisions:event.data.decisions??[],computing:false,resultKey:requestKey,error:undefined});
+      else setState({decisions:event.data.decisions??[],postRoll:event.data.postRoll,computing:false,resultKey:requestKey,error:undefined});
       worker.terminate();
     };
     worker.onerror=()=>{
@@ -397,6 +398,17 @@ function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppData)=>voi
       <label>Certificate actually used<select value={selectedCertificateId} onChange={e=>setSelectedCertificateId(e.target.value)}>{availableCertificates.map(cert=><option value={cert.id} key={cert.id}>{cert.type} · {cert.mutation?cert.mutation+' · ':''}{cert.gradeStars!==undefined?'★'.repeat(cert.gradeStars)+' · ':''}{cert.displayedValue!==undefined?'$'+cert.displayedValue.toLocaleString()+' · ':''}owned {cert.quantity}</option>)}</select></label>
       <button className="secondary" disabled={!selectedCertificate} onClick={()=>setLogOpen(true)}>＋ Record selected certificate roll</button>
     </div>:<p className="muted">No certificate with quantity remaining is available to record.</p>}
+
+    {certificateState.current&&certificateState.postRoll&&<div className="card">
+      <div className="sectionTitle"><h2>Immediate post-roll choice</h2></div>
+      <div className="notice warning"><b>Only while the Authenticator prompt is still open.</b> The game offers Reroll and Reroll Number immediately after authentication for {certificateState.postRoll.costRobux} Robux each; neither consumes another certificate. This model ranks gear utility only and does not decide whether {certificateState.postRoll.costRobux} Robux is financially worth spending.</div>
+      <div className="rowBetween"><div><span className="eyebrow">MODELLED CHOICE</span><h3>{certificateState.postRoll.recommendation}</h3><p>{certificateState.postRoll.reason}</p></div></div>
+      <div className="thresholdTable">
+        <div><b>Accept current result</b><span>0.00% change · no extra cost</span></div>
+        {certificateState.postRoll.effectReroll&&<div><b>Reroll effect · {certificateState.postRoll.costRobux} Robux</b><span>{signed(certificateState.postRoll.effectReroll.target.expectedImprovementPct)} robust Main EV · downside {certificateState.postRoll.effectReroll.target.chancePotentialWorsePct.toFixed(1)}%{certificateState.postRoll.effectReroll.target.unresolvedOutcomeMassPct>0?' · unresolved '+certificateState.postRoll.effectReroll.target.unresolvedOutcomeMassPct.toFixed(1)+'%':''}</span></div>}
+        {certificateState.postRoll.numberReroll&&<div><b>Reroll Number · {certificateState.postRoll.costRobux} Robux</b><span>{signed(certificateState.postRoll.numberReroll.target.expectedImprovementPct)} robust Main EV · downside {certificateState.postRoll.numberReroll.target.chancePotentialWorsePct.toFixed(1)}%{certificateState.postRoll.numberReroll.target.unresolvedOutcomeMassPct>0?' · unresolved '+certificateState.postRoll.numberReroll.target.unresolvedOutcomeMassPct.toFixed(1)+'%':''}</span></div>}
+      </div>
+    </div>}
 
     <div className="sectionTitle"><h2>Roll history</h2></div>
     <div className="card tableCard">{data.rollLog.length?data.rollLog.slice().reverse().map(r=><div className="logRow" key={r.id}><div><strong>{r.itemName}</strong><span>{new Date(r.date).toLocaleDateString()} · {r.certificateInventoryType??(r.certificateType.startsWith('Normal')?'Legacy Normal':r.certificateType.startsWith('Premium')?'Premium':r.certificateType.startsWith('Limited')?'Limited':'Legacy Alien')}{r.certificateGradeStars!==undefined?' · '+'★'.repeat(r.certificateGradeStars):''}{r.certificateMutation?' · '+r.certificateMutation:''}</span>{r.modelWarnings?.map((warning,index)=><small className="warningText" key={index}>⚠ {warning}</small>)}</div><div><b>{r.newAuthentication} {r.newValue}%</b><span>{r.bestScoreBefore.toFixed(2)} → {r.bestScoreAfter.toFixed(2)}</span><button className="secondary compact" onClick={()=>setEditingRoll(r)}>Correct evidence</button></div></div>):<p className="muted">No certificate rolls recorded yet.</p>}</div>
