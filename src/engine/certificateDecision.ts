@@ -280,6 +280,12 @@ function outcomeProbabilities(defs:CertificateOutcomeDefinition[],counts:Map<str
   return weighted.map(x=>({def:x.def,p:x.w/total}));
 }
 
+/** Diagnostic probabilities; these are model estimates, not published Roblox odds. */
+export function certificateOutcomeLikelihoods(data:AppData,cert:OwnedCertificate,slot:Slot):Array<{effect:string;probability:number}> {
+  return outcomeProbabilities(outcomesFor(data,cert,slot),observedEffectCounts(data,cert,slot))
+    .map(({def,p})=>({effect:def.effect,probability:p}));
+}
+
 function effectNeedsNumericMagnitude(effect:string):boolean {
   return ![
     'Mutated Luck','Golden Hour','Club Pact','Club Packed','Temporal Split',
@@ -321,7 +327,8 @@ function rollSupports(def:CertificateOutcomeDefinition,data:AppData,slot:Slot,ce
   // sensitivity signal, not equivalent to an exact same-grade/mutation roll.
   const observed=exact.map(r=>r.newValue);
   const legacyEntry=data.authModel.find(m=>m.id===def.modelEntryId);
-  const legacyValues=observed.length?[]:(legacyEntry?.observedValues??[]).filter(v=>Number.isFinite(v));
+  const legacyValues=observed.length||cert.gradeStars!==undefined||Boolean(cert.mutation)
+    ?[]:(legacyEntry?.observedValues??[]).filter(v=>Number.isFinite(v));
   const fallbackValues=partial.map(r=>r.newValue).concat(legacyValues);
 
   const mechanicUnknown=!def.modeledMechanic;
