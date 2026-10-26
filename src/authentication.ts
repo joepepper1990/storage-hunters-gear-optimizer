@@ -2,7 +2,7 @@ import type { AuthModelEntry, Slot } from './types';
 
 export const CURRENT_AUTH_KINDS = ['Normal','Premium','Limited'] as const;
 export const NORMAL_NUMERIC_AUTH_EFFECTS = ['Luck','Bid Recovery','Bid Arrow Speed','Bid Zone Width','Energy Drink Time','Tip Chance','NPC Offers Bonus','Walkspeed'] as const;
-export const PREMIUM_AUTH_EFFECTS:Record<Slot,readonly string[]>={Head:['Mutated Luck'],Back:['Drought Breaker','Golden Hour'],Wrist:['Club Pact','Club Packed','Temporal Split']};
+export const PREMIUM_AUTH_EFFECTS:Record<Slot,readonly string[]>={Head:['Mutated Luck'],Back:['Droughtbreaker','Golden Hour'],Wrist:['Club Pact','Club Packed','Temporal Split']};
 /**
  * Limited Certificate outcomes currently confirmed by the user's in-game information.
  * Exact proc-rate ranges are not independently verified, so these are utility-ranked
