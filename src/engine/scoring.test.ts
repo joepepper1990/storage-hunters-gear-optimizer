@@ -31,17 +31,17 @@ describe('Main Auction scoring 2.1',()=>{
     expect(scoreStandalone(item('Luck 400',{luck:400}),s).luck).toBe(400);
   });
 
-  it('treats every combined Bid Arrow value from 65% through 85% as equally ideal',()=>{
-    expect(arrowTargetBand(s)).toEqual({min:65,max:85});
+  it('treats every combined Bid Arrow value from 65% through 80% as equally ideal',()=>{
+    expect(arrowTargetBand(s)).toEqual({min:65,max:80});
     // Below the band value still rises.
     expect(arrowEffective(50,s)).toBe(50);
     expect(arrowEffective(64.9,s)).toBeCloseTo(64.9,8);
     expect(arrowEffective(50,s)).toBeLessThan(arrowEffective(64,s));
-    // 65, 75 and 85 are all the maximum.
+    // 65, 75 and 80 are all the maximum.
     expect(arrowEffective(65,s)).toBe(65);
     expect(arrowEffective(75,s)).toBe(65);
-    expect(arrowEffective(85,s)).toBe(65);
-    // Above 85 adds nothing and is not penalised.
+    expect(arrowEffective(80,s)).toBe(65);
+    // Above 80 adds nothing and is not penalised.
     expect(arrowEffective(86,s)).toBe(65);
     expect(arrowEffective(130,s)).toBe(65);
     for(const arrow of [65,75,85,130])expect(scoreStandalone(item('Arrow '+arrow,{arrowReduction:arrow}),s).arrow).toBeCloseTo(65,8);

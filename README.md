@@ -19,7 +19,7 @@ The app exhaustively evaluates exactly **one Head + one Back + one Wrist** with 
 ### Auctions
 
 - Displayed Luck is kept **linear**. The app does not claim to know the hidden Luck → rare-drop/mutation formula.
-- **Reaching the Bid Arrow band comes first.** Any set with at least **65%** combined Bid Arrow reduction outranks every set below it, whatever their Luck. From 65% through 85% is equally ideal, and more adds nothing (no invented penalty). Signed in-game Arrow values are entered as shown.
+- **Reaching the Bid Arrow band comes first.** Any set with at least **65%** combined Bid Arrow reduction outranks every set below it, whatever their Luck. From 65% through 80% is equally ideal, and more adds nothing (no invented penalty). Signed in-game Arrow values are entered as shown.
 - Among the sets that reach the band, the weighted score decides: as much Luck as possible, plus Bid Zone and Bid Recovery by their weights. When no set can reach the band, Arrow progress towards 65% is weighted with the rest.
 - Gaining or losing the band counts as the largest possible change for certificate and reroll advice, and a piece that could cost a future set the band is never offered for discard.
 - Bid Zone uses the configured diminishing curve; Bid Recovery is linear.
@@ -33,7 +33,7 @@ Weights are percentages that add up to 100 within each group (Auctions, and Shop
 
 ### Retention and Discard
 
-An item can be discarded only when it is not used by any relevant set, is not a favourite, has no unresolved effect and is proven redundant by the same-slot dominance analysis. Unknown or unmodelled effects (Focused, Fossil Finder, Safecracker, Exhibitor, Anti-Gravity Field, Rush and any custom effect) are protected **whatever the authentication kind**, including Limited. Items targeted by the current certificate queue are never offered for discard, and gear discards stay locked while either analysis is recalculating.
+An item can be discarded only when it is not used by any relevant set, is not a favourite, has no unresolved effect and is beaten stat by stat: another item in the same slot must be at least as good on every stat that matters (Luck, Arrow, Zone, Recovery, and Energy, Tip, NPC and Grade Re-Roll for activities not set to 0, plus mutation for Mutated Luck) and better on at least one. Stats set to 0 never save an item, and no trade-off between stats can make one redundant. Unknown or unmodelled effects (Focused, Fossil Finder, Safecracker, Exhibitor, Anti-Gravity Field, Rush and any custom effect) are protected **whatever the authentication kind**, including Limited. Items targeted by the current certificate queue are never offered for discard, and gear discards stay locked while either analysis is recalculating.
 
 F-tier effects for this profile (Connected, Club Pact, Auto X-Ray, Second Chance, Steady Hand, Haggler) and the deliberately unmodelled Heavy Hauling / Time Capsule effects (Featherweight, Temporal Split) do not create protection by themselves.
 
@@ -92,7 +92,7 @@ Schema 13 is non-destructive: existing schema-9+ inventory, certificates, roll h
 
 ### Gavel Trophies
 
-The Gavel optimiser equips the best three or four (gamepass) powered trophies. Retention keeps any trophy needed by an enabled mutation-specific maximum set.
+The Gavel optimiser equips the best three or four (gamepass) powered trophies. Retention keeps any trophy needed by an enabled mutation-specific maximum set. Any other Gavel is offered for discard only when another Gavel has at least the same boost on every one of its mutations (switched-off mutations aside) and a higher overall value.
 
 ## Gear scanner
 

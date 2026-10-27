@@ -71,7 +71,7 @@ export const DEFAULT_TROPHY_SETTINGS: TrophyOptimiserSettings = {
 export const LOCKED_DEFAULT_SETTINGS: AlgorithmSettings = {
   version: '2.1',
   luckWeight: 1,
-  // Equal default priority to Luck; Arrow value peaks at 65% and stays flat through 85%.
+  // Equal default priority to Luck; Arrow value peaks at 65% and stays flat through 80%.
   arrowWeight: 1,
   arrowSweetSpot: 65,
   npcWeight: 0,

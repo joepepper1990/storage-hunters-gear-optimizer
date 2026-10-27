@@ -80,11 +80,29 @@ export interface TrophyRetentionAnalysis {
 }
 
 /**
+ * A boost counts unless its mutation is listed and switched off; an unlisted mutation has
+ * no known value, so it is never treated as worthless.
+ */
+function countsForRetention(mutation: string, settings: TrophyOptimiserSettings): boolean {
+  const weight = settings.mutationWeights.find(w => w.mutation === mutation);
+  return !weight || weight.enabled;
+}
+
+/** Another Gavel with at least the same boost on every counted mutation, and a higher overall score. */
+function trophyDominator(item: GavelTrophy, trophies: GavelTrophy[], settings: TrophyOptimiserSettings): GavelTrophy | undefined {
+  const mutations = [...new Set(item.modifiers.map(m => m.mutation))].filter(m => countsForRetention(m, settings));
+  const score = trophyScore(item, settings);
+  return trophies.find(other => other.id !== item.id
+    && mutations.every(m => trophyMutationBoost(other, m) >= trophyMutationBoost(item, m) - 1e-9)
+    && trophyScore(other, settings) > score + 1e-9);
+}
+
+/**
  * Strict retention rule requested for inventory clean-up:
  * - EQUIP when in the best overall four.
- * - KEEP when manually locked/favourited or required by at least one enabled maximum
- *   mutation-specific set.
- * - SAFE TO DISCARD otherwise.
+ * - KEEP when manually locked/favourited, tied for the last slot or required by at least
+ *   one enabled maximum mutation-specific set.
+ * - SAFE TO DISCARD only when another Gavel beats it boost by boost; KEEP otherwise.
  */
 export function analyseTrophyRetention(
   trophies: GavelTrophy[],
@@ -133,10 +151,17 @@ export function analyseTrophyRetention(
         specialistMutations
       };
     }
+    const dominator = trophyDominator(item, trophies, settings);
+    if (!dominator) return {
+      item,
+      verdict: 'KEEP',
+      reason: 'No other Gavel has at least the same boost on every one of its mutations.',
+      specialistMutations: []
+    };
     return {
       item,
       verdict: 'SAFE TO DISCARD',
-      reason: 'Not used by the best overall powered set, any enabled maximum modifier set, or a manual lock/favourite.',
+      reason: `Not used by any best set, and ${dominator.name} has at least the same boost on every one of its mutations.`,
       specialistMutations: []
     };
   });
