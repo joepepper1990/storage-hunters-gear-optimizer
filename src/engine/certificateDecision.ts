@@ -486,6 +486,22 @@ function loadoutUsesItem(loadout:ReturnType<typeof buildGearLoadouts>['main'],it
   return Boolean(loadout&&[loadout.head.id,loadout.back.id,loadout.wrist.id].includes(itemId));
 }
 
+/** A replacement changes only trios containing the target. Reuse the best
+ * unaffected trio for each loadout instead of enumerating it for every prior node. */
+function mergeLoadouts(a:ReturnType<typeof buildGearLoadouts>,b:ReturnType<typeof buildGearLoadouts>):ReturnType<typeof buildGearLoadouts> {
+  const out:ReturnType<typeof buildGearLoadouts>={};
+  for(const key of ['main','day','night','rain','drink','grading','shop'] as const){
+    const x=a[key],y=b[key];
+    if(!x||!y){out[key]=x??y;continue;}
+    const id=(v:typeof x)=>[v.head.id,v.back.id,v.wrist.id].join('|');
+    const order=y.utility-x.utility||y.mainUtility-x.mainUtility||id(x).localeCompare(id(y));
+    const best=order<=0?x:y;
+    out[key]=Math.abs(x.utility-y.utility)<=1e-9&&Math.abs(x.mainUtility-y.mainUtility)<=1e-9
+      ?{...best,tiedItemIds:new Set([...x.tiedItemIds,...y.tiedItemIds])}:best;
+  }
+  return out;
+}
+
 function targetDecision(
   data:AppData,
   cert:OwnedCertificate,
@@ -514,6 +530,8 @@ function targetDecision(
   const shopRisk=riskPct(baseline.shop?.utility,without.shop?.utility);
   const authRisk=Math.max(mainRisk,contextRisk,drinkRisk,gradingRisk,shopRisk);
 
+  const unaffectedGear=data.gear.filter(g=>g.id!==item.id);
+  const unaffected={low:buildGearLoadouts(unaffectedGear,data.settings,'low'),central:buildGearLoadouts(unaffectedGear,data.settings,'central'),high:buildGearLoadouts(unaffectedGear,data.settings,'high')};
   const probs=outcomeProbabilities(defs,observedEffectCounts(data,cert,item.slot));
   const branches:Branch[]=[];
   const baselineUsesTarget=loadoutUsesItem(baseline.main,item.id);
@@ -524,10 +542,10 @@ function targetDecision(
     const supports=rollSupports(def,data,item.slot,cert);
     for(const support of supports){
       const updated=replaceAuthentication(item,cert,def.effect,support.value);
-      const gear=data.gear.map(g=>g.id===item.id?updated:g);
-      const nextLow=buildGearLoadouts(gear,data.settings,'low');
-      const nextCentral=buildGearLoadouts(gear,data.settings,'central');
-      const nextHigh=buildGearLoadouts(gear,data.settings,'high');
+      const gear=data.gear.filter(g=>g.slot!==item.slot).concat(updated);
+      const nextLow=mergeLoadouts(unaffected.low,buildGearLoadouts(gear,data.settings,'low'));
+      const nextCentral=mergeLoadouts(unaffected.central,buildGearLoadouts(gear,data.settings,'central'));
+      const nextHigh=mergeLoadouts(unaffected.high,buildGearLoadouts(gear,data.settings,'high'));
 
       const mainDeltas=[
         pct(nextLow.main?.utility,baselines.low.main?.utility),

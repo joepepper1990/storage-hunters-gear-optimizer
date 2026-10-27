@@ -73,7 +73,7 @@ describe('P1 paid reroll priority',()=>{
 
   it.each([
     {expectedMainPct:-1,expectedShopPct:1e9},
-    {expectedContextualMainPct:-2,expectedDrinkPrepPct:1e9},
+    {expectedContextualMainPct:-.5,expectedDrinkPrepPct:1e9},
     {expectedPersonalPreferenceDelta:-1,expectedDrinkPrepPct:1e9},
     {expectedDrinkPrepPct:-2,expectedGradingPct:1e9},
     {expectedGradingPct:-2,expectedShopPct:1e9}
@@ -86,21 +86,20 @@ describe('P1 paid reroll priority',()=>{
   it.each([
     [{expectedMainPct:1,expectedShopPct:1e12},{expectedMainPct:2}],
     [{expectedContextualMainPct:2,expectedShopPct:1e12},{expectedContextualMainPct:3}],
-    [{expectedPersonalPreferenceDelta:.3,expectedShopPct:1e12},{expectedPersonalPreferenceDelta:.4}],
     [{expectedDrinkPrepPct:3,expectedShopPct:1e12},{expectedDrinkPrepPct:4}],
     [{expectedGradingPct:3,expectedShopPct:1e12},{expectedGradingPct:4}]
   ] satisfies [Gains,Gains][])('ranks tuples without mixing magnitudes: %j versus %j',(effect,number)=>{
-    // Conditional number rerolls do not have a personal-tier delta. Compare
-    // against its Drink gain to exercise the preference-before-specialist tier.
-    if(number.expectedPersonalPreferenceDelta){
-      const result=mockedDecision(effect,{expectedDrinkPrepPct:1e12});
-      expect(result.recommendation).toBe('REROLL EFFECT');
-      return;
-    }
     const result=mockedDecision(effect,number);
     expect(result.effectReroll?.recommendable).toBe(true);
     expect(result.numberReroll?.recommendable).toBe(true);
     expect(result.recommendation).toBe('REROLL NUMBER');
+  });
+
+  it('ranks a neutral-Main personal preference gain ahead of specialist magnitude',()=>{
+    const result=mockedDecision({expectedPersonalPreferenceDelta:.3},{expectedDrinkPrepPct:1e12});
+    expect(result.effectReroll?.recommendable).toBe(true);
+    expect(result.numberReroll?.recommendable).toBe(true);
+    expect(result.recommendation).toBe('REROLL EFFECT');
   });
 
   it('uses personal preference only while Main is neutral',()=>{

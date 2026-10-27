@@ -360,8 +360,8 @@ export function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppDat
                 <div><b>Average robust gain when successful</b><span>{signed(target.averageGainWhenSuccessfulPct)}</span></div>
                 <div><b>Average demonstrated loss when worse</b><span>{signed(target.averageLossWhenWorsePct)}</span></div>
                 <div><b>Resolved outcomes · 10th / median / 90th percentile</b><span>{signed(target.p10Pct)} / {signed(target.medianPct)} / {signed(target.p90Pct)}</span></div>
-                <div><b>Best possible modelled branch</b><span>{target.bestPossibleOutcome} · {signed(target.bestCasePct)}</span></div>
-                <div><b>Worst modelled Main/context branch</b><span>{target.worstPossibleOutcome} · {signed(target.worstCasePct)}</span></div>
+                <div><b>Best sampled model branch</b><span>{target.bestPossibleOutcome} · {signed(target.bestCasePct)}</span></div>
+                <div><b>Worst sampled Main/context branch</b><span>{target.worstPossibleOutcome} · {signed(target.worstCasePct)}</span></div>
                 <div><b>Authentication risk — neutral Main</b><span>{signed(target.currentAuthenticationMainRiskPct)}</span></div>
                 <div><b>Authentication risk — Day/Night/Rain</b><span>{signed(target.currentAuthenticationContextRiskPct)}</span></div>
                 <div><b>Authentication risk — Drink Prep</b><span>{signed(target.currentAuthenticationDrinkRiskPct)}</span></div>

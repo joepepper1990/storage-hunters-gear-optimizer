@@ -76,7 +76,7 @@ function priorityTuple(value:OptionValues):number[] {
   const material=(amount:number,tolerance:number)=>Math.abs(amount)<tolerance?0:amount;
   return [
     neutralMain?0:value.expectedMainPct,
-    material(value.expectedContextualMainPct,1),
+    material(value.expectedContextualMainPct,.25),
     // Personal tiers are ordinal and can only break a neutral Main result.
     neutralMain?material(value.expectedPersonalPreferenceDelta,.20):0,
     material(value.expectedDrinkPrepPct,.25),
