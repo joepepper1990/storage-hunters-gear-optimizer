@@ -58,3 +58,10 @@ describe('component safety states',()=>{
   });
 });
 
+
+it('invalid settings hide even supplied current destructive verdicts',()=>{
+ const data=makeInitialData();data.settings.zoneBreakpoint1=60;data.settings.zoneBreakpoint2=30;
+ const item=data.gear[0];const unsafe:ItemAnalysis={item,verdict:'SAFE TO DISCARD',reason:'invalid proof',standalone:scoreStandalone(item,data.settings),currentlyEquipped:false,loadoutMemberships:[]};
+ const html=renderToStaticMarkup(<GearScreen gear={[item]} analyses={[unsafe]} settings={data.settings} analysisCurrent={true} onAdd={()=>{}} onScan={()=>{}} onEdit={()=>{}} onClone={()=>{}} onDelete={()=>{}} onFav={()=>{}} onBulkDiscard={()=>{}}/>);
+ expect(html).toContain('Correct invalid settings');expect(html).not.toContain('proven SAFE TO DISCARD');
+});

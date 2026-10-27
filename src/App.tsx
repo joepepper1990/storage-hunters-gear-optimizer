@@ -6,6 +6,7 @@ import type { PostRollDecision } from './engine/certificateReroll';
 import { editAuthentication, applyRecordedCertificateRoll, authModelTypeForOwnedCertificate, correctRecordedCertificateRoll, deleteRecordedCertificateRoll, withObservedAuthenticationStats } from './engine/certificateRolls';
 import { certificateInputKey, optimisationInputKey } from './engine/analysisFreshness';
 import { authenticationCatalogueIssues } from './engine/authModel';
+import { algorithmIssues } from './engine/settingsValidation';
 import { MODEL_ASSUMPTIONS } from './engine/modelAssumptions';
 import { buildGearLoadouts } from './engine/gearLoadouts';
 import { addOutcomeToItem, removeNumericAuthentication } from './engine/dominance';
@@ -32,6 +33,7 @@ export default function App() {
   const [editorMode, setEditorMode] = useState<'add'|'edit'>('add');
   const [toast, setToast] = useState('');
   const [loadError, setLoadError] = useState('');
+  const [saveError,setSaveError]=useState('');
   const [newAnalysis, setNewAnalysis] = useState<null | {name:string;standalone:number;previous:number;next:number;bestChanged:boolean;replaced?:string;verdict?:string;bestCert?:string;combined?:GearStats}>(null);
   const [pendingNewItem,setPendingNewItem]=useState<null|{item:GearItem;previous:number;previousBest?:CombinationResult}>(null);
   const [comboLimit, setComboLimit] = useState(10);
@@ -40,9 +42,9 @@ export default function App() {
   useEffect(() => { loadData().then(setData).catch(error=>setLoadError(error instanceof Error?error.message:String(error))); }, []);
   useEffect(() => {
     if (!data) return;
-    void saveData(data).catch(() => showToast('Autosave failed — download a JSON backup'));
+    void saveData(data).then(()=>setSaveError('')).catch(error=>setSaveError(error?.name==='StorageConflictError'?'Another tab saved newer data. Your edits in this tab have not replaced it. Download this tab as a backup before reloading.':'Autosave failed. Download a JSON backup before leaving this page.'));
     applyTheme(data.theme);
-    const flush=()=>{try{saveEmergencyMirror(data)}catch{/* IndexedDB autosave remains primary. */}};
+    const flush=()=>{try{saveEmergencyMirror(data)}catch(error){setSaveError(error instanceof Error?error.message:'Recovery save failed. Download a backup.')}};
     window.addEventListener('pagehide',flush);
     return () => window.removeEventListener('pagehide',flush);
   }, [data]);
@@ -90,6 +92,7 @@ export default function App() {
 
   function deleteItem(item:GearItem){ if(confirm(`Delete ${item.name}? This cannot be undone except from a backup.`)) setData({...data!,gear:data!.gear.filter(g=>g.id!==item.id)}); }
   function bulkDiscard(){
+    if(data&&algorithmIssues(data.settings).length){showToast('Correct invalid settings before discarding gear');return;}
     if(!computed.current){showToast('Recalculation in progress — discard decisions are temporarily locked');return;}
     const safe=analyses.filter(a=>a.verdict==='SAFE TO DISCARD'&&!a.item.favourite);
     const ids=safe.map(a=>a.item.id);
@@ -106,6 +109,8 @@ export default function App() {
     </header>
 
     <main className="content">
+      {saveError&&<div className="notice dangerNotice"><b>Data not saved:</b> {saveError}<div className="actions"><button onClick={()=>downloadText(`storage-hunters-conflict-${dateStamp()}.json`,exportJson(data),'application/json')}>Download this tab</button><button onClick={()=>{if(confirm('Reload newer saved data? Download this tab first to preserve its edits.'))window.location.reload()}}>Reload saved data</button></div></div>}
+      {algorithmIssues(data.settings).length>0&&<div className="notice dangerNotice">Invalid scoring settings. Gear and certificate advice is blocked until corrected in Settings.</div>}
       {tab==='Dashboard' && <Dashboard data={data} best={best} analyses={analyses} onGo={setTab} />}
       {tab==='Gear' && <GearScreen gear={data.gear} analyses={analyses} settings={data.settings} analysisCurrent={computed.current} onAdd={openAdd} onScan={()=>setScannerOpen(true)} onEdit={openEdit} onClone={cloneItem} onDelete={deleteItem} onFav={toggleFav} onBulkDiscard={bulkDiscard} />}
       {tab==='Optimise' && <OptimiseScreen data={data} combinations={top100.slice(0,comboLimit)} limit={comboLimit} setLimit={setComboLimit} />}
@@ -135,6 +140,7 @@ function useOptimisationWorker(data: AppData | null) {
     if(!data)return;
     const id=++requestId.current;
     const requestKey=inputKey;
+    if(algorithmIssues(data.settings).length){setState({top100:[],analyses:[],computing:false,resultKey:requestKey,error:'Invalid settings'});return;}
     setState(prev=>({...prev,computing:true,error:undefined}));
     const fallback=(message:string)=>{
       try{
@@ -173,33 +179,40 @@ function useOptimisationWorker(data: AppData | null) {
 function useCertificateWorker(data:AppData,activePostRollId?:string) {
   const sourceKey=useMemo(()=>certificateInputKey(data),[data.gear,data.settings,data.rollLog,data.ownedCertificates,data.authModel]);
   const inputKey=sourceKey+'|postroll:'+(activePostRollId??'none');
-  const [state,setState]=useState<{decisions:OwnedCertificateDecision[];postRoll?:PostRollDecision;computing:boolean;resultKey:string;error?:string}>({decisions:[],computing:false,resultKey:''});
-  const requestId=useRef(0);
+  const [state,setState]=useState<{decisions:OwnedCertificateDecision[];postRoll?:PostRollDecision;computing:boolean;resultKey:string;postRollKey:string;error?:string;postRollError?:string}>({decisions:[],computing:false,resultKey:'',postRollKey:''});
+  const requestId=useRef(0),paidId=useRef(0);
   useEffect(()=>{
     const id=++requestId.current;
-    const requestKey=inputKey;
     setState(prev=>({...prev,computing:true,error:undefined}));
     let worker:Worker;
-    try{
-      worker=new Worker(new URL('./workers/certificate.worker.ts',import.meta.url),{type:'module'});
-    }catch(error){
-      setState(prev=>({...prev,computing:false,error:error instanceof Error?error.message:'Certificate worker unavailable.'}));
-      return;
-    }
+    try{worker=new Worker(new URL('./workers/certificate.worker.ts',import.meta.url),{type:'module'});}
+    catch(error){setState(prev=>({...prev,computing:false,error:String(error)}));return;}
     worker.onmessage=(event:MessageEvent<any>)=>{
       if(event.data.id!==id)return;
-      if(event.data.error)setState(prev=>({...prev,computing:false,error:event.data.error}));
-      else setState({decisions:event.data.decisions??[],postRoll:event.data.postRoll,computing:false,resultKey:requestKey,error:undefined});
+      setState(prev=>({...prev,decisions:event.data.decisions??[],computing:false,resultKey:event.data.error?'':sourceKey,error:event.data.error}));
       worker.terminate();
     };
-    worker.onerror=()=>{
-      setState(prev=>({...prev,computing:false,error:'Certificate analysis failed in the background worker.'}));
+    worker.onerror=()=>{setState(prev=>({...prev,computing:false,error:'Certificate analysis failed.'}));worker.terminate();};
+    worker.postMessage({id,data,mode:'owned'});
+    return()=>worker.terminate();
+  },[sourceKey]);
+  useEffect(()=>{
+    const id=++paidId.current;
+    setState(prev=>({...prev,postRoll:undefined,postRollKey:'',postRollError:undefined}));
+    if(!activePostRollId)return;
+    let worker:Worker;
+    try{worker=new Worker(new URL('./workers/certificate.worker.ts',import.meta.url),{type:'module'});}
+    catch(error){setState(prev=>({...prev,postRollError:String(error)}));return;}
+    worker.onmessage=(event:MessageEvent<any>)=>{
+      if(event.data.id!==id)return;
+      setState(prev=>({...prev,postRoll:event.data.postRoll,postRollKey:inputKey,postRollError:event.data.error}));
       worker.terminate();
     };
-    worker.postMessage({id,data,activePostRollId});
+    worker.onerror=()=>{setState(prev=>({...prev,postRollError:'Paid-reroll analysis failed.'}));worker.terminate();};
+    worker.postMessage({id,data,mode:'postRoll',activePostRollId});
     return()=>worker.terminate();
   },[inputKey]);
-  return {...state,current:state.resultKey===inputKey&&!state.computing};
+  return {...state,current:state.resultKey===sourceKey&&!state.computing,postRollCurrent:state.postRollKey===inputKey};
 }
 
 function MoreScreen({data,onGo}:{data:AppData;onGo:(t:Tab)=>void}){
@@ -237,15 +250,18 @@ function Dashboard({data,best,analyses,onGo}:{data:AppData;best:any;analyses:any
 
 export function GearScreen({gear,analyses,settings,analysisCurrent,onAdd,onScan,onEdit,onClone,onDelete,onFav,onBulkDiscard}:{gear:GearItem[];analyses:ItemAnalysis[];settings:AlgorithmSettings;analysisCurrent:boolean;onAdd:()=>void;onScan:()=>void;onEdit:(i:GearItem)=>void;onClone:(i:GearItem)=>void;onDelete:(i:GearItem)=>void;onFav:(i:GearItem)=>void;onBulkDiscard:()=>void}){
   const [q,setQ]=useState(''); const [slot,setSlot]=useState<'All'|Slot>('All'); const [status,setStatus]=useState('All'); const [auth,setAuth]=useState('All'); const [sort,setSort]=useState('scoreDesc');
-  const map=new Map(analyses.map(a=>[a.item.id,a]));
+  const settingsValid=algorithmIssues(settings).length===0;
+  const verifiedAnalyses=analysisCurrent&&settingsValid?analyses:[];
+  const map=new Map(verifiedAnalyses.map(a=>[a.item.id,a]));
   let items=gear.filter(i=>(slot==='All'||i.slot===slot)&&(!q||i.name.toLowerCase().includes(q.toLowerCase())||i.id.includes(q))&&(status==='All'||map.get(i.id)?.verdict===status)&&(auth==='All'||(auth==='Unauthenticated'?!i.authenticated:i.authentication.kind===auth)));
   items=[...items].sort((a,b)=>sort==='nameAsc'?a.name.localeCompare(b.name):sort==='nameDesc'?b.name.localeCompare(a.name):sort==='scoreAsc'?(map.get(a.id)?.standalone.total??0)-(map.get(b.id)?.standalone.total??0):(map.get(b.id)?.standalone.total??0)-(map.get(a.id)?.standalone.total??0));
-  const safe=analyses.filter(a=>a.verdict==='SAFE TO DISCARD');
+  const safe=verifiedAnalyses.filter(a=>a.verdict==='SAFE TO DISCARD');
   return <section>
     <div className="pageHeading"><div><h1>Gear</h1><p>{gear.length} items · fast entry first</p></div><div className="headingActions"><button className="secondary" onClick={onScan}>▣ Scan screenshot</button><button className="primary" onClick={onAdd}>＋ Add gear</button></div></div>
     <div className="gearQuickBar"><input placeholder="Search gear" value={q} onChange={e=>setQ(e.target.value)}/><div className="segmented compactSegments">{(['All','Head','Back','Wrist'] as const).map(value=><button key={value} className={slot===value?'active':''} onClick={()=>setSlot(value)}>{value}</button>)}</div></div>
     <details className="filterPanel"><summary>Filters & sorting</summary><div className="filters compactFilters"><select value={status} onChange={e=>setStatus(e.target.value)}><option>All</option><option>EQUIP</option><option>KEEP</option><option>SAFE TO DISCARD</option><option>PROTECTED / UNKNOWN</option></select><select value={auth} onChange={e=>setAuth(e.target.value)}><option>All</option><option>Unauthenticated</option><option>Normal</option><option>Premium</option><option>Limited</option><option value="Alien">Legacy Alien</option></select><select value={sort} onChange={e=>setSort(e.target.value)}><option value="scoreDesc">Static/base score: highest → lowest</option><option value="scoreAsc">Static/base score: lowest → highest</option><option value="nameAsc">Name: A → Z</option><option value="nameDesc">Name: Z → A</option></select></div></details>
-    {!analysisCurrent&&<div className="notice warning"><b>Recalculating gear verdicts.</b> SAFE TO DISCARD actions are locked until the result matches the current inventory.</div>}
+    {!settingsValid&&<div className="notice dangerNotice">Correct invalid settings before using gear verdicts or discarding items.</div>}
+    {!analysisCurrent&&settingsValid&&<div className="notice warning"><b>Recalculating gear verdicts.</b> SAFE TO DISCARD actions are locked until the result matches the current inventory.</div>}
     {analysisCurrent&&safe.length>0 && <details className="dangerPanel"><summary>{safe.length} item{safe.length!==1?'s':''} proven SAFE TO DISCARD</summary><div className="discardList">{safe.map(a=><div key={a.item.id}><strong>{a.item.name}</strong><span>{a.reason}</span></div>)}</div><button className="danger" onClick={onBulkDiscard}>Review confirmation & delete all safe items</button></details>}
     <div className="gearList">{items.map(item=>{const a=map.get(item.id);return <article className="gearCard" key={item.id}>
       <div className="rowBetween"><div><div className="slotLabel">{item.slot}{item.mutation&&item.mutation!=='None'?` · ${item.mutation}`:''}{item.conditionPct!==undefined?` · ${item.conditionPct}% condition`:''}</div><h3>{item.baseName||item.name}</h3></div><button className={`star ${item.favourite?'on':''}`} onClick={()=>onFav(item)}>★</button></div>
@@ -263,7 +279,7 @@ export function GearScreen({gear,analyses,settings,analysisCurrent,onAdd,onScan,
 }
 
 export function OptimiseScreen({data,combinations,limit,setLimit}:{data:AppData;combinations:CombinationResult[];limit:number;setLimit:(n:number)=>void}){
-  const loadouts=useMemo(()=>buildGearLoadouts(data.gear,data.settings,'low'),[data.gear,data.settings]);
+  const loadouts=useMemo<ReturnType<typeof buildGearLoadouts>>(()=>algorithmIssues(data.settings).length?{}:buildGearLoadouts(data.gear,data.settings,'low'),[data.gear,data.settings]);
   const primary=[loadouts.main,loadouts.drink,loadouts.grading,loadouts.shop].filter(Boolean);
   const contextual=[loadouts.day,loadouts.night,loadouts.rain].filter(Boolean);
   const slotCounts={Head:data.gear.filter(g=>g.slot==='Head').length,Back:data.gear.filter(g=>g.slot==='Back').length,Wrist:data.gear.filter(g=>g.slot==='Wrist').length};
@@ -312,13 +328,15 @@ export function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppDat
   const changeQty=(id:string,amount:number)=>setData({...data,ownedCertificates:data.ownedCertificates.map(x=>x.id===id?{...x,quantity:Math.max(0,x.quantity+amount)}:x)});
   const patchCertificate=(id:string,patch:Partial<OwnedCertificate>)=>setData({...data,ownedCertificates:data.ownedCertificates.map(x=>x.id===id?{...x,...patch}:x)});
   const signed=(n:number)=>(n>=0?'+':'')+n.toFixed(2)+'%';
+  const points=(n:number)=>(n>=0?'+':'')+n.toFixed(2)+' points';
 
   return <section>
     <div className="pageHeading"><div><h1>Certificates</h1><p>Expected-value decisions · Main Auction first · Lucky Grading ON</p></div></div>
 
-    <div className="notice"><b>Decision rule:</b> every certificate is tested against every eligible item. Main Auction uses the robust zero-state baseline first, with central/high states shown only as sensitivity. Unknown Luck/Focused magnitude is explicit unresolved mass rather than fake zero EV. Specialists are considered only after Main, in the order Drink Prep → Grading → Shop/Idle.</div>
+    <div className="notice"><b>Decision rule:</b> every certificate is tested against every eligible item. Main Auction uses the robust zero-state baseline first, with central/high states shown only as sensitivity. Unknown Luck/Focused magnitude is explicit unresolved mass rather than fake zero EV. Specialists are considered only after Main, in the order Drink Prep → Grading → Shop/Idle. Specialist gains use utility points consistently, including when the starting value is zero.</div>
 
     {!certificateState.current&&<div className="notice warning"><b>Recalculating certificate decisions.</b> Previous recommendations are hidden until the result matches the current inventory, certificates, catalogue and roll history.</div>}
+    {certificateState.postRollError&&<div className="notice dangerNotice">{certificateState.postRollError}</div>}
     {certificateState.error&&<div className="notice dangerNotice"><b>Certificate analysis error:</b> {certificateState.error}</div>}
 
     <div className="sectionTitle"><h2>What should I do now?</h2></div>
@@ -352,6 +370,7 @@ export function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppDat
               <div className="thresholdTable">
                 <div><b>Conditional EV · robust / central / high</b><span>{signed(target.expectedImprovementPct)} / {signed(target.expectedImprovementCentralPct)} / {signed(target.expectedImprovementHighPct)}</span></div>
                 <div><b>Conditional EV · worst dynamic state</b><span>{signed(target.expectedImprovementLowPct)}</span></div>
+                <div><b>Numerical probability / Main EV guard</b><span>{target.numericalProbabilityErrorPct.toFixed(2)} percentage points / {target.numericalMainEvErrorPct.toFixed(2)}%</span></div>
                 <div><b>Full-certificate Main EV</b><span>{target.fullExpectedMainPct===null?'Unavailable — unresolved outcomes':signed(target.fullExpectedMainPct)}</span></div>
                 <div><b>Full Main EV bounds</b><span>{signed(target.fullMainLowerBoundPct)} to {target.fullMainUpperBoundPct===null?'unknown upper bound':signed(target.fullMainUpperBoundPct)}</span></div>
                 <div><b>Decision basis</b><span>{target.decisionBasis}</span></div>
@@ -370,9 +389,9 @@ export function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppDat
                 <div><b>Worst authentication risk anywhere relevant</b><span>{signed(target.currentAuthenticationValueAtRiskPct)}</span></div>
                 <div><b>Average Day/Night/Rain impact</b><span>{signed(target.expectedContextualMainPct)}</span></div>
                 <div><b>Worst Day/Night/Rain impact</b><span>{signed(target.worstContextualMainPct)}</span></div>
-                <div><b>Expected Drink Prep impact</b><span>{signed(target.expectedDrinkPrepPct)} · worse {target.chanceDrinkPrepWorsePct.toFixed(1)}%</span></div>
-                <div><b>Expected Grading impact</b><span>{signed(target.expectedGradingPct)} · worse {target.chanceGradingWorsePct.toFixed(1)}%</span></div>
-                <div><b>Expected Shop/Idle impact</b><span>{signed(target.expectedShopPct)} · worse {target.chanceShopWorsePct.toFixed(1)}%</span></div>
+                <div><b>Expected Drink Prep impact</b><span>{points(target.expectedDrinkPrepPct)} · worse {target.chanceDrinkPrepWorsePct.toFixed(1)}%</span></div>
+                <div><b>Expected Grading impact</b><span>{points(target.expectedGradingPct)} · worse {target.chanceGradingWorsePct.toFixed(1)}%</span></div>
+                <div><b>Expected Shop/Idle impact</b><span>{points(target.expectedShopPct)} · worse {target.chanceShopWorsePct.toFixed(1)}%</span></div>
                 <div><b>Personal effect-tier signal</b><span>{target.expectedPersonalPreferenceDelta>=0?'+':''}{target.expectedPersonalPreferenceDelta.toFixed(2)} · improve {target.chancePersonalPreferenceImprovesPct.toFixed(1)}% · worse {target.chancePersonalPreferenceWorsePct.toFixed(1)}%</span></div>
               </div>
 
@@ -407,7 +426,7 @@ export function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppDat
       <button className="secondary" disabled={!selectedCertificate} onClick={()=>setLogOpen(true)}>＋ Record selected certificate roll</button>
     </div>:<p className="muted">No certificate with quantity remaining is available to record.</p>}
 
-    {certificateState.current&&certificateState.postRoll&&<div className="card">
+    {certificateState.postRollCurrent&&certificateState.postRoll&&<div className="card">
       <div className="sectionTitle"><h2>Immediate post-roll choice</h2><button className="secondary compact" onClick={()=>setActivePostRollId(undefined)}>Authenticator prompt closed</button></div>
       <div className="notice warning"><b>Only while the Authenticator prompt is still open.</b> The game offers Reroll and Reroll Number immediately after authentication for {certificateState.postRoll.costRobux} Robux each; neither consumes another certificate. This model ranks gear utility only and does not decide whether {certificateState.postRoll.costRobux} Robux is financially worth spending.</div>
       <div className="rowBetween"><div><span className="eyebrow">MODELLED CHOICE</span><h3>{certificateState.postRoll.recommendation}</h3><p>{certificateState.postRoll.reason}</p></div></div>
@@ -584,7 +603,6 @@ function isStatefulDisplayAuth(item:GearItem):boolean{
   return item.authenticated&&['Sunny','Nocturnal','Raindrop','Overcharged','Focused','Mutated Luck','Droughtbreaker','Drought Breaker','Golden Hour','Luck Frenzy'].includes(item.authentication.effect.trim());
 }
 
-function algorithmIssues(s:AlgorithmSettings):string[]{const issues:string[]=[];for(const [k,v] of Object.entries(s))if(k!=='version'&&!Number.isFinite(Number(v)))issues.push(`${k} is not finite`);if(s.arrowSweetSpot<0)issues.push('Arrow sweet spot cannot be negative');if(s.energyTarget>s.energyCeiling)issues.push('Energy target must be ≤ Energy ceiling');if(s.zoneBreakpoint1>s.zoneBreakpoint2)issues.push('Zone breakpoint 1 must be ≤ breakpoint 2');for(const [label,value] of [['Luck weight',s.luckWeight],['Arrow weight',s.arrowWeight],['Zone weight',s.zoneWeight],['Recovery weight',s.recoveryWeight],['Zone middle multiplier',s.zoneMultiplier2],['Zone upper multiplier',s.zoneMultiplier3]] as const)if(value<0)issues.push(`${label} cannot be negative`);return issues;}
 function newAuthModelEntry():AuthModelEntry{return{id:crypto.randomUUID(),certificateInventoryType:'Wooden Certificate of Authenticity',certificateType:'Normal Certificate of Authenticity',slot:'Any',outcome:'Custom outcome',category:'Custom / unknown',assumedLikelihoodClass:'MEDIUM',observedSampleCount:0,observedValues:[],confidence:'Unknown',empiricalConfidence:'Unknown',enabled:true}}
 function blankItem(slot:Slot='Head'):GearItem{const now=new Date().toISOString();return{id:crypto.randomUUID(),baseName:'',name:'',slot,stats:{...ZERO_STATS},authenticated:false,authentication:{kind:'None',effect:'',value:0},favourite:false,createdAt:now,updatedAt:now}}
 function applyRollToItem(item:GearItem,effect:string,value:number,type:AuthModelEntry['certificateType']):GearItem{

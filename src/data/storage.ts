@@ -1,3 +1,4 @@
+import { validateStatDeltas } from './statDeltas';
 import { mergeScreenshotParts, mergeScreenshotTrophies, screenshotCertificates } from './screenshotEquipment';
 import { makeKnownGear } from './knownGear';
 import { DEFAULT_TROPHY_SETTINGS, DEFAULT_VEHICLE_PROFILE, DEFAULT_VEHICLE_SETTINGS, makeInitialData, LOCKED_DEFAULT_SETTINGS } from '../defaults';
@@ -9,18 +10,22 @@ const STORE = 'app';
 const KEY = 'data';
 const MIRROR_KEY = 'storage-hunters-gear-optimizer:emergency-mirror';
 const STORAGE_ENVELOPE_VERSION = 1;
-let lastRevision=0;
+let capturedHead: StoredSnapshot | undefined;
+let captures = new WeakMap<AppData, CapturedSnapshot>();
+let localSnapshots = new Set<string>();
 let saveChain: Promise<void> = Promise.resolve();
 
 interface StoredEnvelope {
   storageEnvelopeVersion: 1;
   savedAt: number;
   revision?: number;
+  snapshotId?: string;
   data: AppData;
 }
 export interface StoredSnapshot {
   savedAt: number;
   revision?: number;
+  snapshotId?: string;
   data: AppData;
 }
 
@@ -28,7 +33,7 @@ function decodeStoredSnapshot(value:unknown):StoredSnapshot|undefined {
   if(!value||typeof value!=='object')return undefined;
   const raw=value as any;
   if(raw.storageEnvelopeVersion===STORAGE_ENVELOPE_VERSION&&raw.data&&typeof raw.savedAt==='number'){
-    return {savedAt:Number.isFinite(raw.savedAt)?raw.savedAt:0,revision:Number.isSafeInteger(raw.revision)&&raw.revision>0?raw.revision:0,data:raw.data as AppData};
+    return {savedAt:Number.isFinite(raw.savedAt)?raw.savedAt:0,revision:Number.isSafeInteger(raw.revision)&&raw.revision>0?raw.revision:0,snapshotId:typeof raw.snapshotId==='string'?raw.snapshotId:undefined,data:raw.data as AppData};
   }
   if(Array.isArray(raw.gear))return {savedAt:0,data:raw as AppData};
   return undefined;
@@ -37,7 +42,12 @@ function decodeStoredSnapshot(value:unknown):StoredSnapshot|undefined {
 export function selectNewestStoredSnapshot(a?:StoredSnapshot,b?:StoredSnapshot):StoredSnapshot|undefined {
   if(!a)return b;
   if(!b)return a;
-  if(a.revision&&b.revision&&a.revision!==b.revision)return b.revision>a.revision?b:a;
+  if(a.revision&&b.revision){
+    if(a.revision!==b.revision)return b.revision>a.revision?b:a;
+    // Two writers can capture the same parent. On a revision tie keep the first
+    // source (IndexedDB at startup), rather than promoting a stale mirror by clock.
+    if(a.snapshotId!==b.snapshotId)return a;
+  }
   return b.savedAt>a.savedAt?b:a;
 }
 
@@ -54,63 +64,103 @@ export async function loadData(): Promise<AppData> {
   }
 
   const mirror=loadEmergencyMirror();
-  lastRevision=Math.max(lastRevision,indexed?.revision??0,mirror?.revision??0);
   const selected=selectNewestStoredSnapshot(indexed,mirror);
+  capturedHead=selected;
+  captures=new WeakMap();
+  localSnapshots=new Set();
   if(selected)return normalizeData(selected.data);
   if(indexedDbError)throw new Error(`Unable to open local gear storage and no emergency mirror was available: ${errorMessage(indexedDbError)}`);
   return makeInitialData();
 }
 
-/**
- * Serialise writes so rapid settings/gear edits cannot race and leave an older snapshot last.
- * IndexedDB is primary; localStorage is a best-effort emergency mirror.
- */
+export class StorageConflictError extends Error {
+  constructor() { super('Another tab saved newer data. Download a backup of this tab before reloading.'); this.name='StorageConflictError'; }
+}
+
+interface CapturedSnapshot { envelope: StoredEnvelope; base?: StoredSnapshot }
+
+// Capture provenance before queuing. Never rebase an old in-memory inventory on a
+// newer mirror observed at write/pagehide time: that would turn stale data into a winner.
+function captureSnapshot(data: AppData, savedAt=Date.now()): CapturedSnapshot {
+  const existing=captures.get(data);
+  if(existing)return existing;
+  const envelope:StoredEnvelope={storageEnvelopeVersion:STORAGE_ENVELOPE_VERSION,savedAt,
+    revision:(capturedHead?.revision??0)+1,snapshotId:crypto.randomUUID(),data:structuredClone(data)};
+  const captured={envelope,base:capturedHead};
+  captures.set(data,captured);
+  capturedHead=envelope;
+  localSnapshots.add(envelope.snapshotId!);
+  return captured;
+}
+
+function sameSnapshot(a:StoredSnapshot,b:StoredSnapshot):boolean {
+  if(a.snapshotId||b.snapshotId)return a.snapshotId===b.snapshotId;
+  return (a.revision??0)===(b.revision??0)&&a.savedAt===b.savedAt;
+}
+
+function assertCompatible(current:StoredSnapshot|undefined,captured:CapturedSnapshot):void {
+  if(!current)return;
+  if(current.snapshotId&&localSnapshots.has(current.snapshotId))return;
+  if(captured.base&&sameSnapshot(current,captured.base))return;
+  throw new StorageConflictError();
+}
+
+/** Serialise local writes and compare the captured parent within the IDB write transaction. */
 export function saveData(data: AppData): Promise<void> {
-  const snapshot = structuredClone(data);
-  const savedAt=Date.now();
-  const revision=nextRevision();
-  saveChain = saveChain.catch(() => undefined).then(() => writeSnapshot(snapshot,savedAt,revision));
+  const captured=captureSnapshot(data);
+  saveChain=saveChain.catch(()=>undefined).then(()=>writeSnapshot(captured));
   return saveChain;
 }
 
-async function writeSnapshot(data: AppData,savedAt:number,revision:number): Promise<void> {
-  const envelope:StoredEnvelope={storageEnvelopeVersion:STORAGE_ENVELOPE_VERSION,savedAt,revision,data};
-  let idbSaved = false;
-  let mirrorSaved = false;
-  let idbError: unknown;
+async function writeSnapshot(captured:CapturedSnapshot):Promise<void> {
+  const {envelope}=captured;
+  let idbSaved=false, mirrorSaved=false;
+  let idbError:unknown;
   try {
-    const db = await openDb();
+    const db=await openDb();
     try {
       const transaction=db.transaction(STORE,'readwrite');
       await new Promise<void>((resolve,reject)=>{
         transaction.oncomplete=()=>resolve();
         transaction.onabort=()=>reject(transaction.error??new Error('IndexedDB transaction aborted.'));
         transaction.onerror=()=>reject(transaction.error??new Error('IndexedDB transaction failed.'));
-        transaction.objectStore(STORE).put(envelope,KEY);
+        const store=transaction.objectStore(STORE);
+        const read=store.get(KEY);
+        read.onerror=()=>reject(read.error??new Error('IndexedDB read failed.'));
+        read.onsuccess=()=>{
+          try {
+            const current=selectNewestStoredSnapshot(decodeStoredSnapshot(read.result),loadEmergencyMirror());
+            assertCompatible(current,captured);
+            // A later local pagehide already protected a queued edit; keep it newer.
+            if(current&&current.snapshotId!==envelope.snapshotId&&selectNewestStoredSnapshot(envelope,current)===current){resolve();return;}
+            store.put(envelope,KEY);
+          } catch(error) { reject(error); }
+        };
       });
+      idbSaved=true;
     } finally {db.close();}
-    idbSaved = true;
-  } catch (error) {
-    idbError = error;
+  } catch(error) {
+    if(error instanceof StorageConflictError)throw error;
+    idbError=error;
   }
   try {
-    const currentMirror=loadEmergencyMirror();
-    if(!currentMirror||selectNewestStoredSnapshot(envelope,currentMirror)===envelope)writeEmergencyMirror(envelope);
-    mirrorSaved = true;
-  } catch {
-    // A large inventory can exceed localStorage quota; IndexedDB remains authoritative.
+    const current=loadEmergencyMirror();
+    assertCompatible(current,captured);
+    if(!current||sameSnapshot(current,envelope)||selectNewestStoredSnapshot(envelope,current)===envelope)writeEmergencyMirror(envelope);
+    mirrorSaved=true;
+  } catch(error) {
+    if(error instanceof StorageConflictError)throw error;
+    // Quota failure is safe when the IndexedDB transaction committed.
   }
-  if (!idbSaved && !mirrorSaved) throw new Error(`Local autosave failed: ${errorMessage(idbError)}`);
+  if(!idbSaved&&!mirrorSaved)throw new Error(`Local autosave failed: ${errorMessage(idbError)}`);
 }
 
-/** Synchronous best-effort mirror used on pagehide and as recovery if IndexedDB is unavailable. */
-function nextRevision():number {
-  lastRevision=Math.max(lastRevision,loadEmergencyMirror()?.revision??0)+1;
-  return lastRevision;
-}
-
-export function saveEmergencyMirror(data: AppData,savedAt=Date.now()): void {
-  writeEmergencyMirror({storageEnvelopeVersion:STORAGE_ENVELOPE_VERSION,savedAt,revision:nextRevision(),data});
+/** Synchronous recovery preserves capture-time lineage, including current unsaved edits. */
+export function saveEmergencyMirror(data: AppData,savedAt=Date.now()):void {
+  const captured=captureSnapshot(data,savedAt);
+  const current=loadEmergencyMirror();
+  assertCompatible(current,captured);
+  if(!current||sameSnapshot(current,captured.envelope)||selectNewestStoredSnapshot(captured.envelope,current)===captured.envelope)writeEmergencyMirror(captured.envelope);
 }
 
 function writeEmergencyMirror(envelope:StoredEnvelope):void {
@@ -438,6 +488,7 @@ function validateImportedData(raw: AppData): void {
     for (const [key,value] of Object.entries(item.stats ?? {})) {
       if (value !== '' && value !== null && value !== undefined && !Number.isFinite(Number(value))) throw new Error(`${prefix}: ${key} is not a finite number.`);
     }
+    if (item.authentication?.statDeltas !== undefined) validateStatDeltas(item.authentication.statDeltas, `${prefix}: Authentication Stat Deltas`);
     if (item.authentication?.kind !== undefined && !['None','Normal','Premium','Limited','Alien'].includes(item.authentication.kind)) throw new Error(`${prefix}: invalid authentication type.`);
     if (item.authentication?.value !== undefined && !Number.isFinite(Number(item.authentication.value))) throw new Error(`${prefix}: authentication value is not finite.`);
   });

@@ -96,13 +96,13 @@ function compareOptions(left:PostRollOption,right:PostRollOption):number {
 
 function fromCertificateTarget(target:CertificateTargetDecision|undefined):PostRollOption|undefined {
   const result=option('REROLL EFFECT',target&&{
-    expectedMainPct:target.expectedImprovementPct,
-    chancePotentialWorsePct:target.chancePotentialWorsePct,
+    expectedMainPct:target.expectedImprovementPct-(target.numericalMainEvErrorPct??0),
+    chancePotentialWorsePct:Math.min(100,target.chancePotentialWorsePct+(target.numericalProbabilityErrorPct??0)),
     unresolvedOutcomeMassPct:target.unresolvedOutcomeMassPct,
-    expectedContextualMainPct:target.expectedContextualMainPct,
-    expectedDrinkPrepPct:target.expectedDrinkPrepPct,
-    expectedGradingPct:target.expectedGradingPct,
-    expectedShopPct:target.expectedShopPct,
+    expectedContextualMainPct:target.expectedContextualMainLowerBoundPct??target.expectedContextualMainPct,
+    expectedDrinkPrepPct:target.expectedDrinkPrepLowerBound??target.expectedDrinkPrepPct,
+    expectedGradingPct:target.expectedGradingLowerBound??target.expectedGradingPct,
+    expectedShopPct:target.expectedShopLowerBound??target.expectedShopPct,
     expectedPersonalPreferenceDelta:target.expectedPersonalPreferenceDelta
   },'Authentication effect is selected from the applicable catalogue.');
   if(result&&target&&target.verdict!=='USE'&&target.verdict!=='CONSIDER'){
@@ -132,21 +132,21 @@ export function analysePostRollOptions(data:AppData,roll:CertificateRollLog):Pos
     authModel:rebuildEmpiricalModel(data.authModel,data.rollLog,history)
   };
 
-  const effectTarget=analyseCertificate(trainingData,cert).targets.find(t=>t.item.id===roll.itemId);
+  const effectTarget=analyseCertificate(trainingData,cert,undefined,roll.itemId).targets.find(t=>t.item.id===roll.itemId);
   const effectReroll=fromCertificateTarget(effectTarget);
 
   // Dedicated conditional number-reroll calculation: retain the existing effect,
   // sample only values of that same effect, and compare to accepting current gear.
   const number=analyseConditionalNumberReroll(trainingData,roll,cert);
   const numberReroll=option('REROLL NUMBER',number&&{
-    expectedMainPct:number.expectedMainPct,
-    chancePotentialWorsePct:number.chanceAnyWorsePct+number.unresolvedMassPct>100
-      ?100:number.chanceAnyWorsePct+number.unresolvedMassPct,
+    expectedMainPct:number.expectedMainLowerBoundPct??number.expectedMainPct,
+    chancePotentialWorsePct:(number.chanceAnyWorseUpperBoundPct??number.chanceAnyWorsePct)+number.unresolvedMassPct>100
+      ?100:(number.chanceAnyWorseUpperBoundPct??number.chanceAnyWorsePct)+number.unresolvedMassPct,
     unresolvedOutcomeMassPct:number.unresolvedMassPct,
-    expectedContextualMainPct:number.expectedContextualMainPct,
-    expectedDrinkPrepPct:number.expectedDrinkPrepPct,
-    expectedGradingPct:number.expectedGradingPct,
-    expectedShopPct:number.expectedShopPct,
+    expectedContextualMainPct:number.expectedContextualMainLowerBoundPct??number.expectedContextualMainPct,
+    expectedDrinkPrepPct:number.expectedDrinkPrepLowerBound??number.expectedDrinkPrepPct,
+    expectedGradingPct:number.expectedGradingLowerBound??number.expectedGradingPct,
+    expectedShopPct:number.expectedShopLowerBound??number.expectedShopPct,
     expectedPersonalPreferenceDelta:0
   },number?.modelNote??'');
 

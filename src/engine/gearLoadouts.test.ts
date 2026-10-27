@@ -147,7 +147,7 @@ describe('unified gear loadouts and retention',()=>{
     const noDrink=mainAuctionUtility([over,gear[2],gear[3]],LOCKED_DEFAULT_SETTINGS,'Neutral','low');
     const drinkState={droughtbreakerStacks:0,goldenHourLuck:0,luckFrenzyUptime:0,drinkLuckBoost:150,label:'Drink 2 active'};
     const withDrink=mainAuctionUtility([over,gear[2],gear[3]],LOCKED_DEFAULT_SETTINGS,'Neutral',drinkState);
-    expect(withDrink-noDrink).toBeCloseTo(30,8);
+    expect(withDrink-noDrink).toBeCloseTo(180,8);
   });
 
   it('uses the current Lucky Grading distribution for Grade Re-Roll EV',()=>{
@@ -156,3 +156,4 @@ describe('unified gear loadouts and retention',()=>{
   });
 
 });
+

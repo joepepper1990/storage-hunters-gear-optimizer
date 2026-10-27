@@ -1,3 +1,4 @@
+import { algorithmIssues } from './settingsValidation';
 import type { AlgorithmSettings, DominanceResult, GearItem, GearStats } from '../types';
 import { arrowEffective, effectiveItemStats, energyEffective, isNumericAuth, luckEffective, npcEffective, passiveScore, zoneEffective } from './scoring';
 
@@ -80,6 +81,8 @@ export function maxDifference(a: number, b: number, spec: PiecewiseSpec): number
 }
 
 export function findDominator(target: GearItem, candidates: GearItem[], s: AlgorithmSettings): DominanceResult {
+  const issues=algorithmIssues(s);
+  if(issues.length)return {dominated:false,reason:'Invalid algorithm settings prevent a safe dominance proof: '+issues.join('; ')+'.'};
   let strongest: { item: GearItem; margin: number } | undefined;
   let counterexample: { item: GearItem; advantage: number } | undefined;
   let comparable = 0;
@@ -144,3 +147,4 @@ export function addOutcomeToItem(item: GearItem, outcome: string, roll: number):
 }
 
 export const STAT_KEYS: Array<keyof GearStats> = ['luck','energy','tip','walk','vehicle','recovery','zone','arrowReduction','npc'];
+

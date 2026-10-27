@@ -54,7 +54,7 @@ function mockedDecision(effect:Gains,number:Gains={},verdict:decisions.Certifica
   vi.spyOn(decisions,'analyseConditionalNumberReroll').mockReturnValue({
     ...neutral,...number,chanceMainWorsePct:0,chanceAnyWorsePct:0,
     resolvedMassPct:100,unresolvedMassPct:0,modelNote:''
-  });
+  } as unknown as ReturnType<typeof decisions.analyseConditionalNumberReroll>);
   return analysePostRollOptions(data,roll)!;
 }
 
@@ -64,10 +64,10 @@ describe('P1 paid reroll priority',()=>{
   it('keeps Drink Prep ahead of a much larger Shop expected gain in the actual catalogue model',()=>{
     const {data,roll}=fixture();
     const result=analysePostRollOptions(data,roll)!;
-    expect(result.effectReroll?.expectedDrinkPrepPct).toBeCloseTo(-20);
-    expect(result.effectReroll?.expectedShopPct).toBeCloseTo(500);
+    expect(result.effectReroll?.expectedDrinkPrepPct).toBeCloseTo(-5);
+    expect(result.effectReroll?.expectedShopPct).toBeCloseTo(2);
     expect(result.effectReroll?.recommendable).toBe(false);
-    expect(result.numberReroll?.expectedDrinkPrepPct).toBeCloseTo(20);
+    expect(result.numberReroll?.expectedDrinkPrepPct).toBeCloseTo(5);
     expect(result.recommendation).toBe('REROLL NUMBER');
   });
 

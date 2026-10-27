@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { GearItem, GearStats } from '../types';
 import type { ParsedGearScan } from '../scanner/types';
-import { parseGearOcrText, scanToGearDraft } from '../scanner/parser';
+import { confirmFocusedScanBaseStats, observedScanStatKeys, parseGearOcrText, scanNeedsBaseStatConfirmation, scanToGearDraft } from '../scanner/parser';
 import { recogniseGearScreenshot } from '../scanner/ocr';
 
 const scanStatLabels: Array<[keyof GearStats, string]> = [
@@ -30,6 +30,7 @@ export function GearScanner({ onClose, onConfirm }: { onClose: () => void; onCon
   const [previewUrl, setPreviewUrl] = useState('');
   const [scan, setScan] = useState<ParsedGearScan | null>(null);
   const [error, setError] = useState('');
+  const [baseInputs, setBaseInputs] = useState<Partial<Record<keyof GearStats, string>>>({});
 
   useEffect(() => () => { alive.current = false; }, []);
 
@@ -37,6 +38,7 @@ export function GearScanner({ onClose, onConfirm }: { onClose: () => void; onCon
     setBusy(true);
     setError('');
     setScan(null);
+    setBaseInputs({});
     setProgress(0);
     setStatus('Preparing screenshot');
     try {
@@ -60,11 +62,29 @@ export function GearScanner({ onClose, onConfirm }: { onClose: () => void; onCon
 
   function chooseAnother() {
     setScan(null);
+    setBaseInputs({});
     setPreviewUrl('');
     setError('');
     setProgress(0);
     setStatus('');
     fileRef.current?.click();
+  }
+
+  const focusedScan = Boolean(scan?.authenticated && ['focused', 'focus'].includes(scan.authentication.effect.toLowerCase()));
+  const baseStatKeys = scan ? observedScanStatKeys(scan) : [];
+  const baseInputsComplete = baseStatKeys.length > 0 && baseStatKeys.every(key => {
+    const value = baseInputs[key];
+    return value !== undefined && value.trim() !== '' && Number.isFinite(Number(value));
+  });
+
+  function confirmBaseStats() {
+    if (!scan || !baseInputsComplete) return;
+    const baseStats: Partial<GearStats> = {};
+    for (const key of baseStatKeys) {
+      const shown = Number(baseInputs[key]);
+      baseStats[key] = key === 'arrowReduction' ? -shown : shown;
+    }
+    setScan(confirmFocusedScanBaseStats(scan, baseStats));
   }
 
   return <div className="modalBackdrop scannerBackdrop">
@@ -107,11 +127,26 @@ export function GearScanner({ onClose, onConfirm }: { onClose: () => void; onCon
 
         {scan.authenticated && scan.authentication.effect && <div className="scannerAuth"><span>Authentication</span><strong>{scan.authentication.effect}{scan.authentication.value ? ` ${scan.authentication.value > 0 ? '+' : ''}${scan.authentication.value}%` : ''}</strong></div>}
 
+        {focusedScan && <div className="notice scannerBaseConfirmation">
+          <strong>Confirm original base stats</strong>
+          <p>These observed stats may include Focused. Enter each original stat from before authentication, including any mutation or condition already present. Use the signed percentage shown in game. Do not calculate a base value from the Focused percentage.</p>
+          {scanStatLabels.filter(([key]) => baseStatKeys.includes(key)).map(([key, label]) => <label key={key} className="field">
+            <span>{label}: observed {displayScanStat(key, scan.stats[key])} · original base %</span>
+            <input type="number" step="any" value={baseInputs[key] ?? ''} placeholder="Enter original base value" onChange={event => {
+              setBaseInputs(current => ({ ...current, [key]: event.target.value }));
+              if (scan.baseStatsProvenance === 'confirmed') setScan({ ...scan, baseStatsProvenance: 'requires-confirmation', confirmedBaseStats: undefined });
+            }} />
+          </label>)}
+          {!baseStatKeys.length && <p>No stats were recognised. Scan a clearer screenshot before confirming original base stats.</p>}
+          <button className="secondary" disabled={!baseInputsComplete || scan.baseStatsProvenance === 'confirmed'} onClick={confirmBaseStats}>{scan.baseStatsProvenance === 'confirmed' ? 'Original base stats confirmed' : 'Confirm these original base stats'}</button>
+          <p>The observed difference will stay with this authentication and be removed when it is replaced.</p>
+        </div>}
+
         {scan.warnings.length > 0 && <div className="scannerWarnings"><strong>Check before saving</strong>{scan.warnings.map(warning => <p key={warning}>{warning}</p>)}</div>}
 
         <details className="scannerRaw"><summary>Show raw OCR text</summary><pre>{scan.rawText || 'No text returned.'}</pre></details>
 
-        <div className="scannerActions"><button className="secondary" onClick={chooseAnother}>Scan another</button><button className="primary" onClick={()=>onConfirm(scanToGearDraft(scan))}>Review in gear editor</button></div>
+        <div className="scannerActions"><button className="secondary" onClick={chooseAnother}>Scan another</button><button className="primary" disabled={scanNeedsBaseStatConfirmation(scan)} onClick={()=>onConfirm(scanToGearDraft(scan))}>Review in gear editor</button></div>
       </div>}
 
       {error && !busy && !scan && <button className="primary scannerRetry" onClick={()=>fileRef.current?.click()}>Try another screenshot</button>}
@@ -119,3 +154,4 @@ export function GearScanner({ onClose, onConfirm }: { onClose: () => void; onCon
     </div>
   </div>;
 }
+

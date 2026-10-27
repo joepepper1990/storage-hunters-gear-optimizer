@@ -416,12 +416,58 @@ function parseVisual(text: string, lines: GearOcrVisualLine[]): ParsedGearScan |
   };
 }
 
+const FOCUSED_BASE_WARNING = 'Focused may already be included in the displayed stats. Confirm the original base stats for every observed stat before continuing; the scanner cannot infer a Focused formula.';
+
+export function scanNeedsBaseStatConfirmation(scan: ParsedGearScan): boolean {
+  return scan.authenticated && ['focused', 'focus'].includes(scan.authentication.effect.toLowerCase())
+    && (scan.baseStatsProvenance !== 'confirmed' || !scan.confirmedBaseStats);
+}
+
+/** Includes recognised zero values, which would be lost by filtering nonzero stats. */
+export function observedScanStatKeys(scan: ParsedGearScan): Array<keyof GearStats> {
+  return (Object.keys(ZERO_STATS) as Array<keyof GearStats>).filter(key => key in scan.fieldConfidence);
+}
+
+export function confirmFocusedScanBaseStats(scan: ParsedGearScan, baseStats: Partial<GearStats>): ParsedGearScan {
+  const keys = observedScanStatKeys(scan);
+  if (!keys.length || keys.some(key => typeof baseStats[key] !== 'number' || !Number.isFinite(baseStats[key]))) {
+    throw new Error('Enter finite original base stats for every observed stat.');
+  }
+  const confirmedBaseStats = { ...ZERO_STATS };
+  for (const key of keys) confirmedBaseStats[key] = baseStats[key]!;
+  return {
+    ...scan,
+    baseStatsProvenance: 'confirmed',
+    confirmedBaseStats,
+    warnings: scan.warnings.filter(warning => warning !== FOCUSED_BASE_WARNING)
+  };
+}
+
 export function parseGearOcrText(text: string, visualLines: GearOcrVisualLine[] = []): ParsedGearScan {
   const visual = visualLines.length ? parseVisual(text, visualLines) : undefined;
-  return visual ?? parseTextOnly(text);
+  const scan = visual ?? parseTextOnly(text);
+  if (scanNeedsBaseStatConfirmation(scan)) {
+    scan.baseStatsProvenance = 'requires-confirmation';
+    scan.warnings.push(FOCUSED_BASE_WARNING);
+    if (scan.confidence === 'High') scan.confidence = 'Medium';
+  }
+  return scan;
 }
 
 export function scanToGearDraft(scan: ParsedGearScan, now = new Date().toISOString(), id: string = crypto.randomUUID()): GearItem {
+  if (scanNeedsBaseStatConfirmation(scan)) {
+    throw new Error('Confirm the original base stats before saving this Focused scan.');
+  }
+  const stats = scan.confirmedBaseStats ?? scan.stats;
+  const authentication = { ...scan.authentication };
+  if (scan.confirmedBaseStats) {
+    const statDeltas: Partial<GearStats> = {};
+    for (const key of observedScanStatKeys(scan)) {
+      const delta = scan.stats[key] - stats[key];
+      if (delta !== 0) statDeltas[key] = delta;
+    }
+    authentication.statDeltas = Object.keys(statDeltas).length ? statDeltas : undefined;
+  }
   return {
     id,
     baseName: scan.baseName,
@@ -429,11 +475,12 @@ export function scanToGearDraft(scan: ParsedGearScan, now = new Date().toISOStri
     slot: scan.slot,
     mutation: scan.mutation,
     conditionPct: scan.conditionPct,
-    stats: { ...scan.stats },
+    stats: { ...stats },
     authenticated: scan.authenticated && scan.authentication.kind !== 'None' && Boolean(scan.authentication.effect),
-    authentication: { ...scan.authentication },
+    authentication,
     favourite: false,
     createdAt: now,
     updatedAt: now
   };
 }
+
