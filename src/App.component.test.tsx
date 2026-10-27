@@ -269,28 +269,43 @@ describe('Discard', () => {
 });
 
 describe('Preferences', () => {
-  it('labelled sliders update the engine settings immediately and reset per section', async () => {
+  const outputs = (root: HTMLElement, section: RegExp) =>
+    [...byText(root, '.prefSection', section).querySelectorAll('.weightGroup output')].map(o => o.textContent);
+  it('shows each weight group as percentages that always add up to 100', async () => {
+    const root = await openApp(makeInitialData());
+    await go(root, 'Preferences');
+    for (const section of [/^Auctions/, /^Shop/, /^Vehicle/]) {
+      const shown = outputs(root, section).map(t => Number(t!.replace('%', '')));
+      expect(shown.reduce((a, b) => a + b, 0)).toBe(100);
+    }
+    expect(byText(root, '.prefSection', /^Auctions/).textContent).toContain('Reaching 65–85% Bid Arrow always comes first.');
+  });
+  it('moving one weight rebalances the others in its group immediately, and Reset restores it', async () => {
     const root = await openApp(makeInitialData());
     await go(root, 'Preferences');
     const luck = labelled(root, 'Luck') as HTMLInputElement;
-    const arrow = labelled(root, /Bid Arrow/) as HTMLInputElement;
     expect(luck.type).toBe('range');
-    expect(luck.value).toBe(arrow.value);
-    await type(luck, '4');
-    expect(lastSaved().settings.luckWeight).toBe(.4);
-    expect(luck.closest('.slider')!.querySelector('output')!.textContent).toBe('4');
+    await type(luck, '70');
+    expect(outputs(root, /^Auctions/)[0]).toBe('70%');
+    expect(outputs(root, /^Auctions/).map(t => Number(t!.replace('%', ''))).reduce((a, b) => a + b, 0)).toBe(100);
+    const s = lastSaved().settings;
+    const total = s.luckWeight + s.arrowWeight + s.zoneWeight + s.recoveryWeight;
+    expect(s.luckWeight / total).toBeCloseTo(.7, 9);
+    // The other three keep their proportions (default Arrow 1 : Zone 0.6 : Recovery 0.2).
+    expect(s.zoneWeight / s.arrowWeight).toBeCloseTo(.6, 9);
+    expect(s.recoveryWeight / s.arrowWeight).toBeCloseTo(.2, 9);
+    // Other groups are untouched.
+    expect(lastSaved().vehicleSettings).toEqual(makeInitialData().vehicleSettings);
     await click(button(byText(root, '.prefSection', /^Auctions/), 'Reset'));
     expect(lastSaved().settings.luckWeight).toBe(1);
   });
-  it('shows a stored custom coefficient explicitly and keeps it until moved', async () => {
-    const data = makeInitialData(); data.settings.zoneWeight = .65;
+  it('keeps stored custom weights exactly until a weight in that group is moved', async () => {
+    const data = makeInitialData(); data.settings.zoneWeight = .65; data.settings.luckWeight = .3;
     const root = await openApp(data);
     await go(root, 'Preferences');
-    const zone = labelled(root, 'Bid Zone Width') as HTMLInputElement;
-    expect(zone.closest('.slider')!.textContent).toContain('6.5 custom');
-    await type(labelled(root, 'Bid Recovery') as HTMLInputElement, '3');
+    await type(labelled(root, 'Capacity') as HTMLInputElement, '50');
     expect(lastSaved().settings.zoneWeight).toBe(.65);
-    expect(lastSaved().settings.recoveryWeight).toBe(.3);
+    expect(lastSaved().settings.luckWeight).toBe(.3);
   });
 });
 

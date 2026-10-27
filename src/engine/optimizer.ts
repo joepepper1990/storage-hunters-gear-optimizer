@@ -1,6 +1,6 @@
 import type { AlgorithmSettings, CombinationResult, GearItem, ItemAnalysis, Slot } from '../types';
 import { arrowEffective, combineStats } from './scoring';
-import { analyseGearRetention, mainCombination } from './gearLoadouts';
+import { analyseGearRetention, arrowBandReached, mainCombination } from './gearLoadouts';
 
 export function evaluateCombination(head: GearItem, back: GearItem, wrist: GearItem, settings: AlgorithmSettings): CombinationResult {
   return mainCombination(head, back, wrist, settings, 'Neutral', 'low');
@@ -13,7 +13,7 @@ export function optimise(gear: GearItem[], settings: AlgorithmSettings, limit = 
   if (!heads.length || !backs.length || !wrists.length) return [];
   const best: CombinationResult[] = [];
   for (const head of heads) for (const back of backs) for (const wrist of wrists) {
-    insertRanked(best, evaluateCombination(head, back, wrist, settings), limit);
+    insertRanked(best, evaluateCombination(head, back, wrist, settings), limit, settings);
   }
   return best;
 }
@@ -22,12 +22,14 @@ function combinationKey(value:CombinationResult):string {
   return [value.head.id,value.back.id,value.wrist.id].join('|');
 }
 
-function compareCombination(a:CombinationResult,b:CombinationResult):number {
-  return b.score.total-a.score.total || combinationKey(a).localeCompare(combinationKey(b));
+/** Same Main priority as the loadout engine: Arrow band first, then score. */
+function compareCombination(a:CombinationResult,b:CombinationResult,settings:AlgorithmSettings):number {
+  const tier=(c:CombinationResult)=>arrowBandReached(c.stats,settings)?1:0;
+  return tier(b)-tier(a) || b.score.total-a.score.total || combinationKey(a).localeCompare(combinationKey(b));
 }
 
-function insertRanked(list: CombinationResult[], value: CombinationResult, limit: number) {
-  const index=list.findIndex(existing=>compareCombination(value,existing)<0);
+function insertRanked(list: CombinationResult[], value: CombinationResult, limit: number, settings: AlgorithmSettings) {
+  const index=list.findIndex(existing=>compareCombination(value,existing,settings)<0);
   if(index<0)list.push(value);else list.splice(index,0,value);
   if (list.length > limit) list.pop();
 }

@@ -28,6 +28,9 @@ export interface GearLoadoutResult {
   stats: GearStats;
   utility: number;
   mainUtility: number;
+  /** 1 when the set reaches the ideal Bid Arrow band. Ranks before `utility` for auction sets
+   * and before `mainUtility` as every tie-break: reaching the band always comes first. */
+  arrowTier: number;
   tiedItemIds: Set<string>;
   rationale: string;
 }
@@ -197,7 +200,14 @@ function drinkValue(stats:GearStats,settings:AlgorithmSettings):number {
 
 /** One evaluated trio. Combined stats and the robust Main tie-break are computed once
  * and shared by every loadout, instead of once per loadout utility. */
-interface Trio { items:GearItem[]; stats:GearStats; main:number; key:string }
+interface Trio { items:GearItem[]; stats:GearStats; main:number; tier:number; key:string }
+
+/** Main Auction priority: reaching the Bid Arrow band (65% by default) comes before
+ * everything else; only then do Luck and the other weighted stats decide. Combined
+ * Arrow is unaffected by dynamic Luck states and contexts, so the tier is per trio. */
+export function arrowBandReached(stats:Pick<GearStats,'arrowReduction'>,settings:AlgorithmSettings):boolean {
+  return stats.arrowReduction>=settings.arrowSweetSpot-1e-9;
+}
 
 function allTrios(gear:GearItem[],settings:AlgorithmSettings):Trio[] {
   const heads=gear.filter(g=>g.slot==='Head'), backs=gear.filter(g=>g.slot==='Back'), wrists=gear.filter(g=>g.slot==='Wrist');
@@ -205,7 +215,8 @@ function allTrios(gear:GearItem[],settings:AlgorithmSettings):Trio[] {
   const out:Trio[]=[];
   for(const h of heads)for(const b of backs)for(const w of wrists){
     const items=[h,b,w],stats=combineStats(items);
-    out.push({items,stats,main:mainAuctionUtility(items,settings,'Neutral','low',stats),key:h.id+'|'+b.id+'|'+w.id});
+    out.push({items,stats,main:mainAuctionUtility(items,settings,'Neutral','low',stats),
+      tier:arrowBandReached(stats,settings)?1:0,key:h.id+'|'+b.id+'|'+w.id});
   }
   return out;
 }
@@ -213,21 +224,26 @@ function allTrios(gear:GearItem[],settings:AlgorithmSettings):Trio[] {
 function makeResult(
   name:GearLoadoutName, trios:Trio[], utility:(trio:Trio)=>number,
   settings:AlgorithmSettings, context?:MainAuctionContext, rationale='', requirePositive=false,
-  dynamic:DynamicScenario|DynamicState='low'
+  dynamic:DynamicScenario|DynamicState='low', auction=false
 ):GearLoadoutResult|undefined {
   if(!trios.length)return undefined;
-  // Best by utility, then robust Main, then trio IDs: the first element a full sort would give.
-  const scored=trios.map(trio=>({trio,u:utility(trio)}));
+  // Auction sets: Arrow band first, then utility. Specialists: utility first. Ties then
+  // fall to the Main priority (band, then robust Main score), then trio IDs.
+  const scored=trios.map(trio=>({trio,u:utility(trio),rank:auction?trio.tier:0}));
+  const better=(x:typeof scored[number],y:typeof scored[number])=>
+    x.rank!==y.rank?x.rank>y.rank:x.u!==y.u?x.u>y.u:x.trio.tier!==y.trio.tier?x.trio.tier>y.trio.tier
+      :x.trio.main!==y.trio.main?x.trio.main>y.trio.main:x.trio.key.localeCompare(y.trio.key)<0;
   let best=scored[0];
-  for(const x of scored)if(x.u>best.u||(x.u===best.u&&(x.trio.main>best.trio.main||(x.trio.main===best.trio.main&&x.trio.key.localeCompare(best.trio.key)<0))))best=x;
+  for(const x of scored)if(better(x,best))best=x;
   if(requirePositive&&best.u<=1e-9)return undefined;
   const epsilon=1e-9;
-  const tied=scored.filter(x=>Math.abs(x.u-best.u)<=epsilon&&Math.abs(x.trio.main-best.trio.main)<=epsilon);
+  const tied=scored.filter(x=>x.rank===best.rank&&x.trio.tier===best.trio.tier&&Math.abs(x.u-best.u)<=epsilon&&Math.abs(x.trio.main-best.trio.main)<=epsilon);
   const tiedItemIds=new Set(tied.flatMap(x=>x.trio.items.map(i=>i.id)));
   const items=best.trio.items,stats=best.trio.stats;
   return {
     name,context,head:items[0],back:items[1],wrist:items[2],
-    stats:{...stats,luck:stats.luck+dynamicLuck(items,context??'Neutral',dynamic)},utility:best.u,mainUtility:best.trio.main,tiedItemIds,rationale
+    stats:{...stats,luck:stats.luck+dynamicLuck(items,context??'Neutral',dynamic)},utility:best.u,mainUtility:best.trio.main,
+    arrowTier:best.trio.tier,tiedItemIds,rationale
   };
 }
 
@@ -237,10 +253,10 @@ export function buildGearLoadouts(
   const trios=allTrios(gear,settings);
   const specialists=activeSpecialists(settings);
   return {
-    main:makeResult('Main Auction',trios,t=>mainAuctionUtility(t.items,settings,'Neutral',dynamic,t.stats),settings,'Neutral','Primary loadout: Luck, Bid Arrow in the 65-85% band, Bid Zone and Recovery.',false,dynamic),
-    day:makeResult('Day Auction',trios,t=>mainAuctionUtility(t.items,settings,'Day',dynamic,t.stats),settings,'Day','Main Auction with Sunny effects active.',false,dynamic),
-    night:makeResult('Night Auction',trios,t=>mainAuctionUtility(t.items,settings,'Night',dynamic,t.stats),settings,'Night','Main Auction with Nocturnal effects active.',false,dynamic),
-    rain:makeResult('Rain Auction',trios,t=>mainAuctionUtility(t.items,settings,'Rain',dynamic,t.stats),settings,'Rain','Main Auction with Raindrop effects active.',false,dynamic),
+    main:makeResult('Main Auction',trios,t=>mainAuctionUtility(t.items,settings,'Neutral',dynamic,t.stats),settings,'Neutral','Primary loadout: reach the Bid Arrow band first, then Luck, Bid Zone and Recovery.',false,dynamic,true),
+    day:makeResult('Day Auction',trios,t=>mainAuctionUtility(t.items,settings,'Day',dynamic,t.stats),settings,'Day','Main Auction with Sunny effects active.',false,dynamic,true),
+    night:makeResult('Night Auction',trios,t=>mainAuctionUtility(t.items,settings,'Night',dynamic,t.stats),settings,'Night','Main Auction with Nocturnal effects active.',false,dynamic,true),
+    rain:makeResult('Rain Auction',trios,t=>mainAuctionUtility(t.items,settings,'Rain',dynamic,t.stats),settings,'Rain','Main Auction with Raindrop effects active.',false,dynamic,true),
     drink:specialists.includes('Drink Prep')?makeResult('Drink Prep',trios,t=>drinkValue(t.stats,settings),settings,undefined,'Temporary set used while consuming an Energy Drink; Energy duration matters. Overcharged is auction-time Luck and is evaluated in Main sensitivity states instead.',true):undefined,
     grading:specialists.includes('Grading')?makeResult('Grading',trios,t=>gradeRerollValue(t.items),settings,undefined,'Temporary grading set; Lucky Grading is owned and Grade Re-Roll is valued against that distribution.',true):undefined,
     shop:specialists.includes('Shop / Idle')?makeResult('Shop / Idle',trios,t=>shopValue(t.stats,settings),settings,undefined,'Optional selling set for deliberate shop/idle sessions; Tip Chance and NPC Offers matter.',true):undefined
@@ -310,7 +326,9 @@ function futureSafeDominator(item:GearItem,candidates:GearItem[],settings:Algori
   const specialistSafe=candidates.filter(candidate=>{
     const stats=effectiveItemStats(candidate);
     // Ignored specialists (priority 0) and zero-importance Shop stats impose no requirement.
-    return (!drink||stats.energy>=target.energy)
+    // Less raw Arrow could drop a future set out of the Arrow band, which outranks any score.
+    return stats.arrowReduction>=target.arrowReduction
+      && (!drink||stats.energy>=target.energy)
       && (!shop||settings.shopTipWeight<=0||stats.tip>=target.tip)
       && (!shop||settings.shopNpcWeight<=0||stats.npc>=target.npc)
       && (!grading||gradeRerollValue([candidate])>=gradeRerollValue([item]))
@@ -320,7 +338,7 @@ function futureSafeDominator(item:GearItem,candidates:GearItem[],settings:Algori
   const mainSettings={...settings,energyWeight:0,npcWeight:0,tipWeight:0,vehicleWeight:0,walkWeight:0};
   const dominance=findDominator(item,specialistSafe,mainSettings);
   if(!dominance.dominated && specialistSafe.length!==candidates.length) {
-    dominance.reason='No replacement is proven at least as useful for Main Auction and every specialist loadout across future complementary states (including Energy, Tip, NPC, Grade Re-Roll and Mutated Luck).';
+    dominance.reason='No replacement is proven at least as useful for Main Auction and every specialist loadout across future complementary states (including the Arrow band, Energy, Tip, NPC, Grade Re-Roll and Mutated Luck).';
   }
   return dominance;
 }

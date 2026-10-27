@@ -1,6 +1,7 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { DEFAULT_TROPHY_SETTINGS, DEFAULT_VEHICLE_PROFILE, makeEmptyData } from '../defaults';
-import { controlsFor, resetPreferenceSection, setPreference, sliderView, SLIDER_MAX, type PreferenceControl, type PreferenceSection } from '../engine/preferences';
+import { controlsFor, groupControls, resetPreferenceSection, roundedShares, setPreference, setWeightShare, sliderView, SLIDER_MAX, weightShares, type PreferenceControl, type PreferenceSection, type WeightGroup } from '../engine/preferences';
+import { arrowTargetBand } from '../engine/scoring';
 import { algorithmIssues } from '../engine/settingsValidation';
 import { authenticationCatalogueIssues } from '../engine/authModel';
 import { LEGACY_ALIEN_EFFECTS } from '../authentication';
@@ -23,10 +24,33 @@ function Slider({ control, data, setData }: { control: PreferenceControl; data: 
   </div>;
 }
 
-function Section({ title, data, setData, section, children }: { title: string; data: AppData; setData: SetData; section?: PreferenceSection; children?: ReactNode }) {
+/** One weight in a group whose weights always add up to 100%. */
+function ShareSlider({ control, group, data, setData }: { control: PreferenceControl; group: WeightGroup; data: AppData; setData: SetData }) {
+  const controls = groupControls(group);
+  const index = controls.findIndex(c => c.id === control.id);
+  const exact = weightShares(data, group);
+  const shown = roundedShares(exact)[index];
+  const id = `pref-${control.id}`;
+  return <div className="slider">
+    <label htmlFor={id}>{control.labelFor?.(data) ?? control.label}</label>
+    <input id={id} type="range" min={0} max={100} step={1} value={Math.round(exact[index])}
+      aria-valuetext={`${shown}%`}
+      onChange={e => setData(setWeightShare(data, group, control.id, Number(e.target.value)))} />
+    <output htmlFor={id}>{shown}%</output>
+  </div>;
+}
+
+function Section({ title, data, setData, section, note, children }: { title: string; data: AppData; setData: SetData; section?: PreferenceSection; note?: string; children?: ReactNode }) {
+  const controls = section ? controlsFor(section) : [];
+  const priorities = controls.filter(control => !control.group);
+  const weights = controls.filter(control => control.group);
   return <div className="prefSection">
     <div className="prefHeader"><h2>{title}</h2>{section && <button className="link" onClick={() => setData(resetPreferenceSection(data, section))}>Reset</button>}</div>
-    {section && controlsFor(section).map(control => <Slider key={control.id} control={control} data={data} setData={setData} />)}
+    {note && <p className="prefNote">{note}</p>}
+    {priorities.map(control => <Slider key={control.id} control={control} data={data} setData={setData} />)}
+    {weights.length > 0 && <div className="weightGroup" role="group" aria-label={`${title} weights, total 100%`}>
+      {weights.map(control => <ShareSlider key={control.id} control={control} group={control.group!} data={data} setData={setData} />)}
+    </div>}
     {children}
   </div>;
 }
@@ -58,7 +82,8 @@ export function Preferences({ data, setData }: { data: AppData; setData: SetData
     {issues.length > 0 && <Notice tone="danger">Fix: {issues.join(' · ')}</Notice>}
     {message && <Notice tone={message.tone}>{message.text}</Notice>}
 
-    <Section title="Auctions" section="Auctions" data={data} setData={setData} />
+    <Section title="Auctions" section="Auctions" data={data} setData={setData}
+      note={`Reaching ${arrowTargetBand(data.settings).min}–${arrowTargetBand(data.settings).max}% Bid Arrow always comes first.`} />
     <Section title="Drink Prep" section="Drink Prep" data={data} setData={setData} />
     <Section title="Grading" section="Grading" data={data} setData={setData} />
     <Section title="Shop / Idle" section="Shop / Idle" data={data} setData={setData} />
