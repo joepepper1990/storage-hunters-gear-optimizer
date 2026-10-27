@@ -126,25 +126,25 @@ describe('backup round trips',()=>{
     expect(restored.trophySettings.mutationWeights.find(w=>w.mutation==='Clockwork')?.multiplier).toBe(25);
   });
 
-  it('migrates older startup storage to the verified schema-13 gear/certificate baseline',()=>{
+  it('migrates older startup storage to the verified gear/certificate/Gavel baseline',()=>{
     const d=makeInitialData() as any;
     d.schemaVersion=1;
     d.gear=[gear];
     delete d.vehicleProfile; delete d.vehicleSettings; delete d.vehicleParts; delete d.trailers; delete d.trophies; delete d.trophySettings;
     const restored=normalizeData(d);
-    expect(restored.schemaVersion).toBe(13);
+    expect(restored.schemaVersion).toBe(14);
     expect(restored.gear).toHaveLength(22);
     expect(restored.gear.some((g:any)=>g.id==='abc')).toBe(false);
     expect(restored.ownedCertificates).toHaveLength(7);
     expect(restored.vehicleProfile.name).toBe('Dumpster Truck');
     expect(restored.vehicleParts.length).toBeGreaterThan(0);
     expect(restored.trailers.find((t:any)=>t.name==='Long Trailer')?.capacityKg).toBe(600);
-    expect(restored.trophies).toHaveLength(12);
+    expect(restored.trophies).toHaveLength(15);
     expect(restored.trophySettings.maxActive).toBe(4);
   });
   it('creates a genuinely empty workspace for destructive reset/start-empty actions',()=>{
     const empty=makeEmptyData();
-    expect(empty.schemaVersion).toBe(13);
+    expect(empty.schemaVersion).toBe(14);
     expect(empty.gear).toEqual([]);
     expect(empty.ownedCertificates).toEqual([]);
     expect(empty.vehicleParts).toEqual([]);
@@ -192,7 +192,7 @@ describe('backup round trips',()=>{
     woodenSunny.assumedLikelihoodClass='MEDIUM';
     woodenNocturnal.assumedLikelihoodClass='HIGH';
     const restored=importJson(JSON.stringify(d));
-    expect(restored.schemaVersion).toBe(13);
+    expect(restored.schemaVersion).toBe(14);
     expect(restored.authModel.find(m=>m.id===woodenSunny.id)?.assumedLikelihoodClass).toBe('LOW');
     expect(restored.authModel.find(m=>m.id===woodenNocturnal.id)?.assumedLikelihoodClass).toBe('HIGH');
   });
@@ -206,7 +206,7 @@ describe('backup round trips',()=>{
     row.observedValues=Array(10).fill(50);
     const restored=importJson(JSON.stringify(d));
     const next=restored.authModel.find(m=>m.id===row.id)!;
-    expect(restored.schemaVersion).toBe(13);
+    expect(restored.schemaVersion).toBe(14);
     expect(next.confidence).toBe('Medium');
     expect(next.empiricalConfidence).toBe('Empirical');
     expect(next.observedValues).toHaveLength(10);

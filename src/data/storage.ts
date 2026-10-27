@@ -1,5 +1,5 @@
 import { validateStatDeltas } from './statDeltas';
-import { mergeScreenshotParts, mergeScreenshotTrophies, screenshotCertificates } from './screenshotEquipment';
+import { mergeScreenshotParts, replaceWithVerifiedTrophies, screenshotCertificates } from './screenshotEquipment';
 import { makeKnownGear } from './knownGear';
 import { DEFAULT_TROPHY_SETTINGS, DEFAULT_VEHICLE_PROFILE, DEFAULT_VEHICLE_SETTINGS, makeInitialData, LEGACY_V20_ARROW_DEFAULTS, LOCKED_DEFAULT_SETTINGS } from '../defaults';
 import type { AppData, CertificateRollLog, GavelTrophy, GearItem, Trailer, TrophyOptimiserSettings, VehiclePart } from '../types';
@@ -241,7 +241,7 @@ export function normalizeData(raw: AppData, options: { preserveInventory?: boole
   const initial = makeInitialData();
   const preserveInventory = options.preserveInventory === true;
   return {
-    schemaVersion: 13,
+    schemaVersion: 14,
     // Startup schema 9 is a deliberate one-time inventory reset from the user's complete
     // 26 October 2026 screenshots. Any pre-schema-9 gear rows are replaced, not
     // merged, because the verified 22-item list is the user's entire owned gear.
@@ -264,9 +264,11 @@ export function normalizeData(raw: AppData, options: { preserveInventory?: boole
       ? (Array.isArray(raw?.vehicleParts) ? raw.vehicleParts.map(normalizeVehiclePart) : [])
       : mergeScreenshotParts(Array.isArray(raw?.vehicleParts) ? raw.vehicleParts.map(normalizeVehiclePart) : []),
     trailers: Array.isArray(raw?.trailers) ? raw.trailers.map(normalizeTrailer) : initial.trailers,
-    trophies: preserveInventory || Number(raw?.schemaVersion)>=6
+    // Schema 14 is a deliberate one-time Gavel replacement from the user's complete
+    // 27 October 2026 screenshots; explicit backup restores keep their own trophies.
+    trophies: preserveInventory || Number(raw?.schemaVersion)>=14
       ? (Array.isArray(raw?.trophies) ? raw.trophies.map(normalizeTrophy) : [])
-      : mergeScreenshotTrophies(Array.isArray(raw?.trophies) ? raw.trophies.map(normalizeTrophy) : []),
+      : replaceWithVerifiedTrophies(Array.isArray(raw?.trophies) ? raw.trophies.map(normalizeTrophy) : []),
     trophySettings: normalizeTrophySettings(raw?.trophySettings,Number(raw?.schemaVersion)<6)
   };
 }

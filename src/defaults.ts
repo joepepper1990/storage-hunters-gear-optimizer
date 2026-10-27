@@ -232,7 +232,7 @@ export function makeDefaultAuthModel(): AuthModelEntry[] {
 
 export function makeEmptyData():AppData{
   return {
-    schemaVersion:13,
+    schemaVersion:14,
     gear:[],
     settings:{...LOCKED_DEFAULT_SETTINGS},
     authModel:makeDefaultAuthModel(),
@@ -250,7 +250,7 @@ export function makeEmptyData():AppData{
 
 export function makeInitialData(): AppData {
   return {
-    schemaVersion: 13,
+    schemaVersion: 14,
     gear: makeKnownGear(),
     settings: { ...LOCKED_DEFAULT_SETTINGS },
     authModel: makeDefaultAuthModel(),
