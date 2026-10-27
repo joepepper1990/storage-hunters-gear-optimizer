@@ -2,7 +2,7 @@ import type { AlgorithmSettings, GearItem, GearStats, ScoreBreakdown } from '../
 import { effectKnowledge } from './effects';
 
 /** Upper edge of the ideal combined Bid Arrow band. Display only: value is already flat above the sweet spot. */
-export const ARROW_TARGET_MAX = 85;
+export const ARROW_TARGET_MAX = 80;
 
 /** The band of combined Bid Arrow reduction that is equally ideal for Main Auction. */
 export function arrowTargetBand(s: AlgorithmSettings): { min: number; max: number } {
@@ -11,7 +11,7 @@ export function arrowTargetBand(s: AlgorithmSettings): { min: number; max: numbe
 
 export function arrowEffective(r: number, s: AlgorithmSettings): number {
   // User preference: value rises up to 65% combined reduction, then every value from
-  // 65% through 85% is equally ideal. Beyond 85% adds nothing; no game penalty is invented.
+  // 65% through 80% is equally ideal. Beyond 80% adds nothing; no game penalty is invented.
   if (r < 0) return r;
   return Math.min(r, s.arrowSweetSpot);
 }

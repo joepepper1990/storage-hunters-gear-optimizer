@@ -313,9 +313,10 @@ function buildMembershipMap(gear:GearItem[],settings:AlgorithmSettings):Map<stri
   return map;
 }
 
-/** A Main score tradeoff cannot pay for losing a different specialist utility.
- * Componentwise bounds are deliberately conservative, and remain valid when
- * future complementary gear moves Energy across either saturation breakpoint.
+/** Discard is stat by stat: a replacement must be at least as good on every stat that
+ * matters (importance above 0), so no trade-off between stats can make an item redundant.
+ * Componentwise bounds also stay valid when future complementary gear moves a stat across
+ * a saturation breakpoint.
  */
 function futureSafeDominator(item:GearItem,candidates:GearItem[],settings:AlgorithmSettings) {
   const target=effectiveItemStats(item);
@@ -328,6 +329,9 @@ function futureSafeDominator(item:GearItem,candidates:GearItem[],settings:Algori
     // Ignored specialists (priority 0) and zero-importance Shop stats impose no requirement.
     // Less raw Arrow could drop a future set out of the Arrow band, which outranks any score.
     return stats.arrowReduction>=target.arrowReduction
+      && (settings.luckWeight<=0||stats.luck>=target.luck)
+      && (settings.zoneWeight<=0||stats.zone>=target.zone)
+      && (settings.recoveryWeight<=0||stats.recovery>=target.recovery)
       && (!drink||stats.energy>=target.energy)
       && (!shop||settings.shopTipWeight<=0||stats.tip>=target.tip)
       && (!shop||settings.shopNpcWeight<=0||stats.npc>=target.npc)
@@ -338,7 +342,7 @@ function futureSafeDominator(item:GearItem,candidates:GearItem[],settings:Algori
   const mainSettings={...settings,energyWeight:0,npcWeight:0,tipWeight:0,vehicleWeight:0,walkWeight:0};
   const dominance=findDominator(item,specialistSafe,mainSettings);
   if(!dominance.dominated && specialistSafe.length!==candidates.length) {
-    dominance.reason='No replacement is proven at least as useful for Main Auction and every specialist loadout across future complementary states (including the Arrow band, Energy, Tip, NPC, Grade Re-Roll and Mutated Luck).';
+    dominance.reason='No other item in this slot is at least as good on every stat that matters (Luck, Arrow, Zone, Recovery, Energy, Tip, NPC, Grade Re-Roll and Mutated Luck).';
   }
   return dominance;
 }

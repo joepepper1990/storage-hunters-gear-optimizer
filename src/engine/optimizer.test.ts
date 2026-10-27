@@ -24,8 +24,8 @@ describe('combination optimiser',()=>{
     expect(best.score.arrow).toBeCloseTo(65,8);
   });
 
-  it('treats Arrow above 85 as wasted rather than beneficial or penalised',()=>{
-    const h=g('H','Head',{arrowReduction:85});
+  it('treats Arrow above 80 as wasted rather than beneficial or penalised',()=>{
+    const h=g('H','Head',{arrowReduction:80});
     const over=g('Over','Back',{arrowReduction:30,luck:20});
     const plain=g('Plain','Back',{luck:20});
     const w=g('W','Wrist',{});

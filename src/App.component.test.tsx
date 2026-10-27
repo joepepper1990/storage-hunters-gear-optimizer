@@ -278,7 +278,7 @@ describe('Preferences', () => {
       const shown = outputs(root, section).map(t => Number(t!.replace('%', '')));
       expect(shown.reduce((a, b) => a + b, 0)).toBe(100);
     }
-    expect(byText(root, '.prefSection', /^Auctions/).textContent).toContain('Reaching 65–85% Bid Arrow always comes first.');
+    expect(byText(root, '.prefSection', /^Auctions/).textContent).toContain('Reaching 65–80% Bid Arrow always comes first.');
   });
   it('moving one weight rebalances the others in its group immediately, and Reset restores it', async () => {
     const root = await openApp(makeInitialData());
