@@ -19,8 +19,9 @@ The app exhaustively evaluates exactly **one Head + one Back + one Wrist** with 
 ### Auctions
 
 - Displayed Luck is kept **linear**. The app does not claim to know the hidden Luck → rare-drop/mutation formula.
-- Combined Bid Arrow reduction gains value up to **65%**; every value from **65% through 85%** is equally ideal, and more than 85% adds nothing (no invented penalty). Signed in-game Arrow values are entered as shown.
-- Arrow's default importance equals Luck's: the same coefficient, not only the same slider position.
+- **Reaching the Bid Arrow band comes first.** Any set with at least **65%** combined Bid Arrow reduction outranks every set below it, whatever their Luck. From 65% through 85% is equally ideal, and more adds nothing (no invented penalty). Signed in-game Arrow values are entered as shown.
+- Among the sets that reach the band, the weighted score decides: as much Luck as possible, plus Bid Zone and Bid Recovery by their weights. When no set can reach the band, Arrow progress towards 65% is weighted with the rest.
+- Gaining or losing the band counts as the largest possible change for certificate and reroll advice, and a piece that could cost a future set the band is never offered for discard.
 - Bid Zone uses the configured diminishing curve; Bid Recovery is linear.
 - Mutated Luck, Droughtbreaker, Golden Hour, Luck Frenzy and Sunny / Nocturnal / Raindrop are evaluated as before (dynamic sensitivity states and Day / Night / Rain contexts).
 
@@ -28,7 +29,7 @@ The app exhaustively evaluates exactly **one Head + one Back + one Wrist** with 
 
 Drink Prep (Energy Drink Time), Grading (Grade Re-Roll under the owned Lucky Grading pass) and Shop / Idle (Tip Chance, NPC Offers) each have a priority. After Main Auction, certificates consider specialists in priority order (default Drink Prep → Grading → Shop / Idle); a lower priority can only win when every higher one is neutral. A priority of **0 ignores** that activity everywhere: no set, no retention protection, no certificate goal.
 
-Every slider is a fixed linear view of one stored engine coefficient. A stored custom value that is not a slider position is shown as **custom** and kept exactly until that slider is moved; Reset changes only its own section.
+Weights are percentages that add up to 100 within each group (Auctions, Shop / Idle Tip and NPC, Vehicle). Moving one rebalances the others in its group in proportion, and other groups never change. Priorities stay on a 0–10 scale, because they set an order rather than a share. Engines use only the ratios within a group, and stored values keep their overall size, so custom values stay exact until a weight in that group is moved. Reset changes only its own section.
 
 ### Retention and Discard
 

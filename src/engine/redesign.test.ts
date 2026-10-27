@@ -7,10 +7,10 @@ import { analyseCertificate, analyseOwnedCertificates, compareCertificateTargets
 import { buildCertificateQueue } from './certificateQueue';
 import { addCertificateBatch, removeCertificateBatch, setCertificateQuantity, updateCertificateBatch } from './certificateInventory';
 import { applyRecordedCertificateRoll } from './certificateRolls';
-import { PREFERENCE_CONTROLS, controlsFor, resetPreferenceSection, setPreference, sliderView } from './preferences';
+import { PREFERENCE_CONTROLS, controlsFor, resetPreferenceSection, roundedShares, setPreference, setWeightShare, sliderView, weightShares } from './preferences';
 import { analyseTrailers, analyseVehicleParts, optimiseVehicle } from './vehicle';
 import { optimiseTrophies } from './trophies';
-import { scoreStandalone } from './scoring';
+import { effectiveItemStats, scoreStandalone } from './scoring';
 
 function gear(id:string,slot:Slot,stats:Partial<GearStats>={},effect='',value=0,kind:AuthKind='Normal'):GearItem {
   return {id,baseName:id,name:id,slot,stats:{...ZERO_STATS,...stats},authenticated:!!effect,
@@ -261,14 +261,15 @@ describe('preference sliders drive the engines',()=>{
 });
 
 describe('loadout evaluator optimisation is exact',()=>{
-  // Reference: the previous implementation, recomputing everything and fully sorting.
+  // Reference: recompute everything and fully sort (Arrow band first, then score).
   function reference(items:GearItem[],settings:AlgorithmSettings,utility:(trio:GearItem[])=>number){
     const heads=items.filter(g=>g.slot==='Head'),backs=items.filter(g=>g.slot==='Back'),wrists=items.filter(g=>g.slot==='Wrist');
     const trios:GearItem[][]=[];for(const h of heads)for(const b of backs)for(const w of wrists)trios.push([h,b,w]);
-    const scored=trios.map(t=>({t,u:utility(t),main:mainAuctionUtility(t,settings,'Neutral','low')}));
-    scored.sort((a,b)=>b.u-a.u||b.main-a.main||a.t.map(x=>x.id).join('|').localeCompare(b.t.map(x=>x.id).join('|')));
+    const tier=(t:GearItem[])=>t.reduce((n,i)=>n+effectiveItemStats(i).arrowReduction,0)>=settings.arrowSweetSpot?1:0;
+    const scored=trios.map(t=>({t,tier:tier(t),u:utility(t),main:mainAuctionUtility(t,settings,'Neutral','low')}));
+    scored.sort((a,b)=>b.tier-a.tier||b.u-a.u||b.main-a.main||a.t.map(x=>x.id).join('|').localeCompare(b.t.map(x=>x.id).join('|')));
     const best=scored[0];
-    const tied=scored.filter(x=>Math.abs(x.u-best.u)<=1e-9&&Math.abs(x.main-best.main)<=1e-9);
+    const tied=scored.filter(x=>x.tier===best.tier&&Math.abs(x.u-best.u)<=1e-9&&Math.abs(x.main-best.main)<=1e-9);
     return {ids:best.t.map(x=>x.id),u:best.u,tied:[...new Set(tied.flatMap(x=>x.t.map(i=>i.id)))].sort()};
   }
   let seed=7;const rand=()=>(seed=(seed*16807)%2147483647)/2147483647;
@@ -322,8 +323,95 @@ describe('review: queue allocation never downgrades a higher-ranked row',()=>{
 describe('review: Arrow slider label follows the stored band',()=>{
   it('reflects a customised band start',()=>{
     const control=PREFERENCE_CONTROLS.find(c=>c.id==='arrowWeight')!;
-    expect(control.labelFor!(makeInitialData())).toBe('Bid Arrow (65–85%)');
+    expect(control.labelFor!(makeInitialData())).toBe('Bid Arrow below 65%');
     const d=makeInitialData();d.settings.arrowSweetSpot=70;
-    expect(control.labelFor!(d)).toBe('Bid Arrow (70–85%)');
+    expect(control.labelFor!(d)).toBe('Bid Arrow below 70%');
+  });
+});
+
+describe('Main Auction: reach the Arrow band first, then Luck',()=>{
+  const items=()=>[
+    gear('luck-back','Back',{luck:120}),gear('arrow-back','Back',{arrowReduction:40}),
+    gear('head','Head',{luck:100}),gear('wrist','Wrist',{luck:50,arrowReduction:32})
+  ];
+  it('picks the set that reaches 65% even when another set has far more Luck',()=>{
+    for(const luckWeight of [1,.3,.01]){
+      const main=buildGearLoadouts(items(),{...s,luckWeight}).main!;
+      expect(main.back.id).toBe('arrow-back');
+      expect(main.arrowTier).toBe(1);
+      expect(main.stats.arrowReduction).toBe(72);
+    }
+  });
+  it('then maximises Luck among the sets that reach the band',()=>{
+    const extra=[...items(),gear('arrow-luck-back','Back',{arrowReduction:40,luck:30})];
+    expect(buildGearLoadouts(extra,s).main!.back.id).toBe('arrow-luck-back');
+  });
+  it('falls back to the weighted score when no set can reach the band',()=>{
+    const unreachable=[gear('luck-back','Back',{luck:120}),gear('arrow-back','Back',{arrowReduction:20}),gear('head','Head',{luck:100}),gear('wrist','Wrist',{luck:50,arrowReduction:32})];
+    expect(buildGearLoadouts(unreachable,s).main!.back.id).toBe('luck-back');
+    expect(buildGearLoadouts(unreachable,{...s,luckWeight:.1}).main!.back.id).toBe('arrow-back');
+  });
+  it('applies to Day / Night / Rain sets too',()=>{
+    const contextual=[...items(),gear('rain-back','Back',{luck:60},'Raindrop',100)];
+    const loadouts=buildGearLoadouts(contextual,s);
+    expect(loadouts.rain!.back.id).toBe('arrow-back');
+  });
+  it('never offers a band-enabling Arrow piece for discard',()=>{
+    // Without the Arrow piece no set reaches the band.
+    expect(verdictOf(items(),'arrow-back')).toBe('EQUIP');
+    const spare=[...items(),gear('weaker-arrow','Back',{arrowReduction:39,luck:200})];
+    expect(verdictOf(spare,'weaker-arrow')).not.toBe('SAFE TO DISCARD');
+  });
+  it('counts gaining the band as an improvement for certificates and losing it as a loss',()=>{
+    const data=makeEmptyData();
+    data.gear=[gear('head','Head',{luck:100}),gear('back','Back',{luck:120}),gear('wrist','Wrist',{luck:50,arrowReduction:32})];
+    data.authModel=data.authModel.map(m=>m.certificateInventoryType==='Wooden Certificate of Authenticity'
+      ?{...m,enabled:m.outcome==='Bid Arrow Speed',min:-40,max:-40}:m);
+    const cert:OwnedCertificate={id:'w',type:'Wooden Certificate of Authenticity',quantity:1};
+    const target=analyseCertificate(data,cert).targets.find(t=>t.item.id==='head')!;
+    // Every roll gives -40% Arrow: 32 + 40 = 72% reaches the band, despite replacing no Luck.
+    expect(target.chanceOfImprovementPct).toBeGreaterThan(99);
+    expect(target.expectedImprovementPct).toBeGreaterThanOrEqual(99);
+    expect(['USE','CONSIDER']).toContain(target.verdict);
+    expect(target.decisionBasis).toBe('Main Auction');
+
+    // Rerolling the authentication that holds the band can only lose it.
+    const holding=makeEmptyData();
+    holding.gear=[gear('head','Head',{luck:100},'Bid Arrow Speed',-40),gear('back','Back',{luck:120}),gear('wrist','Wrist',{luck:50,arrowReduction:32})];
+    holding.authModel=holding.authModel.map(m=>m.certificateInventoryType==='Wooden Certificate of Authenticity'
+      ?{...m,enabled:m.outcome==='Bid Recovery',min:20,max:25}:m);
+    const risky=analyseCertificate(holding,cert).targets.find(t=>t.item.id==='head')!;
+    expect(risky.chanceMainWorsePct).toBeGreaterThan(99);
+    expect(risky.verdict).toBe('DO NOT USE');
+  });
+});
+
+describe('weights as percentages adding up to 100',()=>{
+  it('reports exact shares and whole-number shares that total 100',()=>{
+    const d=makeInitialData();
+    const shares=weightShares(d,'auction');
+    expect(shares.reduce((a,b)=>a+b,0)).toBeCloseTo(100,9);
+    expect(shares[0]).toBeCloseTo(100/2.8,9); // Luck 1 of 1 + 1 + 0.6 + 0.2
+    expect(roundedShares(shares).reduce((a,b)=>a+b,0)).toBe(100);
+    expect(roundedShares([33.4,33.3,33.3])).toEqual([34,33,33]);
+    expect(roundedShares([0,0])).toEqual([0,0]);
+  });
+  it('setting one share rebalances the rest proportionally and keeps the group size',()=>{
+    const d=makeInitialData();
+    const next=setWeightShare(d,'shop','shopTipWeight',25);
+    const [tip,npc]=weightShares(next,'shop');
+    expect(tip).toBeCloseTo(25,9);expect(npc).toBeCloseTo(75,9);
+    expect(next.settings.shopTipWeight+next.settings.shopNpcWeight).toBeCloseTo(.7,9); // native Shop thresholds keep their scale
+    const vehicle=setWeightShare(d,'vehicle','capacityWeight',100);
+    expect(weightShares(vehicle,'vehicle').map(x=>Math.round(x))).toEqual([100,0,0,0]);
+    expect(weightShares(setWeightShare(vehicle,'vehicle','speedWeight',40),'vehicle').map(x=>Math.round(x))).toEqual([60,40,0,0]);
+    // When every other weight is zero, the rest is shared equally.
+    expect(weightShares(setWeightShare(vehicle,'vehicle','capacityWeight',40),'vehicle').map(x=>Math.round(x))).toEqual([40,20,20,20]);
+  });
+  it('drives the engines the same way as the raw coefficients',()=>{
+    const items=[gear('tip','Head',{tip:10}),gear('npc','Head',{npc:12}),gear('b','Back'),gear('w','Wrist')];
+    const d=makeInitialData();
+    expect(buildGearLoadouts(items,setWeightShare(d,'shop','shopTipWeight',80).settings).shop?.head.id).toBe('tip');
+    expect(buildGearLoadouts(items,setWeightShare(d,'shop','shopTipWeight',20).settings).shop?.head.id).toBe('npc');
   });
 });

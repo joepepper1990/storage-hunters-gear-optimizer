@@ -111,3 +111,4 @@
 .slider{display:grid;grid-template-columns:minmax(90px,1fr) minmax(120px,2fr) 56px;align-items:center;gap:10px;padding:6px 0}.slider label{font-weight:700;font-size:14px}.slider input[type=range]{padding:0;min-height:36px;border:0;background:none;accent-color:var(--accent)}.slider output{text-align:right;font-weight:900}.slider output small{display:block;font-weight:600;color:var(--warn);font-size:10px}
 .buttonGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}.weightList{display:grid;gap:4px;margin:8px 0}.weightRow{display:grid;grid-template-columns:1fr 110px;gap:8px;align-items:center}.compactDetails summary{cursor:pointer;font-weight:700;padding:6px 0}
 @media(max-width:380px){.slider{grid-template-columns:1fr 48px}.slider input[type=range]{grid-column:1/-1;grid-row:2}}
+.prefNote{margin:6px 0 4px;color:var(--muted);font-size:13px;font-weight:700}.weightGroup{border-top:1px solid var(--line);margin-top:6px;padding-top:4px}

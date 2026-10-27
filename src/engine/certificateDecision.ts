@@ -1,6 +1,7 @@
 import type { AppData, AuthModelEntry, GearItem, OwnedCertificate, Slot } from '../types';
 import {
   activeSpecialists,
+  arrowBandReached,
   buildGearLoadouts,
   gradeRerollExpectedValueGainPct,
   LUCKY_GRADING,
@@ -8,6 +9,7 @@ import {
   mutationLuckForItem
 } from './gearLoadouts';
 import { catalogueRowsFor } from './authModel';
+import { combineStats } from './scoring';
 import { algorithmIssues } from './settingsValidation';
 import { MODEL_ASSUMPTIONS } from './modelAssumptions';
 
@@ -475,6 +477,23 @@ export function specialistUtilityDelta(after:number|undefined,before:number|unde
   return (after??0)-(before??0);
 }
 
+type Loadout=NonNullable<ReturnType<typeof buildGearLoadouts>['main']>;
+
+/** Gaining or losing the Arrow band outranks any score change, so it is the largest
+ * possible change, with its sign. Within the same tier the change is the score change. */
+export const ARROW_TIER_CHANGE_PCT=100;
+
+function auctionChangePct(after:Loadout|undefined,before:Loadout|undefined):number {
+  const a=after?.arrowTier??0,b=before?.arrowTier??0;
+  if(a!==b)return a>b?ARROW_TIER_CHANGE_PCT:-ARROW_TIER_CHANGE_PCT;
+  return pct(after?.utility,before?.utility);
+}
+
+function auctionRiskPct(before:Loadout|undefined,after:Loadout|undefined):number {
+  if(before&&(after?.arrowTier??0)<before.arrowTier)return ARROW_TIER_CHANGE_PCT;
+  return riskPct(before?.utility,after?.utility);
+}
+
 function riskPct(before:number|undefined,after:number|undefined):number {
   if(before===undefined||before<=1e-9)return 0;
   const a=after??0;
@@ -482,20 +501,23 @@ function riskPct(before:number|undefined,after:number|undefined):number {
 }
 
 function contextualDeltas(before:ReturnType<typeof buildGearLoadouts>,after:ReturnType<typeof buildGearLoadouts>):number[] {
-  return (['day','night','rain'] as const).map(k=>pct(after[k]?.utility,before[k]?.utility));
+  return (['day','night','rain'] as const).map(k=>auctionChangePct(after[k],before[k]));
 }
 
-function bestMainContaining(data:AppData,item:GearItem):number|undefined {
+/** Best robust Main trio containing the item: its Arrow tier and score. */
+function bestMainContaining(data:AppData,item:GearItem):{tier:number;utility:number}|undefined {
   const heads=data.gear.filter(g=>g.slot==='Head');
   const backs=data.gear.filter(g=>g.slot==='Back');
   const wrists=data.gear.filter(g=>g.slot==='Wrist');
-  let best=-Infinity;
+  let best:{tier:number;utility:number}|undefined;
   for(const h of heads)for(const b of backs)for(const w of wrists){
     const trio=[h,b,w];
     if(!trio.some(x=>x.id===item.id))continue;
-    best=Math.max(best,mainAuctionUtility(trio,data.settings,'Neutral','low'));
+    const stats=combineStats(trio);
+    const next={tier:arrowBandReached(stats,data.settings)?1:0,utility:mainAuctionUtility(trio,data.settings,'Neutral','low',stats)};
+    if(!best||next.tier>best.tier||(next.tier===best.tier&&next.utility>best.utility))best=next;
   }
-  return Number.isFinite(best)?best:undefined;
+  return best;
 }
 
 function percentile(values:Array<{x:number;p:number}>,q:number):number {
@@ -548,9 +570,13 @@ function mergeLoadouts(a:ReturnType<typeof buildGearLoadouts>,b:ReturnType<typeo
     const x=a[key],y=b[key];
     if(!x||!y){out[key]=x??y;continue;}
     const id=(v:typeof x)=>[v.head.id,v.back.id,v.wrist.id].join('|');
-    const order=y.utility-x.utility||y.mainUtility-x.mainUtility||id(x).localeCompare(id(y));
+    // Same order as buildGearLoadouts: Arrow tier first for auction sets, then utility,
+    // then the Main priority (tier, robust score), then IDs.
+    const auction=key==='main'||key==='day'||key==='night'||key==='rain';
+    const rank=(v:typeof x)=>auction?v.arrowTier:0;
+    const order=rank(y)-rank(x)||y.utility-x.utility||y.arrowTier-x.arrowTier||y.mainUtility-x.mainUtility||id(x).localeCompare(id(y));
     const best=order<=0?x:y;
-    out[key]=Math.abs(x.utility-y.utility)<=1e-9&&Math.abs(x.mainUtility-y.mainUtility)<=1e-9
+    out[key]=x.arrowTier===y.arrowTier&&Math.abs(x.utility-y.utility)<=1e-9&&Math.abs(x.mainUtility-y.mainUtility)<=1e-9
       ?{...best,tiedItemIds:new Set([...x.tiedItemIds,...y.tiedItemIds])}:best;
   }
   return out;
@@ -592,11 +618,11 @@ function targetDecision(
   const withoutGear=data.gear.map(g=>g.id===item.id?bare:g);
   const without=buildGearLoadouts(withoutGear,data.settings,'low');
 
-  const mainRisk=riskPct(baseline.main?.utility,without.main?.utility);
+  const mainRisk=auctionRiskPct(baseline.main,without.main);
   const contextRisk=Math.max(
-    riskPct(baseline.day?.utility,without.day?.utility),
-    riskPct(baseline.night?.utility,without.night?.utility),
-    riskPct(baseline.rain?.utility,without.rain?.utility)
+    auctionRiskPct(baseline.day,without.day),
+    auctionRiskPct(baseline.night,without.night),
+    auctionRiskPct(baseline.rain,without.rain)
   );
   const drinkRisk=riskPct(baseline.drink?.utility,without.drink?.utility);
   const gradingRisk=riskPct(baseline.grading?.utility,without.grading?.utility);
@@ -621,9 +647,9 @@ function targetDecision(
       const nextHigh=mergeLoadouts(unaffected.high,buildGearLoadouts(gear,data.settings,'high'));
 
       const mainDeltas=[
-        pct(nextLow.main?.utility,baselines.low.main?.utility),
-        pct(nextCentral.main?.utility,baselines.central.main?.utility),
-        pct(nextHigh.main?.utility,baselines.high.main?.utility)
+        auctionChangePct(nextLow.main,baselines.low.main),
+        auctionChangePct(nextCentral.main,baselines.central.main),
+        auctionChangePct(nextHigh.main,baselines.high.main)
       ];
       const delta=mainDeltas[0];
       const deltaCentral=mainDeltas[1];
@@ -751,7 +777,8 @@ function targetDecision(
   confidence*=Math.max(.35,1-unresolvedMass/140);
 
   const specialists=activeSpecialists(data.settings);
-  const mainFit=containing!==undefined?Math.max(0,containing/baseline.main.utility*100):0;
+  // A trio that cannot reach the band while the best one does is not Main-competitive.
+  const mainFit=containing!==undefined&&containing.tier>=baseline.main.arrowTier?Math.max(0,containing.utility/baseline.main.utility*100):0;
   const rare=cert.type==='Limited Certificate of Authenticity'||cert.type==='Premium Certificate of Authenticity';
   let verdict:CertificateDecisionVerdict='HOLD';
   let decisionBasis:CertificateTargetDecision['decisionBasis']='None';
@@ -986,10 +1013,10 @@ export function analyseConditionalNumberReroll(
     const hypothetical=replaceAuthentication(original,cert,roll.newAuthentication,support.value);
     const nextGear=data.gear.map(item=>item.id===original.id?hypothetical:item);
     const result=buildGearLoadouts(nextGear,data.settings,'low');
-    const mainDelta=pct(result.main?.utility,baseline.main?.utility);
-    const day=pct(result.day?.utility,baseline.day?.utility);
-    const night=pct(result.night?.utility,baseline.night?.utility);
-    const rain=pct(result.rain?.utility,baseline.rain?.utility);
+    const mainDelta=auctionChangePct(result.main,baseline.main);
+    const day=auctionChangePct(result.day,baseline.day);
+    const night=auctionChangePct(result.night,baseline.night);
+    const rain=auctionChangePct(result.rain,baseline.rain);
     const drinkDelta=specialistUtilityDelta(result.drink?.utility,baseline.drink?.utility);
     const gradingDelta=specialistUtilityDelta(result.grading?.utility,baseline.grading?.utility);
     const shopDelta=specialistUtilityDelta(result.shop?.utility,baseline.shop?.utility);
