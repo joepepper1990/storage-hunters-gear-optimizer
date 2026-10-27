@@ -1,6 +1,6 @@
-import { screenshotVehicleParts, screenshotTrophies, screenshotCertificates } from './data/screenshotEquipment';
+import { screenshotTrophies, screenshotCertificates } from './data/screenshotEquipment';
 import { makeKnownGear } from './data/knownGear';
-import type { AlgorithmSettings, AppData, AuthModelEntry, GearStats, Trailer, TrophyOptimiserSettings, VehicleOptimiserSettings, VehiclePart, VehicleProfile } from './types';
+import type { AlgorithmSettings, AppData, AuthModelEntry, GearStats, TrophyOptimiserSettings } from './types';
 
 export const ZERO_STATS: GearStats = {
   luck: 0,
@@ -12,23 +12,6 @@ export const ZERO_STATS: GearStats = {
   zone: 0,
   arrowReduction: 0,
   npc: 0
-};
-
-
-export const DEFAULT_VEHICLE_PROFILE: VehicleProfile = {
-  name: 'Dumpster Truck',
-  baseSpeed: 69,
-  baseAcceleration: 1,
-  baseHandling: 90,
-  baseCapacityKg: 2750,
-  capacityMultiplier: 1.5
-};
-
-export const DEFAULT_VEHICLE_SETTINGS: VehicleOptimiserSettings = {
-  capacityWeight: 45,
-  speedWeight: 30,
-  accelerationWeight: 15,
-  handlingWeight: 10
 };
 
 
@@ -84,24 +67,6 @@ export const DEFAULT_TROPHY_SETTINGS: TrophyOptimiserSettings = {
   ]
 };
 
-
-function seededVehicleParts(): VehiclePart[] {
-  const now = new Date().toISOString();
-  return [
-    { id: crypto.randomUUID(), baseName: '[Silver] Tractor Wheel Stack', name: '[Silver] Tractor Wheel Stack — Speed +15% / Accel +15% / Capacity +60kg', slot: 'Wheel Stack', speedPct: 15, accelerationPct: 15, handlingPct: 0, capacityKg: 60, mutation: 'Silver', favourite: true, createdAt: now, updatedAt: now },
-    { id: crypto.randomUUID(), baseName: 'Manta Spoiler', name: 'Manta Spoiler — Speed +26% / Accel -16%', slot: 'Spoiler', speedPct: 26, accelerationPct: -16, handlingPct: 0, capacityKg: 0, favourite: true, createdAt: now, updatedAt: now },
-    { id: crypto.randomUUID(), baseName: 'Caution Line Exhaust', name: 'Caution Line Exhaust — Speed +18% / Accel +18%', slot: 'Exhaust', speedPct: 18, accelerationPct: 18, handlingPct: 0, capacityKg: 0, favourite: true, createdAt: now, updatedAt: now }
-  ];
-}
-
-function seededTrailers(): Trailer[] {
-  const now = new Date().toISOString();
-  return [
-    { id: crypto.randomUUID(), name: 'Wooden Trailer', capacityKg: 175, favourite: false, createdAt: now, updatedAt: now },
-    { id: crypto.randomUUID(), name: 'Trailer', capacityKg: 300, favourite: false, createdAt: now, updatedAt: now },
-    { id: crypto.randomUUID(), name: 'Long Trailer', capacityKg: 600, favourite: true, createdAt: now, updatedAt: now }
-  ];
-}
 
 export const LOCKED_DEFAULT_SETTINGS: AlgorithmSettings = {
   version: '2.1',
@@ -232,17 +197,13 @@ export function makeDefaultAuthModel(): AuthModelEntry[] {
 
 export function makeEmptyData():AppData{
   return {
-    schemaVersion:14,
+    schemaVersion:15,
     gear:[],
     settings:{...LOCKED_DEFAULT_SETTINGS},
     authModel:makeDefaultAuthModel(),
     rollLog:[],
     ownedCertificates:[],
     theme:'system',
-    vehicleProfile:{...DEFAULT_VEHICLE_PROFILE},
-    vehicleSettings:{...DEFAULT_VEHICLE_SETTINGS},
-    vehicleParts:[],
-    trailers:[],
     trophies:[],
     trophySettings:structuredClone(DEFAULT_TROPHY_SETTINGS)
   };
@@ -250,17 +211,13 @@ export function makeEmptyData():AppData{
 
 export function makeInitialData(): AppData {
   return {
-    schemaVersion: 14,
+    schemaVersion: 15,
     gear: makeKnownGear(),
     settings: { ...LOCKED_DEFAULT_SETTINGS },
     authModel: makeDefaultAuthModel(),
     rollLog: [],
     ownedCertificates: screenshotCertificates(),
     theme: 'system',
-    vehicleProfile: { ...DEFAULT_VEHICLE_PROFILE },
-    vehicleSettings: { ...DEFAULT_VEHICLE_SETTINGS },
-    vehicleParts: [...seededVehicleParts(),...screenshotVehicleParts()],
-    trailers: seededTrailers(),
     trophies: screenshotTrophies(),
     trophySettings: structuredClone(DEFAULT_TROPHY_SETTINGS)
   };

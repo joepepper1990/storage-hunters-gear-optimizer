@@ -7,7 +7,8 @@ const ZERO_STATS: GearStats = {
 };
 
 /**
- * User-verified complete accessory inventory captured 26 October 2026.
+ * User-verified complete accessory inventory: 22 items captured 26 October 2026 and
+ * re-confirmed with seven more on 27 October 2026 (29 in all).
  * Base stats are only the green/red accessory stats. Blue authentication/enchantment
  * effects are stored separately. Negative in-game Bid Arrow Speed is represented
  * internally as positive arrowReduction; a red +3% Bid Arrow Speed is -3 reduction.
@@ -20,10 +21,12 @@ type InventorySeed = {
   conditionPct:number;
   stats:Partial<GearStats>;
   authentication?:Authentication;
+  /** Screenshot date; it is part of the record ID. */
+  verified?:'2026-10-26'|'2026-10-27';
 };
 
 const KNOWN_GEAR:InventorySeed[]=[
-  // Head — 11
+  // Head — 16
   {id:'head-steampunk-goggle-a',baseName:'Steampunk Goggle',slot:'Head',mutation:'Diamond + Silver',conditionPct:85,
     stats:{luck:136,zone:64,tip:-2},authentication:{kind:'Premium',effect:'Mutated Luck',value:0}},
   {id:'head-cow-dominus',baseName:'Cow Dominus',slot:'Head',mutation:'None',conditionPct:54,
@@ -40,14 +43,24 @@ const KNOWN_GEAR:InventorySeed[]=[
     stats:{arrowReduction:76,energy:64},authentication:{kind:'Normal',effect:'NPC Offers Bonus',value:7.7}},
   {id:'head-reactor-fedora-a',baseName:'Reactor Fedora',slot:'Head',mutation:'None',conditionPct:55,
     stats:{arrowReduction:45,luck:75},authentication:{kind:'Premium',effect:'Mutated Luck',value:0}},
-  {id:'head-reactor-fedora-b',baseName:'Reactor Fedora',slot:'Head',mutation:'Saloon + unknown',conditionPct:64,
+  {id:'head-reactor-fedora-b',baseName:'Reactor Fedora',slot:'Head',mutation:'Saloon Sparkle',conditionPct:64,
     stats:{arrowReduction:42,zone:51}},
   {id:'head-royal-dominus',baseName:'Royal Dominus',slot:'Head',mutation:'None',conditionPct:85,
     stats:{arrowReduction:50,recovery:20}},
   {id:'head-steampunk-goggle-b',baseName:'Steampunk Goggle',slot:'Head',mutation:'Chrome',conditionPct:84,
     stats:{arrowReduction:27,luck:100}},
+  {id:'head-luxury-ice-crown-b',baseName:'Luxury Ice Crown',slot:'Head',mutation:'None',conditionPct:79,
+    stats:{walk:41,energy:41},verified:'2026-10-27'},
+  {id:'head-luxury-ice-crown-c',baseName:'Luxury Ice Crown',slot:'Head',mutation:'None',conditionPct:63,
+    stats:{recovery:17,tip:10},verified:'2026-10-27'},
+  {id:'head-royal-dominus-b',baseName:'Royal Dominus',slot:'Head',mutation:'None',conditionPct:93,
+    stats:{energy:37,luck:74},verified:'2026-10-27'},
+  {id:'head-dark-aura-dominus',baseName:'Dark Aura Dominus',slot:'Head',mutation:'Limited',conditionPct:62,
+    stats:{npc:11,recovery:18},verified:'2026-10-27'},
+  {id:'head-steampunk-valk-helm',baseName:'Steampunk Valk Helm',slot:'Head',mutation:'Diamond',conditionPct:97,
+    stats:{recovery:13,npc:7.5,arrowReduction:-3},verified:'2026-10-27'},
 
-  // Back — 6
+  // Back — 7
   {id:'back-dark-heart-a',baseName:'Dark Heart Backpack',slot:'Back',mutation:'Exclusive',conditionPct:91,
     stats:{luck:77,tip:12}},
   {id:'back-dark-heart-b',baseName:'Dark Heart Backpack',slot:'Back',mutation:'Exclusive',conditionPct:83,
@@ -60,8 +73,10 @@ const KNOWN_GEAR:InventorySeed[]=[
     stats:{luck:65,npc:9.7},authentication:{kind:'Normal',effect:'Bid Zone Width',value:18}},
   {id:'back-steampunk',baseName:'Steampunk Backpack',slot:'Back',mutation:'None',conditionPct:96,
     stats:{luck:57,recovery:15}},
+  {id:'back-halloween-boombox',baseName:'Halloween Boombox',slot:'Back',mutation:'Limited',conditionPct:73,
+    stats:{zone:110,energy:74},verified:'2026-10-27'},
 
-  // Wrist — 5
+  // Wrist — 6
   {id:'wrist-jellyfish',baseName:'Jellyfish Wristband',slot:'Wrist',mutation:'Diamond',conditionPct:73,
     stats:{arrowReduction:32,luck:54,walk:-1},authentication:{kind:'Premium',effect:'Club Pact',value:4}},
   {id:'wrist-autumn-fox',baseName:'Autumn Fox Wristband',slot:'Wrist',mutation:'Exclusive',conditionPct:81,
@@ -71,16 +86,19 @@ const KNOWN_GEAR:InventorySeed[]=[
   {id:'wrist-reactor',baseName:'Reactor Wristband',slot:'Wrist',mutation:'Cobwebbed',conditionPct:55,
     stats:{tip:8.9,luck:60},authentication:{kind:'Normal',effect:'Connected',value:2}},
   {id:'wrist-steam-engine',baseName:'Steam Engine Wristband',slot:'Wrist',mutation:'None',conditionPct:96,
-    stats:{arrowReduction:32,energy:27,npc:-1.5}}
+    stats:{arrowReduction:32,energy:27,npc:-1.5}},
+  {id:'wrist-franken-bunny',baseName:'Franken Bunny Wristband',slot:'Wrist',mutation:'Limited',conditionPct:69,
+    stats:{recovery:13,tip:7.2,energy:-6},verified:'2026-10-27'}
 ];
 
 function buildSeed(seed:InventorySeed):GearItem{
-  const now='2026-10-26T00:00:00.000Z';
+  const day=seed.verified??'2026-10-26';
+  const now=`${day}T00:00:00.000Z`;
   const stats={...ZERO_STATS,...seed.stats};
   const authentication:Authentication=seed.authentication??{kind:'None',effect:'',value:0};
   const authenticated=authentication.kind!=='None';
   return {
-    id:`verified-20261026-${seed.id}`,
+    id:`verified-${day.replace(/-/g,'')}-${seed.id}`,
     baseName:seed.baseName,
     name:generateGearName(seed.baseName,stats,authenticated,authentication),
     slot:seed.slot,
@@ -98,24 +116,37 @@ function buildSeed(seed:InventorySeed):GearItem{
 export function makeKnownGear():GearItem[]{ return KNOWN_GEAR.map(buildSeed); }
 
 /**
- * One-off schema-8 inventory refresh.
- * Old October-17 auto-seeded records are replaced by the complete October-26 verified
- * inventory. User-created records are retained and exact matching rolls are de-duplicated.
+ * Schema-15 one-time replacement: the verified screenshots are the complete accessory
+ * inventory, so anything else is removed. A stored item with the same slot, base name and
+ * base stats is matched one-to-one and keeps its ID, favourite and created date, so roll
+ * history still points at it. The screenshot's authentication, mutation and condition win;
+ * a stored authentication is kept only when it is the same one (it may carry notes or
+ * observed stat deltas the screenshot cannot show).
  */
-export function mergeKnownGear(existing:GearItem[]):GearItem[]{
-  const result=existing.filter(item=>!item.id.startsWith('verified-20261017-'));
-  for(const seed of makeKnownGear()){
-    const duplicate=result.find(item=>sameRoll(item,seed));
-    if(duplicate){
-      const index=result.indexOf(duplicate);
-      result[index]={
-        ...duplicate,
-        mutation:duplicate.mutation&&duplicate.mutation!=='None'?duplicate.mutation:seed.mutation,
-        conditionPct:duplicate.conditionPct??seed.conditionPct
-      };
-    }else result.push(seed);
-  }
-  return result;
+export function replaceWithVerifiedGear(existing:GearItem[]):GearItem[]{
+  const unused=[...existing];
+  return makeKnownGear().map(next=>{
+    const index=unused.findIndex(item=>sameBase(item,next));
+    if(index<0)return next;
+    const [found]=unused.splice(index,1);
+    const authentication=sameAuthentication(found,next)?found.authentication:next.authentication;
+    return {...next,id:found.id,favourite:found.favourite,createdAt:found.createdAt||next.createdAt,authentication,
+      name:generateGearName(next.baseName,next.stats,next.authenticated,authentication)};
+  });
+}
+
+function sameBase(a:GearItem,b:GearItem):boolean{
+  const nameA=(a.baseName||inferBaseName(a.name)).trim().toLowerCase().replace(/\s+/g,' ');
+  const nameB=b.baseName.trim().toLowerCase().replace(/\s+/g,' ');
+  return a.slot===b.slot&&nameA===nameB&&(Object.keys(ZERO_STATS) as Array<keyof GearStats>)
+    .every(key=>Math.abs((a.stats[key]??0)-(b.stats[key]??0))<0.00001);
+}
+
+function sameAuthentication(a:GearItem,b:GearItem):boolean{
+  if(Boolean(a.authenticated)!==Boolean(b.authenticated))return false;
+  return !a.authenticated||(a.authentication.kind===b.authentication.kind&&
+    a.authentication.effect.trim().toLowerCase()===b.authentication.effect.trim().toLowerCase()&&
+    Math.abs(a.authentication.value-b.authentication.value)<=0.00001);
 }
 
 function sameRoll(a:GearItem,b:GearItem):boolean{

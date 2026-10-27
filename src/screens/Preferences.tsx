@@ -1,5 +1,5 @@
 import { useRef, useState, type ReactNode } from 'react';
-import { DEFAULT_TROPHY_SETTINGS, DEFAULT_VEHICLE_PROFILE, makeEmptyData } from '../defaults';
+import { DEFAULT_TROPHY_SETTINGS, makeEmptyData } from '../defaults';
 import { controlsFor, groupControls, resetPreferenceSection, roundedShares, setPreference, setWeightShare, sliderView, SLIDER_MAX, weightShares, type PreferenceControl, type PreferenceSection, type WeightGroup } from '../engine/preferences';
 import { arrowTargetBand } from '../engine/scoring';
 import { algorithmIssues } from '../engine/settingsValidation';
@@ -8,7 +8,7 @@ import { LEGACY_ALIEN_EFFECTS } from '../authentication';
 import { csvToGear, gearToCsv } from '../data/csv';
 import { exportJson, importJson } from '../data/storage';
 import { CatalogueRow, newAuthModelEntry } from '../components/CertificateEditors';
-import type { AppData, GearItem, VehicleProfile } from '../types';
+import type { AppData, GearItem } from '../types';
 import { dateStamp, downloadText, Notice, num, type SetData } from '../ui';
 
 function Slider({ control, data, setData }: { control: PreferenceControl; data: AppData; setData: SetData }) {
@@ -74,7 +74,6 @@ export function Preferences({ data, setData }: { data: AppData; setData: SetData
   const catalogueIssues = authenticationCatalogueIssues(data.authModel);
   const trophy = data.trophySettings;
   const setTrophy = (next: AppData['trophySettings']) => setData({ ...data, trophySettings: next });
-  const setProfile = <K extends keyof VehicleProfile>(key: K, value: VehicleProfile[K]) => setData({ ...data, vehicleProfile: { ...data.vehicleProfile, [key]: value } });
   const finiteOr = (value: string, fallback: number) => { const n = Number(value); return value.trim() !== '' && Number.isFinite(n) ? n : fallback; };
 
   return <section aria-labelledby="prefs-heading">
@@ -87,7 +86,6 @@ export function Preferences({ data, setData }: { data: AppData; setData: SetData
     <Section title="Drink Prep" section="Drink Prep" data={data} setData={setData} />
     <Section title="Grading" section="Grading" data={data} setData={setData} />
     <Section title="Shop / Idle" section="Shop / Idle" data={data} setData={setData} />
-    <Section title="Vehicle" section="Vehicle" data={data} setData={setData} />
 
     <div className="prefSection">
       <div className="prefHeader"><h2>Gavels</h2><button className="link" onClick={() => { if (confirm('Reset Gavel slots and mutation values to defaults?')) setTrophy(structuredClone(DEFAULT_TROPHY_SETTINGS)); }}>Reset</button></div>
@@ -128,13 +126,6 @@ export function Preferences({ data, setData }: { data: AppData; setData: SetData
     </div>
 
     <details className="drawer maintenance"><summary>Maintenance</summary>
-      <h3>Vehicle profile</h3>
-      <div className="formGrid">
-        <label className="wide">Vehicle<input value={data.vehicleProfile.name} onChange={e => setProfile('name', e.target.value)} /></label>
-        {([['baseSpeed', 'Base speed'], ['baseAcceleration', 'Base acceleration'], ['baseHandling', 'Base handling'], ['baseCapacityKg', 'Base capacity kg'], ['capacityMultiplier', 'Capacity multiplier']] as const).map(([key, label]) =>
-          <label key={key}>{label}<input type="number" step="any" inputMode="decimal" value={data.vehicleProfile[key]} onChange={e => setProfile(key, finiteOr(e.target.value, data.vehicleProfile[key]))} /></label>)}
-        <button className="secondary compact wide" onClick={() => setData({ ...data, vehicleProfile: { ...DEFAULT_VEHICLE_PROFILE } })}>Reset vehicle profile</button>
-      </div>
       <h3>Model values</h3>
       <div className="formGrid">{MODEL_FIELDS.map(([key, label]) => <label key={key}>{label}<input type="number" step="any" inputMode="decimal" value={data.settings[key]}
         onChange={e => setData({ ...data, settings: { ...data.settings, [key]: finiteOr(e.target.value, data.settings[key]) } })} /></label>)}</div>

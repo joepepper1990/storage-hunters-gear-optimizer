@@ -8,7 +8,6 @@ import { buildCertificateQueue } from './certificateQueue';
 import { addCertificateBatch, removeCertificateBatch, setCertificateQuantity, updateCertificateBatch } from './certificateInventory';
 import { applyRecordedCertificateRoll } from './certificateRolls';
 import { PREFERENCE_CONTROLS, controlsFor, resetPreferenceSection, roundedShares, setPreference, setWeightShare, sliderView, weightShares } from './preferences';
-import { analyseTrailers, analyseVehicleParts, optimiseVehicle } from './vehicle';
 import { optimiseTrophies } from './trophies';
 import { effectiveItemStats, scoreStandalone } from './scoring';
 
@@ -200,11 +199,11 @@ describe('preference sliders drive the engines',()=>{
     expect(moved.settings.luckWeight).toBe(2.5);
   });
   it('resets only the selected section',()=>{
-    const custom={...data(),settings:{...data().settings,zoneWeight:.65,drinkPriority:1},vehicleSettings:{...data().vehicleSettings,speedWeight:3}};
+    const custom={...data(),settings:{...data().settings,zoneWeight:.65,drinkPriority:1,shopTipWeight:.9}};
     const reset=resetPreferenceSection(custom,'Auctions');
     expect(reset.settings.zoneWeight).toBe(s.zoneWeight);
     expect(reset.settings.drinkPriority).toBe(1);
-    expect(reset.vehicleSettings.speedWeight).toBe(3);
+    expect(reset.settings.shopTipWeight).toBe(.9);
   });
   it('Luck and Arrow sliders change the Main Auction trio',()=>{
     const items=[gear('lucky','Head',{luck:40}),gear('arrow','Head',{arrowReduction:30}),gear('b','Back'),gear('w','Wrist')];
@@ -229,22 +228,6 @@ describe('preference sliders drive the engines',()=>{
     expect(pick(s)).toBe('tip'); // 10 x 0.4 > 12 x 0.3
     expect(pick({...s,shopTipWeight:.1})).toBe('npc');
     expect(pick({...s,shopPriority:0})).toBeUndefined();
-  });
-  it('Vehicle sliders change the vehicle setup and its retention',()=>{
-    const d=makeEmptyData();
-    const now='';
-    const fast={id:'fast',baseName:'Fast',name:'Fast',slot:'Spoiler' as const,speedPct:30,accelerationPct:0,handlingPct:0,capacityKg:0,favourite:false,createdAt:now,updatedAt:now};
-    const heavy={...fast,id:'heavy',baseName:'Heavy',name:'Heavy',speedPct:0,capacityKg:400};
-    const parts=[fast,heavy];
-    const best=(settings:typeof d.vehicleSettings)=>optimiseVehicle(parts,[],d.vehicleProfile,settings,1)[0].spoiler?.id;
-    expect(best({...d.vehicleSettings,capacityWeight:0})).toBe('fast');
-    expect(best({...d.vehicleSettings,speedWeight:0})).toBe('heavy');
-    const speedOnly={...d.vehicleSettings,capacityWeight:0,accelerationWeight:0,handlingWeight:0};
-    const analysis=analyseVehicleParts(parts,optimiseVehicle(parts,[],d.vehicleProfile,speedOnly,1)[0],speedOnly);
-    expect(analysis.find(a=>a.item.id==='heavy')!.verdict).toBe('SAFE TO DISCARD');
-    expect(analyseVehicleParts(parts,optimiseVehicle(parts,[],d.vehicleProfile,d.vehicleSettings,1)[0],d.vehicleSettings).every(a=>a.verdict!=='SAFE TO DISCARD')).toBe(true);
-    const trailers=[{id:'t1',name:'Small',capacityKg:100,favourite:false,createdAt:now,updatedAt:now},{id:'t2',name:'Big',capacityKg:600,favourite:false,createdAt:now,updatedAt:now}];
-    expect(analyseTrailers(trailers,undefined,speedOnly).every(a=>a.verdict==='KEEP')).toBe(true);
   });
   it('Gavel slots control how many trophies are equipped',()=>{
     const d=makeInitialData();
@@ -402,11 +385,11 @@ describe('weights as percentages adding up to 100',()=>{
     const [tip,npc]=weightShares(next,'shop');
     expect(tip).toBeCloseTo(25,9);expect(npc).toBeCloseTo(75,9);
     expect(next.settings.shopTipWeight+next.settings.shopNpcWeight).toBeCloseTo(.7,9); // native Shop thresholds keep their scale
-    const vehicle=setWeightShare(d,'vehicle','capacityWeight',100);
-    expect(weightShares(vehicle,'vehicle').map(x=>Math.round(x))).toEqual([100,0,0,0]);
-    expect(weightShares(setWeightShare(vehicle,'vehicle','speedWeight',40),'vehicle').map(x=>Math.round(x))).toEqual([60,40,0,0]);
+    const luck=setWeightShare(d,'auction','luckWeight',100);
+    expect(weightShares(luck,'auction').map(x=>Math.round(x))).toEqual([100,0,0,0]);
+    expect(weightShares(setWeightShare(luck,'auction','arrowWeight',40),'auction').map(x=>Math.round(x))).toEqual([60,40,0,0]);
     // When every other weight is zero, the rest is shared equally.
-    expect(weightShares(setWeightShare(vehicle,'vehicle','capacityWeight',40),'vehicle').map(x=>Math.round(x))).toEqual([40,20,20,20]);
+    expect(weightShares(setWeightShare(luck,'auction','luckWeight',40),'auction').map(x=>Math.round(x))).toEqual([40,20,20,20]);
   });
   it('drives the engines the same way as the raw coefficients',()=>{
     const items=[gear('tip','Head',{tip:10}),gear('npc','Head',{npc:12}),gear('b','Back'),gear('w','Wrist')];

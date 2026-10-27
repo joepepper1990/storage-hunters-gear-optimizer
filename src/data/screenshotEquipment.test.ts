@@ -1,55 +1,45 @@
 import {describe,it,expect} from 'vitest';
 import {makeInitialData,DEFAULT_TROPHY_SETTINGS} from '../defaults';
-import {screenshotVehicleParts,screenshotTrophies,screenshotCertificates,mergeScreenshotParts,replaceWithVerifiedTrophies,mergeScreenshotCertificates} from './screenshotEquipment';
+import {screenshotTrophies,screenshotCertificates,replaceWithVerifiedTrophies,replaceWithVerifiedCertificates} from './screenshotEquipment';
 import {exportJson,importJson,normalizeData} from './storage';
 import {optimiseTrophies,specialistTrophyLoadout,analyseTrophyRetention,evaluateTrophySet} from '../engine/trophies';
 
-describe('October screenshot inventory — schema 13',()=>{
-  it('captures seven vehicle parts including the newer reversed-stat Manta roll',()=>{
-    const parts=screenshotVehicleParts();
-    expect(parts).toHaveLength(7);
-    expect(parts.find(p=>p.baseName==='Lotus Ruby Wheel Stack')).toMatchObject({speedPct:59,capacityKg:228});
-    expect(parts.find(p=>p.baseName==='Jewelled Exhaust')).toMatchObject({speedPct:54,accelerationPct:54});
-    expect(parts.find(p=>p.baseName==='Sapphire Spoiler')).toMatchObject({accelerationPct:68});
-    expect(parts.find(p=>p.baseName==='[Exclusive] Sunflower Wheel Stack')).toMatchObject({accelerationPct:58,capacityKg:214,conditionPct:92});
-    expect(parts.find(p=>p.baseName==='[Exclusive] Autumn Exhaust')).toMatchObject({speedPct:-11,accelerationPct:39,conditionPct:89});
-    expect(parts.find(p=>p.baseName==='Cogwheel Wheel Stack')).toMatchObject({speedPct:27,capacityKg:85,conditionPct:92});
-    expect(parts.find(p=>p.baseName==='Manta Spoiler')).toMatchObject({speedPct:-16,accelerationPct:15,conditionPct:95});
-    const original=makeInitialData().vehicleParts.find(p=>p.baseName==='Manta Spoiler'&&p.speedPct===26);
-    expect(original?.accelerationPct).toBe(-16);
-    expect(mergeScreenshotParts(makeInitialData().vehicleParts)).toHaveLength(makeInitialData().vehicleParts.length);
-  });
-  it('captures exactly the fifteen verified 27 October Gavels, inventory and displays',()=>{
+describe('October screenshot inventory — schema 15',()=>{
+  it('captures exactly the eighteen verified 27 October Gavels, inventory and displays',()=>{
     const gavels=screenshotTrophies();
-    expect(gavels).toHaveLength(15);
-    expect(new Set(gavels.map(g=>g.id)).size).toBe(15);
+    expect(gavels).toHaveLength(18);
+    expect(new Set(gavels.map(g=>g.id)).size).toBe(18);
     expect(gavels.map(g=>g.name).sort()).toEqual([
-      'Sandy +167%','Gem +194%','Hologram +142%','Hologram +125%','Huge +188% / Chrome +24%','Hologram +154% / Silver +143%',
+      'Sandy +167%','Gem +194%','Hologram +142%','Hologram +125%','Hologram +154% / Silver +143%',
       'Void +47%','Tiny +103% / Hologram +121%','Huge +188% / Chrome +24%','Hologram +93% / Silver +161%','Chrome +133% / Diamond +129%',
-      'Hologram +124% / Chrome +123% / Diamond +34%','Void +86%','Void +147% / Gold +146%','Hologram +157% / Chrome +76%'
+      'Hologram +124% / Chrome +123% / Diamond +34%','Void +86%','Void +147% / Gold +146%','Hologram +157% / Chrome +76%',
+      'Void +74%','Corrupted +44%','Diamond +91%','Gold +94%'
     ].sort());
-    expect(gavels.some(g=>g.name==='Void +74%')).toBe(false);
     const condition=(name:string)=>gavels.filter(t=>t.name===name).map(t=>t.conditionPct);
     expect(condition('Chrome +133% / Diamond +129%')).toEqual([97]);
     expect(condition('Hologram +154% / Silver +143%')).toEqual([54]);
     expect(condition('Void +47%')).toEqual([59]);
     expect(condition('Tiny +103% / Hologram +121%')).toEqual([55]);
-    expect(condition('Huge +188% / Chrome +24%')).toEqual([93,93]);
+    expect(condition('Huge +188% / Chrome +24%')).toEqual([93]);
+    expect(condition('Void +74%')).toEqual([92]);
+    expect(condition('Corrupted +44%')).toEqual([60]);
+    expect(condition('Diamond +91%')).toEqual([84]);
+    expect(condition('Gold +94%')).toEqual([75]);
     // Display tooltips do not show condition.
     expect(condition('Void +147% / Gold +146%')).toEqual([undefined]);
   });
   it('replaces stored Gavels with the verified set, keeping matching favourites and IDs one-to-one',()=>{
     const [first,...rest]=screenshotTrophies();
-    const stale={...rest[0],id:'stale-void74',name:'Void +74%',modifiers:[{mutation:'Void',boostPct:74}]};
+    const stale={...rest[0],id:'stale-void50',name:'Void +50%',modifiers:[{mutation:'Void',boostPct:50}]};
     const favourite={...first,id:'my-own-id',favourite:true,conditionPct:undefined};
     const huge=screenshotTrophies().find(t=>t.name==='Huge +188% / Chrome +24%')!;
-    const replaced=replaceWithVerifiedTrophies([favourite,stale,{...huge,id:'old-huge',favourite:true}]);
-    expect(replaced).toHaveLength(15);
-    expect(replaced.some(t=>t.id==='stale-void74')).toBe(false);
+    const replaced=replaceWithVerifiedTrophies([favourite,stale,{...huge,id:'old-huge',favourite:true},{...huge,id:'old-huge-2'}]);
+    expect(replaced).toHaveLength(18);
+    expect(replaced.some(t=>t.id==='stale-void50')).toBe(false);
     expect(replaced.find(t=>t.id==='my-own-id')).toMatchObject({favourite:true,conditionPct:first.conditionPct});
+    // The screenshots show one Huge / Chrome Gavel, so a second stored copy is removed.
     const hugeCopies=replaced.filter(t=>t.name==='Huge +188% / Chrome +24%');
-    expect(hugeCopies.map(t=>t.favourite).sort()).toEqual([false,true]);
-    expect(hugeCopies.some(t=>t.id==='old-huge')).toBe(true);
+    expect(hugeCopies).toEqual([expect.objectContaining({id:'old-huge',favourite:true})]);
   });
   it('sets up three powered Gavels without gamepass and four with it, including specialists',()=>{
     const gavels=screenshotTrophies();
@@ -71,42 +61,49 @@ describe('October screenshot inventory — schema 13',()=>{
     expect(result.totalBoosts.Chrome).toBe(76);
     expect(result.weightedContributions.Hologram).toBe(311*15);
   });
-  it('records the seven current certificates including two 2-star Limited certificates',()=>{
+  it('records the nine current certificates including two 2-star Limited certificates',()=>{
     const certs=screenshotCertificates();
-    expect(certs).toHaveLength(7);
+    expect(certs).toHaveLength(9);
+    expect(new Set(certs.map(c=>c.id)).size).toBe(9);
     expect(certs.filter(c=>c.type==='Limited Certificate of Authenticity')).toEqual([
       {id:'verified-oct26-cert-limited-6291',type:'Limited Certificate of Authenticity',quantity:1,displayedValue:6291,gradeStars:2,rarity:'Limited'},
       {id:'verified-oct26-cert-limited-5967',type:'Limited Certificate of Authenticity',quantity:1,displayedValue:5967,gradeStars:2,rarity:'Limited'}
     ]);
     expect(certs.filter(c=>c.type==='Premium Certificate of Authenticity')).toHaveLength(1);
-    expect(certs.filter(c=>c.type==='Wooden Certificate of Authenticity')).toHaveLength(4);
-    expect(certs.filter(c=>c.type==='Wooden Certificate of Authenticity').every(c=>c.gradeStars===2)).toBe(true);
+    const wooden=certs.filter(c=>c.type==='Wooden Certificate of Authenticity');
+    expect(wooden.map(c=>c.displayedValue)).toEqual([2646,2451.60,2451.60,2397.60,2203.20,2160]);
+    expect(wooden.every(c=>c.gradeStars===2)).toBe(true);
   });
-  it('upgrades legacy data once, replacing gear/certificates but preserving other inventory domains',()=>{
+  it('replaces stored certificates one-to-one, keeping IDs of matches',()=>{
+    const [limited]=screenshotCertificates();
+    const wooden=screenshotCertificates().find(c=>c.displayedValue===2451.60)!;
+    const replaced=replaceWithVerifiedCertificates([{...limited,id:'mine'},{...wooden,id:'w1'},{...wooden,id:'w2'},{...wooden,id:'w3'},
+      {id:'stale',type:'Wooden Certificate of Authenticity',quantity:1,displayedValue:56,gradeStars:1}]);
+    expect(replaced).toHaveLength(9);
+    expect(replaced.map(c=>c.id)).toEqual(expect.arrayContaining(['mine','w1','w2']));
+    expect(replaced.some(c=>c.id==='w3'||c.id==='stale')).toBe(false);
+    expect(replaceWithVerifiedCertificates(screenshotCertificates())).toEqual(screenshotCertificates());
+  });
+  it('upgrades legacy data once, then keeps later removals',()=>{
     const legacy=makeInitialData() as any;
     legacy.schemaVersion=8;
     legacy.gear=[];
     legacy.ownedCertificates=[{id:'stale-cert',type:'Wooden Certificate of Authenticity',quantity:99}];
-    legacy.vehicleParts=legacy.vehicleParts.slice(0,3);
     legacy.trophies=[screenshotTrophies()[0]];
     const first=normalizeData(legacy);
-    expect(first.schemaVersion).toBe(14);
-    expect(first.gear).toHaveLength(22);
-    expect(first.vehicleParts).toHaveLength(3);
-    expect(first.trophies).toHaveLength(15);
-    expect(first.ownedCertificates).toHaveLength(7);
+    expect(first.schemaVersion).toBe(15);
+    expect(first.gear).toHaveLength(29);
+    expect(first.trophies).toHaveLength(18);
+    expect(first.ownedCertificates).toHaveLength(9);
     expect(first.ownedCertificates.some(c=>c.id==='stale-cert')).toBe(false);
 
-    // Once schema 14 is saved, deliberate later removals stay removed.
+    // Once schema 15 is saved, deliberate later removals stay removed.
     const again=importJson(exportJson(first));
-    const deliberatelyRemoved={...again,gear:[],vehicleParts:[],trophies:[],ownedCertificates:[]};
-    const saved=importJson(exportJson(deliberatelyRemoved));
+    const deliberatelyRemoved={...again,gear:[],trophies:[],ownedCertificates:[]};
+    const saved=normalizeData(JSON.parse(exportJson(deliberatelyRemoved)));
     expect(saved.gear).toHaveLength(0);
-    expect(saved.vehicleParts).toHaveLength(0);
     expect(saved.trophies).toHaveLength(0);
     expect(saved.ownedCertificates).toHaveLength(0);
-    expect(mergeScreenshotParts(screenshotVehicleParts())).toHaveLength(7);
     expect(replaceWithVerifiedTrophies(screenshotTrophies())).toEqual(screenshotTrophies());
-    expect(mergeScreenshotCertificates(screenshotCertificates())).toHaveLength(7);
   });
 });

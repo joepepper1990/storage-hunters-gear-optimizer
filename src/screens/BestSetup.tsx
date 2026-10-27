@@ -3,7 +3,6 @@ import { activeSpecialists, buildGearLoadouts, type GearLoadoutResult } from '..
 import { arrowTargetBand } from '../engine/scoring';
 import { algorithmIssues } from '../engine/settingsValidation';
 import { optimiseTrophies } from '../engine/trophies';
-import { optimiseVehicle } from '../engine/vehicle';
 import type { AppData, GearItem } from '../types';
 import { Empty, itemTitle, num } from '../ui';
 
@@ -26,7 +25,6 @@ function LoadoutCard({ title, loadout, stats }: { title: string; loadout: GearLo
 export function BestSetup({ data }: { data: AppData }) {
   const valid = algorithmIssues(data.settings).length === 0;
   const loadouts = useMemo(() => valid ? buildGearLoadouts(data.gear, data.settings, 'low') : {}, [data.gear, data.settings, valid]);
-  const vehicle = useMemo(() => optimiseVehicle(data.vehicleParts, data.trailers, data.vehicleProfile, data.vehicleSettings, 1)[0], [data.vehicleParts, data.trailers, data.vehicleProfile, data.vehicleSettings]);
   const gavels = useMemo(() => optimiseTrophies(data.trophies, data.trophySettings)[0], [data.trophies, data.trophySettings]);
   const band = arrowTargetBand(data.settings);
   const active = activeSpecialists(data.settings);
@@ -63,16 +61,5 @@ export function BestSetup({ data }: { data: AppData }) {
       <div className="setStats"><span>Slots <b>{gavels.trophies.length}/{data.trophySettings.maxActive}</b></span></div>
     </article> : <Empty>No Gavels</Empty>}
 
-    <h2>Vehicle</h2>
-    {vehicle && (vehicle.spoiler || vehicle.exhaust || vehicle.wheelStack || vehicle.trailer) ? <article className="setCard">
-      <ol className="pieces">{([['Wheels', vehicle.wheelStack?.baseName], ['Spoiler', vehicle.spoiler?.baseName], ['Exhaust', vehicle.exhaust?.baseName], ['Trailer', vehicle.trailer?.name]] as const)
-        .map(([slot, name]) => <li key={slot}><span>{slot}</span><strong>{name || '—'}</strong></li>)}</ol>
-      <div className="setStats">
-        <span>Speed <b>{num(vehicle.stats.speedDisplay, 0)}</b></span>
-        <span>Accel <b>{num(vehicle.stats.acceleration, 2)}×</b></span>
-        <span>Handling <b>{num(vehicle.stats.handlingDisplay, 0)}</b></span>
-        <span>Capacity <b>{num(vehicle.stats.capacityKg, 0)} kg</b></span>
-      </div>
-    </article> : <Empty>No vehicle parts</Empty>}
   </section>;
 }

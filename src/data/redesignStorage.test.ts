@@ -49,16 +49,13 @@ describe('settings migration 2.0 -> 2.1',()=>{
     expect(reloaded.ownedCertificates).toEqual(d.ownedCertificates);
     expect(reloaded.settings).toEqual(d.settings);
     expect(reloaded.rollLog).toEqual(d.rollLog);
-    expect(reloaded.trophies.length).toBe(d.trophies.length);
-    expect(reloaded.vehicleParts.length).toBe(d.vehicleParts.length);
+    expect(reloaded.trophies).toEqual(d.trophies);
   });
   it('round-trips a backup with custom preferences unchanged',()=>{
     const d=makeInitialData();
     d.settings={...d.settings,luckWeight:2.5,zoneWeight:.65,drinkPriority:0};
-    d.vehicleSettings={...d.vehicleSettings,speedWeight:37};
     const restored=importJson(exportJson(d));
     expect(restored.settings).toEqual(d.settings);
-    expect(restored.vehicleSettings).toEqual(d.vehicleSettings);
     expect(restored.gear).toEqual(d.gear);
   });
 });
@@ -99,28 +96,71 @@ describe('P2: JSON roll history is validated and normalised on restore',()=>{
   });
 });
 
-describe('schema 14 Gavel replacement',()=>{
-  it('replaces a schema-13 Gavel list once and leaves every other domain untouched',()=>{
-    const d=makeInitialData();
-    const before=structuredClone(d);
-    (d as unknown as {schemaVersion:number}).schemaVersion=13;
-    d.trophies=[{id:'old',name:'Void +74%',modifiers:[{mutation:'Void',boostPct:74}],favourite:true,createdAt:'',updatedAt:''}];
+describe('schema 15 inventory replacement',()=>{
+  function schema14(){
+    const d=makeInitialData() as unknown as Record<string,unknown> & AppData;
+    (d as unknown as {schemaVersion:number}).schemaVersion=14;
+    return d;
+  }
+  it('replaces gear, certificates and Gavels once and keeps settings and history',()=>{
+    const d=schema14();
+    const fresh=makeInitialData();
+    // A schema-14 store: an old 22-item list with a favourite and a roll on a kept item,
+    // plus records that are no longer owned.
+    const kept={...fresh.gear.find(g=>g.baseName==='Cow Dominus')!,id:'my-cow',favourite:true,createdAt:'2026-10-01T00:00:00.000Z'};
+    const gone={...fresh.gear[0],id:'sold',baseName:'Sold Hat',name:'Sold Hat'};
+    d.gear=[kept,gone];
+    d.ownedCertificates=[{id:'my-cert',type:'Limited Certificate of Authenticity',quantity:1,displayedValue:6291,gradeStars:2},
+      {id:'used-cert',type:'Wooden Certificate of Authenticity',quantity:1,displayedValue:56,gradeStars:1}];
+    d.trophies=[{id:'my-gem',name:'Gem +194%',modifiers:[{mutation:'Gem',boostPct:194}],favourite:true,createdAt:'',updatedAt:''},
+      {id:'second-huge',name:'x',modifiers:[{mutation:'Huge',boostPct:188},{mutation:'Chrome',boostPct:24}],favourite:false,createdAt:'',updatedAt:''},
+      {id:'third-huge',name:'x',modifiers:[{mutation:'Huge',boostPct:188},{mutation:'Chrome',boostPct:24}],favourite:false,createdAt:'',updatedAt:''}];
+    d.settings={...d.settings,zoneWeight:.61};
+    d.rollLog=[roll({itemId:'my-cow'}) as AppData['rollLog'][number]];
+    Object.assign(d,{vehicleParts:[{id:'p'}],trailers:[{id:'t'}],vehicleProfile:{name:'Truck'},vehicleSettings:{speedWeight:1}});
+
     const migrated=normalizeData(d);
-    expect(migrated.trophies).toHaveLength(15);
-    expect(migrated.trophies.some(t=>t.id==='old')).toBe(false);
-    expect(migrated.gear).toEqual(before.gear);
-    expect(migrated.ownedCertificates).toEqual(before.ownedCertificates);
-    expect(migrated.vehicleParts).toEqual(before.vehicleParts);
-    expect(migrated.settings).toEqual(before.settings);
-    expect(migrated.trophySettings).toEqual(before.trophySettings);
-    // Saved as schema 14: later edits are kept, never re-seeded.
-    const edited={...migrated,trophies:migrated.trophies.slice(1)};
-    expect(normalizeData(JSON.parse(exportJson(edited))).trophies).toHaveLength(14);
+    expect(migrated.schemaVersion).toBe(15);
+    expect(migrated.gear).toHaveLength(29);
+    const cow=migrated.gear.find(g=>g.baseName==='Cow Dominus')!;
+    expect(cow).toMatchObject({id:'my-cow',favourite:true,createdAt:'2026-10-01T00:00:00.000Z'});
+    expect(migrated.gear.some(g=>g.id==='sold')).toBe(false);
+    expect(migrated.ownedCertificates).toHaveLength(9);
+    expect(migrated.ownedCertificates.some(c=>c.id==='my-cert')).toBe(true);
+    expect(migrated.ownedCertificates.some(c=>c.id==='used-cert')).toBe(false);
+    expect(migrated.trophies).toHaveLength(18);
+    expect(migrated.trophies.find(t=>t.id==='my-gem')?.favourite).toBe(true);
+    expect(migrated.trophies.filter(t=>t.modifiers[0].mutation==='Huge')).toHaveLength(1);
+    expect(migrated.settings.zoneWeight).toBe(.61);
+    expect(migrated.rollLog).toEqual(d.rollLog);
+    for(const key of ['vehicleParts','trailers','vehicleProfile','vehicleSettings'])expect(key in migrated).toBe(false);
+
+    // Saved as schema 15: later edits are kept, never re-seeded.
+    const edited={...migrated,gear:migrated.gear.slice(1),trophies:migrated.trophies.slice(1),ownedCertificates:[]};
+    const reloaded=normalizeData(JSON.parse(exportJson(edited)));
+    expect(reloaded.gear).toHaveLength(28);
+    expect(reloaded.trophies).toHaveLength(17);
+    expect(reloaded.ownedCertificates).toEqual([]);
   });
-  it('keeps a restored backup\'s own Gavels',()=>{
-    const d=makeInitialData();(d as unknown as {schemaVersion:number}).schemaVersion=13;
-    d.trophies=d.trophies.slice(0,2);
-    expect(importJson(exportJson(d)).trophies).toHaveLength(2);
+  it('takes the screenshot authentication but keeps stored detail for the same one',()=>{
+    const d=schema14();
+    const fresh=makeInitialData();
+    const vest={...fresh.gear.find(g=>g.baseName==='Police Vest')!,id:'vest'};
+    vest.authentication={...vest.authentication,notes:'mine',statDeltas:{zone:18}};
+    const wrist={...fresh.gear.find(g=>g.baseName==='Reactor Wristband')!,id:'wrist'};
+    wrist.authentication={kind:'Normal',effect:'Luck',value:20};
+    d.gear=[vest,wrist];
+    const migrated=normalizeData(d);
+    expect(migrated.gear.find(g=>g.id==='vest')!.authentication).toMatchObject({effect:'Bid Zone Width',notes:'mine',statDeltas:{zone:18}});
+    expect(migrated.gear.find(g=>g.id==='wrist')!.authentication).toEqual({kind:'Normal',effect:'Connected',value:2});
+  });
+  it('keeps a restored backup\'s own inventory',()=>{
+    const d=schema14();
+    d.gear=d.gear.slice(0,3);d.trophies=d.trophies.slice(0,2);d.ownedCertificates=d.ownedCertificates.slice(0,1);
+    const restored=importJson(exportJson(d));
+    expect(restored.gear).toHaveLength(3);
+    expect(restored.trophies).toHaveLength(2);
+    expect(restored.ownedCertificates).toHaveLength(1);
   });
 });
 

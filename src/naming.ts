@@ -1,4 +1,4 @@
-import type { Authentication, GearStats, TrophyModifier, VehiclePart } from './types';
+import type { Authentication, GearStats, TrophyModifier } from './types';
 import { reductionToGameArrow } from './engine/scoring';
 
 export function compactNumber(value:number):string {
@@ -58,17 +58,6 @@ export function generateGearName(baseName:string, stats:GearStats, authenticated
     if (authentication.value) parts.push(`Auth ${effect} ${signed(authentication.value,'%')}`);
     else parts.push(`Auth ${effect}`);
   }
-  return parts.length ? `${base} — ${parts.join(' / ')}` : base;
-}
-
-export function generateVehiclePartName(baseName:string, part:Pick<VehiclePart,'speedPct'|'accelerationPct'|'handlingPct'|'capacityKg'>):string {
-  const base = baseName.trim();
-  if (!base) return '';
-  const parts:string[] = [];
-  if (part.speedPct) parts.push(`Speed ${signed(part.speedPct,'%')}`);
-  if (part.accelerationPct) parts.push(`Accel ${signed(part.accelerationPct,'%')}`);
-  if (part.handlingPct) parts.push(`Handling ${signed(part.handlingPct,'%')}`);
-  if (part.capacityKg) parts.push(`Capacity ${signed(part.capacityKg,'kg')}`);
   return parts.length ? `${base} — ${parts.join(' / ')}` : base;
 }
 

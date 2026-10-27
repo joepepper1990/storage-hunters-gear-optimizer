@@ -50,16 +50,10 @@ describe('backup round trips',()=>{
     expect((restored.settings as any).luckBreakpoint1).toBeUndefined();
     expect((restored.settings as any).npcBreakpoint1).toBe(20);
   });
-  it('round-trips vehicle parts, trailers and active vehicle configuration',()=>{
-    const d=makeInitialData();
-    d.vehicleProfile.capacityMultiplier=1.5;
-    d.vehicleParts[0].capacityKg=60;
-    d.trailers[2].capacityKg=600;
-    const restored=importJson(exportJson(d));
-    expect(restored.vehicleProfile.name).toBe('Dumpster Truck');
-    expect(restored.vehicleProfile.capacityMultiplier).toBe(1.5);
-    expect(restored.vehicleParts[0].capacityKg).toBe(60);
-    expect(restored.trailers[2].capacityKg).toBe(600);
+  it('drops vehicle data from older backups',()=>{
+    const d={...makeInitialData(),vehicleProfile:{name:'Dumpster Truck'},vehicleParts:[{id:'p'}],trailers:[{id:'t'}],vehicleSettings:{speedWeight:3}};
+    const restored=importJson(JSON.stringify(d)) as unknown as Record<string,unknown>;
+    for(const key of ['vehicleParts','trailers','vehicleProfile','vehicleSettings'])expect(key in restored).toBe(false);
   });
 
   it('round-trips Gavel Trophies and editable mutation weights',()=>{
@@ -132,23 +126,18 @@ describe('backup round trips',()=>{
     d.gear=[gear];
     delete d.vehicleProfile; delete d.vehicleSettings; delete d.vehicleParts; delete d.trailers; delete d.trophies; delete d.trophySettings;
     const restored=normalizeData(d);
-    expect(restored.schemaVersion).toBe(14);
-    expect(restored.gear).toHaveLength(22);
+    expect(restored.schemaVersion).toBe(15);
+    expect(restored.gear).toHaveLength(29);
     expect(restored.gear.some((g:any)=>g.id==='abc')).toBe(false);
-    expect(restored.ownedCertificates).toHaveLength(7);
-    expect(restored.vehicleProfile.name).toBe('Dumpster Truck');
-    expect(restored.vehicleParts.length).toBeGreaterThan(0);
-    expect(restored.trailers.find((t:any)=>t.name==='Long Trailer')?.capacityKg).toBe(600);
-    expect(restored.trophies).toHaveLength(15);
+    expect(restored.ownedCertificates).toHaveLength(9);
+    expect(restored.trophies).toHaveLength(18);
     expect(restored.trophySettings.maxActive).toBe(4);
   });
   it('creates a genuinely empty workspace for destructive reset/start-empty actions',()=>{
     const empty=makeEmptyData();
-    expect(empty.schemaVersion).toBe(14);
+    expect(empty.schemaVersion).toBe(15);
     expect(empty.gear).toEqual([]);
     expect(empty.ownedCertificates).toEqual([]);
-    expect(empty.vehicleParts).toEqual([]);
-    expect(empty.trailers).toEqual([]);
     expect(empty.trophies).toEqual([]);
     expect(empty.rollLog).toEqual([]);
     expect(empty.authModel.length).toBeGreaterThan(0);
@@ -192,7 +181,7 @@ describe('backup round trips',()=>{
     woodenSunny.assumedLikelihoodClass='MEDIUM';
     woodenNocturnal.assumedLikelihoodClass='HIGH';
     const restored=importJson(JSON.stringify(d));
-    expect(restored.schemaVersion).toBe(14);
+    expect(restored.schemaVersion).toBe(15);
     expect(restored.authModel.find(m=>m.id===woodenSunny.id)?.assumedLikelihoodClass).toBe('LOW');
     expect(restored.authModel.find(m=>m.id===woodenNocturnal.id)?.assumedLikelihoodClass).toBe('HIGH');
   });
@@ -206,7 +195,7 @@ describe('backup round trips',()=>{
     row.observedValues=Array(10).fill(50);
     const restored=importJson(JSON.stringify(d));
     const next=restored.authModel.find(m=>m.id===row.id)!;
-    expect(restored.schemaVersion).toBe(14);
+    expect(restored.schemaVersion).toBe(15);
     expect(next.confidence).toBe('Medium');
     expect(next.empiricalConfidence).toBe('Empirical');
     expect(next.observedValues).toHaveLength(10);

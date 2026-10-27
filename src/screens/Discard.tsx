@@ -1,18 +1,17 @@
 import { useMemo, useState } from 'react';
 import { algorithmIssues } from '../engine/settingsValidation';
 import { analyseTrophyRetention } from '../engine/trophies';
-import { analyseTrailers, analyseVehicleParts, optimiseVehicle } from '../engine/vehicle';
 import { hasUnknownEffect } from '../engine/effects';
 import type { AppData, ItemAnalysis } from '../types';
 import { Empty, itemTitle, Modal, type SetData } from '../ui';
 
-type Group = 'Gear' | 'Gavels' | 'Vehicle parts' | 'Trailers';
+type Group = 'Gear' | 'Gavels';
 interface Candidate { id: string; group: Group; name: string; detail: string }
 
 /**
  * Only current, validated proofs feed the list. Gear needs a retention result for the
  * exact live inventory and settings; favourites and unknown effects are excluded again
- * here as a second guard. Vehicle and Gavel proofs are computed from live data.
+ * here as a second guard. Gavel proofs are computed from live data.
  */
 export function discardCandidates(data: AppData, gearAnalyses: ItemAnalysis[], gearCurrent: boolean, certificateTargets?: Set<string>): { candidates: Candidate[]; gearLocked: boolean } {
   // Gear waits for the certificate queue too: an item it targets is never offered for discard.
@@ -23,26 +22,17 @@ export function discardCandidates(data: AppData, gearAnalyses: ItemAnalysis[], g
     .map(a => live.get(a.item.id))
     .filter((item): item is NonNullable<typeof item> => Boolean(item) && !item!.favourite && !hasUnknownEffect(item!) && !certificateTargets!.has(item!.id))
     .map(item => ({ id: item.id, group: 'Gear' as const, name: itemTitle(item), detail: item.slot }));
-  const bestVehicle = optimiseVehicle(data.vehicleParts, data.trailers, data.vehicleProfile, data.vehicleSettings, 1)[0];
-  const parts = analyseVehicleParts(data.vehicleParts, bestVehicle, data.vehicleSettings)
-    .filter(a => a.verdict === 'SAFE TO DISCARD' && !a.item.favourite)
-    .map(a => ({ id: a.item.id, group: 'Vehicle parts' as const, name: a.item.baseName || a.item.name, detail: a.item.slot }));
-  const trailers = analyseTrailers(data.trailers, bestVehicle, data.vehicleSettings)
-    .filter(a => a.verdict === 'SAFE TO DISCARD' && !a.item.favourite)
-    .map(a => ({ id: a.item.id, group: 'Trailers' as const, name: a.item.name, detail: `${a.item.capacityKg} kg` }));
   const gavels = analyseTrophyRetention(data.trophies, data.trophySettings)
     .filter(a => a.verdict === 'SAFE TO DISCARD' && !a.item.favourite)
     .map(a => ({ id: a.item.id, group: 'Gavels' as const, name: a.item.name, detail: '' }));
-  return { candidates: [...gear, ...gavels, ...parts, ...trailers], gearLocked };
+  return { candidates: [...gear, ...gavels], gearLocked };
 }
 
 export function removeRecords(data: AppData, ids: Set<string>): AppData {
   return {
     ...data,
     gear: data.gear.filter(x => !ids.has(x.id)),
-    trophies: data.trophies.filter(x => !ids.has(x.id)),
-    vehicleParts: data.vehicleParts.filter(x => !ids.has(x.id)),
-    trailers: data.trailers.filter(x => !ids.has(x.id))
+    trophies: data.trophies.filter(x => !ids.has(x.id))
   };
 }
 
@@ -58,7 +48,7 @@ export function Discard({ data, setData, gearAnalyses, gearCurrent, certificateT
   // A selection never outlives its proof: anything no longer listed is dropped.
   const selected = candidates.filter(c => picked.has(c.id));
   const toggle = (id: string) => setPicked(current => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next; });
-  const groups: Group[] = ['Gear', 'Gavels', 'Vehicle parts', 'Trailers'];
+  const groups: Group[] = ['Gear', 'Gavels'];
 
   const confirmRemove = () => {
     const fresh = new Set(discardCandidates(data, gearAnalyses, gearCurrent, certificateTargets).candidates.map(c => c.id));

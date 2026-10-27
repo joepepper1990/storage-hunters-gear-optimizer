@@ -1,9 +1,9 @@
-import { DEFAULT_VEHICLE_SETTINGS, LOCKED_DEFAULT_SETTINGS } from '../defaults';
-import type { AlgorithmSettings, AppData, VehicleOptimiserSettings } from '../types';
+import { LOCKED_DEFAULT_SETTINGS } from '../defaults';
+import type { AlgorithmSettings, AppData } from '../types';
 import { arrowTargetBand } from './scoring';
 
-export type PreferenceSection = 'Auctions' | 'Drink Prep' | 'Grading' | 'Shop / Idle' | 'Vehicle';
-export type WeightGroup = 'auction' | 'shop' | 'vehicle';
+export type PreferenceSection = 'Auctions' | 'Drink Prep' | 'Grading' | 'Shop / Idle';
+export type WeightGroup = 'auction' | 'shop';
 
 /**
  * A 0-10 importance slider is a fixed linear view of one stored engine coefficient:
@@ -34,15 +34,6 @@ function algorithm(id: keyof AlgorithmSettings & string, section: PreferenceSect
   };
 }
 
-function vehicle(id: keyof VehicleOptimiserSettings & string, label: string): PreferenceControl {
-  return {
-    id, section: 'Vehicle', label, scale: 5,
-    read: data => data.vehicleSettings[id],
-    write: (data, coefficient) => ({ ...data, vehicleSettings: { ...data.vehicleSettings, [id]: coefficient } }),
-    defaultValue: DEFAULT_VEHICLE_SETTINGS[id]
-  };
-}
-
 const weight = (group: WeightGroup, control: PreferenceControl): PreferenceControl => ({ ...control, group });
 
 export const PREFERENCE_CONTROLS: PreferenceControl[] = [
@@ -55,11 +46,7 @@ export const PREFERENCE_CONTROLS: PreferenceControl[] = [
   algorithm('gradingPriority', 'Grading', 'Priority', 1),
   algorithm('shopPriority', 'Shop / Idle', 'Priority', 1),
   weight('shop', algorithm('shopTipWeight', 'Shop / Idle', 'Tip Chance', 0.05)),
-  weight('shop', algorithm('shopNpcWeight', 'Shop / Idle', 'NPC Offers', 0.05)),
-  weight('vehicle', vehicle('capacityWeight', 'Capacity')),
-  weight('vehicle', vehicle('speedWeight', 'Speed')),
-  weight('vehicle', vehicle('accelerationWeight', 'Acceleration')),
-  weight('vehicle', vehicle('handlingWeight', 'Handling'))
+  weight('shop', algorithm('shopNpcWeight', 'Shop / Idle', 'NPC Offers', 0.05))
 ];
 
 export function groupControls(group: WeightGroup): PreferenceControl[] {
