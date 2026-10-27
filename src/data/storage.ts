@@ -140,14 +140,16 @@ function request<T = unknown>(req: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => { req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); });
 }
 
-export function normalizeData(raw: AppData): AppData {
+export function normalizeData(raw: AppData, options: { preserveInventory?: boolean } = {}): AppData {
   const initial = makeInitialData();
+  const preserveInventory = options.preserveInventory === true;
   return {
     schemaVersion: 13,
-    // Schema 9 is a deliberate one-time inventory reset from the user's complete
+    // Startup schema 9 is a deliberate one-time inventory reset from the user's complete
     // 26 October 2026 screenshots. Any pre-schema-9 gear rows are replaced, not
     // merged, because the verified 22-item list is the user's entire owned gear.
-    gear: Number(raw?.schemaVersion) >= 9
+    // Explicit backup restores bypass inventory seeding and retain the supplied rows.
+    gear: preserveInventory || Number(raw?.schemaVersion) >= 9
       ? (Array.isArray(raw?.gear) ? raw.gear.map(normalizeItem) : [])
       : makeKnownGear(),
     settings: normalizeSettings(raw?.settings),
@@ -155,17 +157,17 @@ export function normalizeData(raw: AppData): AppData {
     rollLog: Array.isArray(raw?.rollLog) ? raw.rollLog : [],
     // Same one-time reset for certificates: the seven screenshot-confirmed
     // certificates are the complete owned inventory at this snapshot.
-    ownedCertificates: Number(raw?.schemaVersion)>=9
+    ownedCertificates: preserveInventory || Number(raw?.schemaVersion)>=9
       ? (Array.isArray(raw?.ownedCertificates)?raw.ownedCertificates.map(normalizeOwnedCertificate):[])
       : screenshotCertificates(),
     theme: raw?.theme ?? 'system',
     vehicleProfile: normalizeVehicleProfile(raw?.vehicleProfile),
     vehicleSettings: normalizeVehicleSettings(raw?.vehicleSettings),
-    vehicleParts: Number(raw?.schemaVersion)>=6
+    vehicleParts: preserveInventory || Number(raw?.schemaVersion)>=6
       ? (Array.isArray(raw?.vehicleParts) ? raw.vehicleParts.map(normalizeVehiclePart) : [])
       : mergeScreenshotParts(Array.isArray(raw?.vehicleParts) ? raw.vehicleParts.map(normalizeVehiclePart) : []),
     trailers: Array.isArray(raw?.trailers) ? raw.trailers.map(normalizeTrailer) : initial.trailers,
-    trophies: Number(raw?.schemaVersion)>=6
+    trophies: preserveInventory || Number(raw?.schemaVersion)>=6
       ? (Array.isArray(raw?.trophies) ? raw.trophies.map(normalizeTrophy) : [])
       : mergeScreenshotTrophies(Array.isArray(raw?.trophies) ? raw.trophies.map(normalizeTrophy) : []),
     trophySettings: normalizeTrophySettings(raw?.trophySettings,Number(raw?.schemaVersion)<6)
@@ -414,7 +416,7 @@ export function exportJson(data: AppData): string { return JSON.stringify(data, 
 export function importJson(text: string): AppData {
   const parsed = JSON.parse(text) as AppData;
   validateImportedData(parsed);
-  return normalizeData(parsed);
+  return normalizeData(parsed, { preserveInventory: true });
 }
 
 function validateImportedData(raw: AppData): void {

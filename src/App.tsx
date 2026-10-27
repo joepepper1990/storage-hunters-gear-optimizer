@@ -3,7 +3,7 @@ import { LOCKED_DEFAULT_SETTINGS, makeEmptyData, makeInitialData, ZERO_STATS } f
 import { analyseItems, optimise } from './engine/optimizer';
 import type { OwnedCertificateDecision } from './engine/certificateDecision';
 import type { PostRollDecision } from './engine/certificateReroll';
-import { applyRecordedCertificateRoll, authModelTypeForOwnedCertificate, correctRecordedCertificateRoll, deleteRecordedCertificateRoll, withObservedAuthenticationStats } from './engine/certificateRolls';
+import { editAuthentication, applyRecordedCertificateRoll, authModelTypeForOwnedCertificate, correctRecordedCertificateRoll, deleteRecordedCertificateRoll, withObservedAuthenticationStats } from './engine/certificateRolls';
 import { certificateInputKey, optimisationInputKey } from './engine/analysisFreshness';
 import { authenticationCatalogueIssues } from './engine/authModel';
 import { MODEL_ASSUMPTIONS } from './engine/modelAssumptions';
@@ -474,7 +474,7 @@ function GearEditor({item,authModel,mode,onClose,onSave}:{item:GearItem;authMode
   const [shownStats,setShownStats]=useState<Array<keyof GearStats>>(initialShown);
   const patch=(next:Partial<GearItem>)=>setV(current=>{const updated={...current,...next};return {...updated,name:generateGearName(updated.baseName,updated.stats,updated.authenticated,updated.authentication)};});
   const setStat=(k:keyof GearStats,n:number)=>setV(current=>{const stats={...current.stats,[k]:Number.isFinite(n)?n:0};return {...current,stats,name:generateGearName(current.baseName,stats,current.authenticated,current.authentication)};});
-  const setAuthentication=(next:Partial<GearItem['authentication']>)=>setV(current=>{const authentication={...current.authentication,...next};return {...current,authentication,name:generateGearName(current.baseName,current.stats,current.authenticated,authentication)};});
+  const setAuthentication=(next:Partial<GearItem['authentication']>)=>setV(current=>{const authentication=editAuthentication(current.authentication,next);return {...current,authentication,name:generateGearName(current.baseName,current.stats,current.authenticated,authentication)};});
   const showStat=(key:keyof GearStats)=>setShownStats(current=>current.includes(key)?current:[...current,key]);
   const hideStat=(key:keyof GearStats)=>{setStat(key,0);setShownStats(current=>current.filter(k=>k!==key));};
   const orderedShown=statLabels.filter(([key])=>shownStats.includes(key));

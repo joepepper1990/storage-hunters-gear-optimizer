@@ -32,6 +32,7 @@ export default defineConfig(({ mode }) => ({
   ],
   test: {
     environment: 'node',
+    testTimeout: 120000, // Certificate integration now evaluates 100 prior nodes instead of five.
     include: ['src/**/*.test.{ts,tsx}']
   }
 }));

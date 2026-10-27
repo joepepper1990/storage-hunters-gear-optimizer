@@ -364,15 +364,12 @@ function rollSupports(def:CertificateOutcomeDefinition,data:AppData,slot:Slot,ce
     const empiricalMass=exactMass+weakMass;
     const priorMass=1-empiricalMass;
 
-    // Five deterministic quadrature points retain min, quartiles, midpoint and max
-    // while avoiding redundant full Head × Back × Wrist recomputation.
-    const priorValues=Array.from({length:5},(_,i)=>min+(max-min)*(i/4));
+    // Midpoint quadrature represents a continuous prior without inventing atoms
+    // at legal extrema. Uniform prior nodes each carry 1% of prior mass.
+    const count=min===max?1:100;
+    const priorValues=Array.from({length:count},(_,i)=>min+(max-min)*((i+.5)/count));
     const priorWeights=normalizedPriorWeights(priorValues,min,max,def.typical);
-    const prior=priorValues.map((value,i)=>({
-      value,
-      weight:priorMass*priorWeights[i],
-      unresolved:mechanicUnknown
-    }));
+    const prior=priorValues.map((value,i)=>({value,weight:priorMass*priorWeights[i],unresolved:mechanicUnknown}));
     const empirical=[
       ...empiricalSupports(observed,exactMass),
       ...empiricalSupports(fallbackValues,weakMass)
@@ -797,6 +794,7 @@ function targetDecision(
         ?'Certificate mutation '+cert.mutation+' is recorded and exact-mutation roll evidence is preferred when available; its unpublished strength shift is not fabricated.'
         :'No certificate mutation is recorded.',
       'Personal effect tiers are used only as an ordinal secondary signal when the target remains in a robust Main Auction trio; they never compensate for weaker Main utility.',
+      'Numeric priors use 100 midpoint quadrature nodes, not endpoint probability masses. Percentages are numerical model estimates; empirical observations retain their exact frequency. The prior shape and game roll precision remain assumptions.',
       'Lucky Grading is ON.'
     ]
   };

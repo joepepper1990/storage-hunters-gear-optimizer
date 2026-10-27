@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { makeEmptyData, makeInitialData } from '../defaults';
 import { csvToGear, gearToCsv } from './csv';
-import { exportJson, importJson, selectNewestStoredSnapshot } from './storage';
+import { exportJson, importJson, normalizeData, selectNewestStoredSnapshot } from './storage';
 import type { GearItem } from '../types';
 
 const now='2026-08-28T00:00:00Z';
@@ -126,12 +126,12 @@ describe('backup round trips',()=>{
     expect(restored.trophySettings.mutationWeights.find(w=>w.mutation==='Clockwork')?.multiplier).toBe(25);
   });
 
-  it('migrates an older backup to the verified schema-13 gear/certificate baseline',()=>{
+  it('migrates older startup storage to the verified schema-13 gear/certificate baseline',()=>{
     const d=makeInitialData() as any;
     d.schemaVersion=1;
     d.gear=[gear];
     delete d.vehicleProfile; delete d.vehicleSettings; delete d.vehicleParts; delete d.trailers; delete d.trophies; delete d.trophySettings;
-    const restored=importJson(JSON.stringify(d));
+    const restored=normalizeData(d);
     expect(restored.schemaVersion).toBe(13);
     expect(restored.gear).toHaveLength(22);
     expect(restored.gear.some((g:any)=>g.id==='abc')).toBe(false);
@@ -213,3 +213,4 @@ describe('backup round trips',()=>{
   });
 
 });
+
