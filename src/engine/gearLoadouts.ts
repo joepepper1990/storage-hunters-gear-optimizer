@@ -4,8 +4,9 @@ import type {
 } from '../types';
 import { algorithmIssues } from './settingsValidation';
 import { findDominator } from './dominance';
-import { arrowEffective, combineStats, effectiveItemStats, energyEffective, scoreStandalone, zoneEffective } from './scoring';
+import { arrowEffective, arrowTargetBand, combineStats, effectiveItemStats, energyEffective, scoreStandalone, zoneEffective } from './scoring';
 import { MODEL_ASSUMPTIONS } from './modelAssumptions';
+import { hasUnknownEffect } from './effects';
 
 export type DynamicScenario = 'low' | 'central' | 'high';
 
@@ -47,19 +48,6 @@ const MUTATED_LUCK: Record<string, number> = {
   Silver:5, Gold:10, Corrupted:15, Diamond:20, Gem:25, Chrome:30,
   Hologram:35, Void:40, Secret:45, Rainbow:60, Onyx:75
 };
-
-const USER_ZERO_VALUE_EFFECTS = new Set([
-  'Walkspeed','Time Keeper','Timekeeper','Connected','Club Pact','Club Packed','Auto X-Ray',
-  'Second Chance','Steady Hand','Haggler'
-]);
-
-const MODELED_EFFECTS = new Set([
-  'Luck','Bid Recovery','Bid Arrow Speed','Bid Zone Width','Energy Drink Time','Tip Chance',
-  'NPC Offers Bonus','Walkspeed','Sunny','Nocturnal','Overcharged','Raindrop','Mutated Luck',
-  'Droughtbreaker','Drought Breaker','Golden Hour','Club Pact','Club Packed','Temporal Split',
-  'Auto X-Ray','Grade Re-Roll','Featherweight','Luck Frenzy','Second Chance','Steady Hand',
-  'Time Keeper','Timekeeper','Connected','Haggler','Anti-Gravity Field','Safecracker','Exhibitor','Rush'
-]);
 
 const TRIO_DEPENDENT_OR_STATEFUL = new Set([
   'Mutated Luck','Droughtbreaker','Drought Breaker','Golden Hour','Luck Frenzy'
@@ -140,9 +128,9 @@ export function mainAuctionUtility(
   items:GearItem[],
   settings:AlgorithmSettings,
   context:MainAuctionContext='Neutral',
-  dynamic:DynamicScenario|DynamicState='low'
+  dynamic:DynamicScenario|DynamicState='low',
+  stats:GearStats=combineStats(items)
 ):number {
-  const stats=combineStats(items);
   const luck=stats.luck+dynamicLuck(items,context,dynamic);
   return luck*settings.luckWeight
     + arrowEffective(stats.arrowReduction,settings)*settings.arrowWeight
@@ -173,7 +161,7 @@ export function mainCombination(
   const displayedStats={...stats,luck:stats.luck+extraLuck};
   return {
     head,back,wrist,stats:displayedStats,score,
-    wastedArrow:Math.max(0,stats.arrowReduction-settings.arrowSweetSpot),
+    wastedArrow:Math.max(0,stats.arrowReduction-arrowTargetBand(settings).max),
     penalisedArrow:0,
     wastedEnergy:Math.max(0,stats.energy-settings.energyCeiling)
   };
@@ -183,55 +171,79 @@ function gradeRerollValue(items:GearItem[]):number {
   return items.reduce((sum,item)=>sum+(item.authenticated&&item.authentication.effect.trim()==='Grade Re-Roll'
     ?gradeRerollExpectedValueGainPct(Math.max(0,item.authentication.value)):0),0);
 }
-function shopValue(items:GearItem[]):number {
-  const stats=combineStats(items);
-  return stats.tip*.4+stats.npc*.3;
+function shopValue(stats:GearStats,settings:AlgorithmSettings):number {
+  return stats.tip*settings.shopTipWeight+stats.npc*settings.shopNpcWeight;
 }
-function drinkValue(items:GearItem[],settings:AlgorithmSettings):number {
-  const stats=combineStats(items);
+
+/** Specialist loadouts in the order they are considered after Main Auction.
+ * Priority 0 means ignore: no loadout, no retention protection, no certificate goal.
+ * Equal priorities keep the default order Drink Prep -> Grading -> Shop / Idle.
+ */
+export type SpecialistName='Drink Prep'|'Grading'|'Shop / Idle';
+export function activeSpecialists(settings:AlgorithmSettings):SpecialistName[] {
+  const all:Array<[SpecialistName,number]>=[
+    ['Drink Prep',settings.drinkPriority],
+    ['Grading',settings.gradingPriority],
+    ['Shop / Idle',settings.shopPriority]
+  ];
+  return all.filter(([name,priority])=>priority>0&&(name!=='Shop / Idle'||settings.shopTipWeight>0||settings.shopNpcWeight>0))
+    .map((entry,index)=>({entry,index}))
+    .sort((a,b)=>b.entry[1]-a.entry[1]||a.index-b.index)
+    .map(x=>x.entry[0]);
+}
+function drinkValue(stats:GearStats,settings:AlgorithmSettings):number {
   return energyEffective(stats.energy,settings);
 }
 
-function allTrios(gear:GearItem[]):GearItem[][] {
+/** One evaluated trio. Combined stats and the robust Main tie-break are computed once
+ * and shared by every loadout, instead of once per loadout utility. */
+interface Trio { items:GearItem[]; stats:GearStats; main:number; key:string }
+
+function allTrios(gear:GearItem[],settings:AlgorithmSettings):Trio[] {
   const heads=gear.filter(g=>g.slot==='Head'), backs=gear.filter(g=>g.slot==='Back'), wrists=gear.filter(g=>g.slot==='Wrist');
   if(!heads.length||!backs.length||!wrists.length)return [];
-  const out:GearItem[][]=[];
-  for(const h of heads)for(const b of backs)for(const w of wrists)out.push([h,b,w]);
+  const out:Trio[]=[];
+  for(const h of heads)for(const b of backs)for(const w of wrists){
+    const items=[h,b,w],stats=combineStats(items);
+    out.push({items,stats,main:mainAuctionUtility(items,settings,'Neutral','low',stats),key:h.id+'|'+b.id+'|'+w.id});
+  }
   return out;
 }
 
 function makeResult(
-  name:GearLoadoutName, trios:GearItem[][], utility:(items:GearItem[])=>number,
+  name:GearLoadoutName, trios:Trio[], utility:(trio:Trio)=>number,
   settings:AlgorithmSettings, context?:MainAuctionContext, rationale='', requirePositive=false,
   dynamic:DynamicScenario|DynamicState='low'
 ):GearLoadoutResult|undefined {
   if(!trios.length)return undefined;
-  const scored=trios.map(items=>({items,u:utility(items),main:mainAuctionUtility(items,settings,'Neutral','low')}));
-  scored.sort((a,b)=>b.u-a.u||b.main-a.main||a.items.map(x=>x.id).join('|').localeCompare(b.items.map(x=>x.id).join('|')));
-  const best=scored[0];
+  // Best by utility, then robust Main, then trio IDs: the first element a full sort would give.
+  const scored=trios.map(trio=>({trio,u:utility(trio)}));
+  let best=scored[0];
+  for(const x of scored)if(x.u>best.u||(x.u===best.u&&(x.trio.main>best.trio.main||(x.trio.main===best.trio.main&&x.trio.key.localeCompare(best.trio.key)<0))))best=x;
   if(requirePositive&&best.u<=1e-9)return undefined;
   const epsilon=1e-9;
-  const tied=scored.filter(x=>Math.abs(x.u-best.u)<=epsilon&&Math.abs(x.main-best.main)<=epsilon);
-  const tiedItemIds=new Set(tied.flatMap(x=>x.items.map(i=>i.id)));
-  const stats=combineStats(best.items);
+  const tied=scored.filter(x=>Math.abs(x.u-best.u)<=epsilon&&Math.abs(x.trio.main-best.trio.main)<=epsilon);
+  const tiedItemIds=new Set(tied.flatMap(x=>x.trio.items.map(i=>i.id)));
+  const items=best.trio.items,stats=best.trio.stats;
   return {
-    name,context,head:best.items[0],back:best.items[1],wrist:best.items[2],
-    stats:{...stats,luck:stats.luck+dynamicLuck(best.items,context??'Neutral',dynamic)},utility:best.u,mainUtility:best.main,tiedItemIds,rationale
+    name,context,head:items[0],back:items[1],wrist:items[2],
+    stats:{...stats,luck:stats.luck+dynamicLuck(items,context??'Neutral',dynamic)},utility:best.u,mainUtility:best.trio.main,tiedItemIds,rationale
   };
 }
 
 export function buildGearLoadouts(
   gear:GearItem[], settings:AlgorithmSettings, dynamic:DynamicScenario|DynamicState='low'
 ):GearLoadoutCollection {
-  const trios=allTrios(gear);
+  const trios=allTrios(gear,settings);
+  const specialists=activeSpecialists(settings);
   return {
-    main:makeResult('Main Auction',trios,items=>mainAuctionUtility(items,settings,'Neutral',dynamic),settings,'Neutral','Primary loadout: Luck, Bid Arrow to 75%, Bid Zone and Recovery.',false,dynamic),
-    day:makeResult('Day Auction',trios,items=>mainAuctionUtility(items,settings,'Day',dynamic),settings,'Day','Main Auction with Sunny effects active.',false,dynamic),
-    night:makeResult('Night Auction',trios,items=>mainAuctionUtility(items,settings,'Night',dynamic),settings,'Night','Main Auction with Nocturnal effects active.',false,dynamic),
-    rain:makeResult('Rain Auction',trios,items=>mainAuctionUtility(items,settings,'Rain',dynamic),settings,'Rain','Main Auction with Raindrop effects active.',false,dynamic),
-    drink:makeResult('Drink Prep',trios,items=>drinkValue(items,settings),settings,undefined,'Temporary set used while consuming an Energy Drink; Energy duration matters. Overcharged is auction-time Luck and is evaluated in Main sensitivity states instead.',true),
-    grading:makeResult('Grading',trios,items=>gradeRerollValue(items),settings,undefined,'Temporary grading set; Lucky Grading is owned and Grade Re-Roll is valued against that distribution.',true),
-    shop:makeResult('Shop / Idle',trios,items=>shopValue(items),settings,undefined,'Optional selling set for deliberate shop/idle sessions; Tip Chance and NPC Offers matter.',true)
+    main:makeResult('Main Auction',trios,t=>mainAuctionUtility(t.items,settings,'Neutral',dynamic,t.stats),settings,'Neutral','Primary loadout: Luck, Bid Arrow in the 65-85% band, Bid Zone and Recovery.',false,dynamic),
+    day:makeResult('Day Auction',trios,t=>mainAuctionUtility(t.items,settings,'Day',dynamic,t.stats),settings,'Day','Main Auction with Sunny effects active.',false,dynamic),
+    night:makeResult('Night Auction',trios,t=>mainAuctionUtility(t.items,settings,'Night',dynamic,t.stats),settings,'Night','Main Auction with Nocturnal effects active.',false,dynamic),
+    rain:makeResult('Rain Auction',trios,t=>mainAuctionUtility(t.items,settings,'Rain',dynamic,t.stats),settings,'Rain','Main Auction with Raindrop effects active.',false,dynamic),
+    drink:specialists.includes('Drink Prep')?makeResult('Drink Prep',trios,t=>drinkValue(t.stats,settings),settings,undefined,'Temporary set used while consuming an Energy Drink; Energy duration matters. Overcharged is auction-time Luck and is evaluated in Main sensitivity states instead.',true):undefined,
+    grading:specialists.includes('Grading')?makeResult('Grading',trios,t=>gradeRerollValue(t.items),settings,undefined,'Temporary grading set; Lucky Grading is owned and Grade Re-Roll is valued against that distribution.',true):undefined,
+    shop:specialists.includes('Shop / Idle')?makeResult('Shop / Idle',trios,t=>shopValue(t.stats,settings),settings,undefined,'Optional selling set for deliberate shop/idle sessions; Tip Chance and NPC Offers matter.',true):undefined
   };
 }
 
@@ -250,13 +262,10 @@ export function membershipsForItem(
 }
 
 function uncertainProtection(item:GearItem):string|undefined {
-  if(!item.authenticated)return undefined;
+  if(!hasUnknownEffect(item))return undefined;
   const effect=item.authentication.effect.trim();
-  if(!effect)return undefined;
   if(effect==='Focused'||effect==='Focus')return 'Focused is A-tier for this profile but its exact numerical formula is still unresolved, so this item cannot be irreversibly discarded.';
-  if(!MODELED_EFFECTS.has(effect))return effect+' is not yet modelled, so this item cannot be irreversibly discarded.';
-  if(USER_ZERO_VALUE_EFFECTS.has(effect))return undefined;
-  return undefined;
+  return effect+' is not yet modelled, so this item cannot be irreversibly discarded.';
 }
 
 function hasStatefulOrTrioDependentValue(item:GearItem):boolean {
@@ -294,10 +303,17 @@ function buildMembershipMap(gear:GearItem[],settings:AlgorithmSettings):Map<stri
  */
 function futureSafeDominator(item:GearItem,candidates:GearItem[],settings:AlgorithmSettings) {
   const target=effectiveItemStats(item);
+  const specialists=activeSpecialists(settings);
+  const drink=specialists.includes('Drink Prep');
+  const grading=specialists.includes('Grading');
+  const shop=specialists.includes('Shop / Idle');
   const specialistSafe=candidates.filter(candidate=>{
     const stats=effectiveItemStats(candidate);
-    return stats.energy>=target.energy && stats.tip>=target.tip && stats.npc>=target.npc
-      && gradeRerollValue([candidate])>=gradeRerollValue([item])
+    // Ignored specialists (priority 0) and zero-importance Shop stats impose no requirement.
+    return (!drink||stats.energy>=target.energy)
+      && (!shop||settings.shopTipWeight<=0||stats.tip>=target.tip)
+      && (!shop||settings.shopNpcWeight<=0||stats.npc>=target.npc)
+      && (!grading||gradeRerollValue([candidate])>=gradeRerollValue([item]))
       // A future companion with Mutated Luck reads every member's mutation.
       && mutationLuckForItem(candidate)>=mutationLuckForItem(item);
   });

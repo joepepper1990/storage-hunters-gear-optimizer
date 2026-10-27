@@ -1,5 +1,6 @@
 import type { AppData, AuthModelEntry, GearItem, OwnedCertificate, Slot } from '../types';
 import {
+  activeSpecialists,
   buildGearLoadouts,
   gradeRerollExpectedValueGainPct,
   LUCKY_GRADING,
@@ -94,6 +95,16 @@ export interface CertificateTargetDecision {
   evidenceCoverage: ReturnType<typeof certificateEvidenceCoverage>;
   unresolvedEffects: string[];
   decisionBasis: 'Main Auction' | 'Contextual Main' | 'Main secondary preference' | 'Drink Prep' | 'Grading' | 'Shop / Idle' | 'None';
+  /** Lower ranks first: Main, Day/Night/Rain, Main preference, then specialists in priority order. */
+  goalRank: number;
+  /** Conservative gain in the decision goal's own unit, comparable only within one goal. */
+  goalGainLowerBound: number;
+  /** Chance the decision goal improves versus the current authentication; null when unresolved outcomes prevent a full figure. */
+  goalChancePct: number | null;
+  /** Resolved-only lower bound of goalChancePct, including numerical integration error. */
+  goalChanceLowerBoundPct: number;
+  /** Upper bound of goalChancePct; null when unresolved outcomes prevent a finite bound below 100. */
+  goalChanceUpperBoundPct: number | null;
   mainFitPct: number;
   confidencePct: number;
   bestPossibleOutcome: string;
@@ -739,6 +750,7 @@ function targetDecision(
   if(cert.type==='Premium Certificate of Authenticity')confidence*=.80;
   confidence*=Math.max(.35,1-unresolvedMass/140);
 
+  const specialists=activeSpecialists(data.settings);
   const mainFit=containing!==undefined?Math.max(0,containing/baseline.main.utility*100):0;
   const rare=cert.type==='Limited Certificate of Authenticity'||cert.type==='Premium Certificate of Authenticity';
   let verdict:CertificateDecisionVerdict='HOLD';
@@ -800,22 +812,24 @@ function targetDecision(
     verdict='CONSIDER';decisionBasis='Main secondary preference';
   }else{
     // Main is neutral: only now may specialist value matter. Specialists are lexicographic,
-    // not pooled: Drink Prep -> Grading -> Shop / Idle.
+    // not pooled, in the user's priority order (default Drink Prep -> Grading -> Shop / Idle).
+    // A lower priority can win only when every higher-priority specialist is neutral.
     const specialistPolicy=MODEL_ASSUMPTIONS.certificate.specialist;
     const specialistSignal=(minGain:number,ev:number,improve:(b:Branch)=>boolean,worseChance:number)=>
       ev>=minGain&&resolved.filter(improve).reduce((sum,b)=>sum+b.p,0)*100-probabilityError(improve)>=40&&worseChance<20;
     const neutral=(ev:number,worseChance:number,error:number)=>Math.abs(ev)+error<specialistPolicy.neutralTolerancePoints&&worseChance<10;
-
-    if(specialistSignal(specialistPolicy.drinkMinGainPoints,expectedDrink-evError(b=>b.drink),b=>b.drink>1e-4,chanceDrinkWorse+probabilityError(b=>b.drink<-1e-4))){
-      verdict='CONSIDER';decisionBasis='Drink Prep';
-    }else if(neutral(expectedDrink,chanceDrinkWorse+probabilityError(b=>b.drink<-1e-4),evError(b=>b.drink))&&specialistSignal(specialistPolicy.gradingMinGainPoints,expectedGrading-evError(b=>b.grading),b=>b.grading>1e-4,chanceGradingWorse+probabilityError(b=>b.grading<-1e-4))){
-      verdict='CONSIDER';decisionBasis='Grading';
-    }else if(
-      neutral(expectedDrink,chanceDrinkWorse+probabilityError(b=>b.drink<-1e-4),evError(b=>b.drink))&&
-      neutral(expectedGrading,chanceGradingWorse+probabilityError(b=>b.grading<-1e-4),evError(b=>b.grading))&&
-      specialistSignal(specialistPolicy.shopMinGainPoints,expectedShop-evError(b=>b.shop),b=>b.shop>1e-4,chanceShopWorse+probabilityError(b=>b.shop<-1e-4))
-    ){
-      verdict='CONSIDER';decisionBasis='Shop / Idle';
+    const specialistMetric={
+      'Drink Prep':{pick:(b:Branch)=>b.drink,expected:expectedDrink,worse:chanceDrinkWorse,minGain:specialistPolicy.drinkMinGainPoints},
+      Grading:{pick:(b:Branch)=>b.grading,expected:expectedGrading,worse:chanceGradingWorse,minGain:specialistPolicy.gradingMinGainPoints},
+      'Shop / Idle':{pick:(b:Branch)=>b.shop,expected:expectedShop,worse:chanceShopWorse,minGain:specialistPolicy.shopMinGainPoints}
+    } as const;
+    for(const name of specialists){
+      const metric=specialistMetric[name];
+      const worse=metric.worse+probabilityError(b=>metric.pick(b)<-1e-4);
+      if(specialistSignal(metric.minGain,metric.expected-evError(metric.pick),b=>metric.pick(b)>1e-4,worse)){
+        verdict='CONSIDER';decisionBasis=name;break;
+      }
+      if(!neutral(metric.expected,worse,evError(metric.pick)))break;
     }
   }
 
@@ -824,6 +838,20 @@ function targetDecision(
     verdict='CONSIDER';
     confidence=Math.min(confidence,55);
   }
+
+  // The decision goal decides which improvement is measured and how targets compare.
+  const goal=goalMeasure(decisionBasis,specialists,{
+    main:[b=>b.deltaLow,expectedLow],
+    context:[b=>b.contextual,expectedContextual-evError(b=>b.contextual)],
+    preference:[b=>b.preferenceDelta,expectedPreference-evError(b=>b.preferenceDelta)],
+    drink:[b=>b.drink,expectedDrink-evError(b=>b.drink)],
+    grading:[b=>b.grading,expectedGrading-evError(b=>b.grading)],
+    shop:[b=>b.shop,expectedShop-evError(b=>b.shop)]
+  });
+  const goalImproves=(b:Branch)=>goal.pick(b)>(decisionBasis==='Main secondary preference'?1e-9:1e-4);
+  const goalResolvedChance=resolved.filter(goalImproves).reduce((sum,b)=>sum+b.p,0)*100;
+  const goalError=probabilityError(goalImproves);
+  const goalComplete=unresolvedMass<=1e-6;
 
   return {
     item,verdict,
@@ -879,6 +907,11 @@ function targetDecision(
     evidenceCoverage:certificateEvidenceCoverage(data,cert,item.slot),
     unresolvedEffects:[...unresolvedEffects],
     decisionBasis,
+    goalRank:goal.rank,
+    goalGainLowerBound:goal.gain,
+    goalChancePct:decisionBasis==='None'||!goalComplete?null:goalResolvedChance,
+    goalChanceLowerBoundPct:decisionBasis==='None'?0:Math.max(0,goalResolvedChance-goalError),
+    goalChanceUpperBoundPct:decisionBasis==='None'||!goalComplete?null:Math.min(100,goalResolvedChance+goalError),
     mainFitPct:mainFit,
     confidencePct:Math.max(0,Math.min(100,confidence)),
     bestPossibleOutcome:best?.label??'—',
@@ -1037,12 +1070,38 @@ function withConversionAdvice(
   };
 }
 
+type GoalPick=[(b:Branch)=>number,number];
+
+function goalMeasure(
+  basis:CertificateTargetDecision['decisionBasis'],
+  specialists:ReturnType<typeof activeSpecialists>,
+  measures:Record<'main'|'context'|'preference'|'drink'|'grading'|'shop',GoalPick>
+):{rank:number;gain:number;pick:(b:Branch)=>number} {
+  const of=([pick,gain]:GoalPick,rank:number)=>({rank,gain,pick});
+  switch(basis){
+    case 'Main Auction':return of(measures.main,0);
+    case 'Contextual Main':return of(measures.context,1);
+    case 'Main secondary preference':return of(measures.preference,2);
+    case 'Drink Prep':return of(measures.drink,3+specialists.indexOf('Drink Prep'));
+    case 'Grading':return of(measures.grading,3+specialists.indexOf('Grading'));
+    case 'Shop / Idle':return of(measures.shop,3+specialists.indexOf('Shop / Idle'));
+    default:return {rank:9,gain:0,pick:()=>0};
+  }
+}
+
+/** Same verdict: goal priority first (Main before specialists, specialists in the user's
+ * priority order), then resolved coverage, then conservative gain in that goal, then
+ * chance; item IDs only break exact ties.
+ */
 export function compareCertificateTargets(a:CertificateTargetDecision,b:CertificateTargetDecision):number {
   const vr=(v:CertificateDecisionVerdict)=>({USE:0,CONSIDER:1,HOLD:2,'DO NOT USE':3}[v]);
+  const gain=(x:CertificateTargetDecision)=>x.goalGainLowerBound??x.expectedImprovementLowPct;
+  const chance=(x:CertificateTargetDecision)=>x.goalChanceLowerBoundPct??x.chanceOfImprovementPct;
   return vr(a.verdict)-vr(b.verdict)||
+    (a.goalRank??0)-(b.goalRank??0)||
     (Math.abs(b.resolvedOutcomeMassPct-a.resolvedOutcomeMassPct)>1e-6?b.resolvedOutcomeMassPct-a.resolvedOutcomeMassPct:0)||
-    b.expectedImprovementLowPct-a.expectedImprovementLowPct||
-    b.chanceOfImprovementPct-a.chanceOfImprovementPct||
+    gain(b)-gain(a)||
+    chance(b)-chance(a)||
     b.mainFitPct-a.mainFitPct||a.item.id.localeCompare(b.item.id);
 }
 
@@ -1086,7 +1145,8 @@ export function analyseCertificate(
   };
 }
 
-export function analyseOwnedCertificates(data:AppData):OwnedCertificateDecision[] {
+/** `conversion: false` skips the indicative Wooden -> Premium comparison for callers that do not show it. */
+export function analyseOwnedCertificates(data:AppData,options:{conversion?:boolean}={}):OwnedCertificateDecision[] {
   if(algorithmIssues(data.settings).length)return data.ownedCertificates.filter(c=>c.quantity>0).map(cert=>analyseCertificate(data,cert));
   const baselines={
     low:buildGearLoadouts(data.gear,data.settings,'low'),
@@ -1113,7 +1173,7 @@ export function analyseOwnedCertificates(data:AppData):OwnedCertificateDecision[
       return decision;
     });
 
-  if(decisions.some(d=>d.certificate.type==='Wooden Certificate of Authenticity')){
+  if(options.conversion!==false&&decisions.some(d=>d.certificate.type==='Wooden Certificate of Authenticity')){
     const syntheticPremium:OwnedCertificate={
       id:'synthetic-premium-conversion',
       type:'Premium Certificate of Authenticity',

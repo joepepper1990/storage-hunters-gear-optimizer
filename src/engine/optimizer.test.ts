@@ -21,23 +21,23 @@ describe('combination optimiser',()=>{
     const best=optimise(items,LOCKED_DEFAULT_SETTINGS,1)[0];
     expect(best.head.id).toBe('H1');
     expect(best.stats.arrowReduction).toBe(80);
-    expect(best.score.arrow).toBeCloseTo(60,8);
+    expect(best.score.arrow).toBeCloseTo(65,8);
   });
 
-  it('treats Arrow above 75 as wasted rather than beneficial or penalised',()=>{
-    const h=g('H','Head',{arrowReduction:75});
+  it('treats Arrow above 85 as wasted rather than beneficial or penalised',()=>{
+    const h=g('H','Head',{arrowReduction:85});
     const over=g('Over','Back',{arrowReduction:30,luck:20});
     const plain=g('Plain','Back',{luck:20});
     const w=g('W','Wrist',{});
     const overResult=optimise([h,over,w],LOCKED_DEFAULT_SETTINGS,1)[0];
-    expect(overResult.score.arrow).toBeCloseTo(60,8);
+    expect(overResult.score.arrow).toBeCloseTo(65,8);
     expect(overResult.wastedArrow).toBe(30);
     expect(overResult.penalisedArrow).toBe(0);
     const best=optimise([h,over,plain,w],LOCKED_DEFAULT_SETTINGS,1)[0];
     expect(['Over','Plain']).toContain(best.back.id);
   });
 
-  it('ranks Arrow specialists by effective utility capped at 75',()=>{
+  it('ranks Arrow specialists by effective utility capped at the 65% band start',()=>{
     const h75=g('Arrow75','Head',{arrowReduction:75});
     const h108=g('Arrow108','Head',{arrowReduction:108});
     const b=g('B','Back',{}),w=g('W','Wrist',{});

@@ -11,10 +11,9 @@ interface Request {
 self.onmessage = (event: MessageEvent<Request>) => {
   const { id, gear, settings } = event.data;
   try {
-    const top100 = optimise(gear, settings, 100);
-    const analyses = analyseItems(gear, top100[0], settings);
-    self.postMessage({ id, phase: 'core', top100, analyses });
+    const analyses = analyseItems(gear, optimise(gear, settings, 1)[0], settings);
+    self.postMessage({ id, analyses });
   } catch (error) {
-    self.postMessage({ id, phase: 'core', error: error instanceof Error ? error.message : String(error) });
+    self.postMessage({ id, error: error instanceof Error ? error.message : String(error) });
   }
 };

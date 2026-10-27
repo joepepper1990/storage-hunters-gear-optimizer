@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { LOCKED_DEFAULT_SETTINGS } from '../defaults';
-import { arrowEffective, effectiveItemStats, gameArrowToReduction, scoreStandalone } from './scoring';
+import { arrowEffective, arrowTargetBand, effectiveItemStats, gameArrowToReduction, scoreStandalone } from './scoring';
 import type { GearItem, GearStats } from '../types';
 
 const s=LOCKED_DEFAULT_SETTINGS;
@@ -9,12 +9,13 @@ function item(name:string,stats:Partial<GearStats>,effect='',value=0,kind?:GearI
   return {id:name,baseName:name,name,slot:'Wrist',stats:{luck:0,energy:0,tip:0,walk:0,vehicle:0,recovery:0,zone:0,arrowReduction:0,npc:0,...stats},authenticated:!!effect,authentication:{kind:kind??(effect?'Normal':'None'),effect,value},favourite:false,createdAt:now,updatedAt:now};
 }
 
-describe('Main Auction scoring 2.0',()=>{
+describe('Main Auction scoring 2.1',()=>{
   it('uses the user-approved priorities',()=>{
-    expect(s.version).toBe('2.0');
+    expect(s.version).toBe('2.1');
     expect(s.luckWeight).toBe(1);
-    expect(s.arrowWeight).toBe(.8);
-    expect(s.arrowSweetSpot).toBe(75);
+    // Confirmed requirement: Arrow's default priority equals Luck, as the same coefficient.
+    expect(s.arrowWeight).toBe(s.luckWeight);
+    expect(s.arrowSweetSpot).toBe(65);
     expect(s.zoneWeight).toBe(.6);
     expect(s.recoveryWeight).toBe(.2);
     expect(s.energyWeight).toBe(0);
@@ -30,18 +31,29 @@ describe('Main Auction scoring 2.0',()=>{
     expect(scoreStandalone(item('Luck 400',{luck:400}),s).luck).toBe(400);
   });
 
-  it('caps Bid Arrow benefit at the users 75% sweet spot without inventing an over-cap penalty',()=>{
+  it('treats every combined Bid Arrow value from 65% through 85% as equally ideal',()=>{
+    expect(arrowTargetBand(s)).toEqual({min:65,max:85});
+    // Below the band value still rises.
     expect(arrowEffective(50,s)).toBe(50);
-    expect(arrowEffective(75,s)).toBe(75);
-    expect(arrowEffective(90,s)).toBe(75);
-    expect(arrowEffective(130,s)).toBe(75);
-    expect(scoreStandalone(item('Arrow 75',{arrowReduction:75}),s).arrow).toBeCloseTo(60,8);
-    expect(scoreStandalone(item('Arrow 130',{arrowReduction:130}),s).arrow).toBeCloseTo(60,8);
+    expect(arrowEffective(64.9,s)).toBeCloseTo(64.9,8);
+    expect(arrowEffective(50,s)).toBeLessThan(arrowEffective(64,s));
+    // 65, 75 and 85 are all the maximum.
+    expect(arrowEffective(65,s)).toBe(65);
+    expect(arrowEffective(75,s)).toBe(65);
+    expect(arrowEffective(85,s)).toBe(65);
+    // Above 85 adds nothing and is not penalised.
+    expect(arrowEffective(86,s)).toBe(65);
+    expect(arrowEffective(130,s)).toBe(65);
+    for(const arrow of [65,75,85,130])expect(scoreStandalone(item('Arrow '+arrow,{arrowReduction:arrow}),s).arrow).toBeCloseTo(65,8);
+  });
+
+  it('weights Luck and in-band Arrow points equally by default',()=>{
+    expect(scoreStandalone(item('Luck',{luck:30}),s).total).toBeCloseTo(scoreStandalone(item('Arrow',{arrowReduction:30}),s).total,8);
   });
 
   it('keeps harmful positive in-game Bid Arrow Speed as a real negative',()=>{
     expect(gameArrowToReduction(3)).toBe(-3);
-    expect(scoreStandalone(item('Game +3',{arrowReduction:gameArrowToReduction(3)}),s).arrow).toBeCloseTo(-2.4,8);
+    expect(scoreStandalone(item('Game +3',{arrowReduction:gameArrowToReduction(3)}),s).arrow).toBeCloseTo(-3,8);
     expect(gameArrowToReduction(-24)).toBe(24);
   });
 
@@ -53,7 +65,7 @@ describe('Main Auction scoring 2.0',()=>{
   it('still applies numeric authentication to the underlying stat before scoring',()=>{
     const gear=item('Auth',{luck:41},'Bid Arrow Speed',-24);
     expect(effectiveItemStats(gear).arrowReduction).toBe(24);
-    expect(scoreStandalone(gear,s).total).toBeCloseTo(41+24*.8,8);
+    expect(scoreStandalone(gear,s).total).toBeCloseTo(41+24,8);
   });
 
   it('does not average conditional Luck into the neutral Main Auction score',()=>{

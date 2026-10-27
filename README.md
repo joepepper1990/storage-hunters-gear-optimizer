@@ -2,79 +2,47 @@
 
 Mobile-first offline PWA for optimising owned equipment in **Storage Hunters: Open World**.
 
-## Current model — Algorithm 2.0
+Version 2.5 is a minimal redesign: every everyday screen gives an answer, not an explanation.
 
-Algorithm 2.0 consolidates gear ranking, specialist loadouts, retention and certificate decisions around one shared Head × Back × Wrist evaluator.
+## Screens
 
-The app exhaustively evaluates exactly **one Head + one Back + one Wrist**. A physical accessory is **not assigned to one exclusive role**: the same item can legitimately be the best choice in Main Auction, Drink Prep, Grading and Shop / Idle at the same time.
+1. **Best setup** (landing page) — what to equip for each activity: Auction (Neutral / Day / Night / Rain; identical sets share one card), Drink Prep, Grading, Shop / Idle, up to the four enabled Gavel slots, and the best balanced vehicle (wheels, spoiler, exhaust, trailer). One piece may appear in several sets.
+2. **Certificates** — a numbered queue: certificate (tier, grade, mutation), target item, chance of improving that row's goal, and **Record result**. A compact **Hold** section lists certificates with no qualifying opportunity. Owned batches, an optional history drawer and the live Authenticator prompt answer (Accept / Reroll / Reroll number) live here too.
+3. **Discard** — one grouped, selectable list of gear, Gavels, vehicle parts and trailers proven safe to remove, with review and explicit confirmation. Nothing is deleted automatically.
+4. **Inventory** — gear, Gavels, vehicle parts / trailers and certificates: add, edit, duplicate, favourite, delete and screenshot scanning.
+5. **Preferences** — 0–10 importance sliders per activity, Gavel slots and mutation values, backup / restore, appearance, and a collapsed maintenance area (vehicle profile, model values, certificate outcome catalogue, reset).
 
-### Loadouts
+## Model
 
-1. **Main Auction** — absolute priority. Uses displayed Luck, Bid Arrow reduction up to the user's 75% sweet spot, Bid Zone Width and Bid Recovery, plus supported dynamic/contextual Luck effects.
-2. **Drink Prep** — temporary set for consuming an Energy Drink; optimises Energy Drink Time and Overcharged, then the user switches back to Main Auction.
-3. **Grading** — temporary set for Grade Re-Roll. The user owns Lucky Grading, so grading calculations use the Lucky Grading distribution.
-4. **Shop / Idle** — optional selling set using Tip Chance and NPC Offers Bonus.
+The app exhaustively evaluates exactly **one Head + one Back + one Wrist** with one shared evaluator used by Best setup, certificates, dominance and retention.
 
-The engine also evaluates **Day / Night / Rain** Main Auction variants internally for Sunny, Nocturnal and Raindrop. There are intentionally no dedicated Heavy Hauling or Time Capsule gear loadouts.
+### Auctions
 
-## Retention and SAFE TO DISCARD
+- Displayed Luck is kept **linear**. The app does not claim to know the hidden Luck → rare-drop/mutation formula.
+- Combined Bid Arrow reduction gains value up to **65%**; every value from **65% through 85%** is equally ideal, and more than 85% adds nothing (no invented penalty). Signed in-game Arrow values are entered as shown.
+- Arrow's default importance equals Luck's: the same coefficient, not only the same slider position.
+- Bid Zone uses the configured diminishing curve; Bid Recovery is linear.
+- Mutated Luck, Droughtbreaker, Golden Hour, Luck Frenzy and Sunny / Nocturnal / Raindrop are evaluated as before (dynamic sensitivity states and Day / Night / Rain contexts).
 
-Gear retention is calculated from the union of all relevant loadouts and uncertainty scenarios.
+### Specialists and priorities
 
-- **EQUIP** — part of the current best Main Auction trio.
-- **KEEP** — used by a relevant specialist/context loadout, tied-optimal alternative, or manually favourited.
-- **PROTECTED / UNKNOWN** — a genuinely unresolved non-zero-value effect could change the decision.
-- **SAFE TO DISCARD** — not used by Main Auction, Day/Night/Rain, Drink Prep, Grading or Shop / Idle, and is then proven redundant by the same-slot dominance analysis.
+Drink Prep (Energy Drink Time), Grading (Grade Re-Roll under the owned Lucky Grading pass) and Shop / Idle (Tip Chance, NPC Offers) each have a priority. After Main Auction, certificates consider specialists in priority order (default Drink Prep → Grading → Shop / Idle); a lower priority can only win when every higher one is neutral. A priority of **0 ignores** that activity everywhere: no set, no retention protection, no certificate goal.
 
-An item shown as **SAFE TO DISCARD cannot simultaneously be a member of a relevant loadout**. Regression tests enforce that invariant.
+Every slider is a fixed linear view of one stored engine coefficient. A stored custom value that is not a slider position is shown as **custom** and kept exactly until that slider is moved; Reset changes only its own section.
 
-F-tier effects for this profile do not create false protection merely because their exact mechanics are unknown. This includes Connected, Club Pact, Auto X-Ray, Second Chance, Steady Hand and Haggler.
+### Retention and Discard
 
-## Main Auction rules
+An item can be discarded only when it is not used by any relevant set, is not a favourite, has no unresolved effect and is proven redundant by the same-slot dominance analysis. Unknown or unmodelled effects (Focused, Fossil Finder, Safecracker, Exhibitor, Anti-Gravity Field, Rush and any custom effect) are protected **whatever the authentication kind**, including Limited. Items targeted by the current certificate queue are never offered for discard, and gear discards stay locked while either analysis is recalculating.
 
-- Displayed Luck is kept **linear**. The app does not claim to know the hidden Luck → rare-drop/mutation probability formula.
-- Combined Bid Arrow reduction is useful up to **75%**. Additional reduction is treated as wasted rather than given an invented gameplay penalty.
-- Bid Zone uses the configured diminishing utility curve.
-- Specialist-only stats such as Energy Drink Time, NPC Offers, Tip Chance and Walkspeed do not distort the Main Auction trio.
+F-tier effects for this profile (Connected, Club Pact, Auto X-Ray, Second Chance, Steady Hand, Haggler) and the deliberately unmodelled Heavy Hauling / Time Capsule effects (Featherweight, Temporal Split) do not create protection by themselves.
 
-### Dynamic effects
+### Certificate queue
 
-Supported by the shared model:
+Each certificate target is evaluated against the item's current authenticated state by re-optimising the whole inventory for every modelled outcome. The queue:
 
-- **Mutated Luck** — calculated from the actual mutations on the equipped Head + Back + Wrist trio. Modelled dynamic Luck is included in the displayed Main Auction Luck total.
-- **Droughtbreaker** — evaluated across low / central / high stack scenarios (0 / 3 / 5 stacks).
-- **Golden Hour** — evaluated across low / central / high session states (0 / 50 / 100 Luck).
-- **Luck Frenzy** — roll magnitude is known; uptime is not published, so the app uses low / central / high sensitivity scenarios rather than presenting one uptime as a game fact.
-- **Sunny / Nocturnal / Raindrop** — evaluated as Day / Night / Rain contexts rather than fake average uptimes.
-
-Focused remains protected where its exact numerical formula could materially change a discard decision.
-
-## Certificate decisions
-
-The Certificates screen uses the same Main Auction and specialist evaluators as the Gear and Optimise screens.
-
-For each owned certificate, every eligible target is evaluated by:
-
-1. retaining the current fully-authenticated inventory as the baseline;
-2. replacing the target's current authentication with each modelled outcome/roll;
-3. re-optimising the complete Head × Back × Wrist inventory;
-4. separately re-optimising Day/Night/Rain, Drink Prep, Grading and Shop / Idle;
-5. aggregating improvement/downside probabilities and confidence.
-
-Displayed metrics include:
-
-- chance Main Auction improves;
-- chance of a meaningful Main improvement;
-- expected Main change;
-- chance Main gets worse;
-- average gain/loss;
-- percentile outcomes;
-- current authentication value at risk;
-- Main Fit;
-- secondary contextual/specialist impact;
-- model confidence.
-
-Recommendations are **USE / CONSIDER / HOLD / DO NOT USE**. HOLD is a first-class decision.
+- uses no more rows than owned certificates, shows each target at most once and never assumes an earlier row's unknown result; it is rebuilt after every result, inventory change or preference change;
+- ranks rows by verdict, then goal (Main Auction first, then Day / Night / Rain, then specialists in priority order), then evidence coverage and the goal's own conservative gain — item IDs only break exact ties;
+- shows the full chance of improving the row's goal only when every outcome is resolved, as a range when numerical error matters; otherwise it shows **Unknown** with a resolved lower bound. 0% and unavailable are distinct.
 
 ### Current Limited outcomes
 
@@ -119,15 +87,15 @@ Schema 13 is non-destructive: existing schema-9+ inventory, certificates, roll h
 
 ### Gavel Trophies
 
-The Gavel optimiser supports up to four powered trophies, overall optimisation, mutation-specific specialist sets and retention. Its retention design is also used as the model for gear: an item needed by any enabled specialist set is retained.
+The Gavel optimiser equips the best three or four (gamepass) powered trophies. Retention keeps any trophy needed by an enabled mutation-specific maximum set.
 
 ### Vehicle
 
-The vehicle optimiser evaluates Spoiler × Exhaust × Wheel Stack × Trailer combinations using the documented local formula model, including empty equipment slots and the configured vehicle-capacity multiplier.
+The vehicle optimiser evaluates Spoiler × Exhaust × Wheel Stack × Trailer combinations using the documented local formula model, including empty slots and the capacity multiplier. A stat with importance 0 is ignored by both the setup and discard proofs.
 
 ## Gear scanner
 
-**Gear → Scan screenshot** performs OCR locally in the browser with Tesseract.js and opens the normal Gear editor for review. A scan never writes directly to inventory without user confirmation.
+**Inventory → Gear → Scan screenshot** performs OCR locally in the browser with Tesseract.js and opens the normal gear editor for review. A scan never writes to inventory without user confirmation, recognised fields stay editable, and Focused scans require the original base stats. OCR can misread text; always review.
 
 ## Data and privacy
 

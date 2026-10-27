@@ -104,10 +104,11 @@ function seededTrailers(): Trailer[] {
 }
 
 export const LOCKED_DEFAULT_SETTINGS: AlgorithmSettings = {
-  version: '2.0',
+  version: '2.1',
   luckWeight: 1,
-  arrowWeight: 0.8,
-  arrowSweetSpot: 75,
+  // Equal default priority to Luck; Arrow value peaks at 65% and stays flat through 85%.
+  arrowWeight: 1,
+  arrowSweetSpot: 65,
   npcWeight: 0,
   npcBreakpoint1: 20,
   npcBreakpoint2: 40,
@@ -125,8 +126,17 @@ export const LOCKED_DEFAULT_SETTINGS: AlgorithmSettings = {
   tipWeight: 0,
   recoveryWeight: 0.2,
   vehicleWeight: 0,
-  walkWeight: 0
+  walkWeight: 0,
+  // Preserves the previous specialist order Drink Prep -> Grading -> Shop / Idle.
+  drinkPriority: 8,
+  gradingPriority: 6,
+  shopPriority: 4,
+  shopTipWeight: 0.4,
+  shopNpcWeight: 0.3
 };
+
+/** Pre-2.1 defaults, migrated only when a stored value still equals them. */
+export const LEGACY_V20_ARROW_DEFAULTS = { arrowWeight: 0.8, arrowSweetSpot: 75 } as const;
 
 type ModelSeed={
   outcome:string;
