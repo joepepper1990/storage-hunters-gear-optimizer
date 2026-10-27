@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { makeEmptyData } from './defaults';
-import { exportJson, loadData, saveData, saveEmergencyMirror } from './data/storage';
+import { exportJson, loadData, onSavedElsewhere, saveData, saveEmergencyMirror } from './data/storage';
 import { algorithmIssues } from './engine/settingsValidation';
 import { useCertificateAnalysis, useGearAnalysis } from './hooks/useAnalysis';
 import { buildCertificateQueue } from './engine/certificateQueue';
@@ -21,6 +21,9 @@ export const TABS: Array<{ tab: Tab; label: string; icon: string }> = [
   { tab: 'Preferences', label: 'Preferences', icon: '⚙' }
 ];
 
+const CONFLICT_WITH_CHANGES = 'Another window saved newer data. Download this window\'s changes, then Reload.';
+const isConflict = (error: unknown) => (error as { name?: string } | undefined)?.name === 'StorageConflictError';
+
 function applyTheme(theme: AppData['theme']) {
   if (theme === 'system') delete document.documentElement.dataset.theme;
   else document.documentElement.dataset.theme = theme;
@@ -32,14 +35,47 @@ export default function App() {
   const [loadError, setLoadError] = useState('');
   const [saveError, setSaveError] = useState('');
 
+  // `dirty` is true while this window holds a change of its own that has not finished
+  // saving. A clean window has nothing to lose, so newer data saved by another window
+  // (including that window's startup migration) is adopted instead of raising a conflict.
+  const dirty = useRef(false);
+  const latest = useRef<AppData | null>(null);
+  // Data read back from storage is already saved; writing it again would only make other
+  // windows reload in turn, so it is never re-saved.
+  const adopted = useRef<AppData | null>(null);
+  const edit = (next: AppData) => { dirty.current = true; setData(next); };
+  latest.current = data;
+
   useEffect(() => { loadData().then(setData).catch(error => setLoadError(error instanceof Error ? error.message : String(error))); }, []);
+
+  const adoptSaved = () => loadData().then(fresh => {
+    // An edit made while reading would be lost by adopting; keep it and ask instead.
+    if (dirty.current) { setSaveError(CONFLICT_WITH_CHANGES); return; }
+    adopted.current = fresh;
+    setSaveError('');
+    setData(fresh);
+  }).catch(() => setSaveError('Another window saved newer data. Reload to use it.'));
+
+  // Another window saved: a clean window picks the new data up straight away.
+  useEffect(() => onSavedElsewhere(() => { if (latest.current && !dirty.current) void adoptSaved(); }), []);
+
   useEffect(() => {
     if (!data) return;
-    void saveData(data).then(() => setSaveError('')).catch(error => setSaveError(error?.name === 'StorageConflictError'
-      ? 'Another tab saved newer data. Download this tab before reloading.'
-      : 'Not saved. Download a backup before leaving.'));
     applyTheme(data.theme);
-    const flush = () => { try { saveEmergencyMirror(data); } catch (error) { setSaveError(error instanceof Error ? error.message : 'Recovery save failed. Download a backup.'); } };
+    if (data !== adopted.current) {
+      void saveData(data).then(() => {
+        if (latest.current === data) dirty.current = false;
+        setSaveError('');
+      }).catch(error => {
+        if (isConflict(error) && !dirty.current) { void adoptSaved(); return; }
+        setSaveError(isConflict(error) ? CONFLICT_WITH_CHANGES : 'Not saved. Download a backup before leaving.');
+      });
+    }
+    const flush = () => {
+      if (!dirty.current) return; // Nothing unsaved in this window to protect.
+      try { saveEmergencyMirror(data); }
+      catch (error) { setSaveError(isConflict(error) ? CONFLICT_WITH_CHANGES : error instanceof Error ? error.message : 'Recovery save failed. Download a backup.'); }
+    };
     window.addEventListener('pagehide', flush);
     return () => window.removeEventListener('pagehide', flush);
   }, [data]);
@@ -57,7 +93,7 @@ export default function App() {
     {loadError ? <>
       <strong>Storage could not be opened</strong>
       <p className="muted storageError">{loadError}</p>
-      <button className="danger" onClick={() => { if (confirm('Start with empty data? Only do this if you have a backup.')) { setData(makeEmptyData()); setLoadError(''); } }}>Start empty</button>
+      <button className="danger" onClick={() => { if (confirm('Start with empty data? Only do this if you have a backup.')) { edit(makeEmptyData()); setLoadError(''); } }}>Start empty</button>
     </> : <strong>Loading…</strong>}
   </div>;
 
@@ -76,10 +112,10 @@ export default function App() {
 
     <main className="content">
       {tab === 'Best' && <BestSetup data={data} />}
-      {tab === 'Certificates' && <Certificates data={data} setData={setData} analysis={certificates} queue={queue} onRecorded={setActivePostRollId} />}
-      {tab === 'Discard' && <Discard data={data} setData={setData} gearAnalyses={gear.analyses} gearCurrent={gear.current} certificateTargets={certificateTargets} />}
-      {tab === 'Inventory' && <Inventory data={data} setData={setData} />}
-      {tab === 'Preferences' && <Preferences data={data} setData={setData} />}
+      {tab === 'Certificates' && <Certificates data={data} setData={edit} analysis={certificates} queue={queue} onRecorded={setActivePostRollId} />}
+      {tab === 'Discard' && <Discard data={data} setData={edit} gearAnalyses={gear.analyses} gearCurrent={gear.current} certificateTargets={certificateTargets} />}
+      {tab === 'Inventory' && <Inventory data={data} setData={edit} />}
+      {tab === 'Preferences' && <Preferences data={data} setData={edit} />}
     </main>
 
     <nav className="bottomNav" aria-label="Main">{TABS.map(t =>

@@ -1,19 +1,24 @@
 // @vitest-environment jsdom
-import { StrictMode } from 'react';
+import { act, StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeEmptyData, makeInitialData, ZERO_STATS } from './defaults';
 import type { AppData, GearItem, ItemAnalysis } from './types';
 import { scoreStandalone } from './engine/scoring';
 import { button, byText, cleanup, click, flush, labelled, render, type, waitFor } from './test/dom';
 
-const store = vi.hoisted(() => ({ initial: undefined as unknown, saved: [] as unknown[] }));
+const store = vi.hoisted(() => ({ initial: undefined as unknown, saved: [] as unknown[], conflicts: 0, loads: 0, conflicted: false, next: undefined as unknown, notify: undefined as undefined | (() => void) }));
 vi.mock('./data/storage', async importOriginal => {
   const actual = await importOriginal<typeof import('./data/storage')>();
   return {
     ...actual,
-    loadData: vi.fn(async () => structuredClone(store.initial)),
-    saveData: vi.fn(async (data: unknown) => { store.saved.push(data); }),
-    saveEmergencyMirror: vi.fn()
+    loadData: vi.fn(async () => { store.loads++; return structuredClone(store.conflicted && store.next ? store.next : store.initial); }),
+    saveData: vi.fn(async (data: unknown) => {
+      // Simulates another window having saved newer data before this one.
+      if (store.conflicts > 0) { store.conflicts--; store.conflicted = true; throw new actual.StorageConflictError(); }
+      store.saved.push(data);
+    }),
+    saveEmergencyMirror: vi.fn(),
+    onSavedElsewhere: vi.fn((callback: () => void) => { store.notify = callback; return () => { store.notify = undefined; }; })
   };
 });
 const scanner = vi.hoisted(() => ({ text: '' }));
@@ -44,11 +49,69 @@ async function go(root: HTMLElement, label: string) {
 }
 
 beforeEach(() => {
-  store.saved = [];
+  store.saved = []; store.conflicts = 0; store.loads = 0; store.conflicted = false; store.next = undefined;
   vi.stubGlobal('confirm', () => true);
   vi.stubGlobal('prompt', () => null);
 });
 afterEach(async () => { await cleanup(); vi.unstubAllGlobals(); });
+
+describe('newer data saved by another window', () => {
+  it('is adopted silently when this window has no changes of its own', async () => {
+    const older = makeEmptyData(); older.gear = [gear('Old Cap', 'Head')];
+    const newer = makeEmptyData(); newer.gear = [gear('New Cap', 'Head')];
+    store.conflicts = 1; store.next = newer;
+    const root = await openApp(older);
+    await go(root, 'Inventory');
+    await waitFor(() => byText(root, '.row strong', 'New Cap'));
+    expect(root.querySelector('.banner')).toBeNull();
+    // The adopted data is already saved; it is not written back over the other window.
+    expect(store.saved).toEqual([]);
+  });
+  it('is picked up as soon as another window saves, without saving it back', async () => {
+    const older = makeEmptyData(); older.gear = [gear('Old Cap', 'Head')];
+    const newer = makeEmptyData(); newer.gear = [gear('New Cap', 'Head')];
+    const root = await openApp(older);
+    await go(root, 'Inventory');
+    await waitFor(() => byText(root, '.row strong', 'Old Cap'));
+    const savesBefore = store.saved.length;
+    store.conflicted = true; store.next = newer;
+    await act(async () => { store.notify?.(); });
+    await waitFor(() => byText(root, '.row strong', 'New Cap'));
+    await flush(20);
+    expect(store.saved.length).toBe(savesBefore);
+    expect(root.querySelector('.banner')).toBeNull();
+  });
+  it('is not adopted over unsaved changes when another window saves', async () => {
+    let release!: () => void;
+    const root = await openApp(makeEmptyData());
+    await go(root, 'Inventory');
+    const { saveData } = await import('./data/storage');
+    vi.mocked(saveData).mockImplementationOnce(() => new Promise<void>(resolve => { release = resolve; }));
+    await click(button(root, '＋ Add gear'));
+    await type(labelled(root, 'Name') as HTMLInputElement, 'Pending Visor');
+    await click(button(root, 'Save'));
+    store.conflicted = true; store.next = makeEmptyData();
+    const loadsBefore = store.loads;
+    await act(async () => { store.notify?.(); });
+    await flush(20);
+    expect(store.loads).toBe(loadsBefore);
+    expect(byText(root, '.row strong', 'Pending Visor')).toBeTruthy();
+    release();
+  });
+  it('keeps the warning when this window has unsaved changes', async () => {
+    const root = await openApp(makeEmptyData());
+    await go(root, 'Inventory');
+    const loadsBefore = store.loads;
+    store.conflicts = 1; store.next = makeEmptyData();
+    await click(button(root, '＋ Add gear'));
+    await type(labelled(root, 'Name') as HTMLInputElement, 'Unsaved Visor');
+    await click(button(root, 'Save'));
+    await waitFor(() => byText(root, '.banner', /Another window saved newer data/));
+    expect(byText(root, '.banner', /Download this window's changes/)).toBeTruthy();
+    expect(store.loads).toBe(loadsBefore);
+    expect(byText(root, '.row strong', 'Unsaved Visor')).toBeTruthy();
+  });
+});
 
 describe('navigation', () => {
   it('opens on Best setup and reaches every screen', async () => {
