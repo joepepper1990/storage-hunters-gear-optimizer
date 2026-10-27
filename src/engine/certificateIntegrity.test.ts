@@ -69,6 +69,46 @@ describe('certificate evidence and numerical integrity',()=>{
     expect(target.expectedDrinkPrepLowerBound).toBeLessThan(3);
     expect(target.verdict).toBe('HOLD');
   });
+  it('guards personal-tier chance thresholds when numeric strength changes Main membership',()=>{
+    const data=fixture();onlyZone(data);
+    for(const item of data.gear)item.stats.luck=10000;
+    data.gear.push({...structuredClone(data.gear[0]),id:'alternative-head',stats:{...ZERO_STATS,luck:10000,zone:6.04}});
+    data.authModel[0]={...data.authModel[0],min:0,max:10};
+    const target=analyseCertificate(data,cert,undefined,'Head').recommendedTarget!;
+    expect(target.chancePersonalPreferenceImprovesPct).toBeCloseTo(40,8);
+    expect(target.expectedPersonalPreferenceDelta).toBeGreaterThan(.2);
+    expect(target.expectedPersonalPreferenceLowerBound).toBeLessThan(target.expectedPersonalPreferenceDelta);
+    expect(target.numericalProbabilityErrorPct).toBeGreaterThan(0);
+    expect(target.verdict).toBe('HOLD');
+  });
+  it('does not calculate relative Main percentages at a zero baseline',()=>{
+    const data=fixture();onlyZone(data);
+    for(const item of data.gear)item.stats.luck=0;
+    expect(analyseCertificate(data,cert).targets).toEqual([]);
+    expect(analyseConditionalNumberReroll(data,roll(),cert)).toBeUndefined();
+  });
+  it('integrates exact tent-prior bin mass when the mode falls inside a bin',()=>{
+    const data=fixture();onlyZone(data);
+    data.authModel[0].typical=47.3;
+    data.gear[0].authenticated=true;data.gear[0].authentication={kind:'Normal',effect:'Bid Zone Width',value:47.4};
+    const result=analyseConditionalNumberReroll(data,roll('Head',{newValue:47.4}),cert)!;
+    const x=47.4,mode=47.3;
+    const integral=.15*(x-15)+(mode-15)/2+(x-mode)-(x-mode)**2/(2*(75-mode));
+    expect(result.chanceMainWorsePct).toBeCloseTo(integral/(.65*60)*100,8);
+    expect(result.resolvedMassPct).toBeCloseTo(100,8);
+    expect(result.chanceMainWorseUpperBoundPct).toBeGreaterThan(result.chanceMainWorsePct);
+  });
+  it('retains useful grading recommendations in native expected-value points',()=>{
+    const data=fixture();onlyZone(data);
+    data.gear.push({...structuredClone(data.gear[0]),id:'strong-head',stats:{...ZERO_STATS,luck:120}});
+    const limited={...cert,type:'Limited Certificate of Authenticity' as const};
+    data.authModel[0]={...data.authModel[0],certificateType:limited.type,certificateInventoryType:limited.type,outcome:'Grade Re-Roll',min:10,max:25};
+    const target=analyseCertificate(data,limited,undefined,'Head').recommendedTarget!;
+    expect(target.expectedGradingLowerBound).toBeGreaterThan(.25);
+    expect(target.expectedGradingPct).toBeLessThan(1.78);
+    expect(target.verdict).toBe('CONSIDER');
+    expect(target.decisionBasis).toBe('Grading');
+  });
   it('uses continuous specialist utility points at zero and tiny baselines',()=>{
     expect(specialistUtilityDelta(1,0)).toBe(1);
     expect(specialistUtilityDelta(1.001,.001)).toBeCloseTo(1,12);

@@ -53,6 +53,7 @@ export interface CertificateTargetDecision {
   chancePersonalPreferenceImprovesPct: number;
   chancePersonalPreferenceWorsePct: number;
   expectedPersonalPreferenceDelta: number;
+  expectedPersonalPreferenceLowerBound: number;
   /** Null when any outcome is unresolved; other expected fields are conditional EV. */
   fullExpectedMainPct: number | null;
   fullMainLowerBoundPct: number;
@@ -348,6 +349,8 @@ function normalizedPriorWeights(values:number[],min:number,max:number,typical?:n
   if(typical===undefined||!Number.isFinite(typical)||typical<=min||typical>=max){
     return values.map(()=>1/values.length);
   }
+  // Exact bin masses of the configured tent + .15 density, including bins
+  // crossing an off-grid mode. Only utility evaluation uses midpoint nodes.
   const primitive=(value:number)=>value<=typical
     ?(value-min)**2/(2*(typical-min))
     :(typical-min)/2+(value-typical)-(value-typical)**2/(2*(max-typical));
@@ -568,7 +571,7 @@ function targetDecision(
   baselines:Record<'low'|'central'|'high',ReturnType<typeof buildGearLoadouts>>
 ):CertificateTargetDecision|undefined {
   const baseline=baselines.low;
-  if(!baseline.main||baseline.main.utility===0)return undefined;
+  if(!baseline.main||baseline.main.utility<=1e-9)return undefined;
 
   const defs=outcomesFor(data,cert,item.slot);
   if(!defs.length)return undefined;
@@ -756,7 +759,8 @@ function targetDecision(
     probabilityError(b=>Math.min(b.deltaLow,b.contextualWorst,b.drink,b.grading,b.shop)<-1e-4),
     probabilityError(b=>b.deltaLow>1e-4),
     probabilityError(b=>b.deltaHigh>1e-4),
-    probabilityError(b=>b.drink>1e-4),probabilityError(b=>b.grading>1e-4),probabilityError(b=>b.shop>1e-4)
+    probabilityError(b=>b.drink>1e-4),probabilityError(b=>b.grading>1e-4),probabilityError(b=>b.shop>1e-4),
+    probabilityError(b=>b.preferenceDelta>1e-9),probabilityError(b=>b.preferenceDelta<-1e-9)
   );
   const mainBlocked=conservativeExpectedLow<-.5||mainWorseUpper>=55;
   const usePolicy=MODEL_ASSUMPTIONS.certificate.use;
@@ -787,9 +791,9 @@ function targetDecision(
     verdict='CONSIDER';decisionBasis='Contextual Main';
   }else if(
     mainFit>=95 &&
-    expectedPreference>=0.20 &&
-    chancePreferenceImprove>=40 &&
-    chancePreferenceWorse<20
+    expectedPreference-evError(b=>b.preferenceDelta)>=0.20 &&
+    chancePreferenceImprove-probabilityError(b=>b.preferenceDelta>1e-9)>=40 &&
+    chancePreferenceWorse+probabilityError(b=>b.preferenceDelta<-1e-9)<20
   ){
     // Personal effect tiers are an ordinal secondary preference only. They can support
     // a Main-competitive item, but never override a weaker Main Auction result.
@@ -797,18 +801,19 @@ function targetDecision(
   }else{
     // Main is neutral: only now may specialist value matter. Specialists are lexicographic,
     // not pooled: Drink Prep -> Grading -> Shop / Idle.
-    const specialistSignal=(ev:number,improve:(b:Branch)=>boolean,worseChance:number)=>
-      ev>=3&&resolved.filter(improve).reduce((sum,b)=>sum+b.p,0)*100-probabilityError(improve)>=40&&worseChance<20;
-    const neutral=(ev:number,worseChance:number,error:number)=>Math.abs(ev)+error<.25&&worseChance<10;
+    const specialistPolicy=MODEL_ASSUMPTIONS.certificate.specialist;
+    const specialistSignal=(minGain:number,ev:number,improve:(b:Branch)=>boolean,worseChance:number)=>
+      ev>=minGain&&resolved.filter(improve).reduce((sum,b)=>sum+b.p,0)*100-probabilityError(improve)>=40&&worseChance<20;
+    const neutral=(ev:number,worseChance:number,error:number)=>Math.abs(ev)+error<specialistPolicy.neutralTolerancePoints&&worseChance<10;
 
-    if(specialistSignal(expectedDrink-evError(b=>b.drink),b=>b.drink>1e-4,chanceDrinkWorse+probabilityError(b=>b.drink<-1e-4))){
+    if(specialistSignal(specialistPolicy.drinkMinGainPoints,expectedDrink-evError(b=>b.drink),b=>b.drink>1e-4,chanceDrinkWorse+probabilityError(b=>b.drink<-1e-4))){
       verdict='CONSIDER';decisionBasis='Drink Prep';
-    }else if(neutral(expectedDrink,chanceDrinkWorse+probabilityError(b=>b.drink<-1e-4),evError(b=>b.drink))&&specialistSignal(expectedGrading-evError(b=>b.grading),b=>b.grading>1e-4,chanceGradingWorse+probabilityError(b=>b.grading<-1e-4))){
+    }else if(neutral(expectedDrink,chanceDrinkWorse+probabilityError(b=>b.drink<-1e-4),evError(b=>b.drink))&&specialistSignal(specialistPolicy.gradingMinGainPoints,expectedGrading-evError(b=>b.grading),b=>b.grading>1e-4,chanceGradingWorse+probabilityError(b=>b.grading<-1e-4))){
       verdict='CONSIDER';decisionBasis='Grading';
     }else if(
       neutral(expectedDrink,chanceDrinkWorse+probabilityError(b=>b.drink<-1e-4),evError(b=>b.drink))&&
       neutral(expectedGrading,chanceGradingWorse+probabilityError(b=>b.grading<-1e-4),evError(b=>b.grading))&&
-      specialistSignal(expectedShop-evError(b=>b.shop),b=>b.shop>1e-4,chanceShopWorse+probabilityError(b=>b.shop<-1e-4))
+      specialistSignal(specialistPolicy.shopMinGainPoints,expectedShop-evError(b=>b.shop),b=>b.shop>1e-4,chanceShopWorse+probabilityError(b=>b.shop<-1e-4))
     ){
       verdict='CONSIDER';decisionBasis='Shop / Idle';
     }
@@ -836,6 +841,7 @@ function targetDecision(
     chancePersonalPreferenceImprovesPct:chancePreferenceImprove,
     chancePersonalPreferenceWorsePct:chancePreferenceWorse,
     expectedPersonalPreferenceDelta:expectedPreference,
+    expectedPersonalPreferenceLowerBound:expectedPreference-evError(b=>b.preferenceDelta),
     fullExpectedMainPct:unresolvedMass>1e-6?null:expected,
     fullMainLowerBoundPct:(expected-evError(b=>b.delta))*resolvedMass-unresolvedMass,
     fullMainUpperBoundPct:unresolvedMass>1e-6?null:expected+evError(b=>b.delta),
@@ -938,6 +944,7 @@ export function analyseConditionalNumberReroll(
   const supports=rollSupports(def,data,original.slot,cert);
   if(!supports.length)return undefined;
   const baseline=buildGearLoadouts(data.gear,data.settings,'low');
+  if(!baseline.main||baseline.main.utility<=1e-9)return undefined;
   let resolvedMass=0,main=0,mainWorse=0,anyWorse=0,context=0,drink=0,grading=0,shop=0;
   const priorMetrics:Array<{main:number;context:number;mainWorse:number;anyWorse:number;drink:number;grading:number;shop:number}>=[];
   let largestCell=0;

@@ -16,6 +16,8 @@ export const MODEL_ASSUMPTIONS = {
     }
   },
   certificate: {
+    // Native specialist utility units; these are decision-policy tolerances.
+    specialist: {drinkMinGainPoints:3,gradingMinGainPoints:.25,shopMinGainPoints:1,neutralTolerancePoints:.25},
     priorStrength: 8,
     outcomePriorStrength: 40, // Virtual samples across the whole effect pool, not per outcome; user calibration, not Roblox odds.
     use: {
@@ -38,3 +40,4 @@ export const MODEL_ASSUMPTIONS = {
     provenance: 'Current in-game immediate post-authentication price; both Reroll and Reroll Number use the same price.'
   }
 } as const;
+

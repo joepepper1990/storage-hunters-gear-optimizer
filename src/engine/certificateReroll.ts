@@ -54,7 +54,8 @@ function option(
   // A lower-priority benefit can only justify spending when every higher
   // priority is neutral. In particular, Shop cannot pay for lost Drink Prep.
   const priorities=priorityTuple(values);
-  const minimumGains=[.25,1,.20,3,3,3];
+  const policy=MODEL_ASSUMPTIONS.certificate.specialist;
+  const minimumGains=[.25,1,.20,policy.drinkMinGainPoints,policy.gradingMinGainPoints,policy.shopMinGainPoints];
   const firstMaterial=priorities.findIndex(value=>value!==0);
   const benefit=firstMaterial>=0&&priorities[firstMaterial]>=minimumGains[firstMaterial]&&
     (firstMaterial!==0||priorities[0]>.25);
@@ -103,7 +104,7 @@ function fromCertificateTarget(target:CertificateTargetDecision|undefined):PostR
     expectedDrinkPrepPct:target.expectedDrinkPrepLowerBound??target.expectedDrinkPrepPct,
     expectedGradingPct:target.expectedGradingLowerBound??target.expectedGradingPct,
     expectedShopPct:target.expectedShopLowerBound??target.expectedShopPct,
-    expectedPersonalPreferenceDelta:target.expectedPersonalPreferenceDelta
+    expectedPersonalPreferenceDelta:target.expectedPersonalPreferenceLowerBound??target.expectedPersonalPreferenceDelta
   },'Authentication effect is selected from the applicable catalogue.');
   if(result&&target&&target.verdict!=='USE'&&target.verdict!=='CONSIDER'){
     result.recommendable=false;

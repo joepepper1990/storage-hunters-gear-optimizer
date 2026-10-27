@@ -68,6 +68,43 @@ describe('storage snapshot provenance', () => {
       expect(browser.mirror().data.theme).toBe('dark');
     } finally { browser.restore(); }
   });
+  it('blocks further pagehide writes after a conflict with an IndexedDB-only foreign save', async () => {
+    const browser = browserStorage();
+    try {
+      const stale = await loadData(); await saveData(stale);
+      browser.foreignSave(2, false);
+      await expect(saveData({ ...stale, theme: 'light' })).rejects.toThrow(/another tab/i);
+      expect(() => saveEmergencyMirror({ ...stale, theme: 'system' })).toThrow(/another tab/i);
+      expect((await loadData()).theme).toBe('dark');
+    } finally { browser.restore(); }
+  });
+  it('rejects a higher-revision stale pagehide branch when the foreign commit is hidden from the mirror', async () => {
+    const browser = browserStorage();
+    try {
+      const stale = await loadData(); await saveData(stale);
+      browser.foreignSave(2, false);
+      const a = saveData({ ...stale, theme: 'light' });
+      const b = saveData({ ...stale, theme: 'system' });
+      saveEmergencyMirror({ ...stale, theme: 'light' });
+      expect(browser.mirror().revision).toBeGreaterThan(2);
+      await expect(a).rejects.toThrow(/another tab/i);
+      await expect(b).rejects.toThrow(/another tab/i);
+      expect(browser.persisted().data.theme).toBe('dark');
+      const reloaded = await loadData();
+      expect(reloaded.theme).toBe('dark');
+      await saveData({ ...reloaded, theme: 'light' });
+      expect((await loadData()).theme).toBe('light');
+    } finally { browser.restore(); }
+  });
+  it('recovers legitimate unsaved pagehide edits descending from a legacy IndexedDB envelope', async () => {
+    const browser = browserStorage();
+    try {
+      browser.foreignSave(2, false, null);
+      const current = await loadData();
+      saveEmergencyMirror({ ...current, theme: 'light' });
+      expect((await loadData()).theme).toBe('light');
+    } finally { browser.restore(); }
+  });
   it('retains current unsaved edits on pagehide and serializes queued local saves', async () => {
     const browser = browserStorage();
     try {

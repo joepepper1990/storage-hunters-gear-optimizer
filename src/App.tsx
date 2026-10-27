@@ -377,7 +377,7 @@ export function CertificateScreen({data,setData}:{data:AppData;setData:(d:AppDat
                 <div><b>Historical evidence · exact / partial / excluded</b><span>{target.evidenceCoverage.exact} / {target.evidenceCoverage.partial} / {target.evidenceCoverage.excluded}</span></div>
                 <div><b>Resolved / unresolved probability mass</b><span>{target.resolvedOutcomeMassPct.toFixed(1)}% / {target.unresolvedOutcomeMassPct.toFixed(1)}%</span></div>
                 <div><b>Average robust gain when successful</b><span>{signed(target.averageGainWhenSuccessfulPct)}</span></div>
-                <div><b>Average demonstrated loss when worse</b><span>{signed(target.averageLossWhenWorsePct)}</span></div>
+                <div><b>Average Main/context loss on downside branches</b><span>{signed(target.averageLossWhenWorsePct)}</span></div>
                 <div><b>Resolved outcomes · 10th / median / 90th percentile</b><span>{signed(target.p10Pct)} / {signed(target.medianPct)} / {signed(target.p90Pct)}</span></div>
                 <div><b>Best sampled model branch</b><span>{target.bestPossibleOutcome} · {signed(target.bestCasePct)}</span></div>
                 <div><b>Worst sampled Main/context branch</b><span>{target.worstPossibleOutcome} · {signed(target.worstCasePct)}</span></div>
@@ -476,6 +476,7 @@ export function SettingsScreen({data,setData,showToast}:{data:AppData;setData:(d
       <div className="thresholdTable">
         <div><b>Central dynamic sensitivity</b><span>DB {MODEL_ASSUMPTIONS.dynamic.central.droughtbreakerStacks} · GH +{MODEL_ASSUMPTIONS.dynamic.central.goldenHourLuck} Luck · Frenzy {(MODEL_ASSUMPTIONS.dynamic.central.luckFrenzyUptime*100).toFixed(0)}% uptime · Drink +{MODEL_ASSUMPTIONS.dynamic.central.drinkLuckBoost}</span></div>
         <div><b>High dynamic sensitivity</b><span>DB {MODEL_ASSUMPTIONS.dynamic.high.droughtbreakerStacks} · GH +{MODEL_ASSUMPTIONS.dynamic.high.goldenHourLuck} Luck · Frenzy {(MODEL_ASSUMPTIONS.dynamic.high.luckFrenzyUptime*100).toFixed(0)}% uptime · Drink +{MODEL_ASSUMPTIONS.dynamic.high.drinkLuckBoost}</span></div>
+        <div><b>Specialist minimum gains · Drink / Grading / Shop</b><span>{MODEL_ASSUMPTIONS.certificate.specialist.drinkMinGainPoints} / {MODEL_ASSUMPTIONS.certificate.specialist.gradingMinGainPoints} / {MODEL_ASSUMPTIONS.certificate.specialist.shopMinGainPoints} utility points</span></div>
         <div><b>Certificate prior strength</b><span>{MODEL_ASSUMPTIONS.certificate.priorStrength} prior-equivalent samples</span></div>
         <div><b>Normal / rare USE EV threshold</b><span>{MODEL_ASSUMPTIONS.certificate.use.normalMinWorstStateEvPct}% / {MODEL_ASSUMPTIONS.certificate.use.rareMinWorstStateEvPct}% worst-state EV</span></div>
         <div><b>Immediate Authenticator reroll price</b><span>{MODEL_ASSUMPTIONS.authenticator.paidRerollRobux} Robux</span></div>
