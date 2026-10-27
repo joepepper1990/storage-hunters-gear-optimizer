@@ -15,7 +15,7 @@ function Slider({ control, data, setData }: { control: PreferenceControl; data: 
   const id = `pref-${control.id}`;
   const shown = view.custom ? num(view.exact, 2) : String(view.position);
   return <div className="slider">
-    <label htmlFor={id}>{control.label}</label>
+    <label htmlFor={id}>{control.labelFor?.(data) ?? control.label}</label>
     <input id={id} type="range" min={0} max={SLIDER_MAX} step={1} value={view.position}
       aria-valuetext={`${shown}${view.custom ? ' (custom)' : ''} of ${SLIDER_MAX}`}
       onChange={e => setData(setPreference(data, control, Number(e.target.value)))} />

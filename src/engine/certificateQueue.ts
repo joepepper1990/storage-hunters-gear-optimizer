@@ -47,9 +47,10 @@ export function buildCertificateQueue(decisions: OwnedCertificateDecision[]): Ce
   const rows: CertificateQueueRow[] = [];
   const usedTargets = new Set<string>();
 
-  // Frees one unit of a batch, if needed by moving one of its rows to another qualifying
-  // batch (augmenting path). Targets are claimed in rank order, so a higher-ranked
-  // target is never displaced; only which batch serves it can change.
+  // Frees one unit of a batch, if needed by moving one of its rows to another batch that
+  // serves that row's target at least as well (augmenting path). Targets are claimed in
+  // rank order and a claimed row is never moved onto a worse certificate, so filling a
+  // lower-ranked row can never cost a higher-ranked one.
   const free = (id: string, visited: Set<string>): boolean => {
     if ((remaining.get(id) ?? 0) > 0) return true;
     visited.add(id);
@@ -57,7 +58,7 @@ export function buildCertificateQueue(decisions: OwnedCertificateDecision[]): Ce
       if (row.certificate.id !== id) continue;
       for (const option of options.get(row.target.item.id) ?? []) {
         const other = option.decision.certificate.id;
-        if (visited.has(other) || !free(other, visited)) continue;
+        if (visited.has(other) || compareCertificateTargets(option.target, row.target) > 0 || !free(other, visited)) continue;
         row.certificate = option.decision.certificate;
         row.target = option.target;
         remaining.set(other, (remaining.get(other) ?? 0) - 1);

@@ -841,7 +841,7 @@ function targetDecision(
 
   // The decision goal decides which improvement is measured and how targets compare.
   const goal=goalMeasure(decisionBasis,specialists,{
-    main:[b=>b.deltaLow,expectedLow],
+    main:[b=>b.deltaLow,conservativeExpectedLow],
     context:[b=>b.contextual,expectedContextual-evError(b=>b.contextual)],
     preference:[b=>b.preferenceDelta,expectedPreference-evError(b=>b.preferenceDelta)],
     drink:[b=>b.drink,expectedDrink-evError(b=>b.drink)],

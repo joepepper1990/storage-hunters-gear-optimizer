@@ -504,30 +504,32 @@ export function normalizeRollLog(raw: unknown, index = 0): CertificateRollLog {
 }
 
 /** Startup never refuses or drops saved history: a row this build cannot type strictly
- * keeps its fields, coerced to safe renderable types.
+ * keeps every stored field; only fields that would break rendering are coerced. An
+ * unrecognised certificate type or slot is kept verbatim, so it matches no model.
  */
 function coerceStoredRollLog(raw: unknown, index: number): CertificateRollLog {
   try { return normalizeRollLog(raw, index); } catch { /* lenient fallback below */ }
-  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const r = (raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}) as Record<string, unknown>;
   const str = (value: unknown) => typeof value === 'string' ? value : value === undefined || value === null ? '' : String(value);
-  const slot = ['Head','Back','Wrist'].includes(str(r.slot)) ? str(r.slot) as CertificateRollLog['slot'] : 'Head';
-  const certificateType = ROLL_CERTIFICATE_TYPES.includes(str(r.certificateType) as never)
-    ? str(r.certificateType) as CertificateRollLog['certificateType'] : 'Normal Certificate of Authenticity';
-  const inventoryType = OWNED_CERTIFICATE_TYPES.includes(str(r.certificateInventoryType) as never)
-    ? str(r.certificateInventoryType) as CertificateRollLog['certificateInventoryType'] : undefined;
-  const grade = Number(r.certificateGradeStars);
-  return {
-    id: str(r.id) || crypto.randomUUID(), date: str(r.date) || new Date(0).toISOString(), certificateType,
-    itemId: str(r.itemId), itemName: str(r.itemName), slot,
+  const out: Record<string, unknown> = {
+    ...r,
+    id: str(r.id) || crypto.randomUUID(), date: str(r.date) || new Date(0).toISOString(),
+    certificateType: str(r.certificateType), itemId: str(r.itemId), itemName: str(r.itemName), slot: str(r.slot),
     previousAuthentication: str(r.previousAuthentication), previousValue: finite(r.previousValue),
     newAuthentication: str(r.newAuthentication), newValue: finite(r.newValue), improvedBestSet: Boolean(r.improvedBestSet),
-    bestScoreBefore: finite(r.bestScoreBefore), bestScoreAfter: finite(r.bestScoreAfter),
-    ...(r.certificateId === undefined ? {} : { certificateId: str(r.certificateId) }),
-    ...(Number.isSafeInteger(grade) && grade >= 0 && grade <= 5 && r.certificateGradeStars !== null && r.certificateGradeStars !== undefined ? { certificateGradeStars: grade } : {}),
-    ...(str(r.certificateMutation).trim() ? { certificateMutation: str(r.certificateMutation).trim() } : {}),
-    ...(inventoryType ? { certificateInventoryType: inventoryType } : {}),
-    ...(Array.isArray(r.modelWarnings) ? { modelWarnings: r.modelWarnings.map(str) } : {})
+    bestScoreBefore: finite(r.bestScoreBefore), bestScoreAfter: finite(r.bestScoreAfter)
   };
+  const grade = Number(r.certificateGradeStars);
+  if (r.certificateGradeStars !== undefined && !(r.certificateGradeStars !== null && Number.isSafeInteger(grade) && grade >= 0 && grade <= 5)) delete out.certificateGradeStars;
+  else if (r.certificateGradeStars !== undefined) out.certificateGradeStars = grade;
+  if (r.normalizedRollPosition !== undefined && !Number.isFinite(Number(r.normalizedRollPosition))) delete out.normalizedRollPosition;
+  else if (r.normalizedRollPosition !== undefined) out.normalizedRollPosition = Number(r.normalizedRollPosition);
+  if (r.observedStatDeltas !== undefined) { try { validateStatDeltas(r.observedStatDeltas, 'stored deltas'); } catch { delete out.observedStatDeltas; } }
+  if (r.modelWarnings !== undefined) {
+    if (Array.isArray(r.modelWarnings)) out.modelWarnings = r.modelWarnings.filter((w): w is string => typeof w === 'string');
+    else delete out.modelWarnings;
+  }
+  return out as unknown as CertificateRollLog;
 }
 
 function normalizeTrailer(item: Trailer): Trailer {

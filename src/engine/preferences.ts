@@ -1,5 +1,6 @@
 import { DEFAULT_VEHICLE_SETTINGS, LOCKED_DEFAULT_SETTINGS } from '../defaults';
 import type { AlgorithmSettings, AppData, VehicleOptimiserSettings } from '../types';
+import { arrowTargetBand } from './scoring';
 
 export type PreferenceSection = 'Auctions' | 'Drink Prep' | 'Grading' | 'Shop / Idle' | 'Vehicle';
 
@@ -13,6 +14,8 @@ export interface PreferenceControl {
   id: string;
   section: PreferenceSection;
   label: string;
+  /** Label computed from live data, when it depends on other settings. */
+  labelFor?(data: AppData): string;
   scale: number;
   read(data: AppData): number;
   write(data: AppData, coefficient: number): AppData;
@@ -39,7 +42,8 @@ function vehicle(id: keyof VehicleOptimiserSettings & string, label: string): Pr
 
 export const PREFERENCE_CONTROLS: PreferenceControl[] = [
   algorithm('luckWeight', 'Auctions', 'Luck', 0.1),
-  algorithm('arrowWeight', 'Auctions', 'Bid Arrow (65–85%)', 0.1),
+  { ...algorithm('arrowWeight', 'Auctions', 'Bid Arrow', 0.1),
+    labelFor: data => { const band = arrowTargetBand(data.settings); return `Bid Arrow (${band.min}–${band.max}%)`; } },
   algorithm('zoneWeight', 'Auctions', 'Bid Zone Width', 0.1),
   algorithm('recoveryWeight', 'Auctions', 'Bid Recovery', 0.1),
   algorithm('drinkPriority', 'Drink Prep', 'Priority', 1),

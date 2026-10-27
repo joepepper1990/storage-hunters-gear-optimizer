@@ -300,3 +300,30 @@ describe('existing physical certificates that share a variant',()=>{
     expect(edited.ownedCertificates.find(c=>c.id===wooden[0].id)).toMatchObject({quantity:2,displayedValue:wooden[0].displayedValue});
   });
 });
+
+describe('review: queue allocation never downgrades a higher-ranked row',()=>{
+  it('keeps the strong certificate on the Auction target instead of trading it for a Shop row',()=>{
+    const limited:OwnedCertificate={id:'L',type:'Limited Certificate of Authenticity',quantity:1};
+    const woodenCert:OwnedCertificate={id:'W',type:'Wooden Certificate of Authenticity',quantity:1};
+    const strongMain={...syntheticTarget('main-item','Main Auction',0,20),verdict:'USE'} as CertificateTargetDecision;
+    const shop=syntheticTarget('shop-item','Shop / Idle',5,.5);
+    const weakMain=syntheticTarget('main-item','Main Auction',0,1);
+    const queue=buildCertificateQueue([decision(limited,[strongMain,shop]),decision(woodenCert,[weakMain])]);
+    expect(queue.rows[0]).toMatchObject({certificate:{id:'L'},target:{item:{id:'main-item'}}});
+    expect(queue.rows.some(r=>r.certificate.id==='L'&&r.target.item.id==='shop-item')).toBe(false);
+  });
+  it('still re-routes between equally good certificates to fill more rows',()=>{
+    const a=syntheticTarget('target-a','Main Auction',0,5),b=syntheticTarget('target-b','Main Auction',0,3);
+    const queue=buildCertificateQueue([decision(wooden('w1',1),[a,b]),decision(wooden('w2',1),[a])]);
+    expect(queue.rows.map(r=>r.target.item.id).sort()).toEqual(['target-a','target-b']);
+  });
+});
+
+describe('review: Arrow slider label follows the stored band',()=>{
+  it('reflects a customised band start',()=>{
+    const control=PREFERENCE_CONTROLS.find(c=>c.id==='arrowWeight')!;
+    expect(control.labelFor!(makeInitialData())).toBe('Bid Arrow (65–85%)');
+    const d=makeInitialData();d.settings.arrowSweetSpot=70;
+    expect(control.labelFor!(d)).toBe('Bid Arrow (70–85%)');
+  });
+});

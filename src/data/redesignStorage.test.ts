@@ -98,3 +98,17 @@ describe('P2: JSON roll history is validated and normalised on restore',()=>{
     expect(loaded.rollLog[0].bestScoreBefore.toFixed(2)).toBe('0.00');
   });
 });
+
+describe('review: startup coercion keeps every stored roll field',()=>{
+  it('preserves evidence fields and does not relabel an unknown certificate type',()=>{
+    const d=makeInitialData() as unknown as Record<string,unknown>;
+    d.rollLog=[roll({modelWarnings:[null,'kept'],normalizedRollPosition:.4,observedStatDeltas:{luck:12},certificateType:'Future Certificate',certificateInventoryType:undefined,customField:'x'})];
+    const loaded=normalizeData(d as unknown as AppData).rollLog[0] as unknown as Record<string,unknown>;
+    expect(loaded.normalizedRollPosition).toBe(.4);
+    expect(loaded.observedStatDeltas).toEqual({luck:12});
+    expect(loaded.modelWarnings).toEqual(['kept']);
+    expect(loaded.certificateType).toBe('Future Certificate');
+    expect(loaded.customField).toBe('x');
+    expect(loaded.newValue).toBe(12);
+  });
+});
