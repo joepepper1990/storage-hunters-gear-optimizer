@@ -15,6 +15,9 @@ export interface ParsedGearScan {
   slot: Slot;
   slotDetected: boolean;
   stats: GearStats;
+  /** Focused tooltip stats may already include authentication changes. */
+  baseStatsProvenance?: 'requires-confirmation' | 'confirmed';
+  confirmedBaseStats?: GearStats;
   mutation?: string;
   conditionPct?: number;
   authenticated: boolean;
@@ -24,3 +27,4 @@ export interface ParsedGearScan {
   recognisedFields: string[];
   fieldConfidence: Record<string, number>;
 }
+

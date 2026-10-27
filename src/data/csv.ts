@@ -1,5 +1,6 @@
 import type { GearItem, GearStats, Slot } from '../types';
 import { gameArrowToReduction, reductionToGameArrow } from '../engine/scoring';
+import { validateStatDeltas } from './statDeltas';
 import { generateGearName, inferBaseName } from '../naming';
 
 const headers = ['ID','Base Name','Slot','Luck','Energy Drink Time','Tip Chance','Walkspeed','Vehicle Speed','Bid Recovery','Bid Zone Width','Bid Arrow Speed (game display)','NPC Offers Bonus','Authenticated','Authentication Type','Authentication Effect','Authentication Value','Favourite','Mutation','Condition %','Authentication Stat Deltas'];
@@ -57,12 +58,7 @@ function parseStatDeltas(text: string, row: number): Partial<GearStats> | undefi
   const error = () => new Error(`CSV row ${row}: Authentication Stat Deltas must be a JSON object containing known stat keys with finite numeric values.`);
   let parsed: unknown;
   try { parsed = JSON.parse(text); } catch { throw error(); }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw error();
-  const keys = new Set(['luck','energy','tip','walk','vehicle','recovery','zone','arrowReduction','npc']);
-  for (const [key, value] of Object.entries(parsed)) {
-    if (!keys.has(key) || typeof value !== 'number' || !Number.isFinite(value)) throw error();
-  }
-  return parsed as Partial<GearStats>;
+  return validateStatDeltas(parsed, `CSV row ${row}: Authentication Stat Deltas`);
 }
 
 function csvCell(v: unknown) { const s = String(v ?? ''); return /[",\n]/.test(s) ? `"${s.replaceAll('"','""')}"` : s; }

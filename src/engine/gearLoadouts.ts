@@ -2,8 +2,9 @@ import type {
   AlgorithmSettings, CombinationResult, GearItem, GearLoadoutMembership, GearLoadoutName,
   GearStats, ItemAnalysis, MainAuctionContext, ScoreBreakdown
 } from '../types';
+import { algorithmIssues } from './settingsValidation';
 import { findDominator } from './dominance';
-import { arrowEffective, combineStats, energyEffective, scoreStandalone, zoneEffective } from './scoring';
+import { arrowEffective, combineStats, effectiveItemStats, energyEffective, scoreStandalone, zoneEffective } from './scoring';
 import { MODEL_ASSUMPTIONS } from './modelAssumptions';
 
 export type DynamicScenario = 'low' | 'central' | 'high';
@@ -112,7 +113,8 @@ export function dynamicLuck(
   dynamic:DynamicScenario|DynamicState='low'
 ):number {
   const state=resolveDynamicState(dynamic);
-  let luck=0;
+  // An active drink is a shared baseline, independent of authentication count.
+  let luck=state.drinkLuckBoost;
   for(const item of items){
     if(!item.authenticated)continue;
     const effect=item.authentication.effect.trim();
@@ -200,7 +202,8 @@ function allTrios(gear:GearItem[]):GearItem[][] {
 
 function makeResult(
   name:GearLoadoutName, trios:GearItem[][], utility:(items:GearItem[])=>number,
-  settings:AlgorithmSettings, context?:MainAuctionContext, rationale='', requirePositive=false
+  settings:AlgorithmSettings, context?:MainAuctionContext, rationale='', requirePositive=false,
+  dynamic:DynamicScenario|DynamicState='low'
 ):GearLoadoutResult|undefined {
   if(!trios.length)return undefined;
   const scored=trios.map(items=>({items,u:utility(items),main:mainAuctionUtility(items,settings,'Neutral','low')}));
@@ -210,9 +213,10 @@ function makeResult(
   const epsilon=1e-9;
   const tied=scored.filter(x=>Math.abs(x.u-best.u)<=epsilon&&Math.abs(x.main-best.main)<=epsilon);
   const tiedItemIds=new Set(tied.flatMap(x=>x.items.map(i=>i.id)));
+  const stats=combineStats(best.items);
   return {
     name,context,head:best.items[0],back:best.items[1],wrist:best.items[2],
-    stats:combineStats(best.items),utility:best.u,mainUtility:best.main,tiedItemIds,rationale
+    stats:{...stats,luck:stats.luck+dynamicLuck(best.items,context??'Neutral',dynamic)},utility:best.u,mainUtility:best.main,tiedItemIds,rationale
   };
 }
 
@@ -221,10 +225,10 @@ export function buildGearLoadouts(
 ):GearLoadoutCollection {
   const trios=allTrios(gear);
   return {
-    main:makeResult('Main Auction',trios,items=>mainAuctionUtility(items,settings,'Neutral',dynamic),settings,'Neutral','Primary loadout: Luck, Bid Arrow to 75%, Bid Zone and Recovery.'),
-    day:makeResult('Day Auction',trios,items=>mainAuctionUtility(items,settings,'Day',dynamic),settings,'Day','Main Auction with Sunny effects active.'),
-    night:makeResult('Night Auction',trios,items=>mainAuctionUtility(items,settings,'Night',dynamic),settings,'Night','Main Auction with Nocturnal effects active.'),
-    rain:makeResult('Rain Auction',trios,items=>mainAuctionUtility(items,settings,'Rain',dynamic),settings,'Rain','Main Auction with Raindrop effects active.'),
+    main:makeResult('Main Auction',trios,items=>mainAuctionUtility(items,settings,'Neutral',dynamic),settings,'Neutral','Primary loadout: Luck, Bid Arrow to 75%, Bid Zone and Recovery.',false,dynamic),
+    day:makeResult('Day Auction',trios,items=>mainAuctionUtility(items,settings,'Day',dynamic),settings,'Day','Main Auction with Sunny effects active.',false,dynamic),
+    night:makeResult('Night Auction',trios,items=>mainAuctionUtility(items,settings,'Night',dynamic),settings,'Night','Main Auction with Nocturnal effects active.',false,dynamic),
+    rain:makeResult('Rain Auction',trios,items=>mainAuctionUtility(items,settings,'Rain',dynamic),settings,'Rain','Main Auction with Raindrop effects active.',false,dynamic),
     drink:makeResult('Drink Prep',trios,items=>drinkValue(items,settings),settings,undefined,'Temporary set used while consuming an Energy Drink; Energy duration matters. Overcharged is auction-time Luck and is evaluated in Main sensitivity states instead.',true),
     grading:makeResult('Grading',trios,items=>gradeRerollValue(items),settings,undefined,'Temporary grading set; Lucky Grading is owned and Grade Re-Roll is valued against that distribution.',true),
     shop:makeResult('Shop / Idle',trios,items=>shopValue(items),settings,undefined,'Optional selling set for deliberate shop/idle sessions; Tip Chance and NPC Offers matter.',true)
@@ -284,7 +288,32 @@ function buildMembershipMap(gear:GearItem[],settings:AlgorithmSettings):Map<stri
   return map;
 }
 
+/** A Main score tradeoff cannot pay for losing a different specialist utility.
+ * Componentwise bounds are deliberately conservative, and remain valid when
+ * future complementary gear moves Energy across either saturation breakpoint.
+ */
+function futureSafeDominator(item:GearItem,candidates:GearItem[],settings:AlgorithmSettings) {
+  const target=effectiveItemStats(item);
+  const specialistSafe=candidates.filter(candidate=>{
+    const stats=effectiveItemStats(candidate);
+    return stats.energy>=target.energy && stats.tip>=target.tip && stats.npc>=target.npc
+      && gradeRerollValue([candidate])>=gradeRerollValue([item])
+      // A future companion with Mutated Luck reads every member's mutation.
+      && mutationLuckForItem(candidate)>=mutationLuckForItem(item);
+  });
+  const mainSettings={...settings,energyWeight:0,npcWeight:0,tipWeight:0,vehicleWeight:0,walkWeight:0};
+  const dominance=findDominator(item,specialistSafe,mainSettings);
+  if(!dominance.dominated && specialistSafe.length!==candidates.length) {
+    dominance.reason='No replacement is proven at least as useful for Main Auction and every specialist loadout across future complementary states (including Energy, Tip, NPC, Grade Re-Roll and Mutated Luck).';
+  }
+  return dominance;
+}
+
 export function analyseGearRetention(gear:GearItem[],settings:AlgorithmSettings):ItemAnalysis[] {
+  const issues=algorithmIssues(settings);
+  if(issues.length)return gear.map(item=>({item,verdict:'KEEP',
+    reason:'Invalid algorithm settings prevent safe retention recommendations: '+issues.join('; ')+'.',
+    standalone:scoreStandalone(item,settings),currentlyEquipped:false,loadoutMemberships:[]}));
   // EQUIP must agree with Dashboard/Optimise, which use the robust ('low') Main baseline.
   // Central/high alternatives are still retained by buildMembershipMap as KEEP.
   const active=buildGearLoadouts(gear,settings,'low');
@@ -322,11 +351,11 @@ export function analyseGearRetention(gear:GearItem[],settings:AlgorithmSettings)
       };
     }
     const sameSlot=gear.filter(x=>x.slot===item.slot&&x.id!==item.id);
-    const dominance=findDominator(item,sameSlot,settings);
+    const dominance=futureSafeDominator(item,sameSlot,settings);
     if(dominance.dominated){
       return {
         item,verdict:'SAFE TO DISCARD',
-        reason:'Not used by Main Auction, Day/Night/Rain, Drink Prep, Grading or Shop/Idle under the tested sensitivity states, and '+dominance.reason,
+        reason:'No loss of Main Auction or specialist utility across future complementary states is proven, and '+dominance.reason,
         standalone,currentlyEquipped:false,dominance,loadoutMemberships:[]
       };
     }

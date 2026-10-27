@@ -91,7 +91,7 @@ describe('P2 statistical and recovery integrity',()=>{
   it('rejects autosave if the IndexedDB transaction aborts and the mirror also fails',async()=>{
     const oldStorage=globalThis.localStorage,oldDb=globalThis.indexedDB;
     const db={close:()=>{},transaction:()=>{
-      const tx:any={error:new Error('commit aborted'),objectStore:()=>({put:()=>{
+      const tx:any={error:new Error('commit aborted'),objectStore:()=>({get:()=>{const req:any={result:undefined};queueMicrotask(()=>req.onsuccess?.());return req;},put:()=>{
         const req:any={};
         queueMicrotask(()=>{req.onsuccess?.();queueMicrotask(()=>tx.onabort?.());});
         return req;
