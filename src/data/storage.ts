@@ -210,6 +210,14 @@ export function saveEmergencyMirror(data: AppData,savedAt=Date.now()):void {
   if(!current||snapshotToken(current)===ignoredMirrorToken||sameSnapshot(current,captured.envelope)||selectNewestStoredSnapshot(captured.envelope,current)===captured.envelope)writeEmergencyMirror(captured.envelope);
 }
 
+/** Calls back when another window of this app saves. Returns an unsubscribe function. */
+export function onSavedElsewhere(callback:()=>void):()=>void {
+  if(typeof window==='undefined')return ()=>{};
+  const listener=(event:StorageEvent)=>{ if(event.key===MIRROR_KEY&&event.newValue)callback(); };
+  window.addEventListener('storage',listener);
+  return ()=>window.removeEventListener('storage',listener);
+}
+
 function writeEmergencyMirror(envelope:StoredEnvelope):void {
   localStorage.setItem(MIRROR_KEY,JSON.stringify(envelope));
 }
