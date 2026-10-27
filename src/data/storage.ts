@@ -146,7 +146,7 @@ function assertCompatible(current:StoredSnapshot|undefined,captured:CapturedSnap
 }
 
 /** Serialise local writes and compare the captured parent within the IDB write transaction. */
-export function saveData(data: AppData): Promise<void> {
+export async function saveData(data: AppData): Promise<void> {
   if(storageConflict)return Promise.reject(new StorageConflictError());
   const captured=captureSnapshot(data);
   saveChain=saveChain.catch(()=>undefined).then(()=>writeSnapshot(captured));
