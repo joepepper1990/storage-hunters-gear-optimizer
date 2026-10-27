@@ -924,7 +924,7 @@ function withConversionAdvice(
 export function compareCertificateTargets(a:CertificateTargetDecision,b:CertificateTargetDecision):number {
   const vr=(v:CertificateDecisionVerdict)=>({USE:0,CONSIDER:1,HOLD:2,'DO NOT USE':3}[v]);
   return vr(a.verdict)-vr(b.verdict)||
-    b.resolvedOutcomeMassPct-a.resolvedOutcomeMassPct||
+    (Math.abs(b.resolvedOutcomeMassPct-a.resolvedOutcomeMassPct)>1e-6?b.resolvedOutcomeMassPct-a.resolvedOutcomeMassPct:0)||
     b.expectedImprovementLowPct-a.expectedImprovementLowPct||
     b.chanceOfImprovementPct-a.chanceOfImprovementPct||
     b.mainFitPct-a.mainFitPct||a.item.id.localeCompare(b.item.id);
