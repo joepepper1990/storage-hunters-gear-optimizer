@@ -96,7 +96,7 @@ describe('verified 26 October 2026 accessory inventory',()=>{
     const stale={...one('Luxury Ice Crown'),id:'verified-20261017-old-luxury'};
     const old={...makeInitialData(),schemaVersion:8,gear:[stale,manual]} as any;
     const upgraded=normalizeData(old);
-    expect(upgraded.schemaVersion).toBe(13);
+    expect(upgraded.schemaVersion).toBe(14);
     expect(upgraded.gear).toHaveLength(22);
     expect(upgraded.gear.some(g=>g.id==='verified-20261017-old-luxury')).toBe(false);
     expect(upgraded.gear.some(g=>g.id==='manual-cow')).toBe(false);

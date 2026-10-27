@@ -81,6 +81,8 @@ The schema-9 inventory reset captured the user's verified **22 accessories** fro
 - 6 Back
 - 5 Wrist
 
+Schema 14 is a one-time Gavel replacement from the user's complete 27 October 2026 screenshots: exactly 15 Gavel Trophies (eleven in inventory, four on displays). Any other stored Gavel is removed; a stored Gavel with identical rolls keeps its ID and favourite. Everything else is untouched, and explicit backup restores keep their own Gavels.
+
 Schema 13 is non-destructive: existing schema-9+ inventory, certificates, roll history, vehicles and trophies are preserved while the authentication catalogue is migrated to exact Wooden / Ripped / Premium / Limited tiers. Schema-10 built-in rows inherit known tier ranges without losing observed samples.
 
 ## Other optimisers

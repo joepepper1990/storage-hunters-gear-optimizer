@@ -99,6 +99,31 @@ describe('P2: JSON roll history is validated and normalised on restore',()=>{
   });
 });
 
+describe('schema 14 Gavel replacement',()=>{
+  it('replaces a schema-13 Gavel list once and leaves every other domain untouched',()=>{
+    const d=makeInitialData();
+    const before=structuredClone(d);
+    (d as unknown as {schemaVersion:number}).schemaVersion=13;
+    d.trophies=[{id:'old',name:'Void +74%',modifiers:[{mutation:'Void',boostPct:74}],favourite:true,createdAt:'',updatedAt:''}];
+    const migrated=normalizeData(d);
+    expect(migrated.trophies).toHaveLength(15);
+    expect(migrated.trophies.some(t=>t.id==='old')).toBe(false);
+    expect(migrated.gear).toEqual(before.gear);
+    expect(migrated.ownedCertificates).toEqual(before.ownedCertificates);
+    expect(migrated.vehicleParts).toEqual(before.vehicleParts);
+    expect(migrated.settings).toEqual(before.settings);
+    expect(migrated.trophySettings).toEqual(before.trophySettings);
+    // Saved as schema 14: later edits are kept, never re-seeded.
+    const edited={...migrated,trophies:migrated.trophies.slice(1)};
+    expect(normalizeData(JSON.parse(exportJson(edited))).trophies).toHaveLength(14);
+  });
+  it('keeps a restored backup\'s own Gavels',()=>{
+    const d=makeInitialData();(d as unknown as {schemaVersion:number}).schemaVersion=13;
+    d.trophies=d.trophies.slice(0,2);
+    expect(importJson(exportJson(d)).trophies).toHaveLength(2);
+  });
+});
+
 describe('review: startup coercion keeps every stored roll field',()=>{
   it('preserves evidence fields and does not relabel an unknown certificate type',()=>{
     const d=makeInitialData() as unknown as Record<string,unknown>;
