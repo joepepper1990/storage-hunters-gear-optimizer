@@ -1,19 +1,17 @@
 import type { AlgorithmSettings, GearItem, GearStats, ScoreBreakdown } from '../types';
+import { effectKnowledge } from './effects';
 
-export const EVENT_PASSIVES = new Set([
-  'Fossil Finder', 'Luck Frenzy', 'Auto X-Ray', 'Featherweight', 'Second Chance', 'Steady Hand'
-]);
-export const UNKNOWN_PROTECTED_PASSIVES = new Set(['Safecracker', 'Exhibitor', 'Sonic', 'Overcharge', 'Focus']);
-export const PROVISIONAL_PASSIVES = new Set<string>();
-export const SHARED_MODELED_PASSIVES = new Set([
-  'Mutated Luck','Droughtbreaker','Drought Breaker','Golden Hour','Luck Frenzy',
-  'Club Pact','Club Packed','Temporal Split','Connected','Time Keeper','Timekeeper',
-  'Grade Re-Roll','Auto X-Ray','Featherweight','Second Chance','Steady Hand','Haggler'
-]);
+/** Upper edge of the ideal combined Bid Arrow band. Display only: value is already flat above the sweet spot. */
+export const ARROW_TARGET_MAX = 85;
+
+/** The band of combined Bid Arrow reduction that is equally ideal for Main Auction. */
+export function arrowTargetBand(s: AlgorithmSettings): { min: number; max: number } {
+  return { min: s.arrowSweetSpot, max: Math.max(s.arrowSweetSpot, ARROW_TARGET_MAX) };
+}
 
 export function arrowEffective(r: number, s: AlgorithmSettings): number {
-  // User preference: 75% combined Bid Arrow reduction is the practical sweet spot.
-  // Above that we award no further Main Auction benefit; we do not invent a game penalty.
+  // User preference: value rises up to 65% combined reduction, then every value from
+  // 65% through 85% is equally ideal. Beyond 85% adds nothing; no game penalty is invented.
   if (r < 0) return r;
   return Math.min(r, s.arrowSweetSpot);
 }
@@ -63,16 +61,12 @@ export function passiveScore(item: GearItem, _s: AlgorithmSettings) {
   if (!item.authenticated || item.authentication.kind === 'None' || !effect) {
     return { score: 0, details: [], unknown: false, provisional: false };
   }
-  if (item.authentication.kind === 'Limited') {
-    return { score: 0, details: [{ label: `${effect} (Limited utility — evaluated by loadout/certificate engines)`, score: 0 }], unknown: false, provisional: false };
+  // Static passives carry no score of their own; loadout/certificate engines value
+  // them. Unknown effects stay protected whatever the authentication kind.
+  if (effectKnowledge(effect) === 'unknown') {
+    return { score: 0, details: [{ label: `${effect} (unmodelled/protected)`, score: 0 }], unknown: true, provisional: false };
   }
-  if (EVENT_PASSIVES.has(effect) || SHARED_MODELED_PASSIVES.has(effect) || effect === 'Focused' || isNumericAuth(effect) || ['Sunny','Nocturnal','Raindrop','Overcharged','Rush'].includes(effect)) {
-    return { score: 0, details: [], unknown: false, provisional: false };
-  }
-  if (UNKNOWN_PROTECTED_PASSIVES.has(effect)) {
-    return { score: 0, details: [{ label: `${effect} (unknown/protected)`, score: 0 }], unknown: true, provisional: false };
-  }
-  return { score: 0, details: [{ label: `${effect} (unmodelled/protected)`, score: 0 }], unknown: true, provisional: false };
+  return { score: 0, details: [], unknown: false, provisional: false };
 }
 
 export function scoreItemOrCombination(stats: GearStats, items: GearItem[], s: AlgorithmSettings): ScoreBreakdown {

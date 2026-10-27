@@ -1,8 +1,8 @@
 import { validateStatDeltas } from './statDeltas';
 import { mergeScreenshotParts, mergeScreenshotTrophies, screenshotCertificates } from './screenshotEquipment';
 import { makeKnownGear } from './knownGear';
-import { DEFAULT_TROPHY_SETTINGS, DEFAULT_VEHICLE_PROFILE, DEFAULT_VEHICLE_SETTINGS, makeInitialData, LOCKED_DEFAULT_SETTINGS } from '../defaults';
-import type { AppData, GavelTrophy, GearItem, Trailer, TrophyOptimiserSettings, VehiclePart } from '../types';
+import { DEFAULT_TROPHY_SETTINGS, DEFAULT_VEHICLE_PROFILE, DEFAULT_VEHICLE_SETTINGS, makeInitialData, LEGACY_V20_ARROW_DEFAULTS, LOCKED_DEFAULT_SETTINGS } from '../defaults';
+import type { AppData, CertificateRollLog, GavelTrophy, GearItem, Trailer, TrophyOptimiserSettings, VehiclePart } from '../types';
 import { generateGearName, generateTrophyName, generateVehiclePartName, inferBaseName } from '../naming';
 
 const DB_NAME = 'storage-hunters-gear-optimizer';
@@ -251,7 +251,7 @@ export function normalizeData(raw: AppData, options: { preserveInventory?: boole
       : makeKnownGear(),
     settings: normalizeSettings(raw?.settings),
     authModel: normalizeAuthModel(raw?.authModel, initial.authModel, Number(raw?.schemaVersion ?? 0)),
-    rollLog: Array.isArray(raw?.rollLog) ? raw.rollLog : [],
+    rollLog: Array.isArray(raw?.rollLog) ? raw.rollLog.map((roll, index) => preserveInventory ? normalizeRollLog(roll, index) : coerceStoredRollLog(roll, index)) : [],
     // Same one-time reset for certificates: the seven screenshot-confirmed
     // certificates are the complete owned inventory at this snapshot.
     ownedCertificates: preserveInventory || Number(raw?.schemaVersion)>=9
@@ -443,6 +443,95 @@ function normalizeOwnedCertificate(raw: AppData['ownedCertificates'][number]):Ap
     mutation:typeof raw.mutation==='string'&&raw.mutation.trim()?raw.mutation.trim():undefined};
 }
 
+const ROLL_CERTIFICATE_TYPES = ['Normal Certificate of Authenticity','Premium Certificate of Authenticity','Limited Certificate of Authenticity','Certificate of Alienticity'] as const;
+const OWNED_CERTIFICATE_TYPES = ['Wooden Certificate of Authenticity','Ripped Certificate of Authenticity','Premium Certificate of Authenticity','Limited Certificate of Authenticity'] as const;
+
+/** Every roll-history row is rebuilt with typed fields, so restored numeric strings
+ * become numbers and malformed rows are rejected before any screen renders them.
+ */
+export function normalizeRollLog(raw: unknown, index = 0): CertificateRollLog {
+  const prefix = `Roll log row ${index + 1}`;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error(`${prefix}: invalid entry.`);
+  const r = raw as Record<string, unknown>;
+  const text = (key: string, required = true): string => {
+    const value = r[key];
+    if (typeof value === 'string') return value;
+    if (value === undefined || value === null) { if (required) throw new Error(`${prefix}: ${key} is required.`); return ''; }
+    throw new Error(`${prefix}: ${key} must be text.`);
+  };
+  const number = (key: string): number => {
+    const value = r[key];
+    const n = typeof value === 'string' && value.trim() === '' ? NaN : Number(value);
+    if ((typeof value !== 'number' && typeof value !== 'string') || !Number.isFinite(n)) throw new Error(`${prefix}: ${key} is not a finite number.`);
+    return n;
+  };
+  const optionalNumber = (key: string): number | undefined => r[key] === undefined || r[key] === null ? undefined : number(key);
+  const slot = text('slot');
+  if (!['Head','Back','Wrist'].includes(slot)) throw new Error(`${prefix}: invalid slot.`);
+  const inventoryType = r.certificateInventoryType === undefined || r.certificateInventoryType === null ? undefined : text('certificateInventoryType');
+  if (inventoryType !== undefined && !OWNED_CERTIFICATE_TYPES.includes(inventoryType as never)) throw new Error(`${prefix}: unsupported certificate type.`);
+  const certificateType = r.certificateType === undefined && inventoryType
+    ? (inventoryType.startsWith('Premium') ? 'Premium Certificate of Authenticity' : inventoryType.startsWith('Limited') ? 'Limited Certificate of Authenticity' : 'Normal Certificate of Authenticity')
+    : text('certificateType');
+  if (!ROLL_CERTIFICATE_TYPES.includes(certificateType as never)) throw new Error(`${prefix}: unsupported certificate type.`);
+  const gradeStars = optionalNumber('certificateGradeStars');
+  if (gradeStars !== undefined && (!Number.isSafeInteger(gradeStars) || gradeStars < 0 || gradeStars > 5)) throw new Error(`${prefix}: certificate star grade must be an integer from 0 to 5.`);
+  const date = text('date', false);
+  if (r.modelWarnings !== undefined && (!Array.isArray(r.modelWarnings) || r.modelWarnings.some(w => typeof w !== 'string'))) throw new Error(`${prefix}: model warnings must be text.`);
+  const position = optionalNumber('normalizedRollPosition');
+  return {
+    id: text('id', false) || crypto.randomUUID(),
+    date: date || new Date(0).toISOString(),
+    certificateType: certificateType as CertificateRollLog['certificateType'],
+    itemId: text('itemId', false),
+    itemName: text('itemName', false),
+    slot: slot as CertificateRollLog['slot'],
+    previousAuthentication: text('previousAuthentication', false),
+    previousValue: number('previousValue'),
+    newAuthentication: text('newAuthentication'),
+    newValue: number('newValue'),
+    improvedBestSet: Boolean(r.improvedBestSet),
+    bestScoreBefore: number('bestScoreBefore'),
+    bestScoreAfter: number('bestScoreAfter'),
+    ...(r.certificateId === undefined || r.certificateId === null ? {} : { certificateId: text('certificateId') }),
+    ...(gradeStars === undefined ? {} : { certificateGradeStars: gradeStars }),
+    ...(typeof r.certificateMutation === 'string' && r.certificateMutation.trim() ? { certificateMutation: r.certificateMutation.trim() } : {}),
+    ...(inventoryType ? { certificateInventoryType: inventoryType as CertificateRollLog['certificateInventoryType'] } : {}),
+    ...(position === undefined ? {} : { normalizedRollPosition: position }),
+    ...(r.observedStatDeltas === undefined || r.observedStatDeltas === null ? {} : { observedStatDeltas: validateStatDeltas(r.observedStatDeltas, `${prefix}: observed stat deltas`) }),
+    ...(Array.isArray(r.modelWarnings) ? { modelWarnings: [...r.modelWarnings as string[]] } : {})
+  };
+}
+
+/** Startup never refuses or drops saved history: a row this build cannot type strictly
+ * keeps every stored field; only fields that would break rendering are coerced. An
+ * unrecognised certificate type or slot is kept verbatim, so it matches no model.
+ */
+function coerceStoredRollLog(raw: unknown, index: number): CertificateRollLog {
+  try { return normalizeRollLog(raw, index); } catch { /* lenient fallback below */ }
+  const r = (raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}) as Record<string, unknown>;
+  const str = (value: unknown) => typeof value === 'string' ? value : value === undefined || value === null ? '' : String(value);
+  const out: Record<string, unknown> = {
+    ...r,
+    id: str(r.id) || crypto.randomUUID(), date: str(r.date) || new Date(0).toISOString(),
+    certificateType: str(r.certificateType), itemId: str(r.itemId), itemName: str(r.itemName), slot: str(r.slot),
+    previousAuthentication: str(r.previousAuthentication), previousValue: finite(r.previousValue),
+    newAuthentication: str(r.newAuthentication), newValue: finite(r.newValue), improvedBestSet: Boolean(r.improvedBestSet),
+    bestScoreBefore: finite(r.bestScoreBefore), bestScoreAfter: finite(r.bestScoreAfter)
+  };
+  const grade = Number(r.certificateGradeStars);
+  if (r.certificateGradeStars !== undefined && !(r.certificateGradeStars !== null && Number.isSafeInteger(grade) && grade >= 0 && grade <= 5)) delete out.certificateGradeStars;
+  else if (r.certificateGradeStars !== undefined) out.certificateGradeStars = grade;
+  if (r.normalizedRollPosition !== undefined && !Number.isFinite(Number(r.normalizedRollPosition))) delete out.normalizedRollPosition;
+  else if (r.normalizedRollPosition !== undefined) out.normalizedRollPosition = Number(r.normalizedRollPosition);
+  if (r.observedStatDeltas !== undefined) { try { validateStatDeltas(r.observedStatDeltas, 'stored deltas'); } catch { delete out.observedStatDeltas; } }
+  if (r.modelWarnings !== undefined) {
+    if (Array.isArray(r.modelWarnings)) out.modelWarnings = r.modelWarnings.filter((w): w is string => typeof w === 'string');
+    else delete out.modelWarnings;
+  }
+  return out as unknown as CertificateRollLog;
+}
+
 function normalizeTrailer(item: Trailer): Trailer {
   const now = new Date().toISOString();
   return { id: item?.id || crypto.randomUUID(), name: typeof item?.name === 'string' ? item.name : '', capacityKg: finite(item?.capacityKg), favourite: Boolean(item?.favourite), createdAt: item?.createdAt || now, updatedAt: item?.updatedAt || now };
@@ -458,7 +547,7 @@ function normalizeSettings(raw: Partial<AppData['settings']> | undefined): AppDa
   // persisted the 1.0 defaults in IndexedDB, so simply changing defaults would leave
   // those browsers on the obsolete model. Override the shared scoring fields changed by 2.0 once,
   // while retaining unrelated user settings and all inventory/history data.
-  if (sourceVersion !== '2.0') {
+  if (sourceVersion !== '2.0' && sourceVersion !== '2.1') {
     const v20Keys: Array<keyof AppData['settings']> = [
       'luckWeight','arrowWeight','arrowSweetSpot',
       'npcWeight','npcBreakpoint1','npcBreakpoint2','npcMultiplier2','npcMultiplier3',
@@ -468,7 +557,15 @@ function normalizeSettings(raw: Partial<AppData['settings']> | undefined): AppDa
     for (const key of v20Keys) merged[key] = LOCKED_DEFAULT_SETTINGS[key];
   }
 
-  const out: Record<string, unknown> = { ...LOCKED_DEFAULT_SETTINGS, version: '2.0' };
+  // 2.0 -> 2.1: the 65-85% Arrow band and Luck-equal Arrow priority replace the old
+  // 75% / 0.8 defaults. Only values still equal to those old defaults move; any
+  // customised value, and every unrelated setting, is kept exactly.
+  if (sourceVersion === '2.0') {
+    if (Number(merged.arrowWeight) === LEGACY_V20_ARROW_DEFAULTS.arrowWeight) merged.arrowWeight = LOCKED_DEFAULT_SETTINGS.arrowWeight;
+    if (Number(merged.arrowSweetSpot) === LEGACY_V20_ARROW_DEFAULTS.arrowSweetSpot) merged.arrowSweetSpot = LOCKED_DEFAULT_SETTINGS.arrowSweetSpot;
+  }
+
+  const out: Record<string, unknown> = { ...LOCKED_DEFAULT_SETTINGS, version: '2.1' };
   for (const [key, defaultValue] of Object.entries(LOCKED_DEFAULT_SETTINGS)) {
     if (key === 'version') continue;
     const n = Number(merged[key]);
@@ -553,7 +650,8 @@ function validateImportedData(raw: AppData): void {
     if (!Array.isArray(entry.observedValues) || entry.observedValues.some(v=>!Number.isFinite(Number(v)))) throw new Error(`Authentication model row ${index + 1}: observed values must be finite numbers.`);
   }
   if (raw.rollLog !== undefined && !Array.isArray(raw.rollLog)) throw new Error('Invalid backup: certificate roll log must be an array.');
-  for (const [index,roll] of (raw.rollLog ?? []).entries()) for (const [label,value] of [['previousValue',roll.previousValue],['newValue',roll.newValue],['bestScoreBefore',roll.bestScoreBefore],['bestScoreAfter',roll.bestScoreAfter]] as const) if (!Number.isFinite(Number(value))) throw new Error(`Roll log row ${index + 1}: ${label} is not finite.`);
+  // Rows are fully validated and typed by normalizeRollLog during normalisation.
+  for (const [index,roll] of (raw.rollLog ?? []).entries()) normalizeRollLog(roll, index);
   if (raw.vehicleProfile !== undefined) {
     if (!raw.vehicleProfile || typeof raw.vehicleProfile.name !== 'string' || !raw.vehicleProfile.name.trim()) throw new Error('Vehicle profile: name is required.');
     for (const [label,value] of Object.entries(raw.vehicleProfile)) if (label !== 'name' && !Number.isFinite(Number(value))) throw new Error(`Vehicle profile: ${label} is not finite.`);

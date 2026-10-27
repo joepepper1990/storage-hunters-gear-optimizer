@@ -171,9 +171,10 @@ export interface GearItem {
 }
 
 export interface AlgorithmSettings {
-  version: '2.0';
+  version: '2.1';
   luckWeight: number;
   arrowWeight: number;
+  /** Combined Bid Arrow reduction at which Main Auction value peaks; the ideal band runs from here to ARROW_TARGET_MAX. */
   arrowSweetSpot: number;
   npcWeight: number;
   npcBreakpoint1: number;
@@ -193,6 +194,13 @@ export interface AlgorithmSettings {
   recoveryWeight: number;
   vehicleWeight: number;
   walkWeight: number;
+  /** Specialist priorities (0 = ignore). Higher priorities are considered first after Main Auction. */
+  drinkPriority: number;
+  gradingPriority: number;
+  shopPriority: number;
+  /** Shop / Idle utility per point of Tip Chance and NPC Offers Bonus. */
+  shopTipWeight: number;
+  shopNpcWeight: number;
 }
 
 export interface ScoreBreakdown {

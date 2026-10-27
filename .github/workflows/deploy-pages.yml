@@ -19,6 +19,10 @@ concurrency:
 jobs:
   test-build:
     runs-on: ubuntu-latest
+    outputs:
+      # Unique per attempt so a re-run never collides with an earlier attempt's artifact.
+      # Deploy reads it from here, which stays correct when only the deploy job is re-run.
+      artifact: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -46,6 +50,7 @@ jobs:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
         with:
+          name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
           path: ./dist
 
   deploy:
@@ -59,3 +64,5 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+        with:
+          artifact_name: ${{ needs.test-build.outputs.artifact }}

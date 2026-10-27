@@ -1,6 +1,7 @@
 import { algorithmIssues } from './settingsValidation';
 import type { AlgorithmSettings, DominanceResult, GearItem, GearStats } from '../types';
 import { arrowEffective, effectiveItemStats, energyEffective, isNumericAuth, luckEffective, npcEffective, passiveScore, zoneEffective } from './scoring';
+import { hasUnknownEffect } from './effects';
 
 interface PiecewiseSpec { breakpoints: number[]; fn: (x: number) => number; }
 
@@ -127,6 +128,8 @@ const DOMINANCE_CONTEXTUAL_EFFECTS = new Set([
 function isProtected(item: GearItem, s: AlgorithmSettings): boolean {
   if (!item.authenticated) return false;
   if (DOMINANCE_CONTEXTUAL_EFFECTS.has(item.authentication.effect.trim())) return true;
+  // Neither side of a proof may carry an unresolved effect, whatever its authentication kind.
+  if (hasUnknownEffect(item)) return true;
   const passive = passiveScore(item, s);
   return passive.unknown || passive.provisional;
 }

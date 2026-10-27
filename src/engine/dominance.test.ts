@@ -12,7 +12,8 @@ describe('analytical dominance proof',()=>{
   it('combines exact worst cases across Main Auction stats',()=>{
     const a=g('A',{luck:50,arrowReduction:75});
     const b=g('B',{arrowReduction:80});
-    expect(pairWorstCaseAdvantage(a,b,LOCKED_DEFAULT_SETTINGS)).toBeCloseTo(46,8);
+    // +50 Luck against at most 5 in-band Arrow points below 65%, both at weight 1.
+    expect(pairWorstCaseAdvantage(a,b,LOCKED_DEFAULT_SETTINGS)).toBeCloseTo(45,8);
     expect(findDominator(b,[a],LOCKED_DEFAULT_SETTINGS).dominated).toBe(true);
   });
 
@@ -22,7 +23,7 @@ describe('analytical dominance proof',()=>{
     expect(findDominator(b,[a],LOCKED_DEFAULT_SETTINGS).dominated).toBe(false);
   });
 
-  it('treats Arrow above 75 as equal utility rather than an invented penalty',()=>{
+  it('treats Arrow above the band as equal utility rather than an invented penalty',()=>{
     const atTarget=g('AtTarget',{arrowReduction:75});
     const overstacked=g('Overstacked',{arrowReduction:120});
     expect(pairBestCaseAdvantage(atTarget,overstacked,LOCKED_DEFAULT_SETTINGS)).toBeCloseTo(0,8);

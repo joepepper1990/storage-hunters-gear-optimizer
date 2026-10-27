@@ -90,19 +90,28 @@ export function specialistVehicleLoadout(
   return all.sort((a, b) => value(b) - value(a) || b.score - a.score)[0];
 }
 
-export function analyseVehicleParts(parts: VehiclePart[], best: VehicleCombinationResult | undefined): VehicleItemAnalysis[] {
+/** Metrics with a positive importance. A 0 importance means that stat is ignored, in
+ * optimisation and in discard proofs alike. Without settings every metric counts.
+ */
+function activeMetrics(settings?: VehicleOptimiserSettings): boolean[] {
+  if (!settings) return [true, true, true, true];
+  return [settings.speedWeight, settings.accelerationWeight, settings.handlingWeight, settings.capacityWeight].map(w => w > 0);
+}
+
+export function analyseVehicleParts(parts: VehiclePart[], best: VehicleCombinationResult | undefined, settings?: VehicleOptimiserSettings): VehicleItemAnalysis[] {
   const equipped = new Set([best?.spoiler?.id, best?.exhaust?.id, best?.wheelStack?.id].filter(Boolean));
+  const active = activeMetrics(settings);
   return parts.map(item => {
     if (equipped.has(item.id)) return { item, verdict: 'EQUIP', reason: 'Part of the current highest-scoring vehicle setup.' };
     if (item.favourite) return { item, verdict: 'KEEP', reason: 'Manually locked / favourited.' };
-    const domination = findPartDominator(item, parts.filter(p => p.slot === item.slot && p.id !== item.id));
+    const domination = findPartDominator(item, parts.filter(p => p.slot === item.slot && p.id !== item.id), active);
     if (domination) return {
       item,
       verdict: 'SAFE TO DISCARD',
       dominator: domination,
       reason: `${domination.name} is at least as good for Speed, Acceleration, Handling and Capacity, and strictly better in at least one modifier.`
     };
-    if (isDominatedByEmpty(item)) return {
+    if (isDominatedByEmpty(item, active)) return {
       item,
       verdict: 'SAFE TO DISCARD',
       reason: 'Leaving this slot empty is at least as good across every performance modifier and strictly better in at least one.'
@@ -111,10 +120,13 @@ export function analyseVehicleParts(parts: VehiclePart[], best: VehicleCombinati
   });
 }
 
-export function analyseTrailers(trailers: Trailer[], best: VehicleCombinationResult | undefined) {
+export function analyseTrailers(trailers: Trailer[], best: VehicleCombinationResult | undefined, settings?: VehicleOptimiserSettings) {
+  const capacityMatters = activeMetrics(settings)[3];
   return trailers.map(item => {
     if (best?.trailer?.id === item.id) return { item, verdict: 'EQUIP' as const, reason: 'Trailer in the current highest-scoring vehicle setup.' };
     if (item.favourite) return { item, verdict: 'KEEP' as const, reason: 'Manually locked / favourited.' };
+    // With Capacity ignored no trailer can be strictly worse, so none is proven discardable.
+    if (!capacityMatters) return { item, verdict: 'KEEP' as const, reason: 'Capacity is ignored by the current preferences.' };
     const dominator = trailers.find(other => other.id !== item.id && other.capacityKg > item.capacityKg);
     if (dominator) return { item, verdict: 'SAFE TO DISCARD' as const, dominator, reason: `${dominator.name} provides more trailer capacity with no documented performance downside.` };
     if (item.capacityKg < 0) return { item, verdict: 'SAFE TO DISCARD' as const, reason: 'Leaving the trailer slot empty gives more usable capacity.' };
@@ -131,14 +143,15 @@ export function vehicleCombinationCount(parts: VehiclePart[], trailers: Trailer[
 
 function options(parts: VehiclePart[], slot: VehiclePartSlot): Array<VehiclePart | null> { return [null, ...parts.filter(p => p.slot === slot)]; }
 function sum(parts: Array<VehiclePart | null>, key: 'speedPct' | 'accelerationPct' | 'handlingPct' | 'capacityKg') { return parts.reduce((total, part) => total + (part?.[key] ?? 0), 0); }
-function findPartDominator(item: VehiclePart, candidates: VehiclePart[]) { return candidates.find(other => dominatesPart(other, item)); }
-function dominatesPart(a: VehiclePart, b: VehiclePart) {
-  const valuesA = [a.speedPct, a.accelerationPct, a.handlingPct, a.capacityKg];
-  const valuesB = [b.speedPct, b.accelerationPct, b.handlingPct, b.capacityKg];
+function partValues(p: VehiclePart) { return [p.speedPct, p.accelerationPct, p.handlingPct, p.capacityKg]; }
+function findPartDominator(item: VehiclePart, candidates: VehiclePart[], active: boolean[]) { return candidates.find(other => dominatesPart(other, item, active)); }
+function dominatesPart(a: VehiclePart, b: VehiclePart, active: boolean[]) {
+  const valuesA = partValues(a).filter((_, i) => active[i]);
+  const valuesB = partValues(b).filter((_, i) => active[i]);
   return valuesA.every((v, i) => v >= valuesB[i]) && valuesA.some((v, i) => v > valuesB[i]);
 }
-function isDominatedByEmpty(item: VehiclePart) {
-  const values = [item.speedPct, item.accelerationPct, item.handlingPct, item.capacityKg];
+function isDominatedByEmpty(item: VehiclePart, active: boolean[]) {
+  const values = partValues(item).filter((_, i) => active[i]);
   return values.every(v => v <= 0) && values.some(v => v < 0);
 }
 function compareVehicleResults(a: VehicleCombinationResult, b: VehicleCombinationResult) {

@@ -8,7 +8,9 @@ const NUMERIC_FIELDS: Record<Exclude<keyof AlgorithmSettings,'version'>,string> 
   energySecondStageMultiplier:'Energy above-target multiplier',zoneWeight:'Zone weight',
   zoneBreakpoint1:'Zone breakpoint 1',zoneBreakpoint2:'Zone breakpoint 2',
   zoneMultiplier2:'Zone middle multiplier',zoneMultiplier3:'Zone upper multiplier',
-  tipWeight:'Tip weight',recoveryWeight:'Recovery weight',vehicleWeight:'Vehicle weight',walkWeight:'Walk weight'
+  tipWeight:'Tip weight',recoveryWeight:'Recovery weight',vehicleWeight:'Vehicle weight',walkWeight:'Walk weight',
+  drinkPriority:'Drink Prep priority',gradingPriority:'Grading priority',shopPriority:'Shop / Idle priority',
+  shopTipWeight:'Shop Tip Chance importance',shopNpcWeight:'Shop NPC Offers importance'
 };
 
 /** Shared precondition for scoring, recommendations and irreversible discard proofs. */

@@ -36,12 +36,12 @@ describe('backup round trips',()=>{
     expect(()=>importJson(JSON.stringify(d))).toThrow();
   });
 
-  it('migrates stored scoring settings to the unified 2.0 model and drops removed legacy fields',()=>{
+  it('migrates stored scoring settings to the unified model and drops removed legacy fields',()=>{
     const d=makeInitialData() as any;
     d.settings={...d.settings,version:'1.0',arrowOvercapPenaltyMultiplier:1,luckBreakpoint1:100,zoneWeight:0.4,npcWeight:0.75,recoveryWeight:0.01,walkWeight:0.01};
     delete d.settings.npcBreakpoint1;
     const restored=importJson(JSON.stringify(d));
-    expect(restored.settings.version).toBe('2.0');
+    expect(restored.settings.version).toBe('2.1');
     expect(restored.settings.zoneWeight).toBe(0.6);
     expect(restored.settings.npcWeight).toBe(0);
     expect(restored.settings.recoveryWeight).toBe(0.2);

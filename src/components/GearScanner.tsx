@@ -32,7 +32,12 @@ export function GearScanner({ onClose, onConfirm }: { onClose: () => void; onCon
   const [error, setError] = useState('');
   const [baseInputs, setBaseInputs] = useState<Partial<Record<keyof GearStats, string>>>({});
 
-  useEffect(() => () => { alive.current = false; }, []);
+  // StrictMode replays effects (mount, cleanup, mount) in development; re-arm on every
+  // mount so a replayed cleanup cannot permanently discard the scan result.
+  useEffect(() => {
+    alive.current = true;
+    return () => { alive.current = false; };
+  }, []);
 
   async function processFile(file: File) {
     setBusy(true);
@@ -90,16 +95,14 @@ export function GearScanner({ onClose, onConfirm }: { onClose: () => void; onCon
   return <div className="modalBackdrop scannerBackdrop">
     <div className="modal scannerModal">
       <div className="modalHeader">
-        <div><span className="eyebrow">EXPERIMENTAL · LOCAL MODE</span><h2>Scan gear screenshot</h2></div>
+        <h2>Scan screenshot</h2>
         <button className="iconButton" onClick={onClose} aria-label="Close scanner">×</button>
       </div>
 
-      <div className="notice scannerPrivacy"><b>Private by design.</b> Your screenshot is processed on this device and is never uploaded. The OCR engine/language files may download the first time you scan.</div>
+      <p className="modalMeta">Read on this device. Always review before saving.</p>
 
       {!busy && !scan && <div className="scannerStart">
         <div className="scannerGlyph">▣</div>
-        <h3>Choose a Storage Hunters gear screenshot</h3>
-        <p>The scanner reads the name, slot, signed stats, enchantments and any clearly labelled condition or mutation. Review before saving.</p>
         <button className="primary" onClick={()=>fileRef.current?.click()}>Choose screenshot</button>
       </div>}
 
@@ -108,7 +111,6 @@ export function GearScanner({ onClose, onConfirm }: { onClose: () => void; onCon
         <strong>{status || 'Reading screenshot'}</strong>
         <progress max="1" value={progress}/>
         <span>{Math.round(progress * 100)}%</span>
-        <p>Keep this screen open while local OCR reads the image.</p>
       </div>}
 
       {error && !busy && <div className="notice dangerNotice"><b>Scan failed.</b> {error}</div>}
@@ -116,7 +118,7 @@ export function GearScanner({ onClose, onConfirm }: { onClose: () => void; onCon
       {scan && !busy && <div className="scannerResult">
         {previewUrl && <img className="scannerPreview" src={previewUrl} alt="Processed gear screenshot" />}
         <div className="scannerResultHeader">
-          <div><span className="eyebrow">DETECTED ITEM</span><h3>{scan.baseName || 'Item name not recognised'}</h3><p>{scan.slotDetected ? scan.slot : 'Slot needs review'}{scan.mutation?` · ${scan.mutation} mutation`:''}{scan.conditionPct!==undefined?` · ${scan.conditionPct}% condition`:''}</p></div>
+          <div><h3>{scan.baseName || 'Name not recognised'}</h3><p>{scan.slotDetected ? scan.slot : 'Slot needs review'}{scan.mutation?` · ${scan.mutation} mutation`:''}{scan.conditionPct!==undefined?` · ${scan.conditionPct}% condition`:''}</p></div>
           <span className={`scanConfidence ${scan.confidence.toLowerCase()}`}>{scan.confidence} confidence</span>
         </div>
 
@@ -129,22 +131,21 @@ export function GearScanner({ onClose, onConfirm }: { onClose: () => void; onCon
 
         {focusedScan && <div className="notice scannerBaseConfirmation">
           <strong>Confirm original base stats</strong>
-          <p>These observed stats may include Focused. Enter each original stat from before authentication, including any mutation or condition already present. Use the signed percentage shown in game. Do not calculate a base value from the Focused percentage.</p>
+          <p>Focused may be included. Enter each stat as it was before authentication (game sign).</p>
           {scanStatLabels.filter(([key]) => baseStatKeys.includes(key)).map(([key, label]) => <label key={key} className="field">
-            <span>{label}: observed {displayScanStat(key, scan.stats[key])} · original base %</span>
-            <input type="number" step="any" value={baseInputs[key] ?? ''} placeholder="Enter original base value" onChange={event => {
+            <span>{label} · seen {displayScanStat(key, scan.stats[key])}</span>
+            <input type="number" step="any" value={baseInputs[key] ?? ''} placeholder="Original %" onChange={event => {
               setBaseInputs(current => ({ ...current, [key]: event.target.value }));
               if (scan.baseStatsProvenance === 'confirmed') setScan({ ...scan, baseStatsProvenance: 'requires-confirmation', confirmedBaseStats: undefined });
             }} />
           </label>)}
-          {!baseStatKeys.length && <p>No stats were recognised. Scan a clearer screenshot before confirming original base stats.</p>}
+          {!baseStatKeys.length && <p>No stats recognised. Try a clearer screenshot.</p>}
           <button className="secondary" disabled={!baseInputsComplete || scan.baseStatsProvenance === 'confirmed'} onClick={confirmBaseStats}>{scan.baseStatsProvenance === 'confirmed' ? 'Original base stats confirmed' : 'Confirm these original base stats'}</button>
-          <p>The observed difference will stay with this authentication and be removed when it is replaced.</p>
         </div>}
 
         {scan.warnings.length > 0 && <div className="scannerWarnings"><strong>Check before saving</strong>{scan.warnings.map(warning => <p key={warning}>{warning}</p>)}</div>}
 
-        <details className="scannerRaw"><summary>Show raw OCR text</summary><pre>{scan.rawText || 'No text returned.'}</pre></details>
+        <details className="scannerRaw"><summary>Raw text</summary><pre>{scan.rawText || 'No text returned.'}</pre></details>
 
         <div className="scannerActions"><button className="secondary" onClick={chooseAnother}>Scan another</button><button className="primary" disabled={scanNeedsBaseStatConfirmation(scan)} onClick={()=>onConfirm(scanToGearDraft(scan))}>Review in gear editor</button></div>
       </div>}
