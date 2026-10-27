@@ -50,7 +50,7 @@ function mockedDecision(effect:Gains,number:Gains={},verdict:decisions.Certifica
       item:data.gear[0],verdict,expectedImprovementPct:values.expectedMainPct,
       ...values,chancePotentialWorsePct:0,unresolvedOutcomeMassPct:0
     }]
-  } as ReturnType<typeof decisions.analyseCertificate>);
+  } as unknown as ReturnType<typeof decisions.analyseCertificate>);
   vi.spyOn(decisions,'analyseConditionalNumberReroll').mockReturnValue({
     ...neutral,...number,chanceMainWorsePct:0,chanceAnyWorsePct:0,
     resolvedMassPct:100,unresolvedMassPct:0,modelNote:''
