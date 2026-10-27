@@ -1,9 +1,9 @@
 import { validateStatDeltas } from './statDeltas';
-import { mergeScreenshotParts, replaceWithVerifiedTrophies, screenshotCertificates } from './screenshotEquipment';
-import { makeKnownGear } from './knownGear';
-import { DEFAULT_TROPHY_SETTINGS, DEFAULT_VEHICLE_PROFILE, DEFAULT_VEHICLE_SETTINGS, makeInitialData, LEGACY_V20_ARROW_DEFAULTS, LOCKED_DEFAULT_SETTINGS } from '../defaults';
-import type { AppData, CertificateRollLog, GavelTrophy, GearItem, Trailer, TrophyOptimiserSettings, VehiclePart } from '../types';
-import { generateGearName, generateTrophyName, generateVehiclePartName, inferBaseName } from '../naming';
+import { replaceWithVerifiedCertificates, replaceWithVerifiedTrophies } from './screenshotEquipment';
+import { replaceWithVerifiedGear } from './knownGear';
+import { DEFAULT_TROPHY_SETTINGS, makeInitialData, LEGACY_V20_ARROW_DEFAULTS, LOCKED_DEFAULT_SETTINGS } from '../defaults';
+import type { AppData, CertificateRollLog, GavelTrophy, GearItem, TrophyOptimiserSettings } from '../types';
+import { generateGearName, generateTrophyName, inferBaseName } from '../naming';
 
 const DB_NAME = 'storage-hunters-gear-optimizer';
 const STORE = 'app';
@@ -248,35 +248,24 @@ function request<T = unknown>(req: IDBRequest<T>): Promise<T> {
 export function normalizeData(raw: AppData, options: { preserveInventory?: boolean } = {}): AppData {
   const initial = makeInitialData();
   const preserveInventory = options.preserveInventory === true;
+  // Schema 15 is a deliberate one-time replacement of gear, certificates and Gavels from the
+  // user's complete 27 October 2026 screenshots (earlier schemas 9 and 14 did the same from
+  // older screenshots). Stored records that match a screenshot keep their ID, favourite and
+  // created date; anything not in the screenshots is removed. Explicit backup restores keep
+  // their own inventory. Vehicle data from older versions is dropped: vehicles are no longer modelled.
+  const replace = !preserveInventory && Number(raw?.schemaVersion) < 15;
+  const storedGear = Array.isArray(raw?.gear) ? raw.gear.map(normalizeItem) : [];
+  const storedCertificates = Array.isArray(raw?.ownedCertificates) ? raw.ownedCertificates.map(normalizeOwnedCertificate) : [];
+  const storedTrophies = Array.isArray(raw?.trophies) ? raw.trophies.map(normalizeTrophy) : [];
   return {
-    schemaVersion: 14,
-    // Startup schema 9 is a deliberate one-time inventory reset from the user's complete
-    // 26 October 2026 screenshots. Any pre-schema-9 gear rows are replaced, not
-    // merged, because the verified 22-item list is the user's entire owned gear.
-    // Explicit backup restores bypass inventory seeding and retain the supplied rows.
-    gear: preserveInventory || Number(raw?.schemaVersion) >= 9
-      ? (Array.isArray(raw?.gear) ? raw.gear.map(normalizeItem) : [])
-      : makeKnownGear(),
+    schemaVersion: 15,
+    gear: replace ? replaceWithVerifiedGear(storedGear) : storedGear,
     settings: normalizeSettings(raw?.settings),
     authModel: normalizeAuthModel(raw?.authModel, initial.authModel, Number(raw?.schemaVersion ?? 0)),
     rollLog: Array.isArray(raw?.rollLog) ? raw.rollLog.map((roll, index) => preserveInventory ? normalizeRollLog(roll, index) : coerceStoredRollLog(roll, index)) : [],
-    // Same one-time reset for certificates: the seven screenshot-confirmed
-    // certificates are the complete owned inventory at this snapshot.
-    ownedCertificates: preserveInventory || Number(raw?.schemaVersion)>=9
-      ? (Array.isArray(raw?.ownedCertificates)?raw.ownedCertificates.map(normalizeOwnedCertificate):[])
-      : screenshotCertificates(),
+    ownedCertificates: replace ? replaceWithVerifiedCertificates(storedCertificates) : storedCertificates,
     theme: raw?.theme ?? 'system',
-    vehicleProfile: normalizeVehicleProfile(raw?.vehicleProfile),
-    vehicleSettings: normalizeVehicleSettings(raw?.vehicleSettings),
-    vehicleParts: preserveInventory || Number(raw?.schemaVersion)>=6
-      ? (Array.isArray(raw?.vehicleParts) ? raw.vehicleParts.map(normalizeVehiclePart) : [])
-      : mergeScreenshotParts(Array.isArray(raw?.vehicleParts) ? raw.vehicleParts.map(normalizeVehiclePart) : []),
-    trailers: Array.isArray(raw?.trailers) ? raw.trailers.map(normalizeTrailer) : initial.trailers,
-    // Schema 14 is a deliberate one-time Gavel replacement from the user's complete
-    // 27 October 2026 screenshots; explicit backup restores keep their own trophies.
-    trophies: preserveInventory || Number(raw?.schemaVersion)>=14
-      ? (Array.isArray(raw?.trophies) ? raw.trophies.map(normalizeTrophy) : [])
-      : replaceWithVerifiedTrophies(Array.isArray(raw?.trophies) ? raw.trophies.map(normalizeTrophy) : []),
+    trophies: replace ? replaceWithVerifiedTrophies(storedTrophies) : storedTrophies,
     trophySettings: normalizeTrophySettings(raw?.trophySettings,Number(raw?.schemaVersion)<6)
   };
 }
@@ -389,48 +378,6 @@ function normalizeAuthModel(raw: AppData['authModel'] | undefined, defaults: App
   return upgraded;
 }
 
-function normalizeVehicleProfile(raw: Partial<AppData['vehicleProfile']> | undefined): AppData['vehicleProfile'] {
-  return {
-    name: typeof raw?.name === 'string' && raw.name.trim() ? raw.name : DEFAULT_VEHICLE_PROFILE.name,
-    baseSpeed: finite(raw?.baseSpeed ?? DEFAULT_VEHICLE_PROFILE.baseSpeed),
-    baseAcceleration: finite(raw?.baseAcceleration ?? DEFAULT_VEHICLE_PROFILE.baseAcceleration),
-    baseHandling: finite(raw?.baseHandling ?? DEFAULT_VEHICLE_PROFILE.baseHandling),
-    baseCapacityKg: finite(raw?.baseCapacityKg ?? DEFAULT_VEHICLE_PROFILE.baseCapacityKg),
-    capacityMultiplier: finite(raw?.capacityMultiplier ?? DEFAULT_VEHICLE_PROFILE.capacityMultiplier)
-  };
-}
-
-function normalizeVehicleSettings(raw: Partial<AppData['vehicleSettings']> | undefined): AppData['vehicleSettings'] {
-  return {
-    speedWeight: finite(raw?.speedWeight ?? DEFAULT_VEHICLE_SETTINGS.speedWeight),
-    accelerationWeight: finite(raw?.accelerationWeight ?? DEFAULT_VEHICLE_SETTINGS.accelerationWeight),
-    handlingWeight: finite(raw?.handlingWeight ?? DEFAULT_VEHICLE_SETTINGS.handlingWeight),
-    capacityWeight: finite(raw?.capacityWeight ?? DEFAULT_VEHICLE_SETTINGS.capacityWeight)
-  };
-}
-
-function normalizeVehiclePart(item: VehiclePart): VehiclePart {
-  const now = new Date().toISOString();
-  const baseName = typeof item?.baseName === 'string' && item.baseName.trim()
-    ? item.baseName.trim()
-    : inferBaseName(typeof item?.name === 'string' ? item.name : '');
-  const part = {
-    speedPct: finite(item?.speedPct), accelerationPct: finite(item?.accelerationPct),
-    handlingPct: finite(item?.handlingPct), capacityKg: finite(item?.capacityKg)
-  };
-  return {
-    id: item?.id || crypto.randomUUID(),
-    baseName,
-    name: generateVehiclePartName(baseName, part),
-    slot: ['Spoiler','Exhaust','Wheel Stack'].includes(item?.slot) ? item.slot : 'Spoiler',
-    ...part,
-    mutation: typeof item?.mutation === 'string' ? item.mutation : undefined,
-    rarity: typeof item?.rarity === 'string' ? item.rarity : undefined,
-    conditionPct: conditionOrUndefined(item?.conditionPct),
-    favourite: Boolean(item?.favourite), createdAt: item?.createdAt || now, updatedAt: item?.updatedAt || now
-  };
-}
-
 function conditionOrUndefined(value:unknown):number|undefined {
   if(value===undefined||value===null||value==='')return undefined;
   const n=Number(value);
@@ -541,12 +488,6 @@ function coerceStoredRollLog(raw: unknown, index: number): CertificateRollLog {
   }
   return out as unknown as CertificateRollLog;
 }
-
-function normalizeTrailer(item: Trailer): Trailer {
-  const now = new Date().toISOString();
-  return { id: item?.id || crypto.randomUUID(), name: typeof item?.name === 'string' ? item.name : '', capacityKg: finite(item?.capacityKg), favourite: Boolean(item?.favourite), createdAt: item?.createdAt || now, updatedAt: item?.updatedAt || now };
-}
-
 
 function normalizeSettings(raw: Partial<AppData['settings']> | undefined): AppData['settings'] {
   const source = (raw ?? {}) as Record<string, unknown>;
@@ -662,23 +603,6 @@ function validateImportedData(raw: AppData): void {
   if (raw.rollLog !== undefined && !Array.isArray(raw.rollLog)) throw new Error('Invalid backup: certificate roll log must be an array.');
   // Rows are fully validated and typed by normalizeRollLog during normalisation.
   for (const [index,roll] of (raw.rollLog ?? []).entries()) normalizeRollLog(roll, index);
-  if (raw.vehicleProfile !== undefined) {
-    if (!raw.vehicleProfile || typeof raw.vehicleProfile.name !== 'string' || !raw.vehicleProfile.name.trim()) throw new Error('Vehicle profile: name is required.');
-    for (const [label,value] of Object.entries(raw.vehicleProfile)) if (label !== 'name' && !Number.isFinite(Number(value))) throw new Error(`Vehicle profile: ${label} is not finite.`);
-  }
-  if (raw.vehicleSettings !== undefined) for (const [label,value] of Object.entries(raw.vehicleSettings)) if (!Number.isFinite(Number(value)) || Number(value) < 0) throw new Error(`Vehicle settings: ${label} must be a non-negative finite number.`);
-  if (raw.vehicleParts !== undefined && !Array.isArray(raw.vehicleParts)) throw new Error('Vehicle parts must be an array.');
-  for (const [index,item] of (raw.vehicleParts ?? []).entries()) {
-    const sourceName = item?.baseName?.trim?.() || item?.name?.trim?.();
-    if (!sourceName) throw new Error(`Vehicle part row ${index + 1}: name is required.`);
-    if (!['Spoiler','Exhaust','Wheel Stack'].includes(item.slot)) throw new Error(`Vehicle part row ${index + 1}: invalid slot.`);
-    for (const [label,value] of [['speedPct',item.speedPct],['accelerationPct',item.accelerationPct],['handlingPct',item.handlingPct],['capacityKg',item.capacityKg]] as const) if (!Number.isFinite(Number(value))) throw new Error(`Vehicle part row ${index + 1}: ${label} is not finite.`);
-  }
-  if (raw.trailers !== undefined && !Array.isArray(raw.trailers)) throw new Error('Trailers must be an array.');
-  for (const [index,item] of (raw.trailers ?? []).entries()) {
-    if (!item?.name?.trim()) throw new Error(`Trailer row ${index + 1}: name is required.`);
-    if (!Number.isFinite(Number(item.capacityKg))) throw new Error(`Trailer row ${index + 1}: capacityKg is not finite.`);
-  }
   if (raw.trophies !== undefined && !Array.isArray(raw.trophies)) throw new Error('Gavel trophies must be an array.');
   for (const [index,item] of (raw.trophies ?? []).entries()) {
     if (!Array.isArray(item.modifiers) || item.modifiers.length > 3) throw new Error(`Gavel Trophy row ${index + 1}: modifiers must contain at most three entries.`);

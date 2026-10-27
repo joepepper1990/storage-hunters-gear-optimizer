@@ -8,7 +8,6 @@ function oldBackup(schemaVersion: number) {
   Object.assign(data, { schemaVersion });
   const sample = makeInitialData();
   data.gear = [{ ...sample.gear[0], id: 'custom-gear', baseName: 'My Custom Gear' }];
-  data.vehicleParts = [{ ...sample.vehicleParts[0], id: 'custom-part' }];
   data.trophies = [{ ...sample.trophies[0], id: 'custom-trophy' }];
   return data;
 }
@@ -20,9 +19,7 @@ describe('P1 backup preservation', () => {
       expect(restored.gear.map(item => item.id)).toEqual(['custom-gear']);
       expect(restored.gear[0].baseName).toBe('My Custom Gear');
       expect(restored.ownedCertificates).toEqual([]);
-      expect(restored.vehicleParts.map(item => item.id)).toEqual(['custom-part']);
       expect(restored.trophies.map(item => item.id)).toEqual(['custom-trophy']);
-      expect(restored.trailers).toEqual([]);
     });
   }
 
@@ -32,17 +29,16 @@ describe('P1 backup preservation', () => {
     const restored = importJson(exportJson(data));
     expect(restored.gear).toEqual([]);
     expect(restored.ownedCertificates).toEqual([]);
-    expect(restored.vehicleParts).toEqual([]);
     expect(restored.trophies).toEqual([]);
   });
 
   it('retains the deliberate startup inventory migrations', () => {
     const migrated = normalizeData(oldBackup(1));
-    expect(migrated.gear).toHaveLength(22);
+    expect(migrated.gear).toHaveLength(29);
     expect(migrated.gear.some(item => item.id === 'custom-gear')).toBe(false);
-    expect(migrated.ownedCertificates).toHaveLength(7);
-    expect(migrated.vehicleParts.length).toBeGreaterThan(1);
-    expect(migrated.trophies.length).toBeGreaterThan(1);
+    expect(migrated.ownedCertificates).toHaveLength(9);
+    expect(migrated.trophies).toHaveLength(18);
+    expect('vehicleParts' in migrated).toBe(false);
   });
 
   it('round-trips authentication stat deltas including negative and zero values through CSV', () => {

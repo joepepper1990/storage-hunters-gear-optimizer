@@ -5,19 +5,21 @@ import { analyseCertificate } from '../engine/certificateDecision';
 import { effectiveItemStats } from '../engine/scoring';
 import { exportJson, importJson, normalizeData } from './storage';
 import { csvToGear, gearToCsv } from './csv';
-import { makeKnownGear, makeMapleWristband, mergeKnownGear } from './knownGear';
+import { makeKnownGear, makeMapleWristband } from './knownGear';
 
-describe('verified 26 October 2026 accessory inventory',()=>{
+describe('verified 26-27 October 2026 accessory inventory',()=>{
   const gear=makeKnownGear();
   const by=(name:string)=>gear.filter(g=>g.baseName===name);
   const one=(name:string)=>by(name)[0];
 
-  it('contains exactly 22 separate accessories: 11 Head, 6 Back and 5 Wrist',()=>{
-    expect(gear).toHaveLength(22);
-    expect(gear.filter(g=>g.slot==='Head')).toHaveLength(11);
-    expect(gear.filter(g=>g.slot==='Back')).toHaveLength(6);
-    expect(gear.filter(g=>g.slot==='Wrist')).toHaveLength(5);
-    expect(new Set(gear.map(g=>g.id)).size).toBe(22);
+  it('contains exactly 29 separate accessories: 16 Head, 7 Back and 6 Wrist',()=>{
+    expect(gear).toHaveLength(29);
+    expect(gear.filter(g=>g.slot==='Head')).toHaveLength(16);
+    expect(gear.filter(g=>g.slot==='Back')).toHaveLength(7);
+    expect(gear.filter(g=>g.slot==='Wrist')).toHaveLength(6);
+    expect(new Set(gear.map(g=>g.id)).size).toBe(29);
+    expect(by('Luxury Ice Crown')).toHaveLength(3);
+    expect(by('Royal Dominus')).toHaveLength(2);
     expect(by('Steampunk Goggle')).toHaveLength(2);
     expect(by('Reactor Fedora')).toHaveLength(2);
     expect(by('Dark Heart Backpack')).toHaveLength(2);
@@ -91,29 +93,31 @@ describe('verified 26 October 2026 accessory inventory',()=>{
     expect(premium?.reasons.some(r=>r.includes('Replaces current Premium authentication'))).toBe(true);
   });
 
-  it('upgrades pre-schema-13 data by replacing all old gear with the complete verified inventory',()=>{
-    const manual={...one('Cow Dominus'),id:'manual-cow',stats:{...one('Cow Dominus').stats,luck:59}};
-    const stale={...one('Luxury Ice Crown'),id:'verified-20261017-old-luxury'};
-    const old={...makeInitialData(),schemaVersion:8,gear:[stale,manual]} as any;
-    const upgraded=normalizeData(old);
-    expect(upgraded.schemaVersion).toBe(14);
-    expect(upgraded.gear).toHaveLength(22);
-    expect(upgraded.gear.some(g=>g.id==='verified-20261017-old-luxury')).toBe(false);
-    expect(upgraded.gear.some(g=>g.id==='manual-cow')).toBe(false);
-    expect(upgraded.gear.every(g=>g.id.startsWith('verified-20261026-'))).toBe(true);
-
-    // Once schema 13 has been saved, later user edits are respected.
-    const edited={...upgraded,gear:upgraded.gear.slice(1)};
-    const again=importJson(exportJson(edited));
-    expect(again.gear).toHaveLength(21);
+  it('stores the seven accessories added on 27 October with their signed stats',()=>{
+    const added=gear.filter(g=>g.id.startsWith('verified-20261027-'));
+    expect(added.map(g=>g.baseName).sort()).toEqual(['Dark Aura Dominus','Franken Bunny Wristband','Halloween Boombox',
+      'Luxury Ice Crown','Luxury Ice Crown','Royal Dominus','Steampunk Valk Helm']);
+    expect(one('Halloween Boombox')).toMatchObject({slot:'Back',mutation:'Limited',conditionPct:73,stats:expect.objectContaining({zone:110,energy:74})});
+    expect(one('Steampunk Valk Helm').stats).toMatchObject({recovery:13,npc:7.5,arrowReduction:-3});
+    expect(one('Franken Bunny Wristband').stats).toMatchObject({recovery:13,tip:7.2,energy:-6});
+    expect(added.every(g=>!g.authenticated)).toBe(true);
   });
 
-  it('mergeKnownGear is idempotent and preserves a matching user-owned copy',()=>{
-    const manual={...one('Luxury Ice Crown'),id:'user-luxury',favourite:true};
-    const merged=mergeKnownGear([manual]);
-    expect(merged).toHaveLength(22);
-    expect(merged.find(g=>g.id==='user-luxury')?.favourite).toBe(true);
-    expect(mergeKnownGear(merged)).toHaveLength(22);
+  it('upgrades older data by replacing all old gear with the complete verified inventory',()=>{
+    const changed={...one('Cow Dominus'),id:'manual-cow',stats:{...one('Cow Dominus').stats,luck:59}};
+    const matching={...one('Luxury Ice Crown'),id:'my-luxury',favourite:true};
+    const old={...makeInitialData(),schemaVersion:8,gear:[matching,changed]} as any;
+    const upgraded=normalizeData(old);
+    expect(upgraded.schemaVersion).toBe(15);
+    expect(upgraded.gear).toHaveLength(29);
+    // An item with the same base stats keeps its ID and favourite; one with other stats is not owned.
+    expect(upgraded.gear.find(g=>g.id==='my-luxury')?.favourite).toBe(true);
+    expect(upgraded.gear.some(g=>g.id==='manual-cow')).toBe(false);
+
+    // Once schema 15 has been saved, later user edits are respected.
+    const edited={...upgraded,gear:upgraded.gear.slice(1)};
+    const again=normalizeData(JSON.parse(exportJson(edited)));
+    expect(again.gear).toHaveLength(28);
   });
 
   it('round-trips condition, mutation and signed stats in JSON and CSV',()=>{

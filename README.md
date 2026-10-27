@@ -6,11 +6,11 @@ Version 2.5 is a minimal redesign: every everyday screen gives an answer, not an
 
 ## Screens
 
-1. **Best setup** (landing page) — what to equip for each activity: Auction (Neutral / Day / Night / Rain; identical sets share one card), Drink Prep, Grading, Shop / Idle, up to the four enabled Gavel slots, and the best balanced vehicle (wheels, spoiler, exhaust, trailer). One piece may appear in several sets.
+1. **Best setup** (landing page) — what to equip for each activity: Auction (Neutral / Day / Night / Rain; identical sets share one card), Drink Prep, Grading, Shop / Idle, and up to the four enabled Gavel slots. One piece may appear in several sets.
 2. **Certificates** — a numbered queue: certificate (tier, grade, mutation), target item, chance of improving that row's goal, and **Record result**. A compact **Hold** section lists certificates with no qualifying opportunity. Owned batches, an optional history drawer and the live Authenticator prompt answer (Accept / Reroll / Reroll number) live here too.
-3. **Discard** — one grouped, selectable list of gear, Gavels, vehicle parts and trailers proven safe to remove, with review and explicit confirmation. Nothing is deleted automatically.
-4. **Inventory** — gear, Gavels, vehicle parts / trailers and certificates: add, edit, duplicate, favourite, delete and screenshot scanning.
-5. **Preferences** — 0–10 importance sliders per activity, Gavel slots and mutation values, backup / restore, appearance, and a collapsed maintenance area (vehicle profile, model values, certificate outcome catalogue, reset).
+3. **Discard** — one grouped, selectable list of gear and Gavels proven safe to remove, with review and explicit confirmation. Nothing is deleted automatically.
+4. **Inventory** — gear, Gavels and certificates: add, edit, duplicate, favourite, delete and screenshot scanning.
+5. **Preferences** — 0–10 importance sliders per activity, Gavel slots and mutation values, backup / restore, appearance, and a collapsed maintenance area (model values, certificate outcome catalogue, reset).
 
 ## Model
 
@@ -29,7 +29,7 @@ The app exhaustively evaluates exactly **one Head + one Back + one Wrist** with 
 
 Drink Prep (Energy Drink Time), Grading (Grade Re-Roll under the owned Lucky Grading pass) and Shop / Idle (Tip Chance, NPC Offers) each have a priority. After Main Auction, certificates consider specialists in priority order (default Drink Prep → Grading → Shop / Idle); a lower priority can only win when every higher one is neutral. A priority of **0 ignores** that activity everywhere: no set, no retention protection, no certificate goal.
 
-Weights are percentages that add up to 100 within each group (Auctions, Shop / Idle Tip and NPC, Vehicle). Moving one rebalances the others in its group in proportion, and other groups never change. Priorities stay on a 0–10 scale, because they set an order rather than a share. Engines use only the ratios within a group, and stored values keep their overall size, so custom values stay exact until a weight in that group is moved. Reset changes only its own section.
+Weights are percentages that add up to 100 within each group (Auctions, and Shop / Idle Tip and NPC). Moving one rebalances the others in its group in proportion, and other groups never change. Priorities stay on a 0–10 scale, because they set an order rather than a share. Engines use only the ratios within a group, and stored values keep their overall size, so custom values stay exact until a weight in that group is moved. Reset changes only its own section.
 
 ### Retention and Discard
 
@@ -74,27 +74,25 @@ Certificate roll history stores the previous and replacement authentication, exa
 
 For roll strength, the configured min / typical / max remains the prior model and is never overwritten by a single observed roll. Empirical samples progressively outweigh that prior using a decaying prior mass, so a large real sample converges toward the observed distribution instead of staying permanently 50% prior / 50% empirical.
 
-## Verified accessory inventory
+## Verified inventory
 
-The schema-9 inventory reset captured the user's verified **22 accessories** from 26 October 2026:
+Schema 15 is a one-time replacement from the user's complete 27 October 2026 screenshots:
 
-- 11 Head
-- 6 Back
-- 5 Wrist
+- **29 accessories:** 16 Head, 7 Back and 6 Wrist (the 26 October 22 plus seven more).
+- **9 certificates:** 2 Limited, 1 Premium and 6 Wooden.
+- **18 Gavel Trophies:** fourteen in inventory and four on displays.
 
-Schema 14 is a one-time Gavel replacement from the user's complete 27 October 2026 screenshots: exactly 15 Gavel Trophies (eleven in inventory, four on displays). Any other stored Gavel is removed; a stored Gavel with identical rolls keeps its ID and favourite. Everything else is untouched, and explicit backup restores keep their own Gavels.
+Anything else stored is removed. A stored record that matches a screenshot keeps its ID, favourite and created date, so roll history still points at it. Settings and roll history are untouched, and explicit backup restores keep their own inventory. Vehicles are no longer modelled; vehicle parts, trailers and vehicle settings from older versions are dropped.
 
-Schema 13 is non-destructive: existing schema-9+ inventory, certificates, roll history, vehicles and trophies are preserved while the authentication catalogue is migrated to exact Wooden / Ripped / Premium / Limited tiers. Schema-10 built-in rows inherit known tier ranges without losing observed samples.
+Schema 14 was an earlier one-time Gavel replacement: 15 Gavel Trophies (eleven in inventory, four on displays). Any other stored Gavel is removed; a stored Gavel with identical rolls keeps its ID and favourite. Everything else is untouched, and explicit backup restores keep their own Gavels.
+
+Schema 13 is non-destructive: existing schema-9+ inventory, certificates, roll history and trophies are preserved while the authentication catalogue is migrated to exact Wooden / Ripped / Premium / Limited tiers. Schema-10 built-in rows inherit known tier ranges without losing observed samples.
 
 ## Other optimisers
 
 ### Gavel Trophies
 
 The Gavel optimiser equips the best three or four (gamepass) powered trophies. Retention keeps any trophy needed by an enabled mutation-specific maximum set.
-
-### Vehicle
-
-The vehicle optimiser evaluates Spoiler × Exhaust × Wheel Stack × Trailer combinations using the documented local formula model, including empty slots and the capacity multiplier. A stat with importance 0 is ignored by both the setup and discard proofs.
 
 ## Gear scanner
 
@@ -145,6 +143,6 @@ Where those unknowns can change a recommendation, confidence is reduced and the 
 
 ## Reset behaviour
 
-**Clear all local data** and the storage-recovery **Start empty** action now create a genuinely empty workspace: no gear, certificates, roll history, vehicle parts, trailers or trophies. The default algorithm/settings catalogue remains available so the empty workspace can be rebuilt manually.
+**Clear all local data** and the storage-recovery **Start empty** action now create a genuinely empty workspace: no gear, certificates, roll history or trophies. The default algorithm/settings catalogue remains available so the empty workspace can be rebuilt manually.
 
 Historical design/audit files under `docs/` retain their original dates and model versions for traceability.

@@ -143,7 +143,7 @@ describe('Best setup', () => {
     const root = await openApp(data);
     expect(root.textContent).toContain('Needs Back, Wrist gear');
     expect(root.textContent).toContain('No Gavels');
-    expect(root.textContent).toContain('No vehicle parts');
+    expect(root.textContent).not.toMatch(/vehicle/i);
   });
 });
 
@@ -274,7 +274,7 @@ describe('Preferences', () => {
   it('shows each weight group as percentages that always add up to 100', async () => {
     const root = await openApp(makeInitialData());
     await go(root, 'Preferences');
-    for (const section of [/^Auctions/, /^Shop/, /^Vehicle/]) {
+    for (const section of [/^Auctions/, /^Shop/]) {
       const shown = outputs(root, section).map(t => Number(t!.replace('%', '')));
       expect(shown.reduce((a, b) => a + b, 0)).toBe(100);
     }
@@ -295,7 +295,8 @@ describe('Preferences', () => {
     expect(s.zoneWeight / s.arrowWeight).toBeCloseTo(.6, 9);
     expect(s.recoveryWeight / s.arrowWeight).toBeCloseTo(.2, 9);
     // Other groups are untouched.
-    expect(lastSaved().vehicleSettings).toEqual(makeInitialData().vehicleSettings);
+    expect(s.shopTipWeight).toBe(makeInitialData().settings.shopTipWeight);
+    expect(s.shopNpcWeight).toBe(makeInitialData().settings.shopNpcWeight);
     await click(button(byText(root, '.prefSection', /^Auctions/), 'Reset'));
     expect(lastSaved().settings.luckWeight).toBe(1);
   });
@@ -303,7 +304,7 @@ describe('Preferences', () => {
     const data = makeInitialData(); data.settings.zoneWeight = .65; data.settings.luckWeight = .3;
     const root = await openApp(data);
     await go(root, 'Preferences');
-    await type(labelled(root, 'Capacity') as HTMLInputElement, '50');
+    await type(labelled(root, 'Tip Chance') as HTMLInputElement, '50');
     expect(lastSaved().settings.zoneWeight).toBe(.65);
     expect(lastSaved().settings.luckWeight).toBe(.3);
   });

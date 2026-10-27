@@ -1,16 +1,15 @@
 import { useState } from 'react';
 import { effectiveItemStats } from '../engine/scoring';
-import { generateGearName, generateTrophyName, generateVehiclePartName } from '../naming';
+import { generateGearName, generateTrophyName } from '../naming';
 import { blankGear, duplicateGear, GearEditor } from '../components/GearEditor';
 import { GearScanner } from '../components/GearScanner';
 import { blankTrophy, TrophyEditor, validateTrophy } from '../components/TrophyEditor';
-import { blankPart, blankTrailer, TrailerEditor, validatePart, validateTrailer, VehiclePartEditor } from '../components/VehicleEditors';
 import { CertificateBatches } from './Certificates';
-import type { AppData, GavelTrophy, GearItem, Slot, Trailer, VehiclePart } from '../types';
+import type { AppData, GavelTrophy, GearItem, Slot } from '../types';
 import { authSummary, Empty, gameStat, itemTitle, num, SHORT_STAT, STAT_LABELS, type SetData } from '../ui';
 
-type Category = 'Gear' | 'Gavels' | 'Vehicle' | 'Certificates';
-const CATEGORIES: Category[] = ['Gear', 'Gavels', 'Vehicle', 'Certificates'];
+type Category = 'Gear' | 'Gavels' | 'Certificates';
+const CATEGORIES: Category[] = ['Gear', 'Gavels', 'Certificates'];
 type Editing<T> = { item: T; mode: 'add' | 'edit' } | null;
 
 function Actions({ favourite, onFav, onEdit, onDuplicate, onDelete, name }: { favourite: boolean; onFav: () => void; onEdit: () => void; onDuplicate?: () => void; onDelete: () => void; name: string }) {
@@ -31,8 +30,6 @@ export function Inventory({ data, setData, initialCategory = 'Gear' }: { data: A
   const [query, setQuery] = useState('');
   const [gearEdit, setGearEdit] = useState<Editing<GearItem>>(null);
   const [trophyEdit, setTrophyEdit] = useState<Editing<GavelTrophy>>(null);
-  const [partEdit, setPartEdit] = useState<Editing<VehiclePart>>(null);
-  const [trailerEdit, setTrailerEdit] = useState<Editing<Trailer>>(null);
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState('');
   const confirmDelete = (name: string) => confirm(`Delete ${name}?`);
@@ -46,16 +43,6 @@ export function Inventory({ data, setData, initialCategory = 'Gear' }: { data: A
     const item = stamp({ ...input, name: generateTrophyName(input.modifiers) });
     const issue = validateTrophy(item); if (issue) { setError(issue); return; }
     setData({ ...data, trophies: upsert(data.trophies, item, trophyEdit!.mode) }); setTrophyEdit(null); setError('');
-  };
-  const savePart = (input: VehiclePart) => {
-    const item = stamp({ ...input, name: generateVehiclePartName(input.baseName, input) });
-    const issue = validatePart(item); if (issue) { setError(issue); return; }
-    setData({ ...data, vehicleParts: upsert(data.vehicleParts, item, partEdit!.mode) }); setPartEdit(null); setError('');
-  };
-  const saveTrailer = (input: Trailer) => {
-    const item = stamp(input);
-    const issue = validateTrailer(item); if (issue) { setError(issue); return; }
-    setData({ ...data, trailers: upsert(data.trailers, item, trailerEdit!.mode) }); setTrailerEdit(null); setError('');
   };
   const copyOf = <T extends { id: string; createdAt: string; updatedAt: string }>(item: T): T => ({ ...structuredClone(item), id: crypto.randomUUID(), createdAt: '', updatedAt: '' });
 
@@ -107,37 +94,10 @@ export function Inventory({ data, setData, initialCategory = 'Gear' }: { data: A
       {!data.trophies.length && <Empty>No Gavels</Empty>}
     </>}
 
-    {category === 'Vehicle' && <>
-      <div className="toolbar">
-        <button className="primary" onClick={() => setPartEdit({ item: blankPart('Spoiler'), mode: 'add' })}>＋ Add part</button>
-        <button className="secondary" onClick={() => setTrailerEdit({ item: blankTrailer(), mode: 'add' })}>＋ Add trailer</button>
-      </div>
-      <ul className="itemList">{data.vehicleParts.map(p => <li className="row" key={p.id}>
-        <div className="rowMain"><strong>{p.baseName || p.name}</strong><span>{p.slot}</span>
-          <small>{[['Speed', p.speedPct, '%'], ['Accel', p.accelerationPct, '%'], ['Handling', p.handlingPct, '%'], ['Capacity', p.capacityKg, ' kg']].filter(([, v]) => v !== 0).map(([l, v, u]) => `${l} ${(v as number) > 0 ? '+' : ''}${num(v as number)}${u}`).join(' · ')}</small></div>
-        <Actions name={p.baseName || p.name} favourite={p.favourite}
-          onFav={() => setData({ ...data, vehicleParts: data.vehicleParts.map(x => x.id === p.id ? { ...x, favourite: !x.favourite, updatedAt: new Date().toISOString() } : x) })}
-          onEdit={() => setPartEdit({ item: structuredClone(p), mode: 'edit' })}
-          onDuplicate={() => setPartEdit({ item: copyOf(p), mode: 'add' })}
-          onDelete={() => { if (confirmDelete(p.name)) setData({ ...data, vehicleParts: data.vehicleParts.filter(x => x.id !== p.id) }); }} />
-      </li>)}
-      {data.trailers.map(t => <li className="row" key={t.id}>
-        <div className="rowMain"><strong>{t.name}</strong><span>Trailer · {num(t.capacityKg, 0)} kg</span></div>
-        <Actions name={t.name} favourite={t.favourite}
-          onFav={() => setData({ ...data, trailers: data.trailers.map(x => x.id === t.id ? { ...x, favourite: !x.favourite, updatedAt: new Date().toISOString() } : x) })}
-          onEdit={() => setTrailerEdit({ item: structuredClone(t), mode: 'edit' })}
-          onDuplicate={() => setTrailerEdit({ item: copyOf(t), mode: 'add' })}
-          onDelete={() => { if (confirmDelete(t.name)) setData({ ...data, trailers: data.trailers.filter(x => x.id !== t.id) }); }} />
-      </li>)}</ul>
-      {!data.vehicleParts.length && !data.trailers.length && <Empty>No vehicle parts</Empty>}
-    </>}
-
     {category === 'Certificates' && <CertificateBatches data={data} setData={setData} />}
 
     {gearEdit && <GearEditor key={gearEdit.item.id} item={gearEdit.item} authModel={data.authModel} mode={gearEdit.mode} onClose={() => setGearEdit(null)} onSave={saveGear} />}
     {trophyEdit && <TrophyEditor item={trophyEdit.item} weights={data.trophySettings.mutationWeights} mode={trophyEdit.mode} onClose={() => setTrophyEdit(null)} onSave={saveTrophy} />}
-    {partEdit && <VehiclePartEditor item={partEdit.item} mode={partEdit.mode} onClose={() => setPartEdit(null)} onSave={savePart} />}
-    {trailerEdit && <TrailerEditor item={trailerEdit.item} mode={trailerEdit.mode} onClose={() => setTrailerEdit(null)} onSave={saveTrailer} />}
     {scanning && <GearScanner onClose={() => setScanning(false)} onConfirm={item => { setScanning(false); setGearEdit({ item: { ...item, name: generateGearName(item.baseName, item.stats, item.authenticated, item.authentication) }, mode: 'add' }); }} />}
   </section>;
 }

@@ -16,9 +16,6 @@ export interface GearLoadoutMembership {
   tied: boolean;
 }
 
-export type VehiclePartSlot = 'Spoiler' | 'Exhaust' | 'Wheel Stack';
-export type VehicleVerdict = 'EQUIP' | 'KEEP' | 'SAFE TO DISCARD';
-
 export interface TrophyModifier {
   mutation: string;
   boostPct: number;
@@ -51,80 +48,6 @@ export interface TrophyCombinationResult {
   score: number;
   totalBoosts: Record<string, number>;
   weightedContributions: Record<string, number>;
-}
-
-export interface VehiclePart {
-  id: string;
-  baseName: string;
-  name: string;
-  slot: VehiclePartSlot;
-  speedPct: number;
-  accelerationPct: number;
-  handlingPct: number;
-  capacityKg: number;
-  mutation?: string;
-  rarity?: string;
-  conditionPct?: number;
-  favourite: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface Trailer {
-  id: string;
-  name: string;
-  capacityKg: number;
-  favourite: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface VehicleProfile {
-  name: string;
-  baseSpeed: number;
-  baseAcceleration: number;
-  baseHandling: number;
-  baseCapacityKg: number;
-  capacityMultiplier: number;
-}
-
-export interface VehicleOptimiserSettings {
-  speedWeight: number;
-  accelerationWeight: number;
-  handlingWeight: number;
-  capacityWeight: number;
-}
-
-export interface VehicleFinalStats {
-  speedExact: number;
-  speedDisplay: number;
-  acceleration: number;
-  handlingExact: number;
-  handlingDisplay: number;
-  capacityKg: number;
-  speedBonusPct: number;
-  accelerationBonusPct: number;
-  handlingBonusPct: number;
-  flatCapacityBonusKg: number;
-  trailerCapacityKg: number;
-  capacityImprovementPct: number;
-}
-
-export interface VehicleCombinationResult {
-  spoiler: VehiclePart | null;
-  exhaust: VehiclePart | null;
-  wheelStack: VehiclePart | null;
-  trailer: Trailer | null;
-  stats: VehicleFinalStats;
-  score: number;
-  scoreComponents: { speed: number; acceleration: number; handling: number; capacity: number };
-}
-
-export interface VehicleItemAnalysis {
-  item: VehiclePart;
-  verdict: VehicleVerdict;
-  reason: string;
-  dominator?: VehiclePart;
 }
 
 export interface GearStats {
@@ -324,17 +247,13 @@ export interface OwnedCertificate {
 }
 
 export interface AppData {
-  schemaVersion: 14;
+  schemaVersion: 15;
   gear: GearItem[];
   settings: AlgorithmSettings;
   authModel: AuthModelEntry[];
   rollLog: CertificateRollLog[];
   ownedCertificates: OwnedCertificate[];
   theme: ThemeMode;
-  vehicleProfile: VehicleProfile;
-  vehicleSettings: VehicleOptimiserSettings;
-  vehicleParts: VehiclePart[];
-  trailers: Trailer[];
   trophies: GavelTrophy[];
   trophySettings: TrophyOptimiserSettings;
 }
