@@ -364,15 +364,12 @@ function rollSupports(def:CertificateOutcomeDefinition,data:AppData,slot:Slot,ce
     const empiricalMass=exactMass+weakMass;
     const priorMass=1-empiricalMass;
 
-    // Five deterministic quadrature points retain min, quartiles, midpoint and max
-    // while avoiding redundant full Head × Back × Wrist recomputation.
-    const priorValues=Array.from({length:5},(_,i)=>min+(max-min)*(i/4));
+    // Midpoint quadrature represents a continuous prior without inventing atoms
+    // at legal extrema. Uniform prior nodes each carry 1% of prior mass.
+    const count=min===max?1:100;
+    const priorValues=Array.from({length:count},(_,i)=>min+(max-min)*((i+.5)/count));
     const priorWeights=normalizedPriorWeights(priorValues,min,max,def.typical);
-    const prior=priorValues.map((value,i)=>({
-      value,
-      weight:priorMass*priorWeights[i],
-      unresolved:mechanicUnknown
-    }));
+    const prior=priorValues.map((value,i)=>({value,weight:priorMass*priorWeights[i],unresolved:mechanicUnknown}));
     const empirical=[
       ...empiricalSupports(observed,exactMass),
       ...empiricalSupports(fallbackValues,weakMass)
@@ -489,6 +486,22 @@ function loadoutUsesItem(loadout:ReturnType<typeof buildGearLoadouts>['main'],it
   return Boolean(loadout&&[loadout.head.id,loadout.back.id,loadout.wrist.id].includes(itemId));
 }
 
+/** A replacement changes only trios containing the target. Reuse the best
+ * unaffected trio for each loadout instead of enumerating it for every prior node. */
+function mergeLoadouts(a:ReturnType<typeof buildGearLoadouts>,b:ReturnType<typeof buildGearLoadouts>):ReturnType<typeof buildGearLoadouts> {
+  const out:ReturnType<typeof buildGearLoadouts>={};
+  for(const key of ['main','day','night','rain','drink','grading','shop'] as const){
+    const x=a[key],y=b[key];
+    if(!x||!y){out[key]=x??y;continue;}
+    const id=(v:typeof x)=>[v.head.id,v.back.id,v.wrist.id].join('|');
+    const order=y.utility-x.utility||y.mainUtility-x.mainUtility||id(x).localeCompare(id(y));
+    const best=order<=0?x:y;
+    out[key]=Math.abs(x.utility-y.utility)<=1e-9&&Math.abs(x.mainUtility-y.mainUtility)<=1e-9
+      ?{...best,tiedItemIds:new Set([...x.tiedItemIds,...y.tiedItemIds])}:best;
+  }
+  return out;
+}
+
 function targetDecision(
   data:AppData,
   cert:OwnedCertificate,
@@ -517,6 +530,8 @@ function targetDecision(
   const shopRisk=riskPct(baseline.shop?.utility,without.shop?.utility);
   const authRisk=Math.max(mainRisk,contextRisk,drinkRisk,gradingRisk,shopRisk);
 
+  const unaffectedGear=data.gear.filter(g=>g.id!==item.id);
+  const unaffected={low:buildGearLoadouts(unaffectedGear,data.settings,'low'),central:buildGearLoadouts(unaffectedGear,data.settings,'central'),high:buildGearLoadouts(unaffectedGear,data.settings,'high')};
   const probs=outcomeProbabilities(defs,observedEffectCounts(data,cert,item.slot));
   const branches:Branch[]=[];
   const baselineUsesTarget=loadoutUsesItem(baseline.main,item.id);
@@ -527,10 +542,10 @@ function targetDecision(
     const supports=rollSupports(def,data,item.slot,cert);
     for(const support of supports){
       const updated=replaceAuthentication(item,cert,def.effect,support.value);
-      const gear=data.gear.map(g=>g.id===item.id?updated:g);
-      const nextLow=buildGearLoadouts(gear,data.settings,'low');
-      const nextCentral=buildGearLoadouts(gear,data.settings,'central');
-      const nextHigh=buildGearLoadouts(gear,data.settings,'high');
+      const gear=data.gear.filter(g=>g.slot!==item.slot).concat(updated);
+      const nextLow=mergeLoadouts(unaffected.low,buildGearLoadouts(gear,data.settings,'low'));
+      const nextCentral=mergeLoadouts(unaffected.central,buildGearLoadouts(gear,data.settings,'central'));
+      const nextHigh=mergeLoadouts(unaffected.high,buildGearLoadouts(gear,data.settings,'high'));
 
       const mainDeltas=[
         pct(nextLow.main?.utility,baselines.low.main?.utility),
@@ -797,6 +812,7 @@ function targetDecision(
         ?'Certificate mutation '+cert.mutation+' is recorded and exact-mutation roll evidence is preferred when available; its unpublished strength shift is not fabricated.'
         :'No certificate mutation is recorded.',
       'Personal effect tiers are used only as an ordinal secondary signal when the target remains in a robust Main Auction trio; they never compensate for weaker Main utility.',
+      'Numeric priors use 100 midpoint quadrature nodes, not endpoint probability masses. Percentages are numerical model estimates; empirical observations retain their exact frequency. The prior shape and game roll precision remain assumptions.',
       'Lucky Grading is ON.'
     ]
   };
@@ -908,7 +924,7 @@ function withConversionAdvice(
 export function compareCertificateTargets(a:CertificateTargetDecision,b:CertificateTargetDecision):number {
   const vr=(v:CertificateDecisionVerdict)=>({USE:0,CONSIDER:1,HOLD:2,'DO NOT USE':3}[v]);
   return vr(a.verdict)-vr(b.verdict)||
-    b.resolvedOutcomeMassPct-a.resolvedOutcomeMassPct||
+    (Math.abs(b.resolvedOutcomeMassPct-a.resolvedOutcomeMassPct)>1e-6?b.resolvedOutcomeMassPct-a.resolvedOutcomeMassPct:0)||
     b.expectedImprovementLowPct-a.expectedImprovementLowPct||
     b.chanceOfImprovementPct-a.chanceOfImprovementPct||
     b.mainFitPct-a.mainFitPct||a.item.id.localeCompare(b.item.id);

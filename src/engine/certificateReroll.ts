@@ -51,12 +51,13 @@ function option(
   if(!values)return undefined;
   const resolved=values.unresolvedOutcomeMassPct<1e-9;
   const lowDownside=values.chancePotentialWorsePct<45;
-  const benefit=values.expectedMainPct>.25 ||
-    values.expectedContextualMainPct>=1 ||
-    values.expectedDrinkPrepPct>=3 ||
-    values.expectedGradingPct>=3 ||
-    values.expectedShopPct>=3 ||
-    values.expectedPersonalPreferenceDelta>=.20;
+  // A lower-priority benefit can only justify spending when every higher
+  // priority is neutral. In particular, Shop cannot pay for lost Drink Prep.
+  const priorities=priorityTuple(values);
+  const minimumGains=[.25,1,.20,3,3,3];
+  const firstMaterial=priorities.findIndex(value=>value!==0);
+  const benefit=firstMaterial>=0&&priorities[firstMaterial]>=minimumGains[firstMaterial]&&
+    (firstMaterial!==0||priorities[0]>.25);
   return {
     action,...values,recommendable:resolved&&lowDownside&&benefit,
     note:!resolved
@@ -66,20 +67,35 @@ function option(
   };
 }
 
-function optionRank(value:PostRollOption|undefined):number {
-  if(!value?.recommendable)return -Infinity;
-  const specialist=Math.max(
-    value.expectedContextualMainPct,
-    value.expectedDrinkPrepPct,
-    value.expectedGradingPct,
-    value.expectedShopPct,
-    value.expectedPersonalPreferenceDelta
-  );
-  return value.expectedMainPct*10_000+specialist*100-value.chancePotentialWorsePct;
+type OptionValues=Pick<PostRollOption,
+  'expectedMainPct'|'expectedContextualMainPct'|'expectedPersonalPreferenceDelta'|
+  'expectedDrinkPrepPct'|'expectedGradingPct'|'expectedShopPct'>;
+
+function priorityTuple(value:OptionValues):number[] {
+  const neutralMain=Math.abs(value.expectedMainPct)<=.25;
+  const material=(amount:number,tolerance:number)=>Math.abs(amount)<tolerance?0:amount;
+  return [
+    neutralMain?0:value.expectedMainPct,
+    material(value.expectedContextualMainPct,.25),
+    // Personal tiers are ordinal and can only break a neutral Main result.
+    neutralMain?material(value.expectedPersonalPreferenceDelta,.20):0,
+    material(value.expectedDrinkPrepPct,.25),
+    material(value.expectedGradingPct,.25),
+    material(value.expectedShopPct,.25)
+  ];
+}
+
+function compareOptions(left:PostRollOption,right:PostRollOption):number {
+  const a=[...priorityTuple(left),-left.chancePotentialWorsePct];
+  const b=[...priorityTuple(right),-right.chancePotentialWorsePct];
+  for(let i=0;i<a.length;i++){
+    if(a[i]!==b[i])return a[i]>b[i]?1:-1;
+  }
+  return 0;
 }
 
 function fromCertificateTarget(target:CertificateTargetDecision|undefined):PostRollOption|undefined {
-  return option('REROLL EFFECT',target&&{
+  const result=option('REROLL EFFECT',target&&{
     expectedMainPct:target.expectedImprovementPct,
     chancePotentialWorsePct:target.chancePotentialWorsePct,
     unresolvedOutcomeMassPct:target.unresolvedOutcomeMassPct,
@@ -89,6 +105,11 @@ function fromCertificateTarget(target:CertificateTargetDecision|undefined):PostR
     expectedShopPct:target.expectedShopPct,
     expectedPersonalPreferenceDelta:target.expectedPersonalPreferenceDelta
   },'Authentication effect is selected from the applicable catalogue.');
+  if(result&&target&&target.verdict!=='USE'&&target.verdict!=='CONSIDER'){
+    result.recommendable=false;
+    result.note='The certificate target verdict does not support rerolling this effect. '+result.note;
+  }
+  return result;
 }
 
 /** Only use this during a real, user-confirmed open Authenticator prompt.
@@ -129,10 +150,12 @@ export function analysePostRollOptions(data:AppData,roll:CertificateRollLog):Pos
     expectedPersonalPreferenceDelta:0
   },number?.modelNote??'');
 
-  const effectRank=optionRank(effectReroll);
-  const numberRank=optionRank(numberReroll);
-  let recommendation:PostRollDecision['recommendation']='ACCEPT';
-  if(effectRank>0||numberRank>0)recommendation=numberRank>effectRank?'REROLL NUMBER':'REROLL EFFECT';
+  const candidates=[effectReroll,numberReroll].filter(
+    (value):value is PostRollOption=>!!value?.recommendable
+  );
+  const best=candidates.reduce<PostRollOption|undefined>((winner,value)=>
+    !winner||compareOptions(value,winner)>0?value:winner,undefined);
+  const recommendation:PostRollDecision['recommendation']=best?.action??'ACCEPT';
 
   return {
     roll,
@@ -152,3 +175,4 @@ export function analyseActivePostRoll(data:AppData,activePostRollId?:string):Pos
   const latest=data.rollLog.at(-1);
   return latest?.id===activePostRollId?analysePostRollOptions(data,latest):undefined;
 }
+

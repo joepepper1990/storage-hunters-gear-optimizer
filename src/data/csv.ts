@@ -1,11 +1,11 @@
-import type { GearItem, Slot } from '../types';
+import type { GearItem, GearStats, Slot } from '../types';
 import { gameArrowToReduction, reductionToGameArrow } from '../engine/scoring';
 import { generateGearName, inferBaseName } from '../naming';
 
-const headers = ['ID','Base Name','Slot','Luck','Energy Drink Time','Tip Chance','Walkspeed','Vehicle Speed','Bid Recovery','Bid Zone Width','Bid Arrow Speed (game display)','NPC Offers Bonus','Authenticated','Authentication Type','Authentication Effect','Authentication Value','Favourite','Mutation','Condition %'];
+const headers = ['ID','Base Name','Slot','Luck','Energy Drink Time','Tip Chance','Walkspeed','Vehicle Speed','Bid Recovery','Bid Zone Width','Bid Arrow Speed (game display)','NPC Offers Bonus','Authenticated','Authentication Type','Authentication Effect','Authentication Value','Favourite','Mutation','Condition %','Authentication Stat Deltas'];
 
 export function gearToCsv(items: GearItem[]): string {
-  const rows = items.map(i => [i.id,i.baseName,i.slot,i.stats.luck,i.stats.energy,i.stats.tip,i.stats.walk,i.stats.vehicle,i.stats.recovery,i.stats.zone,reductionToGameArrow(i.stats.arrowReduction),i.stats.npc,i.authenticated,i.authentication.kind,i.authentication.effect,i.authentication.value,i.favourite,i.mutation??'',i.conditionPct??'']);
+  const rows = items.map(i => [i.id,i.baseName,i.slot,i.stats.luck,i.stats.energy,i.stats.tip,i.stats.walk,i.stats.vehicle,i.stats.recovery,i.stats.zone,reductionToGameArrow(i.stats.arrowReduction),i.stats.npc,i.authenticated,i.authentication.kind,i.authentication.effect,i.authentication.value,i.favourite,i.mutation??'',i.conditionPct??'',i.authentication.statDeltas===undefined?'':JSON.stringify(i.authentication.statDeltas)]);
   return [headers, ...rows].map(row => row.map(csvCell).join(',')).join('\n');
 }
 
@@ -37,7 +37,8 @@ export function csvToGear(text: string): GearItem[] {
     const effect = at(r,'Authentication Effect').trim();
     if (authenticated && !effect) throw new Error(`CSV row ${rowNumber}: authentication effect is required for authenticated gear.`);
     const stats = { luck:num('Luck'), energy:num('Energy Drink Time'), tip:num('Tip Chance'), walk:num('Walkspeed'), vehicle:num('Vehicle Speed'), recovery:num('Bid Recovery'), zone:num('Bid Zone Width'), arrowReduction:gameArrowToReduction(num('Bid Arrow Speed (game display)')), npc:num('NPC Offers Bonus') };
-    const authentication = { kind, effect, value:num('Authentication Value') };
+    const statDeltas = parseStatDeltas(at(r,'Authentication Stat Deltas'), rowNumber);
+    const authentication = { kind, effect, value:num('Authentication Value'), ...(statDeltas === undefined ? {} : { statDeltas }) };
     const conditionText=at(r,'Condition %').trim();
     const conditionPct=conditionText===''?undefined:finite(conditionText,rowNumber,'Condition %');
     if(conditionPct!==undefined && (conditionPct<0 || conditionPct>100)) throw new Error(`CSV row ${rowNumber}: condition must be between 0 and 100%.`);
@@ -47,6 +48,21 @@ export function csvToGear(text: string): GearItem[] {
       favourite:/^(true|yes|1)$/i.test(at(r,'Favourite').trim()), createdAt:now, updatedAt:now
     };
   });
+}
+
+// The optional JSON column keeps older CSV files compatible while preserving observed
+// authentication changes separately from the item's displayed base stats.
+function parseStatDeltas(text: string, row: number): Partial<GearStats> | undefined {
+  if (!text.trim()) return undefined;
+  const error = () => new Error(`CSV row ${row}: Authentication Stat Deltas must be a JSON object containing known stat keys with finite numeric values.`);
+  let parsed: unknown;
+  try { parsed = JSON.parse(text); } catch { throw error(); }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw error();
+  const keys = new Set(['luck','energy','tip','walk','vehicle','recovery','zone','arrowReduction','npc']);
+  for (const [key, value] of Object.entries(parsed)) {
+    if (!keys.has(key) || typeof value !== 'number' || !Number.isFinite(value)) throw error();
+  }
+  return parsed as Partial<GearStats>;
 }
 
 function csvCell(v: unknown) { const s = String(v ?? ''); return /[",\n]/.test(s) ? `"${s.replaceAll('"','""')}"` : s; }
@@ -70,3 +86,4 @@ function parseCsv(text: string): string[][] {
   if (q) throw new Error('CSV contains an unterminated quoted field.');
   row.push(cell.replace(/\r$/,'')); if(row.some(x=>x.length)) out.push(row); return out;
 }
+

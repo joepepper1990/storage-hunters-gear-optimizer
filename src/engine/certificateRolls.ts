@@ -162,3 +162,11 @@ export function deleteRecordedCertificateRoll(data:AppData,rollId:string):AppDat
     rollLog:nextRollLog
   };
 }
+
+
+/** Observed stat deltas belong to one authentication identity, never its replacement. */
+export function editAuthentication(current:GearItem['authentication'],patch:Partial<GearItem['authentication']>):GearItem['authentication'] {
+  const next={...current,...patch};
+  if(next.kind!==current.kind||next.effect!==current.effect||next.value!==current.value)delete next.statDeltas;
+  return next;
+}
