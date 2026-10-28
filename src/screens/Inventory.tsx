@@ -68,7 +68,7 @@ export function Inventory({ data, setData, initialCategory = 'Gear' }: { data: A
         return <li className="row" key={item.id}>
           <div className="rowMain">
             <strong>{itemTitle(item)}</strong>
-            <span>{[item.slot, item.mutation && item.mutation !== 'None' ? item.mutation : '', authSummary(item)].filter(Boolean).join(' · ')}</span>
+            <span>{[item.slot, item.gradeStars ? `${item.gradeStars}★` : item.gradeStars === 0 ? 'Not graded' : '', item.mutation && item.mutation !== 'None' ? item.mutation : '', authSummary(item)].filter(Boolean).join(' · ')}</span>
             <small>{STAT_LABELS.filter(([k]) => Math.abs(stats[k]) > 1e-12).map(([k]) => `${SHORT_STAT[k]} ${gameStat(k, stats[k])}`).join(' · ')}</small>
           </div>
           <Actions name={itemTitle(item)} favourite={item.favourite}
@@ -84,7 +84,8 @@ export function Inventory({ data, setData, initialCategory = 'Gear' }: { data: A
     {category === 'Gavels' && <>
       <div className="toolbar"><button className="primary" onClick={() => setTrophyEdit({ item: blankTrophy(data.trophySettings.mutationWeights), mode: 'add' })}>＋ Add Gavel</button></div>
       <ul className="itemList">{data.trophies.map(t => <li className="row" key={t.id}>
-        <div className="rowMain"><strong>{t.modifiers.map(m => `${m.mutation} +${num(m.boostPct)}%`).join(' · ') || t.name}</strong></div>
+        <div className="rowMain"><strong>{t.modifiers.map(m => `${m.mutation} +${num(m.boostPct)}%`).join(' · ') || t.name}</strong>
+          {t.gradeStars !== undefined && <span>{t.gradeStars ? `${t.gradeStars}★` : 'Not graded'}</span>}</div>
         <Actions name={t.name} favourite={t.favourite}
           onFav={() => setData({ ...data, trophies: data.trophies.map(x => x.id === t.id ? { ...x, favourite: !x.favourite, updatedAt: new Date().toISOString() } : x) })}
           onEdit={() => setTrophyEdit({ item: structuredClone(t), mode: 'edit' })}

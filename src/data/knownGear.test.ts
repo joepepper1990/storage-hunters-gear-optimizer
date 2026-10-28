@@ -108,7 +108,7 @@ describe('verified 26-27 October 2026 accessory inventory',()=>{
     const matching={...one('Luxury Ice Crown'),id:'my-luxury',favourite:true};
     const old={...makeInitialData(),schemaVersion:8,gear:[matching,changed]} as any;
     const upgraded=normalizeData(old);
-    expect(upgraded.schemaVersion).toBe(15);
+    expect(upgraded.schemaVersion).toBe(16);
     expect(upgraded.gear).toHaveLength(29);
     // An item with the same base stats keeps its ID and favourite; one with other stats is not owned.
     expect(upgraded.gear.find(g=>g.id==='my-luxury')?.favourite).toBe(true);

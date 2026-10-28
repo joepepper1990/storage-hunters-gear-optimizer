@@ -1,6 +1,6 @@
 import { validateStatDeltas } from './statDeltas';
-import { replaceWithVerifiedCertificates, replaceWithVerifiedTrophies } from './screenshotEquipment';
-import { replaceWithVerifiedGear } from './knownGear';
+import { fillVerifiedTrophyStars, replaceWithVerifiedCertificates, replaceWithVerifiedTrophies } from './screenshotEquipment';
+import { fillVerifiedGearStars, replaceWithVerifiedGear } from './knownGear';
 import { DEFAULT_TROPHY_SETTINGS, makeInitialData, LEGACY_V20_ARROW_DEFAULTS, LOCKED_DEFAULT_SETTINGS } from '../defaults';
 import type { AppData, CertificateRollLog, GavelTrophy, GearItem, TrophyOptimiserSettings } from '../types';
 import { generateGearName, generateTrophyName, inferBaseName } from '../naming';
@@ -257,16 +257,22 @@ export function normalizeData(raw: AppData, options: { preserveInventory?: boole
   const storedGear = Array.isArray(raw?.gear) ? raw.gear.map(normalizeItem) : [];
   const storedCertificates = Array.isArray(raw?.ownedCertificates) ? raw.ownedCertificates.map(normalizeOwnedCertificate) : [];
   const storedTrophies = Array.isArray(raw?.trophies) ? raw.trophies.map(normalizeTrophy) : [];
+  // Schema 16 fills the star grades the same screenshots showed, once, without overwriting
+  // a grade already recorded. Backup restores keep exactly what they contain.
+  const fillStars = !preserveInventory && !(Number(raw?.schemaVersion) >= 16);
+  const gear = replace ? replaceWithVerifiedGear(storedGear) : storedGear;
+  const trophies = replace ? replaceWithVerifiedTrophies(storedTrophies) : storedTrophies;
   return {
-    schemaVersion: 15,
-    gear: replace ? replaceWithVerifiedGear(storedGear) : storedGear,
+    schemaVersion: 16,
+    gear: fillStars ? fillVerifiedGearStars(gear) : gear,
     settings: normalizeSettings(raw?.settings),
     authModel: normalizeAuthModel(raw?.authModel, initial.authModel, Number(raw?.schemaVersion ?? 0)),
     rollLog: Array.isArray(raw?.rollLog) ? raw.rollLog.map((roll, index) => preserveInventory ? normalizeRollLog(roll, index) : coerceStoredRollLog(roll, index)) : [],
     ownedCertificates: replace ? replaceWithVerifiedCertificates(storedCertificates) : storedCertificates,
     theme: raw?.theme ?? 'system',
-    trophies: replace ? replaceWithVerifiedTrophies(storedTrophies) : storedTrophies,
-    trophySettings: normalizeTrophySettings(raw?.trophySettings,Number(raw?.schemaVersion)<6)
+    trophies: fillStars ? fillVerifiedTrophyStars(trophies) : trophies,
+    trophySettings: normalizeTrophySettings(raw?.trophySettings,Number(raw?.schemaVersion)<6),
+    gradeObservations: Array.isArray(raw?.gradeObservations) ? raw.gradeObservations.filter(validGradeObservation) : []
   };
 }
 
@@ -554,6 +560,12 @@ function normalizeItem(i: GearItem): GearItem {
     createdAt: i?.createdAt || now,
     updatedAt: i?.updatedAt || now
   };
+}
+
+function validGradeObservation(o: unknown): o is AppData['gradeObservations'][number] {
+  const v = o as AppData['gradeObservations'][number];
+  return Boolean(v) && typeof v.id === 'string' && typeof v.itemName === 'string'
+    && [v.fromStars, v.toStars].every(n => Number.isInteger(n) && n >= 0 && n <= 5) && Number.isFinite(v.ratio) && v.ratio > 0;
 }
 
 /** A recorded star grade (whole number 0-5); anything else is left unrecorded. */

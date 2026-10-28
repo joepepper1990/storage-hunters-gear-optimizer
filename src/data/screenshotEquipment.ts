@@ -28,12 +28,19 @@ const GAVELS:TrophySeed[]=[
   {id:'gold94',rolls:[['Gold',94]],conditionPct:75,verifiedAt:'2026-10-27T00:00:00.000Z'}
 ];
 
+/** Star grades read from the inventory screenshots; display tooltips do not show them. */
+const GAVEL_STARS:Record<string,number>={
+  'hologram154-silver143':0,'chrome133-diamond129':0,'hologram93-silver161':3,'huge188-chrome24':0,'hologram125':2,'gem194':1,
+  'hologram142':0,'sandy167':2,'void47':1,'tiny103-hologram121':2,'void74':2,'corrupted44':0,'diamond91':0,'gold94':0
+};
+
 export function screenshotTrophies():GavelTrophy[]{
   return GAVELS.map(s=>{
     const modifiers:TrophyModifier[]=s.rolls.map(([mutation,boostPct])=>({mutation,boostPct}));
     const when=s.verifiedAt??WHEN;
     return {id:`verified-oct17-gavel-${s.id}`,name:generateTrophyName(modifiers),
-      modifiers,conditionPct:s.conditionPct,favourite:false,createdAt:when,updatedAt:when};
+      modifiers,conditionPct:s.conditionPct,...(GAVEL_STARS[s.id]===undefined?{}:{gradeStars:GAVEL_STARS[s.id]}),
+      favourite:false,createdAt:when,updatedAt:when};
   });
 }
 /** The user's complete certificate inventory from the 27 October 2026 screenshots (nine). */
@@ -67,6 +74,16 @@ export function replaceWithVerifiedTrophies(existing:GavelTrophy[]):GavelTrophy[
     const [found]=unused.splice(index,1);
     return {...next,id:found.id,favourite:found.favourite,createdAt:found.createdAt||next.createdAt,
       conditionPct:next.conditionPct??found.conditionPct};
+  });
+}
+
+/** Schema-16 one-time fill of Gavel star grades not yet recorded, matched by rolls. */
+export function fillVerifiedTrophyStars(existing:GavelTrophy[]):GavelTrophy[]{
+  const seeds=screenshotTrophies();
+  return existing.map(item=>{
+    if(item.gradeStars!==undefined)return item;
+    const seed=seeds.find(next=>trophySignature(next)===trophySignature(item));
+    return seed?.gradeStars===undefined?item:{...item,gradeStars:seed.gradeStars};
   });
 }
 

@@ -120,7 +120,7 @@ describe('schema 15 inventory replacement',()=>{
     Object.assign(d,{vehicleParts:[{id:'p'}],trailers:[{id:'t'}],vehicleProfile:{name:'Truck'},vehicleSettings:{speedWeight:1}});
 
     const migrated=normalizeData(d);
-    expect(migrated.schemaVersion).toBe(15);
+    expect(migrated.schemaVersion).toBe(16);
     expect(migrated.gear).toHaveLength(29);
     const cow=migrated.gear.find(g=>g.baseName==='Cow Dominus')!;
     expect(cow).toMatchObject({id:'my-cow',favourite:true,createdAt:'2026-10-01T00:00:00.000Z'});

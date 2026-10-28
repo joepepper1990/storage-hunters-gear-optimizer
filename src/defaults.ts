@@ -197,7 +197,7 @@ export function makeDefaultAuthModel(): AuthModelEntry[] {
 
 export function makeEmptyData():AppData{
   return {
-    schemaVersion:15,
+    schemaVersion:16,
     gear:[],
     settings:{...LOCKED_DEFAULT_SETTINGS},
     authModel:makeDefaultAuthModel(),
@@ -205,13 +205,14 @@ export function makeEmptyData():AppData{
     ownedCertificates:[],
     theme:'system',
     trophies:[],
-    trophySettings:structuredClone(DEFAULT_TROPHY_SETTINGS)
+    trophySettings:structuredClone(DEFAULT_TROPHY_SETTINGS),
+    gradeObservations:[]
   };
 }
 
 export function makeInitialData(): AppData {
   return {
-    schemaVersion: 15,
+    schemaVersion: 16,
     gear: makeKnownGear(),
     settings: { ...LOCKED_DEFAULT_SETTINGS },
     authModel: makeDefaultAuthModel(),
@@ -219,6 +220,7 @@ export function makeInitialData(): AppData {
     ownedCertificates: screenshotCertificates(),
     theme: 'system',
     trophies: screenshotTrophies(),
-    trophySettings: structuredClone(DEFAULT_TROPHY_SETTINGS)
+    trophySettings: structuredClone(DEFAULT_TROPHY_SETTINGS),
+    gradeObservations: []
   };
 }

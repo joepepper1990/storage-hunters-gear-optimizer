@@ -94,6 +94,16 @@ Schema 13 is non-destructive: existing schema-9+ inventory, certificates, roll h
 
 The Gavel optimiser equips the best three or four (gamepass) powered trophies. Retention keeps any trophy needed by an enabled mutation-specific maximum set. Any other Gavel is offered for discard only when another Gavel has at least the same boost on every one of its mutations (switched-off mutations aside) and a higher overall value.
 
+## Grading
+
+A regrade drink removes an item's grade; grading then gives 1, 2 or 3 stars at random (Remove Replica rules out failures). Each star raises the item's base stats by an amount the game does not publish, and the odds of each result are taken as equal.
+
+**Best setup → Regrade** lists items in the current best sets that are worth grading: ungraded first (grading can only help), then 1★ (a regrade can only keep or raise it), Main Auction pieces before specialists in priority order. 2★ pieces are named as an even gamble (1★ or 3★); 3★ pieces are left alone.
+
+What a star is worth is learned: importing a screenshot of a regraded item recognises it (same item, every stat changed by one factor), updates it, lists each change and records the change. From those records the app estimates the value of a star (displayed = base × (1 + k × stars), median over regrades) and shows the average stat change a regrade would bring.
+
+Schema 16 fills in the star grades the 27 October screenshots showed, once, without overwriting a grade already recorded. Gavel grades are recorded but not yet used: whether a star raises a Gavel's boosts is not known.
+
 ## Screenshot import
 
 **Inventory → Import screenshots** takes several in-game inventory screenshots at once and reads each one locally in the browser with Tesseract.js. Only the item panel is read, in separate regions: the star grade, the stat lines by colour (green base stat, red harmful stat, blue authentication, grey description) and the name with its [Tag] prefixes and condition. Prices are ignored.

@@ -91,6 +91,17 @@ const KNOWN_GEAR:InventorySeed[]=[
     stats:{recovery:13,tip:7.2,energy:-6},verified:'2026-10-27'}
 ];
 
+/** Star grades read from the same 27 October screenshots (every item had been graded). */
+const STARS:Record<string,number>={
+  'head-steampunk-goggle-a':3,'head-cow-dominus':1,'head-crypto-necklace':2,'head-desert-hood':2,'head-luxury-ice-crown':1,
+  'head-pearl-dominus':2,'head-race-valk':3,'head-reactor-fedora-a':2,'head-reactor-fedora-b':2,'head-royal-dominus':2,
+  'head-steampunk-goggle-b':2,'head-luxury-ice-crown-b':2,'head-luxury-ice-crown-c':1,'head-royal-dominus-b':1,
+  'head-dark-aura-dominus':1,'head-steampunk-valk-helm':1,
+  'back-dark-heart-a':2,'back-dark-heart-b':1,'back-elegant-business':1,'back-luxury':2,'back-police-vest':2,'back-steampunk':2,
+  'back-halloween-boombox':3,
+  'wrist-jellyfish':2,'wrist-autumn-fox':2,'wrist-maple':2,'wrist-reactor':2,'wrist-steam-engine':2,'wrist-franken-bunny':1
+};
+
 function buildSeed(seed:InventorySeed):GearItem{
   const day=seed.verified??'2026-10-26';
   const now=`${day}T00:00:00.000Z`;
@@ -104,6 +115,7 @@ function buildSeed(seed:InventorySeed):GearItem{
     slot:seed.slot,
     mutation:seed.mutation,
     conditionPct:seed.conditionPct,
+    ...(STARS[seed.id]===undefined?{}:{gradeStars:STARS[seed.id]}),
     stats,
     authenticated,
     authentication,
@@ -132,6 +144,19 @@ export function replaceWithVerifiedGear(existing:GearItem[]):GearItem[]{
     const authentication=sameAuthentication(found,next)?found.authentication:next.authentication;
     return {...next,id:found.id,favourite:found.favourite,createdAt:found.createdAt||next.createdAt,authentication,
       name:generateGearName(next.baseName,next.stats,next.authenticated,authentication)};
+  });
+}
+
+/**
+ * Schema-16 one-time fill: stored gear without a recorded star grade takes the grade the
+ * screenshots showed for the same item. A grade already recorded (by an import) is kept.
+ */
+export function fillVerifiedGearStars(existing:GearItem[]):GearItem[]{
+  const seeds=makeKnownGear();
+  return existing.map(item=>{
+    if(item.gradeStars!==undefined)return item;
+    const seed=seeds.find(next=>sameBase(item,next));
+    return seed?.gradeStars===undefined?item:{...item,gradeStars:seed.gradeStars};
   });
 }
 
