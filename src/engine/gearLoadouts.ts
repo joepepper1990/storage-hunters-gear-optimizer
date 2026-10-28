@@ -209,6 +209,13 @@ export function arrowBandReached(stats:Pick<GearStats,'arrowReduction'>,settings
   return stats.arrowReduction>=settings.arrowSweetSpot-1e-9;
 }
 
+/** Arrow tier of a set, compared before any score: 2 inside the ideal band (65-80% by
+ * default), 1 above it (the band is reached but overshot), 0 below it. */
+export function arrowTier(stats:Pick<GearStats,'arrowReduction'>,settings:AlgorithmSettings):number {
+  if(!arrowBandReached(stats,settings))return 0;
+  return stats.arrowReduction<=arrowTargetBand(settings).max+1e-9?2:1;
+}
+
 function allTrios(gear:GearItem[],settings:AlgorithmSettings):Trio[] {
   const heads=gear.filter(g=>g.slot==='Head'), backs=gear.filter(g=>g.slot==='Back'), wrists=gear.filter(g=>g.slot==='Wrist');
   if(!heads.length||!backs.length||!wrists.length)return [];
@@ -216,7 +223,7 @@ function allTrios(gear:GearItem[],settings:AlgorithmSettings):Trio[] {
   for(const h of heads)for(const b of backs)for(const w of wrists){
     const items=[h,b,w],stats=combineStats(items);
     out.push({items,stats,main:mainAuctionUtility(items,settings,'Neutral','low',stats),
-      tier:arrowBandReached(stats,settings)?1:0,key:h.id+'|'+b.id+'|'+w.id});
+      tier:arrowTier(stats,settings),key:h.id+'|'+b.id+'|'+w.id});
   }
   return out;
 }
