@@ -9,6 +9,8 @@ import { csvToGear, gearToCsv } from '../data/csv';
 import { exportJson, importJson } from '../data/storage';
 import { CatalogueRow, newAuthModelEntry } from '../components/CertificateEditors';
 import type { AppData, GearItem } from '../types';
+import type { CloudSync } from '../hooks/useCloudSync';
+import { CLOUD_SETUP_SQL, cloudConfigProblem } from '../data/cloud';
 import { dateStamp, downloadText, Notice, num, type SetData } from '../ui';
 
 function Slider({ control, data, setData }: { control: PreferenceControl; data: AppData; setData: SetData }) {
@@ -67,7 +69,7 @@ function prepareImportedGear(existing: GearItem[], incoming: GearItem[]): GearIt
   return incoming.map(item => { const clone = structuredClone(item); if (!clone.id || used.has(clone.id)) clone.id = crypto.randomUUID(); used.add(clone.id); return clone; });
 }
 
-export function Preferences({ data, setData }: { data: AppData; setData: SetData }) {
+export function Preferences({ data, setData, cloud }: { data: AppData; setData: SetData; cloud?: CloudSync }) {
   const jsonRef = useRef<HTMLInputElement>(null), csvRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<{ tone: 'info' | 'danger'; text: string }>();
   const issues = algorithmIssues(data.settings);
@@ -99,6 +101,8 @@ export function Preferences({ data, setData }: { data: AppData; setData: SetData
         <button className="secondary compact" onClick={() => { const name = prompt('Mutation name')?.trim(); if (name && !trophy.mutationWeights.some(w => w.mutation.toLowerCase() === name.toLowerCase())) setTrophy({ ...trophy, mutationWeights: [...trophy.mutationWeights, { mutation: name, multiplier: 1, enabled: true, confidence: 'Uncertain' }] }); }}>＋ Mutation</button>
       </details>
     </div>
+
+    {cloud && <CloudSection cloud={cloud} />}
 
     <div className="prefSection">
       <h2>Backup</h2>
@@ -140,4 +144,56 @@ export function Preferences({ data, setData }: { data: AppData; setData: SetData
       <button className="danger" onClick={() => { if (prompt('Type RESET ALL DATA to clear everything.') === 'RESET ALL DATA') setData(makeEmptyData()); }}>Clear all local data</button>
     </details>
   </section>;
+}
+
+const PAGE_URL = 'https://joepepper1990.github.io/storage-hunters-gear-optimizer/';
+
+/** Cloud sync with the user's own Supabase project: set up, sign in, status. */
+function CloudSection({ cloud }: { cloud: CloudSync }) {
+  const [url, setUrl] = useState(''), [key, setKey] = useState('');
+  const [email, setEmail] = useState(''), [password, setPassword] = useState('');
+  const [note, setNote] = useState<{ tone: 'info' | 'danger'; text: string }>();
+  const act = (work: () => Promise<string | void>) => { setNote(undefined); work().then(text => text && setNote({ tone: 'info', text })).catch(e => setNote({ tone: 'danger', text: e instanceof Error ? e.message : String(e) })); };
+  const when = cloud.lastSynced ? new Date(cloud.lastSynced).toLocaleString() : 'not yet';
+  return <div className="prefSection">
+    <h2>Cloud sync</h2>
+    {note && <Notice tone={note.tone}>{note.text}</Notice>}
+    {!cloud.configured && <>
+      <p className="muted cloudNote">Keeps your data in your own Supabase project, so every device you sign in on has the same inventory. Nothing is shared with anyone else.</p>
+      <div className="formGrid">
+        <label className="wide">Project URL<input value={url} onChange={e => setUrl(e.target.value)} placeholder="https://abcd1234.supabase.co" autoComplete="off" /></label>
+        <label className="wide">Public anon key<input value={key} onChange={e => setKey(e.target.value)} placeholder="eyJ… or sb_publishable_…" autoComplete="off" /></label>
+      </div>
+      <button className="primary" onClick={() => { const problem = cloudConfigProblem(url, key); if (problem) setNote({ tone: 'danger', text: problem }); else { setNote(undefined); cloud.configure(url, key); } }}>Connect</button>
+      <details className="compactDetails"><summary>Setting up Supabase (once)</summary>
+        <ol className="cloudSteps">
+          <li>In Supabase, open your project (or create one).</li>
+          <li>SQL Editor → New query → paste this and Run:<pre className="cloudSql">{CLOUD_SETUP_SQL}</pre>
+            <button className="secondary compact" onClick={() => { void navigator.clipboard?.writeText(CLOUD_SETUP_SQL); setNote({ tone: 'info', text: 'Setup script copied' }); }}>Copy script</button></li>
+          <li>Authentication → URL Configuration: set Site URL to <code>{PAGE_URL}</code></li>
+          <li>Project Settings → API: copy the Project URL and the anon public key into the fields above.</li>
+        </ol>
+      </details>
+    </>}
+    {cloud.configured && cloud.status === 'signed-out' && <>
+      <div className="formGrid">
+        <label className="wide">Email<input type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="username" /></label>
+        <label className="wide">Password<input type="password" value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" /></label>
+      </div>
+      <div className="buttonGrid">
+        <button className="primary" onClick={() => act(() => cloud.signIn(email, password))}>Sign in</button>
+        <button className="secondary" onClick={() => act(() => cloud.signUp(email, password))}>Create account</button>
+      </div>
+      <button className="link danger" onClick={() => { if (confirm('Disconnect this device from cloud sync? Your data on this device stays.')) void cloud.disconnect(); }}>Disconnect</button>
+    </>}
+    {cloud.configured && cloud.status !== 'signed-out' && cloud.status !== 'off' && <>
+      <p className="cloudStatus"><strong>{cloud.status === 'syncing' ? 'Syncing…' : cloud.status === 'synced' ? 'Synced' : cloud.status === 'conflict' ? 'Waiting for your choice' : 'Sync failed'}</strong>
+        {cloud.email && <span> · {cloud.email}</span>}<span className="muted"> · last synced {when}</span></p>
+      {cloud.status === 'error' && cloud.message && <Notice tone="danger">{cloud.message}</Notice>}
+      <div className="buttonGrid">
+        <button className="secondary" onClick={() => cloud.syncNow()}>Sync now</button>
+        <button className="secondary" onClick={() => act(() => cloud.signOut())}>Sign out</button>
+      </div>
+    </>}
+  </div>;
 }

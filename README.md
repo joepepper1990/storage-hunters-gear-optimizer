@@ -116,6 +116,14 @@ Each screenshot is shown beside editable fields with **Approve** or **Skip**; no
 
 The layout is fixed by the game, so the regions are fractions of the screenshot. OCR can still misread digits (for example 7.7 as 7), which the change list makes visible before approving.
 
+## Cloud sync (optional)
+
+**Preferences → Cloud sync** keeps the data in the user's own Supabase project, so every device signed in to it has the same inventory, settings and history. Nothing goes anywhere else.
+
+Set up once in Supabase: run the setup script shown in the app (SQL Editor; it creates one table with row-level security so each account reaches only its own row), set Authentication → URL Configuration → Site URL to the app's address, then paste the Project URL and the public anon key into the app. Sign in with email and password (a magic link would open in the browser rather than an installed home-screen app). The project URL, key and sync state are kept per device and are never exported.
+
+How it syncs: the whole data set is one row with a revision number. Each device remembers the revision and a fingerprint of what it last synced. A change on one device uploads (only if the cloud is still at that revision); a change made elsewhere downloads and is checked like a restored backup; if both changed, or a new device finds existing cloud data, the app asks which to keep and overwrites nothing until then. Sync runs 2 s after a change, when the app is reopened, and on demand. The Supabase library is only downloaded once sync is set up.
+
 ## Data and privacy
 
 There is no app backend or remote account database.
