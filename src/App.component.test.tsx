@@ -211,7 +211,7 @@ describe('Certificates', () => {
     const rows = await waitFor(() => { if (root.querySelector('.updating')) throw new Error('pending'); return root.querySelectorAll('.queueRow'); }, 60000);
     expect(rows.length).toBeGreaterThan(0);
     expect(rows[0].querySelector('.queueNo')?.textContent).toBe('1');
-    expect(rows[0].querySelector('.chance b')?.textContent).toMatch(/^(Unknown|0%|<1%|\d+%|\d+%–\d+%)$/);
+    expect(rows[0].querySelector('.chance b')?.textContent).toMatch(/^(Unclear|\d+%\+|0%|<1%|\d+%|\d+%–\d+%)$/);
     const before = data.ownedCertificates.reduce((n, c) => n + c.quantity, 0);
     await click(rows[0].querySelector('button')!);
     const result = labelled(document.body, 'Result') as HTMLSelectElement;

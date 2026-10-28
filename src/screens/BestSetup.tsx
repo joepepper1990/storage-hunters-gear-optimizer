@@ -8,6 +8,9 @@ import { Empty, itemTitle, num } from '../ui';
 
 type Stat = [label: string, value: string];
 
+/** A stat that adds nothing is noise; Arrow is always shown because it decides the set. */
+const isZero = (value: string) => /^0(\.0+)?%?$/.test(value);
+
 function trioKey(l: GearLoadoutResult) { return [l.head.id, l.back.id, l.wrist.id].join('|'); }
 
 function gradeReroll(items: GearItem[]): number {
@@ -18,7 +21,7 @@ function LoadoutCard({ title, loadout, stats }: { title: string; loadout: GearLo
   return <article className="setCard">
     <h3>{title}</h3>
     <ol className="pieces">{[loadout.head, loadout.back, loadout.wrist].map(item => <li key={item.slot}><span>{item.slot}</span><strong>{itemTitle(item)}</strong></li>)}</ol>
-    <div className="setStats">{stats.map(([label, value]) => <span key={label}>{label} <b>{value}</b></span>)}</div>
+    <div className="setStats">{stats.filter(([label, value]) => label === 'Arrow' || !isZero(value)).map(([label, value]) => <span key={label}>{label} <b>{value}</b></span>)}</div>
   </article>;
 }
 

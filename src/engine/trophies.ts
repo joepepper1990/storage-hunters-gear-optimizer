@@ -77,6 +77,8 @@ export interface TrophyRetentionAnalysis {
   verdict: TrophyRetentionVerdict;
   reason: string;
   specialistMutations: string[];
+  /** For SAFE TO DISCARD: the Gavel that beats it boost by boost. */
+  dominator?: GavelTrophy;
 }
 
 /**
@@ -162,7 +164,8 @@ export function analyseTrophyRetention(
       item,
       verdict: 'SAFE TO DISCARD',
       reason: `Not used by any best set, and ${dominator.name} has at least the same boost on every one of its mutations.`,
-      specialistMutations: []
+      specialistMutations: [],
+      dominator
     };
   });
 }
