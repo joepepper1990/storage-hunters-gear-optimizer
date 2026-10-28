@@ -19,9 +19,9 @@ The app exhaustively evaluates exactly **one Head + one Back + one Wrist** with 
 ### Auctions
 
 - Displayed Luck is kept **linear**. The app does not claim to know the hidden Luck → rare-drop/mutation formula.
-- **Reaching the Bid Arrow band comes first.** Any set with at least **65%** combined Bid Arrow reduction outranks every set below it, whatever their Luck. From 65% through 80% is equally ideal, and more adds nothing (no invented penalty). Signed in-game Arrow values are entered as shown.
-- Among the sets that reach the band, the weighted score decides: as much Luck as possible, plus Bid Zone and Bid Recovery by their weights. When no set can reach the band, Arrow progress towards 65% is weighted with the rest.
-- Gaining or losing the band counts as the largest possible change for certificate and reroll advice, and a piece that could cost a future set the band is never offered for discard.
+- **Being inside the Bid Arrow band comes first.** A set with **65–80%** combined Bid Arrow reduction outranks every other set, whatever their Luck. Above 80% comes next, then below 65%. Every value from 65% through 80% is equally ideal. Signed in-game Arrow values are entered as shown.
+- Among the sets in the same Arrow tier, the weighted score decides: as much Luck as possible, plus Bid Zone and Bid Recovery by their weights. When no set can reach the band, Arrow progress towards 65% is weighted with the rest.
+- Moving into or out of the band counts as the largest possible change for certificate and reroll advice. A piece is never offered for discard in favour of one with less Arrow, so a replacement can never drop a future set below 65%.
 - Bid Zone uses the configured diminishing curve; Bid Recovery is linear.
 - Mutated Luck, Droughtbreaker, Golden Hour, Luck Frenzy and Sunny / Nocturnal / Raindrop are evaluated as before (dynamic sensitivity states and Day / Night / Rain contexts).
 

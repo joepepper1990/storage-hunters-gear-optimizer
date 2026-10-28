@@ -9,7 +9,7 @@ import { addCertificateBatch, removeCertificateBatch, setCertificateQuantity, up
 import { applyRecordedCertificateRoll } from './certificateRolls';
 import { PREFERENCE_CONTROLS, controlsFor, resetPreferenceSection, roundedShares, setPreference, setWeightShare, sliderView, weightShares } from './preferences';
 import { optimiseTrophies } from './trophies';
-import { effectiveItemStats, scoreStandalone } from './scoring';
+import { arrowTargetBand, effectiveItemStats, scoreStandalone } from './scoring';
 
 function gear(id:string,slot:Slot,stats:Partial<GearStats>={},effect='',value=0,kind:AuthKind='Normal'):GearItem {
   return {id,baseName:id,name:id,slot,stats:{...ZERO_STATS,...stats},authenticated:!!effect,
@@ -244,11 +244,14 @@ describe('preference sliders drive the engines',()=>{
 });
 
 describe('loadout evaluator optimisation is exact',()=>{
-  // Reference: recompute everything and fully sort (Arrow band first, then score).
+  // Reference: recompute everything and fully sort (Arrow tier first: inside 65-80%, above, below; then score).
   function reference(items:GearItem[],settings:AlgorithmSettings,utility:(trio:GearItem[])=>number){
     const heads=items.filter(g=>g.slot==='Head'),backs=items.filter(g=>g.slot==='Back'),wrists=items.filter(g=>g.slot==='Wrist');
     const trios:GearItem[][]=[];for(const h of heads)for(const b of backs)for(const w of wrists)trios.push([h,b,w]);
-    const tier=(t:GearItem[])=>t.reduce((n,i)=>n+effectiveItemStats(i).arrowReduction,0)>=settings.arrowSweetSpot?1:0;
+    const tier=(t:GearItem[])=>{
+      const r=t.reduce((n,i)=>n+effectiveItemStats(i).arrowReduction,0);
+      return r<settings.arrowSweetSpot?0:r<=arrowTargetBand(settings).max?2:1;
+    };
     const scored=trios.map(t=>({t,tier:tier(t),u:utility(t),main:mainAuctionUtility(t,settings,'Neutral','low')}));
     scored.sort((a,b)=>b.tier-a.tier||b.u-a.u||b.main-a.main||a.t.map(x=>x.id).join('|').localeCompare(b.t.map(x=>x.id).join('|')));
     const best=scored[0];
@@ -321,7 +324,7 @@ describe('Main Auction: reach the Arrow band first, then Luck',()=>{
     for(const luckWeight of [1,.3,.01]){
       const main=buildGearLoadouts(items(),{...s,luckWeight}).main!;
       expect(main.back.id).toBe('arrow-back');
-      expect(main.arrowTier).toBe(1);
+      expect(main.arrowTier).toBe(2);
       expect(main.stats.arrowReduction).toBe(72);
     }
   });

@@ -1,6 +1,6 @@
 import type { AlgorithmSettings, CombinationResult, GearItem, ItemAnalysis, Slot } from '../types';
 import { arrowEffective, combineStats } from './scoring';
-import { analyseGearRetention, arrowBandReached, mainCombination } from './gearLoadouts';
+import { analyseGearRetention, arrowTier, mainCombination } from './gearLoadouts';
 
 export function evaluateCombination(head: GearItem, back: GearItem, wrist: GearItem, settings: AlgorithmSettings): CombinationResult {
   return mainCombination(head, back, wrist, settings, 'Neutral', 'low');
@@ -22,9 +22,9 @@ function combinationKey(value:CombinationResult):string {
   return [value.head.id,value.back.id,value.wrist.id].join('|');
 }
 
-/** Same Main priority as the loadout engine: Arrow band first, then score. */
+/** Same Main priority as the loadout engine: Arrow tier first, then score. */
 function compareCombination(a:CombinationResult,b:CombinationResult,settings:AlgorithmSettings):number {
-  const tier=(c:CombinationResult)=>arrowBandReached(c.stats,settings)?1:0;
+  const tier=(c:CombinationResult)=>arrowTier(c.stats,settings);
   return tier(b)-tier(a) || b.score.total-a.score.total || combinationKey(a).localeCompare(combinationKey(b));
 }
 

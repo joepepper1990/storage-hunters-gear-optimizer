@@ -1,7 +1,7 @@
 import type { AppData, AuthModelEntry, GearItem, OwnedCertificate, Slot } from '../types';
 import {
   activeSpecialists,
-  arrowBandReached,
+  arrowTier,
   buildGearLoadouts,
   gradeRerollExpectedValueGainPct,
   LUCKY_GRADING,
@@ -479,8 +479,8 @@ export function specialistUtilityDelta(after:number|undefined,before:number|unde
 
 type Loadout=NonNullable<ReturnType<typeof buildGearLoadouts>['main']>;
 
-/** Gaining or losing the Arrow band outranks any score change, so it is the largest
- * possible change, with its sign. Within the same tier the change is the score change. */
+/** Moving between Arrow tiers (below, inside or above the band) outranks any score change,
+ * so it is the largest possible change, with its sign. Within the same tier the change is the score change. */
 export const ARROW_TIER_CHANGE_PCT=100;
 
 function auctionChangePct(after:Loadout|undefined,before:Loadout|undefined):number {
@@ -514,7 +514,7 @@ function bestMainContaining(data:AppData,item:GearItem):{tier:number;utility:num
     const trio=[h,b,w];
     if(!trio.some(x=>x.id===item.id))continue;
     const stats=combineStats(trio);
-    const next={tier:arrowBandReached(stats,data.settings)?1:0,utility:mainAuctionUtility(trio,data.settings,'Neutral','low',stats)};
+    const next={tier:arrowTier(stats,data.settings),utility:mainAuctionUtility(trio,data.settings,'Neutral','low',stats)};
     if(!best||next.tier>best.tier||(next.tier===best.tier&&next.utility>best.utility))best=next;
   }
   return best;
