@@ -24,11 +24,6 @@ export function certificateLabel(cert: Pick<OwnedCertificate, 'type' | 'gradeSta
   return [tier, cert.gradeStars !== undefined ? `${cert.gradeStars}★` : '', cert.mutation?.trim() ?? ''].filter(Boolean).join(' · ');
 }
 
-/** Shown value distinguishes physical certificates that share a variant. */
-export function certificateValue(cert: Pick<OwnedCertificate, 'displayedValue'>): string {
-  return cert.displayedValue === undefined ? '' : `$${cert.displayedValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
-}
-
 function validated(input: CertificateBatchInput): CertificateBatchInput {
   if (!CERTIFICATE_TYPES.includes(input.type)) throw new Error('Choose a certificate type.');
   if (!Number.isSafeInteger(input.quantity) || input.quantity < 0) throw new Error('Quantity must be a whole number of 0 or more.');

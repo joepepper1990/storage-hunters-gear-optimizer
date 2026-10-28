@@ -1,12 +1,33 @@
 import { useMemo, useState } from 'react';
 import { algorithmIssues } from '../engine/settingsValidation';
-import { analyseTrophyRetention } from '../engine/trophies';
+import { analyseTrophyRetention, trophyMutationBoost } from '../engine/trophies';
+import { effectiveItemStats } from '../engine/scoring';
 import { hasUnknownEffect } from '../engine/effects';
-import type { AppData, ItemAnalysis } from '../types';
-import { Empty, itemTitle, Modal, type SetData } from '../ui';
+import type { AppData, GavelTrophy, GearItem, GearStats, ItemAnalysis } from '../types';
+import { Empty, gameStat, itemTitle, Modal, SHORT_STAT, STAT_LABELS, type SetData } from '../ui';
 
 type Group = 'Gear' | 'Gavels';
-interface Candidate { id: string; group: Group; name: string; detail: string }
+interface Candidate { id: string; group: Group; name: string; detail: string; why?: string }
+
+/** Short stat line so items sharing a name can be told apart, e.g. "Luck +53% · Arrow -31%". */
+function statLine(item: GearItem): string {
+  return STAT_LABELS.filter(([key]) => Math.abs(item.stats[key]) > 1e-12).map(([key]) => `${SHORT_STAT[key]} ${gameStat(key, item.stats[key])}`).join(' · ');
+}
+
+const COMPARED: Array<keyof GearStats> = ['luck', 'arrowReduction', 'zone', 'recovery', 'energy', 'tip', 'npc'];
+
+/** "Beaten by X: more Luck, Arrow" — the stats where the replacement is strictly better. */
+export function gearWhy(item: GearItem, by: GearItem): string {
+  const a = effectiveItemStats(by), b = effectiveItemStats(item);
+  const better = COMPARED.filter(key => a[key] > b[key] + 1e-9).map(key => SHORT_STAT[key]);
+  return `Beaten by ${itemTitle(by)} (${statLine(by)})${better.length ? `: more ${better.join(', ')}` : ''}`;
+}
+
+export function gavelWhy(item: GavelTrophy, by: GavelTrophy): string {
+  const better = [...new Set(item.modifiers.map(m => m.mutation))].filter(m => trophyMutationBoost(by, m) > trophyMutationBoost(item, m) + 1e-9);
+  const name = by.modifiers.map(m => `${m.mutation} +${m.boostPct}%`).join(' / ');
+  return `Beaten by ${name}${better.length ? `: more ${better.join(', ')}` : ''}`;
+}
 
 /**
  * Only current, validated proofs feed the list. Gear needs a retention result for the
@@ -19,12 +40,12 @@ export function discardCandidates(data: AppData, gearAnalyses: ItemAnalysis[], g
   const live = new Map(data.gear.map(item => [item.id, item]));
   const gear = gearLocked ? [] : gearAnalyses
     .filter(a => a.verdict === 'SAFE TO DISCARD')
-    .map(a => live.get(a.item.id))
-    .filter((item): item is NonNullable<typeof item> => Boolean(item) && !item!.favourite && !hasUnknownEffect(item!) && !certificateTargets!.has(item!.id))
-    .map(item => ({ id: item.id, group: 'Gear' as const, name: itemTitle(item), detail: item.slot }));
+    .map(a => ({ item: live.get(a.item.id), by: a.dominance?.dominator && live.get(a.dominance.dominator.id) }))
+    .filter((x): x is { item: GearItem; by: GearItem | undefined } => Boolean(x.item) && !x.item!.favourite && !hasUnknownEffect(x.item!) && !certificateTargets!.has(x.item!.id))
+    .map(({ item, by }) => ({ id: item.id, group: 'Gear' as const, name: itemTitle(item), detail: `${item.slot} · ${statLine(item)}`, why: by ? gearWhy(item, by) : undefined }));
   const gavels = analyseTrophyRetention(data.trophies, data.trophySettings)
     .filter(a => a.verdict === 'SAFE TO DISCARD' && !a.item.favourite)
-    .map(a => ({ id: a.item.id, group: 'Gavels' as const, name: a.item.name, detail: '' }));
+    .map(a => ({ id: a.item.id, group: 'Gavels' as const, name: a.item.name, detail: '', why: a.dominator ? gavelWhy(a.item, a.dominator) : undefined }));
   return { candidates: [...gear, ...gavels], gearLocked };
 }
 
@@ -70,7 +91,7 @@ export function Discard({ data, setData, gearAnalyses, gearCurrent, certificateT
         const rows = candidates.filter(c => c.group === group);
         if (!rows.length) return null;
         return <fieldset className="discardGroup" key={group}><legend>{group}</legend>
-          {rows.map(c => <label className="row check" key={c.id}><input type="checkbox" checked={picked.has(c.id)} onChange={() => toggle(c.id)} /><span className="rowMain"><strong>{c.name}</strong>{c.detail && <span>{c.detail}</span>}</span></label>)}
+          {rows.map(c => <label className="row check" key={c.id}><input type="checkbox" checked={picked.has(c.id)} onChange={() => toggle(c.id)} /><span className="rowMain"><strong>{c.name}</strong>{c.detail && <span>{c.detail}</span>}{c.why && <small>{c.why}</small>}</span></label>)}
         </fieldset>;
       })}
     </>}

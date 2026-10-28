@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { applyRecordedCertificateRoll, correctRecordedCertificateRoll, deleteRecordedCertificateRoll } from '../engine/certificateRolls';
 import type { CertificateQueue } from '../engine/certificateQueue';
-import { addCertificateBatch, certificateLabel, certificateValue, setCertificateQuantity, updateCertificateBatch } from '../engine/certificateInventory';
+import { addCertificateBatch, certificateLabel, setCertificateQuantity, updateCertificateBatch } from '../engine/certificateInventory';
 import type { CertificateTargetDecision } from '../engine/certificateDecision';
 import type { useCertificateAnalysis } from '../hooks/useAnalysis';
 import { CertificateBatchEditor, HistoryEditor, RecordResultEditor } from '../components/CertificateEditors';
@@ -19,14 +19,33 @@ function pct(value: number): string {
   return `${Math.round(value)}%`;
 }
 
-/** Full chance of improving the row's goal. "Unknown" whenever unresolved outcomes prevent a full figure. */
+/**
+ * Chance that this certificate improves the row's goal. When some possible results are
+ * effects the app cannot value yet, only the results known to help are counted, so the
+ * figure is a minimum.
+ */
 export function chanceText(target: CertificateTargetDecision): { value: string; detail?: string } {
   if (target.goalChancePct === null || target.goalChancePct === undefined) {
-    return { value: 'Unknown', detail: target.goalChanceLowerBoundPct >= 1 ? `at least ${pct(target.goalChanceLowerBoundPct)}` : undefined };
+    return target.goalChanceLowerBoundPct >= 1
+      ? { value: `${pct(target.goalChanceLowerBoundPct)}+`, detail: 'some results can\'t be scored yet' }
+      : { value: 'Unclear', detail: 'depends on results that can\'t be scored yet' };
   }
   const low = target.goalChanceLowerBoundPct, high = target.goalChanceUpperBoundPct ?? target.goalChancePct;
   if (Math.round(high) - Math.round(low) >= 1) return { value: `${pct(low)}–${pct(high)}` };
   return { value: pct(target.goalChancePct) };
+}
+
+function holdGroups(hold: CertificateQueue['hold']): Array<[string, number]> {
+  const totals = new Map<string, number>();
+  for (const h of hold) totals.set(certificateLabel(h.certificate), (totals.get(certificateLabel(h.certificate)) ?? 0) + h.quantity);
+  return [...totals];
+}
+
+/** Certificates that look the same in the app (type, grade, mutation) are shown as one line. */
+function groupByLabel(certificates: OwnedCertificate[]): Array<{ label: string; batches: OwnedCertificate[]; quantity: number }> {
+  const groups = new Map<string, OwnedCertificate[]>();
+  for (const cert of certificates) groups.set(certificateLabel(cert), [...(groups.get(certificateLabel(cert)) ?? []), cert]);
+  return [...groups].map(([label, batches]) => ({ label, batches, quantity: batches.reduce((n, b) => n + b.quantity, 0) }));
 }
 
 export function CertificateBatches({ data, setData }: { data: AppData; setData: SetData }) {
@@ -34,15 +53,19 @@ export function CertificateBatches({ data, setData }: { data: AppData; setData: 
   const [error, setError] = useState('');
   const run = (change: () => AppData) => { try { setData(change()); setEditing(null); setError(''); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } };
   return <div className="batchList">
-    {data.ownedCertificates.map(cert => <div className="row" key={cert.id}>
-      <div className="rowMain"><strong>{certificateLabel(cert)}</strong>{certificateValue(cert) && <span>{certificateValue(cert)}</span>}</div>
-      <div className="stepper" role="group" aria-label={`${certificateLabel(cert)} quantity`}>
-        <button onClick={() => run(() => setCertificateQuantity(data, cert.id, cert.quantity - 1))} disabled={cert.quantity < 1} aria-label="Remove one">−</button>
-        <output aria-live="polite">{cert.quantity}</output>
-        <button onClick={() => run(() => setCertificateQuantity(data, cert.id, cert.quantity + 1))} aria-label="Add one">＋</button>
-      </div>
-      <button className="link" onClick={() => setEditing(cert)}>Edit</button>
-    </div>)}
+    {groupByLabel(data.ownedCertificates).map(({ label, batches, quantity }) => {
+      // Adding goes to the first batch; removing takes from the last batch that still has one.
+      const last = [...batches].reverse().find(b => b.quantity > 0) ?? batches[batches.length - 1];
+      return <div className="row" key={label}>
+        <div className="rowMain"><strong>{label}</strong></div>
+        <div className="stepper" role="group" aria-label={`${label} quantity`}>
+          <button onClick={() => run(() => setCertificateQuantity(data, last.id, last.quantity - 1))} disabled={quantity < 1} aria-label="Remove one">−</button>
+          <output aria-live="polite">{quantity}</output>
+          <button onClick={() => run(() => setCertificateQuantity(data, batches[0].id, batches[0].quantity + 1))} aria-label="Add one">＋</button>
+        </div>
+        <button className="link" onClick={() => setEditing(batches[0])}>Edit</button>
+      </div>;
+    })}
     {!data.ownedCertificates.length && <Empty>No certificates</Empty>}
     {error && <p className="formError" role="alert">{error}</p>}
     <button className="secondary" onClick={() => setEditing('new')}>＋ Add certificates</button>
@@ -87,7 +110,7 @@ export function Certificates({ data, setData, analysis, queue, onRecorded }: {
         return <li key={row.certificate.id + row.target.item.id} className="queueRow">
           <span className="queueNo">{index + 1}</span>
           <div className="rowMain">
-            <strong>{certificateLabel(row.certificate)}{certificateValue(row.certificate) && <small> {certificateValue(row.certificate)}</small>}</strong>
+            <strong>{certificateLabel(row.certificate)}</strong>
             <span>→ {itemTitle(row.target.item)} · {row.target.item.slot}</span>
             <small>{GOAL_LABEL[row.target.decisionBasis]}{row.target.verdict === 'CONSIDER' ? ' · consider' : ''}</small>
           </div>
@@ -95,13 +118,13 @@ export function Certificates({ data, setData, analysis, queue, onRecorded }: {
           <button className="primary compact" onClick={() => setRecording({ certificate: row.certificate, itemId: row.target.item.id })}>Record result</button>
         </li>;
       })}</ol> : <Empty>{data.ownedCertificates.some(c => c.quantity > 0) ? 'Nothing worth using now' : 'No certificates'}</Empty>}
-      {queue.hold.length > 0 && <div className="hold"><h3>Hold</h3><ul>{queue.hold.map(h => <li key={h.certificate.id}>{certificateLabel(h.certificate)} {certificateValue(h.certificate)} <b>×{h.quantity}</b></li>)}</ul></div>}
+      {queue.hold.length > 0 && <div className="hold"><h3>Hold</h3><ul>{holdGroups(queue.hold).map(([label, quantity]) => <li key={label}>{label} <b>×{quantity}</b></li>)}</ul></div>}
     </>}
 
     <h2>Owned</h2>
     <CertificateBatches data={data} setData={setData} />
     {available.length > 0 && <label className="inlineSelect">Record another result<select value="" onChange={e => { const c = available.find(x => x.id === e.target.value); if (c) setRecording({ certificate: c }); }}>
-      <option value="">Choose certificate</option>{available.map(c => <option key={c.id} value={c.id}>{[certificateLabel(c), certificateValue(c)].filter(Boolean).join(' · ')}</option>)}</select></label>}
+      <option value="">Choose certificate</option>{groupByLabel(available).map(g => <option key={g.label} value={g.batches[0].id}>{g.label}</option>)}</select></label>}
 
     <details className="drawer"><summary>History ({data.rollLog.length})</summary>
       {data.rollLog.length ? <ul className="historyList">{data.rollLog.slice().reverse().map(r => <li key={r.id} className="row">
