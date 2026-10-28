@@ -119,3 +119,4 @@
 .importFields .formGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.importFields .formGrid .wide{grid-column:1/-1}.importFields .formGrid label{font-size:12px}
 .pieceStats{display:block;font-size:11px;font-weight:500;color:var(--muted)}
 .regradeNote{font-size:12px;margin:8px 0 0}
+.cloudNote{font-size:12px;margin:4px 0 8px}.cloudSteps{font-size:12px;padding-left:18px;display:grid;gap:8px}.cloudSql{white-space:pre-wrap;overflow-wrap:anywhere;font-size:10px;background:var(--surface2);padding:8px;border-radius:8px;max-height:180px;overflow:auto}.cloudStatus{font-size:13px;margin:4px 0 10px}

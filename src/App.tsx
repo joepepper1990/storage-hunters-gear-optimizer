@@ -3,6 +3,7 @@ import { makeEmptyData } from './defaults';
 import { exportJson, loadData, onSavedElsewhere, saveData, saveEmergencyMirror } from './data/storage';
 import { algorithmIssues } from './engine/settingsValidation';
 import { useCertificateAnalysis, useGearAnalysis } from './hooks/useAnalysis';
+import { useCloudSync } from './hooks/useCloudSync';
 import { buildCertificateQueue } from './engine/certificateQueue';
 import { BestSetup } from './screens/BestSetup';
 import { Certificates } from './screens/Certificates';
@@ -80,6 +81,7 @@ export default function App() {
     return () => window.removeEventListener('pagehide', flush);
   }, [data]);
 
+  const cloud = useCloudSync(data, edit);
   const gear = useGearAnalysis(data);
   // Shared so Discard never offers an item the certificate queue currently targets.
   // The Authenticator prompt id is session-only and never persisted.
@@ -108,6 +110,14 @@ export default function App() {
         <button onClick={() => { if (confirm('Reload saved data? Download this tab first to keep its edits.')) window.location.reload(); }}>Reload</button>
       </div>
     </div>}
+    {cloud.status === 'conflict' && <div className="notice warning banner" role="alert">
+      {cloud.firstJoin ? 'Your cloud copy already has data. Which should this device use?' : 'This device and your cloud copy both changed since the last sync. Which should be kept?'}
+      <div className="actions">
+        <button onClick={() => { if (confirm('Replace this device\'s data with the cloud copy?')) cloud.useCloud(); }}>Use cloud copy</button>
+        <button onClick={() => { if (confirm('Replace the cloud copy with this device\'s data?')) cloud.keepDevice(); }}>Keep this device</button>
+      </div>
+    </div>}
+    {cloud.status === 'error' && tab !== 'Preferences' && <div className="notice dangerNotice banner" role="alert">Cloud sync failed: {cloud.message} <button className="link" onClick={() => setTab('Preferences')}>Open</button></div>}
     {algorithmIssues(data.settings).length > 0 && tab !== 'Preferences' && <div className="notice dangerNotice banner" role="alert">Preferences need fixing <button className="link" onClick={() => setTab('Preferences')}>Open</button></div>}
 
     <main className="content">
@@ -115,7 +125,7 @@ export default function App() {
       {tab === 'Certificates' && <Certificates data={data} setData={edit} analysis={certificates} queue={queue} onRecorded={setActivePostRollId} />}
       {tab === 'Discard' && <Discard data={data} setData={edit} gearAnalyses={gear.analyses} gearCurrent={gear.current} certificateTargets={certificateTargets} />}
       {tab === 'Inventory' && <Inventory data={data} setData={edit} />}
-      {tab === 'Preferences' && <Preferences data={data} setData={edit} />}
+      {tab === 'Preferences' && <Preferences data={data} setData={edit} cloud={cloud} />}
     </main>
 
     <nav className="bottomNav" aria-label="Main">{TABS.map(t =>
