@@ -16,6 +16,12 @@ create policy "Own row: read" on public.${CLOUD_TABLE} for select using (auth.ui
 create policy "Own row: add" on public.${CLOUD_TABLE} for insert with check (auth.uid() = user_id);
 create policy "Own row: change" on public.${CLOUD_TABLE} for update using (auth.uid() = user_id) with check (auth.uid() = user_id);`;
 
+/**
+ * The owner's project ("storage-hunters", London). The publishable key is public by design:
+ * row-level security limits every account to its own row. Used to pre-fill the Connect form.
+ */
+export const OWNER_PROJECT = { url: 'https://egdvpgokrsvjhzrefsqz.supabase.co', anonKey: 'sb_publishable_YijehDgtxomSKIYAK3VvKA_47sp24ej' };
+
 /** Per-device settings: which project to use and what was last synced. Never synced or exported. */
 export interface CloudConfig { url: string; anonKey: string; mark?: SyncMark }
 const CONFIG_KEY = 'storage-hunters-gear-optimizer:cloud';

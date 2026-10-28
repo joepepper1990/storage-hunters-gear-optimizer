@@ -10,7 +10,7 @@ import { exportJson, importJson } from '../data/storage';
 import { CatalogueRow, newAuthModelEntry } from '../components/CertificateEditors';
 import type { AppData, GearItem } from '../types';
 import type { CloudSync } from '../hooks/useCloudSync';
-import { CLOUD_SETUP_SQL, cloudConfigProblem } from '../data/cloud';
+import { CLOUD_SETUP_SQL, cloudConfigProblem, OWNER_PROJECT } from '../data/cloud';
 import { dateStamp, downloadText, Notice, num, type SetData } from '../ui';
 
 function Slider({ control, data, setData }: { control: PreferenceControl; data: AppData; setData: SetData }) {
@@ -150,7 +150,7 @@ const PAGE_URL = 'https://joepepper1990.github.io/storage-hunters-gear-optimizer
 
 /** Cloud sync with the user's own Supabase project: set up, sign in, status. */
 function CloudSection({ cloud }: { cloud: CloudSync }) {
-  const [url, setUrl] = useState(''), [key, setKey] = useState('');
+  const [url, setUrl] = useState(OWNER_PROJECT.url), [key, setKey] = useState(OWNER_PROJECT.anonKey);
   const [email, setEmail] = useState(''), [password, setPassword] = useState('');
   const [note, setNote] = useState<{ tone: 'info' | 'danger'; text: string }>();
   const act = (work: () => Promise<string | void>) => { setNote(undefined); work().then(text => text && setNote({ tone: 'info', text })).catch(e => setNote({ tone: 'danger', text: e instanceof Error ? e.message : String(e) })); };
@@ -159,13 +159,13 @@ function CloudSection({ cloud }: { cloud: CloudSync }) {
     <h2>Cloud sync</h2>
     {note && <Notice tone={note.tone}>{note.text}</Notice>}
     {!cloud.configured && <>
-      <p className="muted cloudNote">Keeps your data in your own Supabase project, so every device you sign in on has the same inventory. Nothing is shared with anyone else.</p>
+      <p className="muted cloudNote">Keeps your data in your own Supabase project, so every device you sign in on has the same inventory. Nothing is shared with anyone else. Your storage-hunters project is filled in: tap Connect.</p>
       <div className="formGrid">
         <label className="wide">Project URL<input value={url} onChange={e => setUrl(e.target.value)} placeholder="https://abcd1234.supabase.co" autoComplete="off" /></label>
         <label className="wide">Public anon key<input value={key} onChange={e => setKey(e.target.value)} placeholder="eyJ… or sb_publishable_…" autoComplete="off" /></label>
       </div>
       <button className="primary" onClick={() => { const problem = cloudConfigProblem(url, key); if (problem) setNote({ tone: 'danger', text: problem }); else { setNote(undefined); cloud.configure(url, key); } }}>Connect</button>
-      <details className="compactDetails"><summary>Setting up Supabase (once)</summary>
+      <details className="compactDetails"><summary>Using a different Supabase project</summary>
         <ol className="cloudSteps">
           <li>In Supabase, open your project (or create one).</li>
           <li>SQL Editor → New query → paste this and Run:<pre className="cloudSql">{CLOUD_SETUP_SQL}</pre>
