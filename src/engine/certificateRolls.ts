@@ -18,13 +18,6 @@ function matchingModelEntry(model:AuthModelEntry[],roll:CertificateRollLog):Auth
   return candidates.find(m=>m.slot===roll.slot)??candidates.find(m=>m.slot==='Any');
 }
 
-function rollBelongsToEntry(roll:CertificateRollLog,entry:AuthModelEntry):boolean {
-  return roll.certificateType===entry.certificateType &&
-    (!entry.certificateInventoryType||roll.certificateInventoryType===entry.certificateInventoryType) &&
-    roll.newAuthentication===entry.outcome &&
-    (entry.slot==='Any'||roll.slot===entry.slot);
-}
-
 export function rollModelWarnings(model:AuthModelEntry[],roll:CertificateRollLog):string[] {
   const target=matchingModelEntry(model,roll);
   if(!target)return [`No catalogue row currently matches ${roll.newAuthentication} for this certificate tier/slot.`];
@@ -57,21 +50,21 @@ export function recordEmpiricalRoll(model:AuthModelEntry[],roll:CertificateRollL
 /**
  * Remove observations already represented by rollLog, leaving only imported/manual
  * legacy evidence. This lets a historical roll be corrected/deleted without either
- * duplicating samples or throwing away model-only evidence.
+ * duplicating samples or throwing away model-only evidence. Each roll is removed from the
+ * same catalogue row recordEmpiricalRoll adds it to, so a rebuild never drifts.
  */
 function stripRollDerivedObservations(model:AuthModelEntry[],rollLog:CertificateRollLog[]):AuthModelEntry[] {
+  const remaining=new Map(model.map(entry=>[entry.id,[...(entry.observedValues??[])]]));
+  for(const roll of rollLog){
+    const target=matchingModelEntry(model,roll);
+    const values=target&&remaining.get(target.id);
+    if(!values)continue;
+    const index=values.findIndex(value=>Math.abs(value-roll.newValue)<1e-9);
+    if(index>=0)values.splice(index,1);
+  }
   return model.map(entry=>{
-    const remaining=[...(entry.observedValues??[])];
-    for(const roll of rollLog.filter(r=>rollBelongsToEntry(r,entry))){
-      const index=remaining.findIndex(value=>Math.abs(value-roll.newValue)<1e-9);
-      if(index>=0)remaining.splice(index,1);
-    }
-    return {
-      ...entry,
-      observedValues:remaining,
-      observedSampleCount:remaining.length,
-      empiricalConfidence:empiricalConfidenceForCount(remaining.length)
-    };
+    const values=remaining.get(entry.id)!;
+    return {...entry,observedValues:values,observedSampleCount:values.length,empiricalConfidence:empiricalConfidenceForCount(values.length)};
   });
 }
 

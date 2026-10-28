@@ -3,10 +3,10 @@ import { gameArrowToReduction, reductionToGameArrow } from '../engine/scoring';
 import { validateStatDeltas } from './statDeltas';
 import { generateGearName, inferBaseName } from '../naming';
 
-const headers = ['ID','Base Name','Slot','Luck','Energy Drink Time','Tip Chance','Walkspeed','Vehicle Speed','Bid Recovery','Bid Zone Width','Bid Arrow Speed (game display)','NPC Offers Bonus','Authenticated','Authentication Type','Authentication Effect','Authentication Value','Favourite','Mutation','Condition %','Authentication Stat Deltas'];
+const headers = ['ID','Base Name','Slot','Luck','Energy Drink Time','Tip Chance','Walkspeed','Vehicle Speed','Bid Recovery','Bid Zone Width','Bid Arrow Speed (game display)','NPC Offers Bonus','Authenticated','Authentication Type','Authentication Effect','Authentication Value','Favourite','Mutation','Condition %','Authentication Stat Deltas','Grade Stars'];
 
 export function gearToCsv(items: GearItem[]): string {
-  const rows = items.map(i => [i.id,i.baseName,i.slot,i.stats.luck,i.stats.energy,i.stats.tip,i.stats.walk,i.stats.vehicle,i.stats.recovery,i.stats.zone,reductionToGameArrow(i.stats.arrowReduction),i.stats.npc,i.authenticated,i.authentication.kind,i.authentication.effect,i.authentication.value,i.favourite,i.mutation??'',i.conditionPct??'',i.authentication.statDeltas===undefined?'':JSON.stringify(i.authentication.statDeltas)]);
+  const rows = items.map(i => [i.id,i.baseName,i.slot,i.stats.luck,i.stats.energy,i.stats.tip,i.stats.walk,i.stats.vehicle,i.stats.recovery,i.stats.zone,reductionToGameArrow(i.stats.arrowReduction),i.stats.npc,i.authenticated,i.authentication.kind,i.authentication.effect,i.authentication.value,i.favourite,i.mutation??'',i.conditionPct??'',i.authentication.statDeltas===undefined?'':JSON.stringify(i.authentication.statDeltas),i.gradeStars??'']);
   return [headers, ...rows].map(row => row.map(csvCell).join(',')).join('\n');
 }
 
@@ -43,9 +43,12 @@ export function csvToGear(text: string): GearItem[] {
     const conditionText=at(r,'Condition %').trim();
     const conditionPct=conditionText===''?undefined:finite(conditionText,rowNumber,'Condition %');
     if(conditionPct!==undefined && (conditionPct<0 || conditionPct>100)) throw new Error(`CSV row ${rowNumber}: condition must be between 0 and 100%.`);
+    const starsText=at(r,'Grade Stars').trim();
+    const gradeStars=starsText===''?undefined:finite(starsText,rowNumber,'Grade Stars');
+    if(gradeStars!==undefined && !(Number.isInteger(gradeStars) && gradeStars>=0 && gradeStars<=5)) throw new Error(`CSV row ${rowNumber}: grade must be a whole number of stars from 0 to 5.`);
     return {
       id, baseName, name:generateGearName(baseName,stats,authenticated,authentication), slot, stats,
-      authenticated, authentication, mutation:at(r,'Mutation').trim()||undefined, conditionPct,
+      authenticated, authentication, mutation:at(r,'Mutation').trim()||undefined, conditionPct, ...(gradeStars===undefined?{}:{gradeStars}),
       favourite:/^(true|yes|1)$/i.test(at(r,'Favourite').trim()), createdAt:now, updatedAt:now
     };
   });

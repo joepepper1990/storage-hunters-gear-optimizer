@@ -61,6 +61,37 @@ export function updateCertificateBatch(data: AppData, id: string, input: Certifi
   return { ...data, ownedCertificates: data.ownedCertificates.map(cert => cert.id === id ? next : cert) };
 }
 
+/**
+ * Edits every batch shown as one line (same type, grade and mutation). The identity change
+ * applies to all of them; the quantity is the line's total, added to the first batch or
+ * taken from the last batches first, so each physical certificate keeps its record.
+ */
+export function updateCertificateGroup(data: AppData, ids: string[], input: CertificateBatchInput): AppData {
+  if (ids.length === 1) return updateCertificateBatch(data, ids[0], input);
+  const batch = validated(input);
+  const group = ids.map(id => data.ownedCertificates.find(cert => cert.id === id));
+  if (group.some(cert => !cert)) throw new Error('That certificate batch no longer exists.');
+  const key = certificateVariantKey(batch);
+  if (key !== certificateVariantKey(group[0]!) && data.ownedCertificates.some(cert => !ids.includes(cert.id) && certificateVariantKey(cert) === key))
+    throw new Error('A batch with this type, grade and mutation already exists. Adjust its quantity instead.');
+  const quantities = new Map(group.map(cert => [cert!.id, cert!.quantity]));
+  let change = batch.quantity - group.reduce((n, cert) => n + cert!.quantity, 0);
+  if (change > 0) quantities.set(ids[0], quantities.get(ids[0])! + change);
+  for (const id of [...ids].reverse()) {
+    if (change >= 0) break;
+    const take = Math.min(quantities.get(id)!, -change);
+    quantities.set(id, quantities.get(id)! - take);
+    change += take;
+  }
+  return { ...data, ownedCertificates: data.ownedCertificates.map(cert => {
+    if (!quantities.has(cert.id)) return cert;
+    const next: OwnedCertificate = { ...cert, type: batch.type, quantity: quantities.get(cert.id)!, gradeStars: batch.gradeStars, mutation: batch.mutation };
+    if (next.gradeStars === undefined) delete next.gradeStars;
+    if (next.mutation === undefined) delete next.mutation;
+    return next;
+  }) };
+}
+
 export function setCertificateQuantity(data: AppData, id: string, quantity: number): AppData {
   if (!Number.isSafeInteger(quantity) || quantity < 0) throw new Error('Quantity must be a whole number of 0 or more.');
   return { ...data, ownedCertificates: data.ownedCertificates.map(cert => cert.id === id ? { ...cert, quantity } : cert) };

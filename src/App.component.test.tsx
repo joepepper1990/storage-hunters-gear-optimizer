@@ -130,7 +130,7 @@ describe('Best setup', () => {
     const auction = byText(root, '.setCard', /Neutral/);
     expect(auction.textContent).toContain('Lucky Cap');
     expect(auction.textContent).not.toContain('Plain Cap');
-    expect(auction.textContent).toContain('Arrow 70% ✓');
+    expect(auction.textContent).toContain('Arrow -70% ✓');
     // Identical trios across contexts share one card.
     expect(auction.querySelector('h3')?.textContent).toBe('Neutral · Day · Night · Rain');
     expect(byText(root, '.setCard', /Drink Prep/).textContent).toContain('Watch');
@@ -146,6 +146,22 @@ describe('Best setup', () => {
 });
 
 describe('Inventory', () => {
+  it('keeps the minus sign while a negative Bid Arrow is typed key by key', async () => {
+    const root = await openApp(makeEmptyData());
+    await go(root, 'Inventory');
+    await click(button(root, '＋ Add gear'));
+    await type(labelled(root, 'Name') as HTMLInputElement, 'Test Hat');
+    await click(button(root, /＋ Arrow/));
+    const arrow = labelled(root, /Bid Arrow Speed/) as HTMLInputElement;
+    for (const text of ['', '-', '-2', '-24']) {
+      await type(arrow, text);
+      expect(arrow.value).toBe(text);
+    }
+    await click(button(root, 'Save'));
+    await waitFor(() => byText(root, '.row strong', 'Test Hat'));
+    // Game -24% Bid Arrow Speed is a +24 reduction (a slower arrow is good).
+    expect(lastSaved().gear[0].stats.arrowReduction).toBe(24);
+  });
   it('adds, edits, duplicates and favourites gear', async () => {
     const root = await openApp(makeEmptyData());
     await go(root, 'Inventory');
@@ -276,7 +292,7 @@ describe('Preferences', () => {
       const shown = outputs(root, section).map(t => Number(t!.replace('%', '')));
       expect(shown.reduce((a, b) => a + b, 0)).toBe(100);
     }
-    expect(byText(root, '.prefSection', /^Auctions/).textContent).toContain('Reaching 65–80% Bid Arrow always comes first.');
+    expect(byText(root, '.prefSection', /^Auctions/).textContent).toContain('Reaching 65–80% Bid Arrow reduction always comes first.');
   });
   it('moving one weight rebalances the others in its group immediately, and Reset restores it', async () => {
     const root = await openApp(makeInitialData());

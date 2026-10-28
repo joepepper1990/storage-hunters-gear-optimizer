@@ -23,15 +23,17 @@ export type PanelScan =
   | (Common & { kind: 'unknown' });
 
 const ZERO: GearStats = { luck: 0, energy: 0, tip: 0, walk: 0, vehicle: 0, recovery: 0, zone: 0, arrowReduction: 0, npc: 0 };
-const RARITY = /^(common|uncommon|rare|epic|legendary|mythical|mythic|exotic|secret|divine|celestial)$/i;
+/** A rarity line, tolerating a stray symbol or a misread last letter ("Mythica1"). */
+const RARITY = /^\W*(common|uncommon|rare|epic|legendar|mythic|exotic|secret|divine|celestial|limited|event|special)\w?\w?\W*$/i;
 const CERTIFICATE = /\b(wooden|ripped|premium|limited)\s+certificate\b/i;
 
 function clean(text: string): string {
-  return text.replace(/[|“”"]/g, ' ').replace(/\s+/g, ' ').trim();
+  // The reader sometimes splits a decimal ("+7. 7%"); rejoin it before reading numbers.
+  return text.replace(/[|“”"]/g, ' ').replace(/(\d)\s*([.,])\s+(\d)/g, '$1.$3').replace(/\s+/g, ' ').trim();
 }
 
 /** Name lines come before the rarity line; long names wrap onto a second line. */
-function readInfo(lines: string[]): { name: string; tags: string[]; conditionPct?: number } {
+function readInfo(lines: string[]): { name: string; tags: string[]; conditionPct?: number; hasRarity: boolean } {
   const cleaned = lines.map(clean).filter(Boolean);
   const rarity = cleaned.findIndex(line => RARITY.test(line));
   const nameLines = rarity > 0 ? cleaned.slice(0, rarity) : cleaned.slice(0, 1);
@@ -40,7 +42,7 @@ function readInfo(lines: string[]): { name: string; tags: string[]; conditionPct
   const name = full.replace(/\[[^\]]*\]/g, ' ').replace(/\s+/g, ' ').trim();
   const condition = cleaned.join(' ').match(/condition\W*(\d{1,3})\s*%/i);
   const conditionPct = condition ? Number(condition[1]) : undefined;
-  return { name, tags, conditionPct: conditionPct !== undefined && conditionPct <= 100 ? conditionPct : undefined };
+  return { name, tags, conditionPct: conditionPct !== undefined && conditionPct <= 100 ? conditionPct : undefined, hasRarity: rarity >= 0 };
 }
 
 function titleCase(value: string): string {
@@ -62,9 +64,13 @@ function statByKeyword(text: string): keyof GearStats | undefined {
 }
 
 export function parsePanel(read: PanelRead, knownSlots: Map<string, Slot> = new Map()): PanelScan {
-  const { name, tags, conditionPct } = readInfo(read.infoLines);
+  const { name, tags, conditionPct, hasRarity } = readInfo(read.infoLines);
   const common: Common = { stars: read.stars, conditionPct, warnings: [] };
-  if (!name && !tags.length) return { ...common, kind: 'unknown', warnings: ['No item name found. This may not be an item screenshot.'] };
+  // Every item panel shows a rarity under the name; loadout views, display shelves and
+  // other screens do not, and reading them as items would only produce noise.
+  if (!hasRarity || (!name && !tags.length)) return { ...common, kind: 'unknown',
+    warnings: ['This doesn\'t look like an item screenshot. Open the item in your inventory and screenshot its details.'] };
+  if (/\b(wheel stack|spoiler|exhaust|trailer)\b/i.test(name)) return { ...common, kind: 'unknown', warnings: [`${name} is a vehicle part; vehicles aren't tracked.`] };
 
   if (/gavel\s*trophy/i.test(name)) {
     // Tolerant of stray symbols the reader adds inside a tag, e.g. "[Chrome +24%)]".
@@ -85,6 +91,7 @@ export function parsePanel(read: PanelRead, knownSlots: Map<string, Slot> = new 
   const stats = { ...ZERO };
   let authentication: Authentication = { kind: 'None', effect: '', value: 0 };
   let describedValue = false;
+  let authLineSeen = false;
   for (const line of read.statLines) {
     const text = clean(line.text);
     // Item artwork behind the text can read as stray symbols; real lines contain a word.
@@ -93,8 +100,8 @@ export function parsePanel(read: PanelRead, knownSlots: Map<string, Slot> = new 
     // whatever colour the artwork behind it gives ("+35% luck during the night"). Some
     // effects show their number only there ("Droughtbreaker" / "+18 Luck per auction ..."),
     // so the first number of the first description line fills an effect shown without one.
-    if (authentication.kind !== 'None') {
-      if (!describedValue && authentication.value === 0) {
+    if (authLineSeen) {
+      if (!describedValue && authentication.kind !== 'None' && authentication.value === 0) {
         const number = text.match(/[+\-]?\s*(\d+(?:[.,]\d+)?)/);
         if (number) authentication = { ...authentication, value: Number(number[1].replace(',', '.')) };
       }
@@ -103,6 +110,8 @@ export function parsePanel(read: PanelRead, knownSlots: Map<string, Slot> = new 
     }
     const value = extractPercentage(text);
     if (line.color === 'blue') {
+      // Even an effect that can't be named ends the stat lines: what follows describes it.
+      authLineSeen = true;
       const effect = bestAuthEffect(text);
       if (effect) authentication = { kind: authKind(effect.effect), effect: effect.effect, value: value ?? 0 };
       else common.warnings.push(`Authentication not recognised: "${text}".`);

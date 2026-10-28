@@ -34,6 +34,15 @@ describe('gear is discarded only when beaten stat by stat',()=>{
     const lucky=gear('lucky','Head',{luck:60});
     expect(gearVerdict([...filler,zone,lucky],'zone',{...s,zoneWeight:0})).toBe('SAFE TO DISCARD');
   });
+  it('counts being better on an active specialist stat as beating the item',()=>{
+    // A stronger Back and a big Energy Head fill Main and Drink Prep, so these two are judged only against each other.
+    const items=[filler[0],gear('drinkHead','Head',{energy:200}),gear('mainBack','Back',{luck:50}),filler[2],gear('less','Back',{luck:5,energy:10}),gear('more','Back',{luck:5,energy:20})];
+    const less=analyseGearRetention(items,s).find(a=>a.item.id==='less')!;
+    expect(less.verdict).toBe('SAFE TO DISCARD');
+    expect(less.dominance?.dominator?.id).toBe('more');
+    // 'more' is never beaten by its weaker twin.
+    expect(gearVerdict(items,'more')).not.toBe('SAFE TO DISCARD');
+  });
   it('never discards an exact duplicate on the strength of its twin',()=>{
     const a=gear('a','Head',{luck:40}),b=gear('b2','Head',{luck:40});
     const verdicts=[a,b].map(x=>gearVerdict([...filler,a,b],x.id));

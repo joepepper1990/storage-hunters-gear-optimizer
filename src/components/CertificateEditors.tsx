@@ -4,12 +4,13 @@ import { activeCertificateOutcomeOptions } from '../authentication';
 import { authModelTypeForOwnedCertificate, withObservedAuthenticationStats } from '../engine/certificateRolls';
 import { addOutcomeToItem, removeNumericAuthentication } from '../engine/dominance';
 import { optimise } from '../engine/optimizer';
+import { arrowTier } from '../engine/gearLoadouts';
 import { effectiveItemStats, gameArrowToReduction, reductionToGameArrow } from '../engine/scoring';
 import { CERTIFICATE_TYPES, certificateLabel, type CertificateBatchInput } from '../engine/certificateInventory';
 import { authModelCertificateType } from '../engine/authModel';
 import { generateGearName } from '../naming';
 import type { AppData, AuthModelEntry, CertificateRollLog, GearItem, GearStats, OwnedCertificate } from '../types';
-import { itemTitle, Modal, STAT_LABELS } from '../ui';
+import { itemTitle, Modal, NumberInput, STAT_LABELS } from '../ui';
 
 function applyRollToItem(item: GearItem, effect: string, value: number, type: AuthModelEntry['certificateType']): GearItem {
   let base = removeNumericAuthentication(item);
@@ -44,11 +45,14 @@ export function RecordResultEditor({ data, certificate, initialItemId, onClose, 
   const setFinal = (key: keyof GearStats, value: number) => setFinalStats(current => ({ ...ZERO_STATS, ...current, [key]: Number.isFinite(value) ? value : 0 }));
   const save = () => {
     if (!item || !preview) return;
-    const before = optimise(data.gear, data.settings, 1)[0]?.score.total ?? 0;
-    const after = optimise(data.gear.map(g => g.id === preview.id ? preview : g), data.settings, 1)[0]?.score.total ?? before;
+    // Same ranking as Best setup: the Arrow tier first, then the score.
+    const best = (gear: GearItem[]) => { const top = optimise(gear, data.settings, 1)[0]; return { tier: top ? arrowTier(top.stats, data.settings) : 0, score: top?.score.total ?? 0 }; };
+    const was = best(data.gear), now = best(data.gear.map(g => g.id === preview.id ? preview : g));
+    const before = was.score, after = now.score;
+    const improved = now.tier > was.tier || (now.tier === was.tier && after > before);
     onSave({ id: crypto.randomUUID(), date: new Date().toISOString(), certificateType: type, itemId: item.id, itemName: item.name, slot: item.slot,
       previousAuthentication: item.authentication.effect, previousValue: item.authentication.value, newAuthentication: newAuth, newValue,
-      improvedBestSet: after > before, bestScoreBefore: before, bestScoreAfter: after, certificateId: certificate.id,
+      improvedBestSet: improved, bestScoreBefore: before, bestScoreAfter: after, certificateId: certificate.id,
       certificateGradeStars: certificate.gradeStars, certificateMutation: certificate.mutation, certificateInventoryType: certificate.type }, preview);
   };
 
@@ -60,12 +64,12 @@ export function RecordResultEditor({ data, certificate, initialItemId, onClose, 
     <div className="formGrid">
       <label className="wide">Item<select value={itemId} onChange={e => setItemId(e.target.value)}>{data.gear.map(g => <option value={g.id} key={g.id}>{itemTitle(g)} · {g.slot}</option>)}</select></label>
       <label>Result<select value={newAuth} onChange={e => setNewAuth(e.target.value)}><option value="">Select</option>{activeCertificateOutcomeOptions(item?.slot, data.authModel, kind, certificate.type).map(a => <option key={a}>{a}</option>)}</select></label>
-      <label>Value %<input type="number" step="any" inputMode="decimal" value={newValue} onChange={e => setNewValue(Number(e.target.value))} /></label>
+      <label>Value %<NumberInput value={newValue} onValue={setNewValue} /></label>
     </div>
     {finalStats && newAuth && <details className="compactDetails"><summary>Stats shown in game</summary><div className="formGrid">
       {STAT_LABELS.map(([key, label]) => key === 'arrowReduction'
-        ? <label key={key}>{label} % (game sign)<input type="number" inputMode="decimal" step="any" value={reductionToGameArrow(finalStats.arrowReduction)} onChange={e => setFinal('arrowReduction', gameArrowToReduction(Number(e.target.value)))} /></label>
-        : <label key={key}>{label} %<input type="number" inputMode="decimal" step="any" value={finalStats[key]} onChange={e => setFinal(key, Number(e.target.value))} /></label>)}
+        ? <label key={key}>{label} % (game sign)<NumberInput value={reductionToGameArrow(finalStats.arrowReduction)} onValue={n => setFinal('arrowReduction', gameArrowToReduction(n))} /></label>
+        : <label key={key}>{label} %<NumberInput value={finalStats[key]} onValue={n => setFinal(key, n)} /></label>)}
     </div></details>}
   </Modal>;
 }

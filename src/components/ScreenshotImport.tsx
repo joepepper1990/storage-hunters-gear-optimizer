@@ -5,7 +5,7 @@ import { createPanelReader } from '../scanner/panelOcr';
 import { CERTIFICATE_TYPES } from '../engine/certificateInventory';
 import { gameArrowToReduction, reductionToGameArrow } from '../engine/scoring';
 import type { AppData, Authentication, GearStats, Slot } from '../types';
-import { Modal, STAT_LABELS, type SetData } from '../ui';
+import { Modal, NumberInput, STAT_LABELS, type SetData } from '../ui';
 
 interface Entry { id: string; fileName: string; previewUrl: string; fullUrl: string; draft: ImportDraft; state: 'pending' | 'approved' | 'skipped' }
 
@@ -31,16 +31,16 @@ function GearFields({ draft, onChange }: { draft: Extract<ImportDraft, { kind: '
       <option value="">Choose</option><option>Head</option><option>Back</option><option>Wrist</option></select></label>
     <label>Stars<select value={draft.stars} onChange={e => set({ stars: Number(e.target.value) })}>{STARS.map(n => <option key={n} value={n}>{n ? `${n}★` : 'Not graded'}</option>)}</select></label>
     <label>Mutation<input value={draft.mutation} onChange={e => set({ mutation: e.target.value })} /></label>
-    <label>Condition %<input type="number" inputMode="decimal" value={draft.conditionPct ?? ''} onChange={e => set({ conditionPct: numberOr(e.target.value, undefined) })} /></label>
+    <label>Condition %<input type="number" min={0} max={100} inputMode="decimal" value={draft.conditionPct ?? ''} onChange={e => set({ conditionPct: numberOr(e.target.value, undefined) })} /></label>
     {shown.map(([key, label]) => <label key={key}>{label} %
-      <input type="number" step="any" inputMode="decimal" value={key === 'arrowReduction' ? reductionToGameArrow(draft.stats[key]) : draft.stats[key]}
-        onChange={e => { const v = numberOr(e.target.value, 0)!; setStat(key, key === 'arrowReduction' ? gameArrowToReduction(v) : v); }} /></label>)}
+      <NumberInput value={key === 'arrowReduction' ? reductionToGameArrow(draft.stats[key]) : draft.stats[key]}
+        onValue={v => setStat(key, key === 'arrowReduction' ? gameArrowToReduction(v) : v)} /></label>)}
     {missing.length > 0 && <label>Add a stat<select value="" onChange={e => setAdded(current => [...current, e.target.value as keyof GearStats])}>
       <option value="">＋ Stat</option>{missing.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>}
     <label>Authentication<select value={draft.authentication.effect} onChange={e => setAuth({ effect: e.target.value })}>
       <option value="">None</option>{[...new Set([draft.authentication.effect, ...AUTH_EFFECTS])].filter(Boolean).map(a => <option key={a}>{a}</option>)}</select></label>
     {draft.authentication.effect && <>
-      <label>Value %<input type="number" step="any" inputMode="decimal" value={draft.authentication.value} onChange={e => setAuth({ value: numberOr(e.target.value, 0)! })} /></label>
+      <label>Value %<NumberInput value={draft.authentication.value} onValue={value => setAuth({ value })} /></label>
       <label>Kind<select value={draft.authentication.kind} onChange={e => setAuth({ kind: e.target.value as Authentication['kind'] })}><option>Normal</option><option>Premium</option><option>Limited</option></select></label>
     </>}
     {focused && <label className="check wide"><input type="checkbox" checked={Boolean(draft.baseConfirmed)} onChange={e => set({ baseConfirmed: e.target.checked })} /> Base stats checked</label>}
@@ -58,7 +58,7 @@ function GavelFields({ draft, onChange }: { draft: Extract<ImportDraft, { kind: 
     </div>)}
     {draft.modifiers.length < 3 && <button className="secondary compact wide" onClick={() => set({ modifiers: [...draft.modifiers, { mutation: '', boostPct: 0 }] })}>＋ Mutation</button>}
     <label>Stars<select value={draft.stars} onChange={e => set({ stars: Number(e.target.value) })}>{STARS.map(n => <option key={n} value={n}>{n ? `${n}★` : 'Not graded'}</option>)}</select></label>
-    <label>Condition %<input type="number" inputMode="decimal" value={draft.conditionPct ?? ''} onChange={e => set({ conditionPct: numberOr(e.target.value, undefined) })} /></label>
+    <label>Condition %<input type="number" min={0} max={100} inputMode="decimal" value={draft.conditionPct ?? ''} onChange={e => set({ conditionPct: numberOr(e.target.value, undefined) })} /></label>
   </div>;
 }
 
@@ -80,7 +80,9 @@ export function ScreenshotImport({ data, setData, onClose }: { data: AppData; se
   const [zoom, setZoom] = useState<string>();
   const [error, setError] = useState('');
   const urls = useRef<string[]>([]);
-  useEffect(() => () => urls.current.forEach(url => URL.revokeObjectURL(url)), []);
+  const closed = useRef(false);
+  // Closing stops any reading still in progress and frees every screenshot it loaded.
+  useEffect(() => { closed.current = false; return () => { closed.current = true; urls.current.forEach(url => URL.revokeObjectURL(url)); urls.current = []; }; }, []);
 
   const readFiles = async (files: File[]) => {
     if (!files.length) return;
@@ -90,9 +92,11 @@ export function ScreenshotImport({ data, setData, onClose }: { data: AppData; se
       reader = await createPanelReader();
       const slots = knownSlots(data);
       for (const [index, file] of files.entries()) {
+        if (closed.current) break;
         setReading({ done: index, total: files.length, status: `Reading ${file.name}` });
         try {
           const image = await reader.read(file);
+          if (closed.current) { URL.revokeObjectURL(image.fullUrl); break; }
           urls.current.push(image.fullUrl);
           const entry: Entry = { id: crypto.randomUUID(), fileName: file.name, previewUrl: image.previewUrl, fullUrl: image.fullUrl, draft: parsePanel(image.read, slots), state: 'pending' };
           setEntries(current => [...current, entry]);
@@ -141,14 +145,14 @@ export function ScreenshotImport({ data, setData, onClose }: { data: AppData; se
               {entry.draft.kind === 'gavel' && <GavelFields draft={entry.draft} onChange={onChange} />}
               {entry.draft.kind === 'certificate' && <CertificateFields draft={entry.draft} onChange={onChange} />}
               {entry.draft.warnings.length > 0 && <ul className="importWarnings">{entry.draft.warnings.map(w => <li key={w}>{w}</li>)}</ul>}
-              {match.status === 'invalid' && <p className="formError">{match.reason}</p>}
+              {match.status === 'invalid' && entry.draft.kind !== 'unknown' && <p className="formError">{match.reason}</p>}
               {match.status === 'update' && <div className="importChanges">{match.changes.length
                 ? <><strong>Will change</strong><ul>{match.changes.map(c => <li key={c}>{c}</li>)}</ul></>
                 : <strong>Matches your inventory exactly</strong>}</div>}
               {match.status === 'new' && entry.draft.kind !== 'certificate' && <div className="importChanges"><strong>New: not in your inventory yet</strong></div>}
               <div className="importActions">
                 <button className="secondary" onClick={() => update(entry.id, { state: 'skipped' })}>Skip</button>
-                <button className="primary" disabled={match.status === 'invalid'} onClick={() => approve(entry)}>{label}</button>
+                {entry.draft.kind !== 'unknown' && <button className="primary" disabled={match.status === 'invalid'} onClick={() => approve(entry)}>{label}</button>}
               </div>
             </div>
           </div>}

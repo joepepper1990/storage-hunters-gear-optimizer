@@ -83,6 +83,26 @@ describe('reading the item panel',()=>{
   });
   it('flags a screenshot with no item panel',()=>{
     expect(parsePanel({stars:0,infoLines:[],statLines:[]}).kind).toBe('unknown');
+    // A display shelf and a loadout view, as read from the user's screenshots.
+    expect(parsePanel({stars:2,infoLines:['Increases Void mut','ation chance by +86%'],statLines:[n('chance by +147%')]}).kind).toBe('unknown');
+    expect(parsePanel({stars:1,infoLines:['<7 NS) UNSOSIANI/N\\ANADU YD','Condition: 63%'],statLines:[g('+34% Luck')]}).kind).toBe('unknown');
+  });
+  it('tolerates a misread rarity word',()=>{
+    expect(parsePanel({stars:1,infoLines:['Cow Dominus','Mythica1','Condition: 54%'],statLines:[g('+58% Luck')]}).kind).toBe('gear');
+    expect(parsePanel({stars:1,infoLines:['Cow Dominus','Legendary.','Condition: 54%'],statLines:[g('+58% Luck')]}).kind).toBe('gear');
+  });
+  it('rejoins a decimal the reader split ("+7. 7%")',()=>{
+    const valk=parsePanel({stars:3,infoLines:['[Cobwebbed] Race Valk','Mythical'],statLines:[g('-76% Bid Arrow Speed'),b('+7. 7% NPC Offers/Bonus')]});
+    expect(valk).toMatchObject({authentication:{effect:'NPC Offers Bonus',value:7.7}});
+  });
+  it('treats lines after an unreadable effect as its description, not as stats',()=>{
+    const pearl=parsePanel({stars:2,infoLines:['Pearl Dominus','Mythical'],statLines:[g('+100% Luck'),b('Xqzzv Wwmmk'),g('+35% luck during the night')]});
+    expect(pearl.kind==='gear'&&pearl.stats.luck).toBe(100);
+  });
+  it('says a vehicle part is not tracked',()=>{
+    const part=parsePanel({stars:2,infoLines:['[Limited] [Mint] Flaming Skull Wheel Stack','Legendary','Condition: 100%'],statLines:[]});
+    expect(part).toMatchObject({kind:'unknown'});
+    expect(part.warnings.join()).toMatch(/vehicle part/);
   });
   it('counts star icons from bright columns',()=>{
     const icon=Array(30).fill(5),gap=Array(8).fill(0);
@@ -100,7 +120,7 @@ describe('approving screenshots',()=>{
     const scan=parsePanel({stars:1,infoLines:['Cow Dominus','Mythical','Condition: 54%'],statLines:[g('+58% Luck'),g('-35% Bid Arrow Speed')]},slots);
     expect(matchDraft(data,scan)).toEqual({status:'update',id:cow.id,name:'Cow Dominus',changes:['Stars: — → 1']});
     const misread={...scan,conditionPct:60,authentication:{kind:'Normal' as const,effect:'Luck',value:7}};
-    expect(matchDraft(data,misread)).toMatchObject({changes:['Condition: 54% → 60%','Stars: — → 1','Effect: none → Luck 7%']});
+    expect(matchDraft(data,misread)).toMatchObject({changes:['Condition: 54% → 60%','Stars: — → 1','Effect: none → Luck 7% (Normal)']});
     const next=applyDraft(data,scan);
     expect(next.gear).toHaveLength(data.gear.length);
     expect(next.gear.find(x=>x.id===cow.id)).toMatchObject({gradeStars:1,conditionPct:54});
@@ -110,15 +130,34 @@ describe('approving screenshots',()=>{
     expect(matchDraft(data,hat).status).toBe('new');
     const withHat=applyDraft(data,{...hat,slot:'Head'} as typeof hat,'2026-10-28T00:00:00.000Z','hat');
     expect(withHat.gear.find(x=>x.id==='hat')).toMatchObject({baseName:'Brand New Hat',slot:'Head',gradeStars:0,favourite:false});
-    const gavel=parsePanel({stars:0,infoLines:['[Gold +50%] Gavel Trophy'],statLines:[]});
+    const gavel=parsePanel({stars:0,infoLines:['[Gold +50%] Gavel Trophy','Legendary'],statLines:[]});
     expect(applyDraft(data,gavel).trophies).toHaveLength(data.trophies.length+1);
-    const cert=parsePanel({stars:2,infoLines:['Wooden Certificate Of Authenticity'],statLines:[]});
+    const cert=parsePanel({stars:2,infoLines:['Wooden Certificate Of Authenticity','Epic'],statLines:[]});
     expect(matchDraft(data,cert)).toEqual({status:'add-one',owned:6});
     const total=(d:typeof data)=>d.ownedCertificates.reduce((s,c)=>s+c.quantity,0);
     expect(total(applyDraft(data,cert))).toBe(total(data)+1);
   });
+  it('refuses values the app could not load back, and keeps a condition the screenshot does not show',()=>{
+    const gavel=data.trophies.find(t=>t.name==='Hologram +154% / Silver +143%')!;
+    const shelf=parsePanel({stars:0,infoLines:['[Hologram +154%] [Silver +143%] Gavel Trophy','Legendary'],statLines:[]});
+    if(shelf.kind!=='gavel')throw new Error('expected a Gavel');
+    expect(shelf.conditionPct).toBeUndefined();
+    expect(applyDraft(data,shelf).trophies.find(t=>t.id===gavel.id)?.conditionPct).toBe(54);
+    expect(matchDraft(data,{...shelf,conditionPct:540})).toEqual({status:'invalid',reason:'Condition must be between 0 and 100%.'});
+    expect(matchDraft(data,{...shelf,modifiers:[...shelf.modifiers,{mutation:' ',boostPct:0}]}).status).toBe('invalid');
+    // A trailing space still finds the stored Gavel.
+    expect(matchDraft(data,{...shelf,modifiers:[{mutation:'Hologram ',boostPct:154},{mutation:'Silver',boostPct:143}]}).status).toBe('update');
+    const cow=parsePanel({stars:1,infoLines:['Cow Dominus','Mythical'],statLines:[g('+58% Luck'),g('-35% Bid Arrow Speed')]},slots);
+    expect(applyDraft(data,cow).gear.find(x=>x.baseName==='Cow Dominus')?.conditionPct).toBe(54);
+    expect(matchDraft(data,{...cow,conditionPct:101}).status).toBe('invalid');
+  });
+  it('lists a change of authentication kind',()=>{
+    const pearl=parsePanel({stars:2,infoLines:['Pearl Dominus','Mythical','Condition: 51%'],statLines:[g('+76% Bid Zone Width'),g('+100% Luck'),b('+35% Nocturnal')]},slots);
+    const premium={...pearl,authentication:{kind:'Premium' as const,effect:'Nocturnal',value:35}};
+    expect(matchDraft(data,premium)).toMatchObject({changes:expect.arrayContaining(['Effect: Nocturnal 35% (Normal) → Nocturnal 35% (Premium)'])});
+  });
   it('refuses a draft without a name or slot',()=>{
-    const thing=parsePanel({stars:0,infoLines:['Brand New Thing'],statLines:[g('+20% Luck')]});
+    const thing=parsePanel({stars:0,infoLines:['Brand New Thing','Rare'],statLines:[g('+20% Luck')]});
     expect(matchDraft(data,thing)).toEqual({status:'invalid',reason:'Choose a slot.'});
     expect(()=>applyDraft(data,thing)).toThrow('Choose a slot.');
   });

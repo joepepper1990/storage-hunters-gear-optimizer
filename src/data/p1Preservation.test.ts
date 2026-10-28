@@ -50,6 +50,18 @@ describe('P1 backup preservation', () => {
     expect(restored.stats).toEqual(gear.stats);
   });
 
+  it('round-trips gear star grades through CSV', () => {
+    const gear = { ...oldBackup(13).gear[0], gradeStars: 3 };
+    expect(csvToGear(gearToCsv([gear]))[0].gradeStars).toBe(3);
+    expect(csvToGear(gearToCsv([{ ...gear, gradeStars: undefined }]))[0].gradeStars).toBeUndefined();
+  });
+
+  it('applies the inventory update to a record without a schema version', () => {
+    const data = oldBackup(1) as unknown as Record<string, unknown>;
+    delete data.schemaVersion;
+    expect(normalizeData(data as never).gear).toHaveLength(29);
+  });
+
   it('accepts legacy CSV without a stat delta column', () => {
     const restored = csvToGear('Base Name,Slot,Luck\nOld Hat,Head,12')[0];
     expect(restored.authentication.statDeltas).toBeUndefined();

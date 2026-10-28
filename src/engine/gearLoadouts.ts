@@ -346,7 +346,13 @@ function futureSafeDominator(item:GearItem,candidates:GearItem[],settings:Algori
       // A future companion with Mutated Luck reads every member's mutation.
       && mutationLuckForItem(candidate)>=mutationLuckForItem(item);
   });
-  const mainSettings={...settings,energyWeight:0,npcWeight:0,tipWeight:0,vehicleWeight:0,walkWeight:0};
+  // Being strictly better on a stat for an active specialist also counts as beating the
+  // item: a tiny weight makes it register without ever outweighing a Main stat.
+  const tiny=1e-6;
+  const mainSettings={...settings,vehicleWeight:0,walkWeight:0,
+    energyWeight:drink?tiny:0,
+    tipWeight:shop&&settings.shopTipWeight>0?tiny:0,
+    npcWeight:shop&&settings.shopNpcWeight>0?tiny:0};
   const dominance=findDominator(item,specialistSafe,mainSettings);
   if(!dominance.dominated && specialistSafe.length!==candidates.length) {
     dominance.reason='No other item in this slot is at least as good on every stat that matters (Luck, Arrow, Zone, Recovery, Energy, Tip, NPC, Grade Re-Roll and Mutated Luck).';
