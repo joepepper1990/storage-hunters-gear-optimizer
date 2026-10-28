@@ -21,18 +21,16 @@ vi.mock('./data/storage', async importOriginal => {
     onSavedElsewhere: vi.fn((callback: () => void) => { store.notify = callback; return () => { store.notify = undefined; }; })
   };
 });
-const scanner = vi.hoisted(() => ({ text: '' }));
-vi.mock('./scanner/ocr', () => ({
-  recogniseGearScreenshot: vi.fn(async (_file: File, progress?: (p: number, s: string) => void) => {
-    progress?.(0.5, 'Reading');
-    await new Promise(resolve => setTimeout(resolve, 5));
-    return { text: scanner.text, previewUrl: '', lines: [] };
-  })
+const scanner = vi.hoisted(() => ({ reads: [] as unknown[] }));
+vi.mock('./scanner/panelOcr', () => ({
+  createPanelReader: vi.fn(async () => ({
+    read: vi.fn(async (file: File) => ({ read: scanner.reads.shift(), previewUrl: 'data:image/png;base64,', fullUrl: `blob:${file.name}` })),
+    close: vi.fn(async () => {})
+  }))
 }));
 
 import App from './App';
 import { Discard } from './screens/Discard';
-import { GearScanner } from './components/GearScanner';
 
 const lastSaved = () => store.saved.at(-1) as AppData;
 function gear(id: string, slot: GearItem['slot'], stats: Partial<GearItem['stats']> = {}): GearItem {
@@ -310,35 +308,42 @@ describe('Preferences', () => {
   });
 });
 
-describe('scanner lifecycle', () => {
-  async function scan(text: string) {
-    scanner.text = text;
-    const onConfirm = vi.fn();
-    const root = await render(<StrictMode><GearScanner onClose={() => {}} onConfirm={onConfirm} /></StrictMode>);
-    const input = root.querySelector<HTMLInputElement>('input[type=file]')!;
-    Object.defineProperty(input, 'files', { value: [new File(['x'], 'gear.png', { type: 'image/png' })], configurable: true });
-    await click(button(root, 'Choose screenshot'));
+describe('screenshot import', () => {
+  it('shows each screenshot beside its reading, then saves only what is approved', async () => {
+    URL.revokeObjectURL = vi.fn();
+    scanner.reads = [
+      { stars: 1, infoLines: ['Cow Dominus', 'Mythical', 'Condition: 60%'], statLines: [{ text: '+58% Luck', color: 'green' }, { text: '-35% Bid Arrow Speed', color: 'green' }] },
+      { stars: 0, infoLines: ['Brand New Thing', 'Rare'], statLines: [{ text: '+20% Luck', color: 'green' }] },
+      { stars: 2, infoLines: ['[Void +74%] Gavel Trophy', 'Legendary'], statLines: [] }
+    ];
+    const data = makeInitialData();
+    const root = await openApp(data);
+    await go(root, 'Inventory');
+    await click(button(root, 'Import screenshots'));
+    const input = document.body.querySelector<HTMLInputElement>('input[type=file][multiple]')!;
+    Object.defineProperty(input, 'files', { value: ['a.png', 'b.png', 'c.png'].map(n => new File(['x'], n, { type: 'image/png' })), configurable: true });
     input.dispatchEvent(new Event('change', { bubbles: true }));
-    await waitFor(() => button(root, 'Review in gear editor'));
-    return { root, onConfirm };
-  }
-  it('delivers the scan result under development StrictMode effect replay', async () => {
-    const { root, onConfirm } = await scan('Reactor Fedora\nHead\nLuck +100%');
-    expect(root.textContent).toContain('Reactor Fedora');
-    await click(button(root, 'Review in gear editor'));
-    expect(onConfirm).toHaveBeenCalledTimes(1);
-    expect(onConfirm.mock.calls[0][0]).toMatchObject({ baseName: 'Reactor Fedora', slot: 'Head' });
-    expect(onConfirm.mock.calls[0][0].stats.luck).toBe(100);
-  });
-  it('still requires original base confirmation for Focused scans', async () => {
-    const { root, onConfirm } = await scan('Reactor Fedora\nHead\nLuck +125%\nAuthenticated\nFocused +25%');
-    expect(root.textContent).toContain('Confirm original base stats');
-    expect(button(root, 'Review in gear editor').disabled).toBe(true);
-    await type(root.querySelector<HTMLInputElement>('.scannerBaseConfirmation input')!, '100');
-    await click(button(root, /Confirm these original base stats/));
-    await flush();
-    await click(button(root, 'Review in gear editor'));
-    expect(onConfirm.mock.calls[0][0].stats.luck).toBe(100);
-    expect(onConfirm.mock.calls[0][0].authentication.statDeltas).toEqual({ luck: 25 });
+    await waitFor(() => { if (document.body.querySelectorAll('.importCard').length !== 3) throw new Error('reading'); return true; });
+    const cards = [...document.body.querySelectorAll<HTMLElement>('.importCard')];
+    expect(cards[0].querySelector('img')?.getAttribute('alt')).toContain('a.png');
+
+    // A known item updates in place; nothing is saved until it is approved.
+    const saves = store.saved.length;
+    await click(button(cards[0], 'Update Cow Dominus'));
+    expect(store.saved.length).toBeGreaterThan(saves);
+    const cow = lastSaved().gear.find(g => g.baseName === 'Cow Dominus')!;
+    expect(cow).toMatchObject({ conditionPct: 60, gradeStars: 1 });
+    expect(lastSaved().gear).toHaveLength(data.gear.length);
+
+    // An unplaceable name cannot be added until a slot is chosen.
+    expect(button(cards[1], 'Add').disabled).toBe(true);
+    await type(labelled(cards[1], 'Slot'), 'Back');
+    await click(button(cards[1], 'Add'));
+    expect(lastSaved().gear.find(g => g.baseName === 'Brand New Thing')).toMatchObject({ slot: 'Back', gradeStars: 0 });
+
+    await click(button(cards[2], 'Skip'));
+    expect(lastSaved().trophies).toHaveLength(data.trophies.length);
+    expect(document.body.textContent).toContain('3 of 3 done');
   });
 });
+

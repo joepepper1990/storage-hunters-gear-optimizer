@@ -32,15 +32,15 @@ const STAT_DEFINITIONS: StatDefinition[] = [
   { key: 'npc', canonical: 'NPC Offers Bonus', aliases: ['npc offers bonus', 'npc offer bonus', 'npc offers', 'npc offer', 'npc'] }
 ];
 
-const AUTH_EFFECTS = [
+export const AUTH_EFFECTS = [
   'Luck', 'Bid Recovery', 'Bid Arrow Speed', 'Bid Zone Width', 'Energy Drink Time', 'Tip Chance', 'NPC Offers Bonus', 'Walkspeed',
   'Sunny', 'Nocturnal', 'Overcharged', 'Raindrop', 'Focused', 'Time Keeper', 'Connected',
   'Sonic', 'Overcharge', 'Focus', 'Timekeeper',
   'Mutated Luck', 'Droughtbreaker', 'Drought Breaker', 'Golden Hour', 'Club Pact', 'Club Packed', 'Temporal Split',
   'Auto X-Ray', 'Grade Re-Roll', 'Luck Frenzy', 'Featherweight', 'Second Chance', 'Steady Hand'
 ];
-const PREMIUM_EFFECTS = new Set(['Mutated Luck','Droughtbreaker','Drought Breaker','Golden Hour','Club Pact','Club Packed','Temporal Split']);
-const LIMITED_EFFECTS = new Set(['Auto X-Ray','Grade Re-Roll','Luck Frenzy','Featherweight','Second Chance','Steady Hand']);
+export const PREMIUM_EFFECTS = new Set(['Mutated Luck','Droughtbreaker','Drought Breaker','Golden Hour','Club Pact','Club Packed','Temporal Split']);
+export const LIMITED_EFFECTS = new Set(['Auto X-Ray','Grade Re-Roll','Luck Frenzy','Featherweight','Second Chance','Steady Hand']);
 // Grade Re-Roll is intentionally excluded here because it is also a current Limited Head effect.
 const LEGACY_ALIEN_EFFECTS = ['Haggler', 'Anti-Gravity Field', 'Safecracker', 'Exhibitor', 'Rush'];
 const GENERIC_LINES = new Set(['gear', 'stats', 'stat', 'item', 'equipped', 'equip', 'unequip', 'inventory', 'authenticated', 'authentication', 'normal']);
@@ -97,7 +97,7 @@ function similarity(a: string, b: string): number {
   return 1 - levenshtein(a, b) / longest;
 }
 
-function extractPercentage(line: string): number | undefined {
+export function extractPercentage(line: string): number | undefined {
   const match = line.match(/([+\-−]?\s*\d+(?:[.,]\d+)?)\s*%/);
   if (!match) return undefined;
   const parsed = Number(match[1].replace(/\s/g, '').replace('−', '-').replace(',', '.'));
@@ -113,7 +113,7 @@ function labelWithoutNumber(line: string): string {
   );
 }
 
-function bestStatMatch(line: string): { definition: StatDefinition; alias: string; confidence: number } | undefined {
+export function bestStatMatch(line: string): { definition: StatDefinition; alias: string; confidence: number } | undefined {
   const label = labelWithoutNumber(line);
   if (!label) return undefined;
   let best: { definition: StatDefinition; alias: string; confidence: number } | undefined;
@@ -129,7 +129,7 @@ function bestStatMatch(line: string): { definition: StatDefinition; alias: strin
   return best && best.confidence >= 0.72 ? best : undefined;
 }
 
-function bestAuthEffect(line: string): { effect: string; confidence: number } | undefined {
+export function bestAuthEffect(line: string): { effect: string; confidence: number } | undefined {
   const label = labelWithoutNumber(line);
   if (!label) return undefined;
   let best: { effect: string; confidence: number } | undefined;
@@ -153,10 +153,10 @@ function explicitSlot(lines: string[]): Slot | undefined {
   return undefined;
 }
 
-function inferSlotFromName(name: string): Slot | undefined {
+export function inferSlotFromName(name: string): Slot | undefined {
   const value = normaliseLabel(name);
   if (/\b(wristband|wrist|bracelet|watch|baton)\b/.test(value)) return 'Wrist';
-  if (/\b(backpack|back pack|vest|cape|rucksack)\b/.test(value)) return 'Back';
+  if (/\b(backpack|back pack|vest|cape|rucksack|boombox)\b/.test(value)) return 'Back';
   if (/\b(dominus|valk|helm|helmet|hat|crown|fedora|necklace|goggles?|hood)\b/.test(value)) return 'Head';
   return undefined;
 }

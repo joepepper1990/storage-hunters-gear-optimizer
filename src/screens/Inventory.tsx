@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { effectiveItemStats } from '../engine/scoring';
 import { generateGearName, generateTrophyName } from '../naming';
 import { blankGear, duplicateGear, GearEditor } from '../components/GearEditor';
-import { GearScanner } from '../components/GearScanner';
+import { ScreenshotImport } from '../components/ScreenshotImport';
 import { blankTrophy, TrophyEditor, validateTrophy } from '../components/TrophyEditor';
 import { CertificateBatches } from './Certificates';
 import type { AppData, GavelTrophy, GearItem, Slot } from '../types';
@@ -57,7 +57,7 @@ export function Inventory({ data, setData, initialCategory = 'Gear' }: { data: A
     {category === 'Gear' && <>
       <div className="toolbar">
         <button className="primary" onClick={() => setGearEdit({ item: blankGear(slot === 'All' ? 'Head' : slot), mode: 'add' })}>＋ Add gear</button>
-        <button className="secondary" onClick={() => setScanning(true)}>Scan screenshot</button>
+        <button className="secondary" onClick={() => setScanning(true)}>Import screenshots</button>
       </div>
       <div className="toolbar">
         <input type="search" placeholder="Search" aria-label="Search gear" value={query} onChange={e => setQuery(e.target.value)} />
@@ -98,6 +98,6 @@ export function Inventory({ data, setData, initialCategory = 'Gear' }: { data: A
 
     {gearEdit && <GearEditor key={gearEdit.item.id} item={gearEdit.item} authModel={data.authModel} mode={gearEdit.mode} onClose={() => setGearEdit(null)} onSave={saveGear} />}
     {trophyEdit && <TrophyEditor item={trophyEdit.item} weights={data.trophySettings.mutationWeights} mode={trophyEdit.mode} onClose={() => setTrophyEdit(null)} onSave={saveTrophy} />}
-    {scanning && <GearScanner onClose={() => setScanning(false)} onConfirm={item => { setScanning(false); setGearEdit({ item: { ...item, name: generateGearName(item.baseName, item.stats, item.authenticated, item.authentication) }, mode: 'add' }); }} />}
+    {scanning && <ScreenshotImport data={data} setData={setData} onClose={() => setScanning(false)} />}
   </section>;
 }

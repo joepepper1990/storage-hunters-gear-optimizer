@@ -9,7 +9,7 @@ Version 2.5 is a minimal redesign: every everyday screen gives an answer, not an
 1. **Best setup** (landing page) — what to equip for each activity: Auction (Neutral / Day / Night / Rain; identical sets share one card), Drink Prep, Grading, Shop / Idle, and up to the four enabled Gavel slots. One piece may appear in several sets.
 2. **Certificates** — a numbered queue: certificate (tier, grade, mutation), target item, chance of improving that row's goal, and **Record result**. A compact **Hold** section lists certificates with no qualifying opportunity. Owned batches, an optional history drawer and the live Authenticator prompt answer (Accept / Reroll / Reroll number) live here too.
 3. **Discard** — one grouped, selectable list of gear and Gavels proven safe to remove, with review and explicit confirmation. Nothing is deleted automatically.
-4. **Inventory** — gear, Gavels and certificates: add, edit, duplicate, favourite, delete and screenshot scanning.
+4. **Inventory** — gear, Gavels and certificates: add, edit, duplicate, favourite, delete and importing screenshots in bulk with side-by-side review.
 5. **Preferences** — 0–10 importance sliders per activity, Gavel slots and mutation values, backup / restore, appearance, and a collapsed maintenance area (model values, certificate outcome catalogue, reset).
 
 ## Model
@@ -94,9 +94,17 @@ Schema 13 is non-destructive: existing schema-9+ inventory, certificates, roll h
 
 The Gavel optimiser equips the best three or four (gamepass) powered trophies. Retention keeps any trophy needed by an enabled mutation-specific maximum set. Any other Gavel is offered for discard only when another Gavel has at least the same boost on every one of its mutations (switched-off mutations aside) and a higher overall value.
 
-## Gear scanner
+## Screenshot import
 
-**Inventory → Gear → Scan screenshot** performs OCR locally in the browser with Tesseract.js and opens the normal gear editor for review. A scan never writes to inventory without user confirmation, recognised fields stay editable, and Focused scans require the original base stats. OCR can misread text; always review.
+**Inventory → Import screenshots** takes several in-game inventory screenshots at once and reads each one locally in the browser with Tesseract.js. Only the item panel is read, in separate regions: the star grade, the stat lines by colour (green base stat, red harmful stat, blue authentication, grey description) and the name with its [Tag] prefixes and condition. Prices are ignored.
+
+Each screenshot is shown beside editable fields with **Approve** or **Skip**; nothing is saved until approved.
+- Gear and Gavels that match the inventory (same slot, name and base stats, or the same boosts) are **updated in place**, and the card lists exactly what would change (condition, stars, mutation, effect). Otherwise the item is added as new.
+- A certificate adds one, showing how many of that kind are already owned.
+- The slot comes from the inventory or the item name; an unknown name must have its slot chosen. Focused still requires the base stats to be checked.
+- A stat's direction comes from its colour, so a misread minus sign cannot flip it. Everything after the authentication line is its description; an effect shown without a number takes it from there (Droughtbreaker).
+
+The layout is fixed by the game, so the regions are fractions of the screenshot. OCR can still misread digits (for example 7.7 as 7), which the change list makes visible before approving.
 
 ## Data and privacy
 

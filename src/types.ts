@@ -26,6 +26,8 @@ export interface GavelTrophy {
   name: string;
   modifiers: TrophyModifier[];
   conditionPct?: number;
+  /** Star grade shown on the Gavel (0 = not graded). Undefined when not recorded. */
+  gradeStars?: number;
   favourite: boolean;
   createdAt: string;
   updatedAt: string;
@@ -85,6 +87,8 @@ export interface GearItem {
   mutation?: string;
   /** Displayed item condition (0-100); metadata only until game impact is verified. */
   conditionPct?: number;
+  /** Star grade shown on the item (0 = not graded). Undefined when not recorded. */
+  gradeStars?: number;
   stats: GearStats;
   authenticated: boolean;
   authentication: Authentication;
