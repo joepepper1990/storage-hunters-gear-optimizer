@@ -251,7 +251,7 @@ export interface OwnedCertificate {
 }
 
 export interface AppData {
-  schemaVersion: 15;
+  schemaVersion: 16;
   gear: GearItem[];
   settings: AlgorithmSettings;
   authModel: AuthModelEntry[];
@@ -260,4 +260,16 @@ export interface AppData {
   theme: ThemeMode;
   trophies: GavelTrophy[];
   trophySettings: TrophyOptimiserSettings;
+  /** Stat change seen when an item was regraded, used to work out what a star is worth. */
+  gradeObservations: GradeObservation[];
+}
+
+export interface GradeObservation {
+  id: string;
+  date: string;
+  itemName: string;
+  fromStars: number;
+  toStars: number;
+  /** New displayed stats divided by old, taken across the item's stats. */
+  ratio: number;
 }

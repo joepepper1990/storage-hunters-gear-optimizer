@@ -47,6 +47,8 @@ export function GearEditor({ item, authModel, mode, onClose, onSave }: {
       <label>Mutation<input list="gear-mutations" value={v.mutation ?? ''} onChange={e => patch({ mutation: e.target.value })} placeholder="None" />
         <datalist id="gear-mutations">{['None','Silver','Gold','Corrupted','Diamond','Gem','Chrome','Hologram','Void','Secret','Rainbow','Onyx','Cobwebbed','Exclusive','Police'].map(m => <option key={m} value={m} />)}</datalist></label>
       <label>Condition %<input type="number" min="0" max="100" step="any" inputMode="decimal" value={v.conditionPct ?? ''} onChange={e => patch({ conditionPct: e.target.value === '' ? undefined : Number(e.target.value) })} placeholder="Optional" /></label>
+      <label>Stars<select value={v.gradeStars ?? ''} onChange={e => patch({ gradeStars: e.target.value === '' ? undefined : Number(e.target.value) })}>
+        <option value="">Not recorded</option><option value="0">Not graded</option>{[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}★</option>)}</select></label>
       <label className="check"><input type="checkbox" checked={v.favourite} onChange={e => patch({ favourite: e.target.checked })} /> Favourite</label>
     </div>
 

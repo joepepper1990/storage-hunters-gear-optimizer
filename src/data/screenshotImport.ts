@@ -8,7 +8,9 @@ export type ImportDraft = PanelScan;
 
 export type ImportMatch =
   | { status: 'new' }
-  | { status: 'update'; id: string; name: string; changes: string[] }
+  | { status: 'update'; id: string; name: string; changes: string[];
+      /** Set when the item was regraded: its stats all moved by the same factor. */
+      regrade?: { fromStars: number; toStars: number; ratio: number } }
   | { status: 'add-one'; owned: number }
   | { status: 'invalid'; reason: string };
 
@@ -18,6 +20,8 @@ export function knownSlots(data: AppData): Map<string, Slot> {
 }
 
 const sameNumber = (a: number, b: number) => Math.abs(a - b) < 1e-6;
+const STAT_NAME: Record<keyof GearItem['stats'], string> = { luck: 'Luck', energy: 'Energy', tip: 'Tip', walk: 'Walk', vehicle: 'Vehicle',
+  recovery: 'Recovery', zone: 'Zone', arrowReduction: 'Arrow reduction', npc: 'NPC' };
 
 /** "Condition: 54% → 60%" when the screenshot shows something different; unrecorded values show as "—". */
 function change(label: string, before: string | number | undefined, after: string | number | undefined, unit = ''): string | undefined {
@@ -29,6 +33,26 @@ function change(label: string, before: string | number | undefined, after: strin
 function gearMatch(data: AppData, draft: Extract<ImportDraft, { kind: 'gear' }>): GearItem | undefined {
   return data.gear.find(g => g.slot === draft.slot && g.baseName.trim().toLowerCase() === draft.baseName.trim().toLowerCase()
     && (Object.keys(draft.stats) as Array<keyof GearItem['stats']>).every(k => sameNumber(g.stats[k] ?? 0, draft.stats[k])));
+}
+
+/**
+ * A regraded item: same slot, name and authentication, the same stats present, and every
+ * stat changed by one common factor (allowing for the game rounding small values).
+ */
+function regradeMatch(data: AppData, draft: Extract<ImportDraft, { kind: 'gear' }>): { item: GearItem; ratio: number } | undefined {
+  const keys = (Object.keys(draft.stats) as Array<keyof GearItem['stats']>).filter(k => draft.stats[k] !== 0);
+  if (!keys.length) return undefined;
+  for (const g of data.gear) {
+    if (g.slot !== draft.slot || g.baseName.trim().toLowerCase() !== draft.baseName.trim().toLowerCase()) continue;
+    if (g.gradeStars === undefined || g.gradeStars === draft.stars) continue;
+    const present = (Object.keys(g.stats) as Array<keyof GearItem['stats']>).filter(k => g.stats[k] !== 0);
+    if (present.length !== keys.length || present.some(k => !keys.includes(k))) continue;
+    const ratios = keys.map(k => draft.stats[k] / g.stats[k]).sort((a, b) => a - b);
+    const ratio = ratios[ratios.length >> 1];
+    if (!(ratio > 0.5 && ratio < 2.5) || ratios.some(r => !(r > 0))) continue;
+    if (keys.every(k => Math.abs(draft.stats[k] - g.stats[k] * ratio) <= Math.max(0.6, Math.abs(draft.stats[k]) * 0.03))) return { item: g, ratio };
+  }
+  return undefined;
 }
 
 function signature(modifiers: GavelTrophy['modifiers']): string {
@@ -54,11 +78,16 @@ export function matchDraft(data: AppData, draft: ImportDraft): ImportMatch {
       if (condition) return { status: 'invalid', reason: condition };
       if (!draft.slot) return { status: 'invalid', reason: 'Choose a slot.' };
       if (/^focus(ed)?$/i.test(draft.authentication.effect) && !draft.baseConfirmed) return { status: 'invalid', reason: 'Check the base stats (Focused).' };
-      const found = gearMatch(data, draft);
+      const regraded = gearMatch(data, draft) ? undefined : regradeMatch(data, draft);
+      const found = gearMatch(data, draft) ?? regraded?.item;
       if (!found) return { status: 'new' };
       const auth = (a: { kind: string; effect: string; value: number }) => a.kind === 'None' || !a.effect ? 'none' : `${a.effect} ${a.value}% (${a.kind})`;
-      return { status: 'update', id: found.id, name: found.baseName, changes: [
-        change('Condition', found.conditionPct, draft.conditionPct, '%'), change('Stars', found.gradeStars, draft.stars),
+      const statChanges = regraded ? (Object.keys(draft.stats) as Array<keyof GearItem['stats']>)
+        .filter(k => !sameNumber(found.stats[k], draft.stats[k])).map(k => change(STAT_NAME[k], found.stats[k], draft.stats[k], '%')) : [];
+      return { status: 'update', id: found.id, name: found.baseName,
+        ...(regraded ? { regrade: { fromStars: found.gradeStars!, toStars: draft.stars, ratio: regraded.ratio } } : {}), changes: [
+        regraded ? `Regraded: ${found.gradeStars}★ → ${draft.stars}★` : change('Stars', found.gradeStars, draft.stars), ...statChanges,
+        change('Condition', found.conditionPct, draft.conditionPct, '%'),
         change('Mutation', found.mutation || 'None', draft.mutation || 'None'),
         change('Effect', auth(found.authenticated ? found.authentication : { kind: 'None', effect: '', value: 0 }), auth(draft.authentication))
       ].filter((c): c is string => Boolean(c)) };
@@ -98,7 +127,10 @@ export function applyDraft(data: AppData, draft: ImportDraft, now = new Date().t
       gradeStars: draft.stars, stats: { ...draft.stats }, authenticated, authentication,
       name: generateGearName(draft.baseName.trim(), draft.stats, authenticated, authentication), updatedAt: now
     };
-    if (match.status === 'update') return { ...data, gear: data.gear.map(g => g.id === match.id
+    // A regrade is recorded so the app can work out what a star is worth.
+    const observed = match.status === 'update' && match.regrade
+      ? { ...data, gradeObservations: [...(data.gradeObservations ?? []), { id, date: now, itemName: fields.baseName, ...match.regrade }] } : data;
+    if (match.status === 'update') return { ...observed, gear: data.gear.map(g => g.id === match.id
       // The same authentication keeps any notes or observed stat deltas recorded for it;
       // a condition the screenshot does not show keeps the stored one.
       ? { ...g, ...fields, conditionPct: fields.conditionPct ?? g.conditionPct, authentication: sameAuth(g, fields) ? g.authentication : authentication } : g) };

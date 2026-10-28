@@ -118,9 +118,9 @@ describe('approving screenshots',()=>{
   it('updates the matching gear piece instead of adding a copy',()=>{
     const cow=data.gear.find(x=>x.baseName==='Cow Dominus')!;
     const scan=parsePanel({stars:1,infoLines:['Cow Dominus','Mythical','Condition: 54%'],statLines:[g('+58% Luck'),g('-35% Bid Arrow Speed')]},slots);
-    expect(matchDraft(data,scan)).toEqual({status:'update',id:cow.id,name:'Cow Dominus',changes:['Stars: — → 1']});
+    expect(matchDraft(data,scan)).toEqual({status:'update',id:cow.id,name:'Cow Dominus',changes:[]});
     const misread={...scan,conditionPct:60,authentication:{kind:'Normal' as const,effect:'Luck',value:7}};
-    expect(matchDraft(data,misread)).toMatchObject({changes:['Condition: 54% → 60%','Stars: — → 1','Effect: none → Luck 7% (Normal)']});
+    expect(matchDraft(data,{...misread,stars:2})).toMatchObject({changes:['Stars: 1 → 2','Condition: 54% → 60%','Effect: none → Luck 7% (Normal)']});
     const next=applyDraft(data,scan);
     expect(next.gear).toHaveLength(data.gear.length);
     expect(next.gear.find(x=>x.id===cow.id)).toMatchObject({gradeStars:1,conditionPct:54});

@@ -3,6 +3,7 @@ import { activeSpecialists, buildGearLoadouts, type GearLoadoutResult } from '..
 import { arrowTargetBand } from '../engine/scoring';
 import { algorithmIssues } from '../engine/settingsValidation';
 import { optimiseTrophies } from '../engine/trophies';
+import { regradeSuggestions } from '../engine/regrade';
 import type { AppData, GearItem } from '../types';
 import { Empty, gameStat, itemTitle, num, statSummary } from '../ui';
 
@@ -33,6 +34,9 @@ export function BestSetup({ data }: { data: AppData }) {
   const loadouts = useMemo(() => valid ? buildGearLoadouts(data.gear, data.settings, 'low') : {}, [data.gear, data.settings, valid]);
   const gavels = useMemo(() => optimiseTrophies(data.trophies, data.trophySettings)[0], [data.trophies, data.trophySettings]);
   const band = arrowTargetBand(data.settings);
+  const regrade = useMemo(() => regradeSuggestions(loadouts, data.settings, data.gradeObservations ?? []), [loadouts, data.settings, data.gradeObservations]);
+  const worth = regrade.suggestions.filter(s => s.advice !== 'gamble');
+  const gambles = regrade.suggestions.filter(s => s.advice === 'gamble');
   const active = activeSpecialists(data.settings);
 
   // Identical auction trios share one card with combined context labels.
@@ -68,5 +72,18 @@ export function BestSetup({ data }: { data: AppData }) {
       <div className="setStats"><span>Slots <b>{gavels.trophies.length}/{data.trophySettings.maxActive}</b></span></div>
     </article> : <Empty>No Gavels</Empty>}
 
+
+    <h2>Regrade</h2>
+    {valid && <article className="setCard regradeCard">
+      {worth.length ? <ol className="pieces">{worth.map(s => <li key={s.item.id}><span>{s.stars ? `${s.stars}★` : 'None'}</span>
+        <strong>{itemTitle(s.item)}<small className="pieceStats">{data.gear.filter(g => g.baseName === s.item.baseName).length > 1 ? `${statSummary(s.item)} · ` : ''}{s.advice === 'grade' ? 'Not graded: grading can only help' : 'A regrade can only keep or raise it'}
+          {' · '}{s.sets.join(', ')}{s.expectedChange !== undefined ? ` · about +${num(s.expectedChange * 100)}% stats on average` : ''}</small></strong></li>)}</ol>
+        : <Empty>{gambles.length ? 'Nothing safe to regrade' : 'Every item in your sets is 3★'}</Empty>}
+      {gambles.length > 0 && <p className="muted regradeNote">2★ in your sets ({gambles.map(s => itemTitle(s.item)).join(', ')}): a regrade is an even chance of 1★ or 3★.</p>}
+      {regrade.unrecorded.length > 0 && <p className="muted regradeNote">Stars not recorded for {regrade.unrecorded.map(itemTitle).join(', ')}. Import a screenshot to add them.</p>}
+      <p className="muted regradeNote">{regrade.starValue
+        ? `Each star adds about ${num(regrade.starValue.perStar * 100)}% to base stats (from ${regrade.starValue.count} regrade${regrade.starValue.count === 1 ? '' : 's'}).`
+        : 'What a star is worth is not published. After a regrade, import a screenshot of the item and the app will work it out.'}</p>
+    </article>}
   </section>;
 }
