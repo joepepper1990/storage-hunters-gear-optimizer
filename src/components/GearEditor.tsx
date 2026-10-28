@@ -5,7 +5,7 @@ import { gameArrowToReduction, reductionToGameArrow } from '../engine/scoring';
 import { activeAuthenticationOptions, EXCLUSIVE_AUTH_EFFECTS, LEGACY_ALIEN_EFFECTS, LIMITED_AUTH_EFFECTS, PREMIUM_AUTH_EFFECTS } from '../authentication';
 import { generateGearName } from '../naming';
 import type { AuthModelEntry, GearItem, GearStats, Slot } from '../types';
-import { SHORT_STAT, STAT_LABELS } from '../ui';
+import { NumberInput, SHORT_STAT, STAT_LABELS } from '../ui';
 
 export function blankGear(slot: Slot = 'Head'): GearItem {
   const now = new Date().toISOString();
@@ -56,8 +56,8 @@ export function GearEditor({ item, authModel, mode, onClose, onSave }: {
         <button type="button" key={key} onClick={() => setShown(current => [...current, key])}>＋ {SHORT_STAT[key]}</button>)}</div>}
       <div className="quickStatGrid">{STAT_LABELS.filter(([key]) => shown.includes(key)).map(([key, label]) => <div className="quickStatField" key={key}>
         {key === 'arrowReduction'
-          ? <label>{label} % (game sign)<input inputMode="decimal" type="number" step="any" value={reductionToGameArrow(v.stats.arrowReduction)} onChange={e => setStat('arrowReduction', gameArrowToReduction(Number(e.target.value)))} placeholder="-24" /></label>
-          : <label>{label} %<input inputMode="decimal" type="number" step="any" value={v.stats[key]} onChange={e => setStat(key, Number(e.target.value))} /></label>}
+          ? <label>{label} % (game sign)<NumberInput value={reductionToGameArrow(v.stats.arrowReduction)} onValue={n => setStat('arrowReduction', gameArrowToReduction(n))} placeholder="-24" /></label>
+          : <label>{label} %<NumberInput value={v.stats[key]} onValue={n => setStat(key, n)} /></label>}
         <button type="button" className="removeStat" onClick={() => hideStat(key)} aria-label={`Remove ${label}`}>×</button>
       </div>)}</div>
     </div>

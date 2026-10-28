@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { applyRecordedCertificateRoll, correctRecordedCertificateRoll, deleteRecordedCertificateRoll } from '../engine/certificateRolls';
 import type { CertificateQueue } from '../engine/certificateQueue';
-import { addCertificateBatch, certificateLabel, setCertificateQuantity, updateCertificateBatch } from '../engine/certificateInventory';
+import { addCertificateBatch, certificateLabel, setCertificateQuantity, updateCertificateGroup } from '../engine/certificateInventory';
 import type { CertificateTargetDecision } from '../engine/certificateDecision';
 import type { useCertificateAnalysis } from '../hooks/useAnalysis';
 import { CertificateBatchEditor, HistoryEditor, RecordResultEditor } from '../components/CertificateEditors';
@@ -49,7 +49,7 @@ function groupByLabel(certificates: OwnedCertificate[]): Array<{ label: string; 
 }
 
 export function CertificateBatches({ data, setData }: { data: AppData; setData: SetData }) {
-  const [editing, setEditing] = useState<OwnedCertificate | 'new' | null>(null);
+  const [editing, setEditing] = useState<OwnedCertificate[] | 'new' | null>(null);
   const [error, setError] = useState('');
   const run = (change: () => AppData) => { try { setData(change()); setEditing(null); setError(''); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } };
   return <div className="batchList">
@@ -63,14 +63,14 @@ export function CertificateBatches({ data, setData }: { data: AppData; setData: 
           <output aria-live="polite">{quantity}</output>
           <button onClick={() => run(() => setCertificateQuantity(data, batches[0].id, batches[0].quantity + 1))} aria-label="Add one">＋</button>
         </div>
-        <button className="link" onClick={() => setEditing(batches[0])}>Edit</button>
+        <button className="link" onClick={() => setEditing(batches)}>Edit</button>
       </div>;
     })}
     {!data.ownedCertificates.length && <Empty>No certificates</Empty>}
     {error && <p className="formError" role="alert">{error}</p>}
     <button className="secondary" onClick={() => setEditing('new')}>＋ Add certificates</button>
-    {editing && <CertificateBatchEditor batch={editing === 'new' ? undefined : editing} onClose={() => setEditing(null)}
-      onSave={input => run(() => editing === 'new' ? addCertificateBatch(data, input) : updateCertificateBatch(data, editing.id, input))} />}
+    {editing && <CertificateBatchEditor batch={editing === 'new' ? undefined : { ...editing[0], quantity: editing.reduce((n, b) => n + b.quantity, 0) }} onClose={() => setEditing(null)}
+      onSave={input => run(() => editing === 'new' ? addCertificateBatch(data, input) : updateCertificateGroup(data, editing.map(b => b.id), input))} />}
   </div>;
 }
 

@@ -253,7 +253,7 @@ export function normalizeData(raw: AppData, options: { preserveInventory?: boole
   // older screenshots). Stored records that match a screenshot keep their ID, favourite and
   // created date; anything not in the screenshots is removed. Explicit backup restores keep
   // their own inventory. Vehicle data from older versions is dropped: vehicles are no longer modelled.
-  const replace = !preserveInventory && Number(raw?.schemaVersion) < 15;
+  const replace = !preserveInventory && !(Number(raw?.schemaVersion) >= 15);
   const storedGear = Array.isArray(raw?.gear) ? raw.gear.map(normalizeItem) : [];
   const storedCertificates = Array.isArray(raw?.ownedCertificates) ? raw.ownedCertificates.map(normalizeOwnedCertificate) : [];
   const storedTrophies = Array.isArray(raw?.trophies) ? raw.trophies.map(normalizeTrophy) : [];

@@ -1,9 +1,9 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type InputHTMLAttributes, type ReactNode } from 'react';
 import type { AppData, GearItem, GearStats } from './types';
-import { reductionToGameArrow } from './engine/scoring';
+import { effectiveItemStats, reductionToGameArrow } from './engine/scoring';
 
 export const STAT_LABELS: Array<[keyof GearStats, string]> = [
-  ['luck','Luck'],['energy','Energy Drink Time'],['tip','Tip Chance'],['walk','Walkspeed'],['vehicle','Vehicle Speed'],
+  ['luck','Luck'],['energy','Energy Drink Time'],['tip','Tip Chance'],['walk','Walkspeed'],
   ['recovery','Bid Recovery'],['zone','Bid Zone Width'],['arrowReduction','Bid Arrow Speed'],['npc','NPC Offers Bonus']
 ];
 
@@ -24,6 +24,12 @@ export function signedPct(value: number): string {
 /** Item stat as shown in game; Bid Arrow keeps its signed in-game sign. */
 export function gameStat(key: keyof GearStats, value: number): string {
   return signedPct(key === 'arrowReduction' ? reductionToGameArrow(value) : value);
+}
+
+/** Short stat line, including any authentication bonus, e.g. "Luck +53% · Arrow -31%". */
+export function statSummary(item: GearItem): string {
+  const stats = effectiveItemStats(item);
+  return STAT_LABELS.filter(([key]) => Math.abs(stats[key]) > 1e-12).map(([key]) => `${SHORT_STAT[key]} ${gameStat(key, stats[key])}`).join(' · ');
 }
 
 export function itemTitle(item: Pick<GearItem, 'baseName' | 'name'>): string {
@@ -73,3 +79,20 @@ export function downloadText(name: string, text: string, type: string) {
 }
 
 export type SetData = (next: AppData) => void;
+
+/**
+ * A number field that keeps what is being typed ("-", "7.", "") until it is a number, then
+ * reports it. A browser number field reports "-" as empty, which used to turn into 0 and
+ * drop the sign of a value like -24. Leaving the field shows the stored value again.
+ */
+export function NumberInput({ value, onValue, ...rest }: { value: number | undefined; onValue: (value: number) => void }
+  & Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type'>) {
+  const shown = value === undefined || !Number.isFinite(value) ? '' : String(value);
+  const [text, setText] = useState(shown);
+  const parsed = (raw: string) => /^\s*[-+]?(\d+([.,]\d*)?|[.,]\d+)\s*$/.test(raw) ? Number(raw.replace(',', '.')) : undefined;
+  // A value changed from outside (another field, a reset) replaces the text.
+  useEffect(() => { if (parsed(text) !== value) setText(shown); }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
+  return <input {...rest} type="text" inputMode="decimal" value={text}
+    onChange={e => { setText(e.target.value); const n = parsed(e.target.value); if (n !== undefined) onValue(n); }}
+    onBlur={e => { if (parsed(text) === undefined) setText(shown); rest.onBlur?.(e); }} />;
+}

@@ -32,7 +32,12 @@ function gearMatch(data: AppData, draft: Extract<ImportDraft, { kind: 'gear' }>)
 }
 
 function signature(modifiers: GavelTrophy['modifiers']): string {
-  return modifiers.map(m => `${m.mutation.toLowerCase()}:${m.boostPct}`).sort().join('|');
+  return modifiers.map(m => `${m.mutation.trim().toLowerCase()}:${m.boostPct}`).sort().join('|');
+}
+
+/** Values the app could not load back are refused before saving. */
+function conditionProblem(condition: number | undefined): string | undefined {
+  return condition !== undefined && !(condition >= 0 && condition <= 100) ? 'Condition must be between 0 and 100%.' : undefined;
 }
 
 function gavelMatch(data: AppData, draft: Extract<ImportDraft, { kind: 'gavel' }>): GavelTrophy | undefined {
@@ -45,11 +50,13 @@ export function matchDraft(data: AppData, draft: ImportDraft): ImportMatch {
     case 'unknown': return { status: 'invalid', reason: 'Not recognised as gear, a Gavel or a certificate.' };
     case 'gear': {
       if (!draft.baseName.trim()) return { status: 'invalid', reason: 'Enter the item name.' };
+      const condition = conditionProblem(draft.conditionPct);
+      if (condition) return { status: 'invalid', reason: condition };
       if (!draft.slot) return { status: 'invalid', reason: 'Choose a slot.' };
       if (/^focus(ed)?$/i.test(draft.authentication.effect) && !draft.baseConfirmed) return { status: 'invalid', reason: 'Check the base stats (Focused).' };
       const found = gearMatch(data, draft);
       if (!found) return { status: 'new' };
-      const auth = (a: { kind: string; effect: string; value: number }) => a.kind === 'None' || !a.effect ? 'none' : `${a.effect} ${a.value}%`;
+      const auth = (a: { kind: string; effect: string; value: number }) => a.kind === 'None' || !a.effect ? 'none' : `${a.effect} ${a.value}% (${a.kind})`;
       return { status: 'update', id: found.id, name: found.baseName, changes: [
         change('Condition', found.conditionPct, draft.conditionPct, '%'), change('Stars', found.gradeStars, draft.stars),
         change('Mutation', found.mutation || 'None', draft.mutation || 'None'),
@@ -58,6 +65,9 @@ export function matchDraft(data: AppData, draft: ImportDraft): ImportMatch {
     }
     case 'gavel': {
       if (!draft.modifiers.length) return { status: 'invalid', reason: 'Add at least one mutation boost.' };
+      if (draft.modifiers.some(m => !m.mutation.trim() || !(m.boostPct >= 0))) return { status: 'invalid', reason: 'Every row needs a mutation and a boost of 0% or more.' };
+      const condition = conditionProblem(draft.conditionPct);
+      if (condition) return { status: 'invalid', reason: condition };
       const found = gavelMatch(data, draft);
       if (!found) return { status: 'new' };
       return { status: 'update', id: found.id, name: found.name, changes: [
@@ -89,13 +99,16 @@ export function applyDraft(data: AppData, draft: ImportDraft, now = new Date().t
       name: generateGearName(draft.baseName.trim(), draft.stats, authenticated, authentication), updatedAt: now
     };
     if (match.status === 'update') return { ...data, gear: data.gear.map(g => g.id === match.id
-      // The same authentication keeps any notes or observed stat deltas recorded for it.
-      ? { ...g, ...fields, authentication: sameAuth(g, fields) ? g.authentication : authentication } : g) };
+      // The same authentication keeps any notes or observed stat deltas recorded for it;
+      // a condition the screenshot does not show keeps the stored one.
+      ? { ...g, ...fields, conditionPct: fields.conditionPct ?? g.conditionPct, authentication: sameAuth(g, fields) ? g.authentication : authentication } : g) };
     return { ...data, gear: [...data.gear, { id, ...fields, favourite: false, createdAt: now }] };
   }
   if (draft.kind === 'gavel') {
-    const fields = { modifiers: draft.modifiers, name: generateTrophyName(draft.modifiers), conditionPct: draft.conditionPct, gradeStars: draft.stars, updatedAt: now };
-    if (match.status === 'update') return { ...data, trophies: data.trophies.map(t => t.id === match.id ? { ...t, ...fields } : t) };
+    const modifiers = draft.modifiers.map(m => ({ mutation: m.mutation.trim(), boostPct: m.boostPct }));
+    const fields = { modifiers, name: generateTrophyName(modifiers), conditionPct: draft.conditionPct, gradeStars: draft.stars, updatedAt: now };
+    // Display tooltips show no condition: keep the stored one.
+    if (match.status === 'update') return { ...data, trophies: data.trophies.map(t => t.id === match.id ? { ...t, ...fields, conditionPct: fields.conditionPct ?? t.conditionPct } : t) };
     return { ...data, trophies: [...data.trophies, { id, ...fields, favourite: false, createdAt: now }] };
   }
   if (draft.kind === 'certificate') return addCertificateBatch(data, { type: draft.type, quantity: 1, gradeStars: draft.stars, mutation: draft.mutation });

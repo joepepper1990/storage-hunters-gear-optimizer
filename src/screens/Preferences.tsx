@@ -82,7 +82,7 @@ export function Preferences({ data, setData }: { data: AppData; setData: SetData
     {message && <Notice tone={message.tone}>{message.text}</Notice>}
 
     <Section title="Auctions" section="Auctions" data={data} setData={setData}
-      note={`Reaching ${arrowTargetBand(data.settings).min}–${arrowTargetBand(data.settings).max}% Bid Arrow always comes first.`} />
+      note={`Reaching ${arrowTargetBand(data.settings).min}–${arrowTargetBand(data.settings).max}% Bid Arrow reduction always comes first.`} />
     <Section title="Drink Prep" section="Drink Prep" data={data} setData={setData} />
     <Section title="Grading" section="Grading" data={data} setData={setData} />
     <Section title="Shop / Idle" section="Shop / Idle" data={data} setData={setData} />
