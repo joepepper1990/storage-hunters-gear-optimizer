@@ -51,13 +51,24 @@ function authKind(effect: string): Authentication['kind'] {
   return PREMIUM_EFFECTS.has(effect) ? 'Premium' : LIMITED_EFFECTS.has(effect) ? 'Limited' : 'Normal';
 }
 
+/** Stat lines over busy artwork can lose letters ("-1.5% N PoE Bonus"); one distinctive word is enough. */
+const STAT_KEYWORDS: Array<[RegExp, keyof GearStats]> = [
+  [/\bbonus\b|\boffers?\b|\bnpc\b/i, 'npc'], [/\barrow\b/i, 'arrowReduction'], [/\bzone\b|\bwidth\b/i, 'zone'],
+  [/\brecovery\b/i, 'recovery'], [/\bdrink\b|\benergy\b/i, 'energy'], [/\btip\b|\bchance\b/i, 'tip'],
+  [/\bwalk/i, 'walk'], [/\bluck\b/i, 'luck']
+];
+function statByKeyword(text: string): keyof GearStats | undefined {
+  return STAT_KEYWORDS.find(([pattern]) => pattern.test(text))?.[1];
+}
+
 export function parsePanel(read: PanelRead, knownSlots: Map<string, Slot> = new Map()): PanelScan {
   const { name, tags, conditionPct } = readInfo(read.infoLines);
   const common: Common = { stars: read.stars, conditionPct, warnings: [] };
   if (!name && !tags.length) return { ...common, kind: 'unknown', warnings: ['No item name found. This may not be an item screenshot.'] };
 
   if (/gavel\s*trophy/i.test(name)) {
-    const modifiers = tags.map(tag => tag.match(/^(.+?)\s*\+\s*(\d+(?:[.,]\d+)?)\s*%?$/))
+    // Tolerant of stray symbols the reader adds inside a tag, e.g. "[Chrome +24%)]".
+    const modifiers = tags.map(tag => tag.match(/([A-Za-z][A-Za-z ]*?)\s*\+\s*(\d+(?:[.,]\d+)?)/))
       .filter((m): m is RegExpMatchArray => Boolean(m))
       .map(m => ({ mutation: titleCase(m[1].trim()), boostPct: Number(m[2].replace(',', '.')) }));
     if (!modifiers.length) common.warnings.push('No mutation boosts found in the name.');
@@ -73,13 +84,23 @@ export function parsePanel(read: PanelRead, knownSlots: Map<string, Slot> = new 
 
   const stats = { ...ZERO };
   let authentication: Authentication = { kind: 'None', effect: '', value: 0 };
+  let describedValue = false;
   for (const line of read.statLines) {
     const text = clean(line.text);
     // Item artwork behind the text can read as stray symbols; real lines contain a word.
-    if (!/[a-z]{3,}/i.test(text)) continue;
+    if (!/[a-z]{4,}/i.test(text)) continue;
     // The authentication is always the last stat line; everything after it describes it,
-    // whatever colour the artwork behind it gives ("+35% luck during the night").
-    if (authentication.kind !== 'None') continue;
+    // whatever colour the artwork behind it gives ("+35% luck during the night"). Some
+    // effects show their number only there ("Droughtbreaker" / "+18 Luck per auction ..."),
+    // so the first number of the first description line fills an effect shown without one.
+    if (authentication.kind !== 'None') {
+      if (!describedValue && authentication.value === 0) {
+        const number = text.match(/[+\-]?\s*(\d+(?:[.,]\d+)?)/);
+        if (number) authentication = { ...authentication, value: Number(number[1].replace(',', '.')) };
+      }
+      describedValue = true;
+      continue;
+    }
     const value = extractPercentage(text);
     if (line.color === 'blue') {
       const effect = bestAuthEffect(text);
@@ -87,10 +108,9 @@ export function parsePanel(read: PanelRead, knownSlots: Map<string, Slot> = new 
       else common.warnings.push(`Authentication not recognised: "${text}".`);
       continue;
     }
-    const stat = value === undefined ? undefined : bestStatMatch(text);
-    if (!stat || value === undefined) continue; // Grey effect descriptions and stray text.
+    const key = value === undefined ? undefined : bestStatMatch(text)?.definition.key ?? statByKeyword(text);
+    if (!key || value === undefined) continue; // Grey effect descriptions and stray text.
     if (line.color === 'neutral') common.warnings.push(`Colour unclear for "${text}"; read as a base stat.`);
-    const key = stat.definition.key;
     // The colour says which way a stat goes (green helps, red hurts), so a sign the reader
     // missed cannot flip it. Only an unclear colour falls back to the sign as read.
     const helps = line.color === 'green' ? true : line.color === 'red' ? false : undefined;

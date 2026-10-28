@@ -21,6 +21,10 @@ function GearFields({ draft, onChange }: { draft: Extract<ImportDraft, { kind: '
     set({ authentication: next.effect ? { ...next, kind: next.kind === 'None' ? 'Normal' : next.kind } : { kind: 'None', effect: '', value: 0 } });
   };
   const focused = /^focus(ed)?$/i.test(draft.authentication.effect);
+  // Only the stats the item has are shown; a stat the reader missed can be added.
+  const [added, setAdded] = useState<Array<keyof GearStats>>([]);
+  const shown = EDITABLE_STATS.filter(([key]) => draft.stats[key] !== 0 || added.includes(key));
+  const missing = EDITABLE_STATS.filter(([key]) => !shown.some(([k]) => k === key));
   return <div className="formGrid">
     <label className="wide">Name<input value={draft.baseName} onChange={e => set({ baseName: e.target.value })} /></label>
     <label>Slot<select value={draft.slot ?? ''} onChange={e => set({ slot: (e.target.value || undefined) as Slot | undefined })}>
@@ -28,9 +32,11 @@ function GearFields({ draft, onChange }: { draft: Extract<ImportDraft, { kind: '
     <label>Stars<select value={draft.stars} onChange={e => set({ stars: Number(e.target.value) })}>{STARS.map(n => <option key={n} value={n}>{n ? `${n}★` : 'Not graded'}</option>)}</select></label>
     <label>Mutation<input value={draft.mutation} onChange={e => set({ mutation: e.target.value })} /></label>
     <label>Condition %<input type="number" inputMode="decimal" value={draft.conditionPct ?? ''} onChange={e => set({ conditionPct: numberOr(e.target.value, undefined) })} /></label>
-    {EDITABLE_STATS.map(([key, label]) => <label key={key}>{label} %
+    {shown.map(([key, label]) => <label key={key}>{label} %
       <input type="number" step="any" inputMode="decimal" value={key === 'arrowReduction' ? reductionToGameArrow(draft.stats[key]) : draft.stats[key]}
         onChange={e => { const v = numberOr(e.target.value, 0)!; setStat(key, key === 'arrowReduction' ? gameArrowToReduction(v) : v); }} /></label>)}
+    {missing.length > 0 && <label>Add a stat<select value="" onChange={e => setAdded(current => [...current, e.target.value as keyof GearStats])}>
+      <option value="">＋ Stat</option>{missing.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>}
     <label>Authentication<select value={draft.authentication.effect} onChange={e => setAuth({ effect: e.target.value })}>
       <option value="">None</option>{[...new Set([draft.authentication.effect, ...AUTH_EFFECTS])].filter(Boolean).map(a => <option key={a}>{a}</option>)}</select></label>
     {draft.authentication.effect && <>

@@ -46,8 +46,15 @@ describe('reading the item panel',()=>{
     expect(pearl.kind==='gear'&&pearl.stats).toMatchObject({zone:76,luck:100});
     expect(pearl).toMatchObject({authentication:{effect:'Nocturnal',value:35},warnings:[]});
   });
+  it('takes an effect\'s number from its description when the effect line has none',()=>{
+    const backpack=parsePanel({stars:1,infoLines:['[Exclusive] Dark Heart Backpack','Legendary'],
+      statLines:[g('-40% Bid Arrow Speed'),g('+35% Walkspeed'),b('Droughtbreaker'),n('+18 Luck per auction without a mutation'),n('up to 5 stacks')]});
+    expect(backpack).toMatchObject({authentication:{kind:'Premium',effect:'Droughtbreaker',value:18}});
+    const goggle=parsePanel({stars:3,infoLines:['Steampunk Goggle','Epic'],statLines:[g('+136% Luck'),b('Mutated Luck'),n('Each worn accessory adds luck based'),n('on its mutator 2')]});
+    expect(goggle).toMatchObject({authentication:{effect:'Mutated Luck',value:0}});
+  });
   it('ignores stray symbols read from the item artwork',()=>{
-    const helm=parsePanel({stars:1,infoLines:['[Diamond] Steampunk Valk Helm','Epic'],statLines:[g('+13% Bid Recovery'),b('aa VV :'),b('ff [ i (')]});
+    const helm=parsePanel({stars:1,infoLines:['[Diamond] Steampunk Valk Helm','Epic'],statLines:[g('+13% Bid Recovery'),b('aa VV :'),b('ff [ i ('),b('y/t TAY :')]});
     expect(helm).toMatchObject({authentication:{kind:'None'},warnings:[]});
   });
   it('uses the inventory to find the slot of a name it cannot place',()=>{
@@ -66,6 +73,13 @@ describe('reading the item panel',()=>{
       .toMatchObject({kind:'certificate',type:'Wooden Certificate of Authenticity',stars:2});
     expect(parsePanel({stars:2,infoLines:['[Limited] Limited Certificate Of','Authenticity','Limited'],statLines:[]}))
       .toMatchObject({kind:'certificate',type:'Limited Certificate of Authenticity',mutation:undefined});
+  });
+  it('recovers lines damaged by artwork and stray symbols in tags',()=>{
+    const fox=parsePanel({stars:2,infoLines:['[Exclusive] Autumn Fox Wristband','Legendary','Condition: 81%'],
+      statLines:[g('+73% Luck'),g('+55% Bid Zone Width'),r('-1.5% N PoE Bonus'),n('o>» N'),n('| WP (')]});
+    expect(fox.kind==='gear'&&fox.stats).toMatchObject({luck:73,zone:55,npc:-1.5});
+    expect(parsePanel({stars:0,infoLines:['[Huge +188%] [Chrome +24%)] Gavel','Trophy','Legendary','Condition: 93%'],statLines:[]}))
+      .toMatchObject({kind:'gavel',modifiers:[{mutation:'Huge',boostPct:188},{mutation:'Chrome',boostPct:24}]});
   });
   it('flags a screenshot with no item panel',()=>{
     expect(parsePanel({stars:0,infoLines:[],statLines:[]}).kind).toBe('unknown');
