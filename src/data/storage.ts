@@ -283,6 +283,7 @@ function normalizeTrophy(item: GavelTrophy): GavelTrophy {
     name: generateTrophyName(modifiers),
     modifiers,
     conditionPct: conditionOrUndefined(item?.conditionPct),
+    ...gradeOf(item?.gradeStars),
     favourite: Boolean(item?.favourite),
     createdAt: item?.createdAt || now,
     updatedAt: item?.updatedAt || now
@@ -545,6 +546,7 @@ function normalizeItem(i: GearItem): GearItem {
     mutation: typeof i?.mutation === 'string' ? i.mutation : undefined,
     conditionPct: i?.conditionPct === undefined || i?.conditionPct === null
       ? undefined : finite(i.conditionPct),
+    ...gradeOf(i?.gradeStars),
     favourite: Boolean(i?.favourite),
     authenticated,
     authentication,
@@ -554,6 +556,11 @@ function normalizeItem(i: GearItem): GearItem {
   };
 }
 
+/** A recorded star grade (whole number 0-5); anything else is left unrecorded. */
+function gradeOf(value: unknown): { gradeStars?: number } {
+  const n = Number(value);
+  return value !== undefined && value !== null && Number.isInteger(n) && n >= 0 && n <= 5 ? { gradeStars: n } : {};
+}
 function finite(v: unknown) { const n = Number(v); return Number.isFinite(n) ? n : 0; }
 function errorMessage(error: unknown) { return error instanceof Error ? error.message : String(error ?? 'unknown error'); }
 
