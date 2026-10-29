@@ -106,6 +106,7 @@ export function dynamicLuck(
   const state=resolveDynamicState(dynamic);
   // An active drink is a shared baseline, independent of authentication count.
   let luck=state.drinkLuckBoost;
+  if(!items.some(item=>item.authenticated))return luck;
   for(const item of items){
     if(!item.authenticated)continue;
     const effect=item.authentication.effect.trim();
@@ -219,9 +220,17 @@ export function arrowTier(stats:Pick<GearStats,'arrowReduction'>,settings:Algori
 function allTrios(gear:GearItem[],settings:AlgorithmSettings):Trio[] {
   const heads=gear.filter(g=>g.slot==='Head'), backs=gear.filter(g=>g.slot==='Back'), wrists=gear.filter(g=>g.slot==='Wrist');
   if(!heads.length||!backs.length||!wrists.length)return [];
+  // Each item's stats (authentication included) are worked out once per call, not once per trio.
+  const ownStats=new Map<GearItem,GearStats>();
+  const own=(item:GearItem)=>{ let stats=ownStats.get(item); if(!stats){stats=combineStats([item]);ownStats.set(item,stats);} return stats; };
+  const sum=(a:GearStats,b:GearStats,c:GearStats):GearStats=>({
+    luck:a.luck+b.luck+c.luck, energy:a.energy+b.energy+c.energy, tip:a.tip+b.tip+c.tip, walk:a.walk+b.walk+c.walk,
+    vehicle:a.vehicle+b.vehicle+c.vehicle, recovery:a.recovery+b.recovery+c.recovery, zone:a.zone+b.zone+c.zone,
+    arrowReduction:a.arrowReduction+b.arrowReduction+c.arrowReduction, npc:a.npc+b.npc+c.npc
+  });
   const out:Trio[]=[];
   for(const h of heads)for(const b of backs)for(const w of wrists){
-    const items=[h,b,w],stats=combineStats(items);
+    const items=[h,b,w],stats=sum(own(h),own(b),own(w));
     out.push({items,stats,main:mainAuctionUtility(items,settings,'Neutral','low',stats),
       tier:arrowTier(stats,settings),key:h.id+'|'+b.id+'|'+w.id});
   }
@@ -259,11 +268,12 @@ export function buildGearLoadouts(
 ):GearLoadoutCollection {
   const trios=allTrios(gear,settings);
   const specialists=activeSpecialists(settings);
+  const auction=(context:MainAuctionContext)=>(t:Trio)=>mainAuctionUtility(t.items,settings,context,dynamic,t.stats);
   return {
-    main:makeResult('Main Auction',trios,t=>mainAuctionUtility(t.items,settings,'Neutral',dynamic,t.stats),settings,'Neutral','Primary loadout: reach the Bid Arrow band first, then Luck, Bid Zone and Recovery.',false,dynamic,true),
-    day:makeResult('Day Auction',trios,t=>mainAuctionUtility(t.items,settings,'Day',dynamic,t.stats),settings,'Day','Main Auction with Sunny effects active.',false,dynamic,true),
-    night:makeResult('Night Auction',trios,t=>mainAuctionUtility(t.items,settings,'Night',dynamic,t.stats),settings,'Night','Main Auction with Nocturnal effects active.',false,dynamic,true),
-    rain:makeResult('Rain Auction',trios,t=>mainAuctionUtility(t.items,settings,'Rain',dynamic,t.stats),settings,'Rain','Main Auction with Raindrop effects active.',false,dynamic,true),
+    main:makeResult('Main Auction',trios,auction('Neutral'),settings,'Neutral','Primary loadout: reach the Bid Arrow band first, then Luck, Bid Zone and Recovery.',false,dynamic,true),
+    day:makeResult('Day Auction',trios,auction('Day'),settings,'Day','Main Auction with Sunny effects active.',false,dynamic,true),
+    night:makeResult('Night Auction',trios,auction('Night'),settings,'Night','Main Auction with Nocturnal effects active.',false,dynamic,true),
+    rain:makeResult('Rain Auction',trios,auction('Rain'),settings,'Rain','Main Auction with Raindrop effects active.',false,dynamic,true),
     drink:specialists.includes('Drink Prep')?makeResult('Drink Prep',trios,t=>drinkValue(t.stats,settings),settings,undefined,'Temporary set used while consuming an Energy Drink; Energy duration matters. Overcharged is auction-time Luck and is evaluated in Main sensitivity states instead.',true):undefined,
     grading:specialists.includes('Grading')?makeResult('Grading',trios,t=>gradeRerollValue(t.items),settings,undefined,'Temporary grading set; Lucky Grading is owned and Grade Re-Roll is valued against that distribution.',true):undefined,
     shop:specialists.includes('Shop / Idle')?makeResult('Shop / Idle',trios,t=>shopValue(t.stats,settings),settings,undefined,'Optional selling set for deliberate shop/idle sessions; Tip Chance and NPC Offers matter.',true):undefined

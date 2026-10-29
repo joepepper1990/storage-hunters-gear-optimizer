@@ -76,7 +76,7 @@ For roll strength, the configured min / typical / max remains the prior model an
 
 ## Verified inventory
 
-Schema 17 applies the 29 October 2026 inventory screenshots once: Desert Hood, Luxury Ice Crown (Energy/Walk), Luxury Backpack and the Saloon Sparkle Reactor Fedora are removed (exact name and stats only) and [Gold] Royal Dominus and [Chrome] [Corrupted] [Limited] Demon Pumpkin Head are added, leaving 27 accessories. Eleven other new accessories were seen only in the grid, without stats, and are added by importing their detail screenshots.
+Schema 17 applies the 29 October 2026 inventory screenshots once: Desert Hood, Luxury Ice Crown (Energy/Walk), Luxury Backpack and the Saloon Sparkle Reactor Fedora are removed (exact name and stats only) and [Gold] Royal Dominus and [Chrome] [Corrupted] [Limited] Demon Pumpkin Head are added, leaving 27 accessories. Schema 18 adds the other twelve new accessories from their 30 October detail screenshots (Grave Crown, Candy Corn Antlers, Noble Vampire Top Hat, Owl Beanie, Turtle Fedora, Business Bowler, [Silver] [Limited] Demon Pumpkin Head, a plain Steampunk Goggle, [Hologram] Elegant Business Backpack, Steampunk Jacket, Autumn Wings, Luxury Wristband), giving 39 accessories.
 
 Schema 15 is a one-time replacement from the user's complete 27 October 2026 screenshots:
 
