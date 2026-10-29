@@ -12,16 +12,18 @@ describe('verified 26-27 October 2026 accessory inventory',()=>{
   const by=(name:string)=>gear.filter(g=>g.baseName===name);
   const one=(name:string)=>by(name)[0];
 
-  it('contains exactly 29 separate accessories: 16 Head, 7 Back and 6 Wrist',()=>{
-    expect(gear).toHaveLength(29);
-    expect(gear.filter(g=>g.slot==='Head')).toHaveLength(16);
-    expect(gear.filter(g=>g.slot==='Back')).toHaveLength(7);
+  it('contains exactly 27 separate accessories after the 29 October update: 15 Head, 6 Back and 6 Wrist',()=>{
+    expect(gear).toHaveLength(27);
+    expect(gear.filter(g=>g.slot==='Head')).toHaveLength(15);
+    expect(gear.filter(g=>g.slot==='Back')).toHaveLength(6);
     expect(gear.filter(g=>g.slot==='Wrist')).toHaveLength(6);
-    expect(new Set(gear.map(g=>g.id)).size).toBe(29);
-    expect(by('Luxury Ice Crown')).toHaveLength(3);
-    expect(by('Royal Dominus')).toHaveLength(2);
+    expect(new Set(gear.map(g=>g.id)).size).toBe(27);
+    expect(by('Luxury Ice Crown')).toHaveLength(2);
+    expect(by('Royal Dominus')).toHaveLength(3);
+    expect(by('Desert Hood')).toHaveLength(0);
+    expect(by('Luxury Backpack')).toHaveLength(0);
     expect(by('Steampunk Goggle')).toHaveLength(2);
-    expect(by('Reactor Fedora')).toHaveLength(2);
+    expect(by('Reactor Fedora')).toHaveLength(1);
     expect(by('Dark Heart Backpack')).toHaveLength(2);
   });
 
@@ -96,7 +98,7 @@ describe('verified 26-27 October 2026 accessory inventory',()=>{
   it('stores the seven accessories added on 27 October with their signed stats',()=>{
     const added=gear.filter(g=>g.id.startsWith('verified-20261027-'));
     expect(added.map(g=>g.baseName).sort()).toEqual(['Dark Aura Dominus','Franken Bunny Wristband','Halloween Boombox',
-      'Luxury Ice Crown','Luxury Ice Crown','Royal Dominus','Steampunk Valk Helm']);
+      'Luxury Ice Crown','Royal Dominus','Steampunk Valk Helm']);
     expect(one('Halloween Boombox')).toMatchObject({slot:'Back',mutation:'Limited',conditionPct:73,stats:expect.objectContaining({zone:110,energy:74})});
     expect(one('Steampunk Valk Helm').stats).toMatchObject({recovery:13,npc:7.5,arrowReduction:-3});
     expect(one('Franken Bunny Wristband').stats).toMatchObject({recovery:13,tip:7.2,energy:-6});
@@ -108,8 +110,8 @@ describe('verified 26-27 October 2026 accessory inventory',()=>{
     const matching={...one('Luxury Ice Crown'),id:'my-luxury',favourite:true};
     const old={...makeInitialData(),schemaVersion:8,gear:[matching,changed]} as any;
     const upgraded=normalizeData(old);
-    expect(upgraded.schemaVersion).toBe(16);
-    expect(upgraded.gear).toHaveLength(29);
+    expect(upgraded.schemaVersion).toBe(17);
+    expect(upgraded.gear).toHaveLength(27);
     // An item with the same base stats keeps its ID and favourite; one with other stats is not owned.
     expect(upgraded.gear.find(g=>g.id==='my-luxury')?.favourite).toBe(true);
     expect(upgraded.gear.some(g=>g.id==='manual-cow')).toBe(false);
@@ -117,7 +119,7 @@ describe('verified 26-27 October 2026 accessory inventory',()=>{
     // Once schema 15 has been saved, later user edits are respected.
     const edited={...upgraded,gear:upgraded.gear.slice(1)};
     const again=normalizeData(JSON.parse(exportJson(edited)));
-    expect(again.gear).toHaveLength(28);
+    expect(again.gear).toHaveLength(26);
   });
 
   it('round-trips condition, mutation and signed stats in JSON and CSV',()=>{
@@ -136,5 +138,47 @@ describe('verified 26-27 October 2026 accessory inventory',()=>{
     const maple=makeMapleWristband();
     expect(maple).toMatchObject({baseName:'Maple Wristband',slot:'Wrist',mutation:'Exclusive',conditionPct:85});
     expect(maple.stats).toMatchObject({luck:63,zone:47});
+  });
+});
+
+import { applyInventoryUpdate20261029 } from './knownGear';
+describe('29 October inventory update (schema 17)',()=>{
+  // A schema-16 store: the 29 gear items as they were, one of the gone ones favourited.
+  const before=()=>{
+    const d=makeInitialData();
+    const gone=[
+      {baseName:'Desert Hood',slot:'Head' as const,stats:{arrowReduction:31,luck:53}},
+      {baseName:'Reactor Fedora',slot:'Head' as const,stats:{arrowReduction:42,zone:51}},
+      {baseName:'Luxury Ice Crown',slot:'Head' as const,stats:{walk:41,energy:41}},
+      {baseName:'Luxury Backpack',slot:'Back' as const,stats:{tip:11,walk:38}}
+    ].map((g,i)=>({...d.gear[0],id:`old-${i}`,baseName:g.baseName,name:g.baseName,slot:g.slot,authenticated:false,
+      authentication:{kind:'None' as const,effect:'',value:0},stats:{...d.gear[0].stats,luck:0,zone:0,tip:0,arrowReduction:0,...g.stats}}));
+    const current=d.gear.filter(g=>!g.id.startsWith('verified-20261029-'));
+    return {...d,schemaVersion:16,gear:[...current,...gone]} as never as typeof d;
+  };
+  it('removes the four items no longer owned and adds the two new ones, once',()=>{
+    const old=before();
+    expect(old.gear).toHaveLength(29);
+    const next=normalizeData(old);
+    expect(next.schemaVersion).toBe(17);
+    expect(next.gear).toHaveLength(27);
+    expect(next.gear.some(g=>g.id.startsWith('old-'))).toBe(false);
+    expect(next.gear.find(g=>g.baseName==='Demon Pumpkin Head')).toMatchObject({slot:'Head',gradeStars:2,conditionPct:98,stats:expect.objectContaining({npc:8,recovery:-4})});
+    expect(next.gear.find(g=>g.mutation==='Gold')).toMatchObject({baseName:'Royal Dominus',gradeStars:1,stats:expect.objectContaining({tip:13,arrowReduction:48})});
+    // Saved at 17: never applied again, so a re-added item stays.
+    const readded={...next,gear:[...next.gear,old.gear.find(g=>g.id==='old-0')!]};
+    expect(normalizeData(JSON.parse(exportJson(readded))).gear).toHaveLength(28);
+  });
+  it('removes only exact matches and never duplicates an item already added',()=>{
+    const old=before();
+    const changed=old.gear.map(g=>g.id==='old-1'?{...g,stats:{...g.stats,zone:52}}:g);
+    const gold=makeKnownGear().find(g=>g.mutation==='Gold')!;
+    const imported=[...changed,{...gold,id:'my-gold',favourite:true}];
+    const next=applyInventoryUpdate20261029(imported);
+    expect(next.some(g=>g.id==='old-1')).toBe(true); // Different stats: not the item that was sold.
+    expect(next.filter(g=>g.mutation==='Gold')).toEqual([expect.objectContaining({id:'my-gold',favourite:true})]);
+  });
+  it('leaves a backup restore exactly as it was',()=>{
+    expect(importJson(exportJson(before())).gear).toHaveLength(29);
   });
 });
