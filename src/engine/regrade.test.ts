@@ -31,7 +31,7 @@ describe('regrade suggestions on the verified inventory', () => {
     const safe = result.suggestions.filter(s => s.advice !== 'gamble');
     expect(safe.map(s => [s.item.baseName, s.stars, s.sets[0]])).toEqual([
       ['Elegant Business Backpack', 1, 'Auction'],
-      ['Luxury Ice Crown', 1, 'Shop / Idle']
+      ['Royal Dominus', 1, 'Shop / Idle']
     ]);
     expect(result.suggestions.filter(s => s.advice === 'gamble').every(s => s.stars === 2)).toBe(true);
     expect(result.suggestions.some(s => s.stars === 3)).toBe(false);

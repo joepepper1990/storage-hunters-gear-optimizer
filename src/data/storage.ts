@@ -1,6 +1,6 @@
 import { validateStatDeltas } from './statDeltas';
 import { fillVerifiedTrophyStars, replaceWithVerifiedCertificates, replaceWithVerifiedTrophies } from './screenshotEquipment';
-import { fillVerifiedGearStars, replaceWithVerifiedGear } from './knownGear';
+import { applyInventoryUpdate20261029, fillVerifiedGearStars, replaceWithVerifiedGear } from './knownGear';
 import { DEFAULT_TROPHY_SETTINGS, makeInitialData, LEGACY_V20_ARROW_DEFAULTS, LOCKED_DEFAULT_SETTINGS } from '../defaults';
 import type { AppData, CertificateRollLog, GavelTrophy, GearItem, TrophyOptimiserSettings } from '../types';
 import { generateGearName, generateTrophyName, inferBaseName } from '../naming';
@@ -260,10 +260,13 @@ export function normalizeData(raw: AppData, options: { preserveInventory?: boole
   // Schema 16 fills the star grades the same screenshots showed, once, without overwriting
   // a grade already recorded. Backup restores keep exactly what they contain.
   const fillStars = !preserveInventory && !(Number(raw?.schemaVersion) >= 16);
-  const gear = replace ? replaceWithVerifiedGear(storedGear) : storedGear;
+  // Schema 17 applies the 29 October inventory screenshots once: four items gone, two added.
+  const update1029 = !preserveInventory && !(Number(raw?.schemaVersion) >= 17);
+  const replaced = replace ? replaceWithVerifiedGear(storedGear) : storedGear;
+  const gear = update1029 ? applyInventoryUpdate20261029(replaced) : replaced;
   const trophies = replace ? replaceWithVerifiedTrophies(storedTrophies) : storedTrophies;
   return {
-    schemaVersion: 16,
+    schemaVersion: 17,
     gear: fillStars ? fillVerifiedGearStars(gear) : gear,
     settings: normalizeSettings(raw?.settings),
     authModel: normalizeAuthModel(raw?.authModel, initial.authModel, Number(raw?.schemaVersion ?? 0)),

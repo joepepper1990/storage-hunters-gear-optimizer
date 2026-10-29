@@ -22,19 +22,17 @@ type InventorySeed = {
   stats:Partial<GearStats>;
   authentication?:Authentication;
   /** Screenshot date; it is part of the record ID. */
-  verified?:'2026-10-26'|'2026-10-27';
+  verified?:'2026-10-26'|'2026-10-27'|'2026-10-29';
 };
 
 const KNOWN_GEAR:InventorySeed[]=[
-  // Head — 16
+  // Head — 14
   {id:'head-steampunk-goggle-a',baseName:'Steampunk Goggle',slot:'Head',mutation:'Diamond + Silver',conditionPct:85,
     stats:{luck:136,zone:64,tip:-2},authentication:{kind:'Premium',effect:'Mutated Luck',value:0}},
   {id:'head-cow-dominus',baseName:'Cow Dominus',slot:'Head',mutation:'None',conditionPct:54,
     stats:{luck:58,arrowReduction:35}},
   {id:'head-crypto-necklace',baseName:'Crypto Necklace',slot:'Head',mutation:'Hologram',conditionPct:98,
     stats:{luck:95,energy:18,arrowReduction:-3}},
-  {id:'head-desert-hood',baseName:'Desert Hood',slot:'Head',mutation:'Exclusive',conditionPct:90,
-    stats:{arrowReduction:31,luck:53}},
   {id:'head-luxury-ice-crown',baseName:'Luxury Ice Crown',slot:'Head',mutation:'None',conditionPct:88,
     stats:{luck:75,zone:55}},
   {id:'head-pearl-dominus',baseName:'Pearl Dominus',slot:'Head',mutation:'None',conditionPct:51,
@@ -43,14 +41,10 @@ const KNOWN_GEAR:InventorySeed[]=[
     stats:{arrowReduction:76,energy:64},authentication:{kind:'Normal',effect:'NPC Offers Bonus',value:7.7}},
   {id:'head-reactor-fedora-a',baseName:'Reactor Fedora',slot:'Head',mutation:'None',conditionPct:55,
     stats:{arrowReduction:45,luck:75},authentication:{kind:'Premium',effect:'Mutated Luck',value:0}},
-  {id:'head-reactor-fedora-b',baseName:'Reactor Fedora',slot:'Head',mutation:'Saloon Sparkle',conditionPct:64,
-    stats:{arrowReduction:42,zone:51}},
   {id:'head-royal-dominus',baseName:'Royal Dominus',slot:'Head',mutation:'None',conditionPct:85,
     stats:{arrowReduction:50,recovery:20}},
   {id:'head-steampunk-goggle-b',baseName:'Steampunk Goggle',slot:'Head',mutation:'Chrome',conditionPct:84,
     stats:{arrowReduction:27,luck:100}},
-  {id:'head-luxury-ice-crown-b',baseName:'Luxury Ice Crown',slot:'Head',mutation:'None',conditionPct:79,
-    stats:{walk:41,energy:41},verified:'2026-10-27'},
   {id:'head-luxury-ice-crown-c',baseName:'Luxury Ice Crown',slot:'Head',mutation:'None',conditionPct:63,
     stats:{recovery:17,tip:10},verified:'2026-10-27'},
   {id:'head-royal-dominus-b',baseName:'Royal Dominus',slot:'Head',mutation:'None',conditionPct:93,
@@ -59,16 +53,18 @@ const KNOWN_GEAR:InventorySeed[]=[
     stats:{npc:11,recovery:18},verified:'2026-10-27'},
   {id:'head-steampunk-valk-helm',baseName:'Steampunk Valk Helm',slot:'Head',mutation:'Diamond',conditionPct:97,
     stats:{recovery:13,npc:7.5,arrowReduction:-3},verified:'2026-10-27'},
+  {id:'head-royal-dominus-gold',baseName:'Royal Dominus',slot:'Head',mutation:'Gold',conditionPct:73,
+    stats:{tip:13,arrowReduction:48},verified:'2026-10-29'},
+  {id:'head-demon-pumpkin-chrome',baseName:'Demon Pumpkin Head',slot:'Head',mutation:'Chrome + Corrupted + Limited',conditionPct:98,
+    stats:{npc:8,recovery:-4},verified:'2026-10-29'},
 
-  // Back — 7
+  // Back — 6
   {id:'back-dark-heart-a',baseName:'Dark Heart Backpack',slot:'Back',mutation:'Exclusive',conditionPct:91,
     stats:{luck:77,tip:12}},
   {id:'back-dark-heart-b',baseName:'Dark Heart Backpack',slot:'Back',mutation:'Exclusive',conditionPct:83,
     stats:{arrowReduction:40,walk:35},authentication:{kind:'Premium',effect:'Droughtbreaker',value:18,notes:'Adds +18 Luck per auction without a mutation, up to 5 stacks.'}},
   {id:'back-elegant-business',baseName:'Elegant Business Backpack',slot:'Back',mutation:'Void',conditionPct:92,
     stats:{luck:80,energy:11}},
-  {id:'back-luxury',baseName:'Luxury Backpack',slot:'Back',mutation:'None',conditionPct:82,
-    stats:{tip:11,walk:38}},
   {id:'back-police-vest',baseName:'Police Vest',slot:'Back',mutation:'Police',conditionPct:96,
     stats:{luck:65,npc:9.7},authentication:{kind:'Normal',effect:'Bid Zone Width',value:18}},
   {id:'back-steampunk',baseName:'Steampunk Backpack',slot:'Back',mutation:'None',conditionPct:96,
@@ -91,12 +87,37 @@ const KNOWN_GEAR:InventorySeed[]=[
     stats:{recovery:13,tip:7.2,energy:-6},verified:'2026-10-27'}
 ];
 
+/** Seen in the 27 October screenshots, absent from the 29 October inventory (sold or discarded). */
+const GONE_20261029:InventorySeed[]=[
+  {id:'head-desert-hood',baseName:'Desert Hood',slot:'Head',mutation:'Exclusive',conditionPct:90,
+    stats:{arrowReduction:31,luck:53}},
+  {id:'head-reactor-fedora-b',baseName:'Reactor Fedora',slot:'Head',mutation:'Saloon Sparkle',conditionPct:64,
+    stats:{arrowReduction:42,zone:51}},
+  {id:'head-luxury-ice-crown-b',baseName:'Luxury Ice Crown',slot:'Head',mutation:'None',conditionPct:79,
+    stats:{walk:41,energy:41},verified:'2026-10-27'},
+  {id:'back-luxury',baseName:'Luxury Backpack',slot:'Back',mutation:'None',conditionPct:82,
+    stats:{tip:11,walk:38}}
+];
+
+/**
+ * Schema-17 one-time inventory update from the 29 October screenshots: the four items no
+ * longer owned are removed (only an exact match of name, slot and base stats) and the two
+ * new items whose stats were shown are added unless already present. Everything else,
+ * including favourites, history and grades, is untouched.
+ */
+export function applyInventoryUpdate20261029(existing:GearItem[]):GearItem[]{
+  const gone=GONE_20261029.map(buildSeed);
+  const kept=existing.filter(item=>!gone.some(g=>sameBase(item,g)));
+  const added=makeKnownGear().filter(seed=>seed.id.startsWith('verified-20261029-')&&!kept.some(item=>sameBase(item,seed)));
+  return [...kept,...added];
+}
+
 /** Star grades read from the same 27 October screenshots (every item had been graded). */
 const STARS:Record<string,number>={
   'head-steampunk-goggle-a':3,'head-cow-dominus':1,'head-crypto-necklace':2,'head-desert-hood':2,'head-luxury-ice-crown':1,
   'head-pearl-dominus':2,'head-race-valk':3,'head-reactor-fedora-a':2,'head-reactor-fedora-b':2,'head-royal-dominus':2,
   'head-steampunk-goggle-b':2,'head-luxury-ice-crown-b':2,'head-luxury-ice-crown-c':1,'head-royal-dominus-b':1,
-  'head-dark-aura-dominus':1,'head-steampunk-valk-helm':1,
+  'head-dark-aura-dominus':1,'head-steampunk-valk-helm':1,'head-royal-dominus-gold':1,'head-demon-pumpkin-chrome':2,
   'back-dark-heart-a':2,'back-dark-heart-b':1,'back-elegant-business':1,'back-luxury':2,'back-police-vest':2,'back-steampunk':2,
   'back-halloween-boombox':3,
   'wrist-jellyfish':2,'wrist-autumn-fox':2,'wrist-maple':2,'wrist-reactor':2,'wrist-steam-engine':2,'wrist-franken-bunny':1
