@@ -22,11 +22,11 @@ type InventorySeed = {
   stats:Partial<GearStats>;
   authentication?:Authentication;
   /** Screenshot date; it is part of the record ID. */
-  verified?:'2026-10-26'|'2026-10-27'|'2026-10-29';
+  verified?:'2026-10-26'|'2026-10-27'|'2026-10-29'|'2026-10-30';
 };
 
 const KNOWN_GEAR:InventorySeed[]=[
-  // Head — 14
+  // Head — 21
   {id:'head-steampunk-goggle-a',baseName:'Steampunk Goggle',slot:'Head',mutation:'Diamond + Silver',conditionPct:85,
     stats:{luck:136,zone:64,tip:-2},authentication:{kind:'Premium',effect:'Mutated Luck',value:0}},
   {id:'head-cow-dominus',baseName:'Cow Dominus',slot:'Head',mutation:'None',conditionPct:54,
@@ -57,8 +57,20 @@ const KNOWN_GEAR:InventorySeed[]=[
     stats:{tip:13,arrowReduction:48},verified:'2026-10-29'},
   {id:'head-demon-pumpkin-chrome',baseName:'Demon Pumpkin Head',slot:'Head',mutation:'Chrome + Corrupted + Limited',conditionPct:98,
     stats:{npc:8,recovery:-4},verified:'2026-10-29'},
+  {id:'head-grave-crown',baseName:'Grave Crown',slot:'Head',mutation:'Limited',conditionPct:68,
+    stats:{energy:31,tip:9.3},verified:'2026-10-30'},
+  {id:'head-candy-corn-antlers',baseName:'Candy Corn Antlers',slot:'Head',mutation:'Limited',conditionPct:76,
+    stats:{energy:12,npc:3.6},verified:'2026-10-30'},
+  {id:'head-noble-vampire-top-hat',baseName:'Noble Vampire Top Hat',slot:'Head',mutation:'Exclusive',conditionPct:97,
+    stats:{energy:16,arrowReduction:-3},verified:'2026-10-30'},
+  {id:'head-owl-beanie',baseName:'Owl Beanie',slot:'Head',mutation:'Exclusive',conditionPct:81,
+    stats:{energy:10},verified:'2026-10-30'},
+  {id:'head-turtle-fedora',baseName:'Turtle Fedora',slot:'Head',mutation:'None',conditionPct:67,
+    stats:{arrowReduction:16},verified:'2026-10-30'},
+  {id:'head-business-bowler',baseName:'Business Bowler',slot:'Head',mutation:'None',conditionPct:68,
+    stats:{npc:3.8,luck:26},verified:'2026-10-30'},
 
-  // Back — 6
+  // Back — 9
   {id:'back-dark-heart-a',baseName:'Dark Heart Backpack',slot:'Back',mutation:'Exclusive',conditionPct:91,
     stats:{luck:77,tip:12}},
   {id:'back-dark-heart-b',baseName:'Dark Heart Backpack',slot:'Back',mutation:'Exclusive',conditionPct:83,
@@ -71,8 +83,14 @@ const KNOWN_GEAR:InventorySeed[]=[
     stats:{luck:57,recovery:15}},
   {id:'back-halloween-boombox',baseName:'Halloween Boombox',slot:'Back',mutation:'Limited',conditionPct:73,
     stats:{zone:110,energy:74},verified:'2026-10-27'},
+  {id:'back-elegant-business-hologram',baseName:'Elegant Business Backpack',slot:'Back',mutation:'Hologram',conditionPct:91,
+    stats:{luck:76},verified:'2026-10-30'},
+  {id:'back-steampunk-jacket',baseName:'Steampunk Jacket',slot:'Back',mutation:'None',conditionPct:70,
+    stats:{luck:33,zone:24},verified:'2026-10-30'},
+  {id:'back-autumn-wings',baseName:'Autumn Wings',slot:'Back',mutation:'Exclusive',conditionPct:97,
+    stats:{energy:24,zone:37,luck:-5},verified:'2026-10-30'},
 
-  // Wrist — 6
+  // Wrist — 7
   {id:'wrist-jellyfish',baseName:'Jellyfish Wristband',slot:'Wrist',mutation:'Diamond',conditionPct:73,
     stats:{arrowReduction:32,luck:54,walk:-1},authentication:{kind:'Premium',effect:'Club Pact',value:4}},
   {id:'wrist-autumn-fox',baseName:'Autumn Fox Wristband',slot:'Wrist',mutation:'Exclusive',conditionPct:81,
@@ -84,7 +102,9 @@ const KNOWN_GEAR:InventorySeed[]=[
   {id:'wrist-steam-engine',baseName:'Steam Engine Wristband',slot:'Wrist',mutation:'None',conditionPct:96,
     stats:{arrowReduction:32,energy:27,npc:-1.5}},
   {id:'wrist-franken-bunny',baseName:'Franken Bunny Wristband',slot:'Wrist',mutation:'Limited',conditionPct:69,
-    stats:{recovery:13,tip:7.2,energy:-6},verified:'2026-10-27'}
+    stats:{recovery:13,tip:7.2,energy:-6},verified:'2026-10-27'},
+  {id:'wrist-luxury',baseName:'Luxury Wristband',slot:'Wrist',mutation:'None',conditionPct:74,
+    stats:{arrowReduction:32,tip:8.1,zone:-5},verified:'2026-10-30'}
 ];
 
 /** Seen in the 27 October screenshots, absent from the 29 October inventory (sold or discarded). */
@@ -107,9 +127,17 @@ const GONE_20261029:InventorySeed[]=[
  */
 export function applyInventoryUpdate20261029(existing:GearItem[]):GearItem[]{
   const gone=GONE_20261029.map(buildSeed);
-  const kept=existing.filter(item=>!gone.some(g=>sameBase(item,g)));
-  const added=makeKnownGear().filter(seed=>seed.id.startsWith('verified-20261029-')&&!kept.some(item=>sameBase(item,seed)));
-  return [...kept,...added];
+  return addVerifiedItems(existing.filter(item=>!gone.some(g=>sameBase(item,g))),'20261029');
+}
+
+/**
+ * Adds the verified items of one screenshot batch that are not already stored (same slot,
+ * name and base stats, e.g. imported by hand). Used by schema 18 for the ten accessories
+ * whose detail screenshots arrived on 30 October.
+ */
+export function addVerifiedItems(existing:GearItem[],batch:string):GearItem[]{
+  const added=makeKnownGear().filter(seed=>seed.id.startsWith(`verified-${batch}-`)&&!existing.some(item=>sameBase(item,seed)));
+  return [...existing,...added];
 }
 
 /** Star grades read from the same 27 October screenshots (every item had been graded). */
@@ -118,6 +146,8 @@ const STARS:Record<string,number>={
   'head-pearl-dominus':2,'head-race-valk':3,'head-reactor-fedora-a':2,'head-reactor-fedora-b':2,'head-royal-dominus':2,
   'head-steampunk-goggle-b':2,'head-luxury-ice-crown-b':2,'head-luxury-ice-crown-c':1,'head-royal-dominus-b':1,
   'head-dark-aura-dominus':1,'head-steampunk-valk-helm':1,'head-royal-dominus-gold':1,'head-demon-pumpkin-chrome':2,
+  'head-grave-crown':2,'head-candy-corn-antlers':1,'head-noble-vampire-top-hat':2,'head-owl-beanie':1,'head-turtle-fedora':1,'head-business-bowler':2,
+  'back-elegant-business-hologram':1,'back-steampunk-jacket':2,'back-autumn-wings':1,'wrist-luxury':2,
   'back-dark-heart-a':2,'back-dark-heart-b':1,'back-elegant-business':1,'back-luxury':2,'back-police-vest':2,'back-steampunk':2,
   'back-halloween-boombox':3,
   'wrist-jellyfish':2,'wrist-autumn-fox':2,'wrist-maple':2,'wrist-reactor':2,'wrist-steam-engine':2,'wrist-franken-bunny':1

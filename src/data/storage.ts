@@ -1,6 +1,6 @@
 import { validateStatDeltas } from './statDeltas';
 import { fillVerifiedTrophyStars, replaceWithVerifiedCertificates, replaceWithVerifiedTrophies } from './screenshotEquipment';
-import { applyInventoryUpdate20261029, fillVerifiedGearStars, replaceWithVerifiedGear } from './knownGear';
+import { addVerifiedItems, applyInventoryUpdate20261029, fillVerifiedGearStars, replaceWithVerifiedGear } from './knownGear';
 import { DEFAULT_TROPHY_SETTINGS, makeInitialData, LEGACY_V20_ARROW_DEFAULTS, LOCKED_DEFAULT_SETTINGS } from '../defaults';
 import type { AppData, CertificateRollLog, GavelTrophy, GearItem, TrophyOptimiserSettings } from '../types';
 import { generateGearName, generateTrophyName, inferBaseName } from '../naming';
@@ -262,11 +262,14 @@ export function normalizeData(raw: AppData, options: { preserveInventory?: boole
   const fillStars = !preserveInventory && !(Number(raw?.schemaVersion) >= 16);
   // Schema 17 applies the 29 October inventory screenshots once: four items gone, two added.
   const update1029 = !preserveInventory && !(Number(raw?.schemaVersion) >= 17);
+  // Schema 18 adds the ten accessories whose detail screenshots came on 30 October.
+  const add1030 = !preserveInventory && !(Number(raw?.schemaVersion) >= 18);
   const replaced = replace ? replaceWithVerifiedGear(storedGear) : storedGear;
-  const gear = update1029 ? applyInventoryUpdate20261029(replaced) : replaced;
+  const updated = update1029 ? applyInventoryUpdate20261029(replaced) : replaced;
+  const gear = add1030 ? addVerifiedItems(updated, '20261030') : updated;
   const trophies = replace ? replaceWithVerifiedTrophies(storedTrophies) : storedTrophies;
   return {
-    schemaVersion: 17,
+    schemaVersion: 18,
     gear: fillStars ? fillVerifiedGearStars(gear) : gear,
     settings: normalizeSettings(raw?.settings),
     authModel: normalizeAuthModel(raw?.authModel, initial.authModel, Number(raw?.schemaVersion ?? 0)),

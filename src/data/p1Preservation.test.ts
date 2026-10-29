@@ -34,7 +34,7 @@ describe('P1 backup preservation', () => {
 
   it('retains the deliberate startup inventory migrations', () => {
     const migrated = normalizeData(oldBackup(1));
-    expect(migrated.gear).toHaveLength(27);
+    expect(migrated.gear).toHaveLength(37);
     expect(migrated.gear.some(item => item.id === 'custom-gear')).toBe(false);
     expect(migrated.ownedCertificates).toHaveLength(9);
     expect(migrated.trophies).toHaveLength(18);
@@ -59,7 +59,7 @@ describe('P1 backup preservation', () => {
   it('applies the inventory update to a record without a schema version', () => {
     const data = oldBackup(1) as unknown as Record<string, unknown>;
     delete data.schemaVersion;
-    expect(normalizeData(data as never).gear).toHaveLength(27);
+    expect(normalizeData(data as never).gear).toHaveLength(37);
   });
 
   it('accepts legacy CSV without a stat delta column', () => {
