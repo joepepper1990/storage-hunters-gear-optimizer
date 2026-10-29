@@ -92,7 +92,7 @@ describe('October screenshot inventory — schema 15',()=>{
     legacy.trophies=[screenshotTrophies()[0]];
     const first=normalizeData(legacy);
     expect(first.schemaVersion).toBe(18);
-    expect(first.gear).toHaveLength(37);
+    expect(first.gear).toHaveLength(39);
     expect(first.trophies).toHaveLength(18);
     expect(first.ownedCertificates).toHaveLength(9);
     expect(first.ownedCertificates.some(c=>c.id==='stale-cert')).toBe(false);

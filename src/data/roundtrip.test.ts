@@ -127,7 +127,7 @@ describe('backup round trips',()=>{
     delete d.vehicleProfile; delete d.vehicleSettings; delete d.vehicleParts; delete d.trailers; delete d.trophies; delete d.trophySettings;
     const restored=normalizeData(d);
     expect(restored.schemaVersion).toBe(18);
-    expect(restored.gear).toHaveLength(37);
+    expect(restored.gear).toHaveLength(39);
     expect(restored.gear.some((g:any)=>g.id==='abc')).toBe(false);
     expect(restored.ownedCertificates).toHaveLength(9);
     expect(restored.trophies).toHaveLength(18);

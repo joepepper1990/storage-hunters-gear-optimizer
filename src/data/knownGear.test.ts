@@ -12,12 +12,12 @@ describe('verified 26-27 October 2026 accessory inventory',()=>{
   const by=(name:string)=>gear.filter(g=>g.baseName===name);
   const one=(name:string)=>by(name)[0];
 
-  it('contains exactly 37 separate accessories after the 29-30 October updates: 21 Head, 9 Back and 7 Wrist',()=>{
-    expect(gear).toHaveLength(37);
-    expect(gear.filter(g=>g.slot==='Head')).toHaveLength(21);
+  it('contains exactly 39 separate accessories after the 29-30 October updates: 23 Head, 9 Back and 7 Wrist',()=>{
+    expect(gear).toHaveLength(39);
+    expect(gear.filter(g=>g.slot==='Head')).toHaveLength(23);
     expect(gear.filter(g=>g.slot==='Back')).toHaveLength(9);
     expect(gear.filter(g=>g.slot==='Wrist')).toHaveLength(7);
-    expect(new Set(gear.map(g=>g.id)).size).toBe(37);
+    expect(new Set(gear.map(g=>g.id)).size).toBe(39);
     expect(by('Elegant Business Backpack').map(g=>g.mutation).sort()).toEqual(['Hologram','Void']);
     expect(one('Luxury Wristband').stats).toMatchObject({arrowReduction:32,tip:8.1,zone:-5});
     expect(one('Noble Vampire Top Hat').stats).toMatchObject({energy:16,arrowReduction:-3});
@@ -26,7 +26,7 @@ describe('verified 26-27 October 2026 accessory inventory',()=>{
     expect(by('Royal Dominus')).toHaveLength(3);
     expect(by('Desert Hood')).toHaveLength(0);
     expect(by('Luxury Backpack')).toHaveLength(0);
-    expect(by('Steampunk Goggle')).toHaveLength(2);
+    expect(by('Steampunk Goggle')).toHaveLength(3);
     expect(by('Reactor Fedora')).toHaveLength(1);
     expect(by('Dark Heart Backpack')).toHaveLength(2);
   });
@@ -115,7 +115,7 @@ describe('verified 26-27 October 2026 accessory inventory',()=>{
     const old={...makeInitialData(),schemaVersion:8,gear:[matching,changed]} as any;
     const upgraded=normalizeData(old);
     expect(upgraded.schemaVersion).toBe(18);
-    expect(upgraded.gear).toHaveLength(37);
+    expect(upgraded.gear).toHaveLength(39);
     // An item with the same base stats keeps its ID and favourite; one with other stats is not owned.
     expect(upgraded.gear.find(g=>g.id==='my-luxury')?.favourite).toBe(true);
     expect(upgraded.gear.some(g=>g.id==='manual-cow')).toBe(false);
@@ -123,7 +123,7 @@ describe('verified 26-27 October 2026 accessory inventory',()=>{
     // Once schema 15 has been saved, later user edits are respected.
     const edited={...upgraded,gear:upgraded.gear.slice(1)};
     const again=normalizeData(JSON.parse(exportJson(edited)));
-    expect(again.gear).toHaveLength(36);
+    expect(again.gear).toHaveLength(38);
   });
 
   it('round-trips condition, mutation and signed stats in JSON and CSV',()=>{
@@ -165,13 +165,13 @@ describe('29 October inventory update (schema 17)',()=>{
     expect(old.gear).toHaveLength(29);
     const next=normalizeData(old);
     expect(next.schemaVersion).toBe(18);
-    expect(next.gear).toHaveLength(37); // 29 - 4 gone + 2 (schema 17) + 10 (schema 18)
+    expect(next.gear).toHaveLength(39); // 29 - 4 gone + 2 (schema 17) + 12 (schema 18)
     expect(next.gear.some(g=>g.id.startsWith('old-'))).toBe(false);
     expect(next.gear.find(g=>g.baseName==='Demon Pumpkin Head')).toMatchObject({slot:'Head',gradeStars:2,conditionPct:98,stats:expect.objectContaining({npc:8,recovery:-4})});
     expect(next.gear.find(g=>g.mutation==='Gold')).toMatchObject({baseName:'Royal Dominus',gradeStars:1,stats:expect.objectContaining({tip:13,arrowReduction:48})});
     // Saved at 17: never applied again, so a re-added item stays.
     const readded={...next,gear:[...next.gear,old.gear.find(g=>g.id==='old-0')!]};
-    expect(normalizeData(JSON.parse(exportJson(readded))).gear).toHaveLength(38);
+    expect(normalizeData(JSON.parse(exportJson(readded))).gear).toHaveLength(40);
   });
   it('removes only exact matches and never duplicates an item already added',()=>{
     const old=before();
@@ -195,9 +195,9 @@ describe('30 October additions (schema 18)',()=>{
     expect(without).toHaveLength(27);
     const turtle=makeKnownGear().find(g=>g.baseName==='Turtle Fedora')!;
     const next=normalizeData({...d,schemaVersion:17,gear:[...without,{...turtle,id:'my-turtle',favourite:true}]} as never);
-    expect(next.gear).toHaveLength(37);
+    expect(next.gear).toHaveLength(39);
     expect(next.gear.filter(g=>g.baseName==='Turtle Fedora')).toEqual([expect.objectContaining({id:'my-turtle',favourite:true})]);
-    expect(addVerifiedItems(next.gear,'20261030')).toHaveLength(37);
-    expect(normalizeData(JSON.parse(exportJson({...next,gear:next.gear.slice(1)}))).gear).toHaveLength(36);
+    expect(addVerifiedItems(next.gear,'20261030')).toHaveLength(39);
+    expect(normalizeData(JSON.parse(exportJson({...next,gear:next.gear.slice(1)}))).gear).toHaveLength(38);
   });
 });

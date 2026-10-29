@@ -121,7 +121,7 @@ describe('schema 15 inventory replacement',()=>{
 
     const migrated=normalizeData(d);
     expect(migrated.schemaVersion).toBe(18);
-    expect(migrated.gear).toHaveLength(37);
+    expect(migrated.gear).toHaveLength(39);
     const cow=migrated.gear.find(g=>g.baseName==='Cow Dominus')!;
     expect(cow).toMatchObject({id:'my-cow',favourite:true,createdAt:'2026-10-01T00:00:00.000Z'});
     expect(migrated.gear.some(g=>g.id==='sold')).toBe(false);
@@ -138,7 +138,7 @@ describe('schema 15 inventory replacement',()=>{
     // Saved as schema 15: later edits are kept, never re-seeded.
     const edited={...migrated,gear:migrated.gear.slice(1),trophies:migrated.trophies.slice(1),ownedCertificates:[]};
     const reloaded=normalizeData(JSON.parse(exportJson(edited)));
-    expect(reloaded.gear).toHaveLength(36);
+    expect(reloaded.gear).toHaveLength(38);
     expect(reloaded.trophies).toHaveLength(17);
     expect(reloaded.ownedCertificates).toEqual([]);
   });

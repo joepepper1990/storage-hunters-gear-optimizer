@@ -26,7 +26,7 @@ type InventorySeed = {
 };
 
 const KNOWN_GEAR:InventorySeed[]=[
-  // Head — 21
+  // Head — 23
   {id:'head-steampunk-goggle-a',baseName:'Steampunk Goggle',slot:'Head',mutation:'Diamond + Silver',conditionPct:85,
     stats:{luck:136,zone:64,tip:-2},authentication:{kind:'Premium',effect:'Mutated Luck',value:0}},
   {id:'head-cow-dominus',baseName:'Cow Dominus',slot:'Head',mutation:'None',conditionPct:54,
@@ -69,6 +69,10 @@ const KNOWN_GEAR:InventorySeed[]=[
     stats:{arrowReduction:16},verified:'2026-10-30'},
   {id:'head-business-bowler',baseName:'Business Bowler',slot:'Head',mutation:'None',conditionPct:68,
     stats:{npc:3.8,luck:26},verified:'2026-10-30'},
+  {id:'head-demon-pumpkin-silver',baseName:'Demon Pumpkin Head',slot:'Head',mutation:'Silver + Limited',conditionPct:76,
+    stats:{zone:39,recovery:13},verified:'2026-10-30'},
+  {id:'head-steampunk-goggle-c',baseName:'Steampunk Goggle',slot:'Head',mutation:'None',conditionPct:68,
+    stats:{walk:22},verified:'2026-10-30'},
 
   // Back — 9
   {id:'back-dark-heart-a',baseName:'Dark Heart Backpack',slot:'Back',mutation:'Exclusive',conditionPct:91,
@@ -132,7 +136,7 @@ export function applyInventoryUpdate20261029(existing:GearItem[]):GearItem[]{
 
 /**
  * Adds the verified items of one screenshot batch that are not already stored (same slot,
- * name and base stats, e.g. imported by hand). Used by schema 18 for the ten accessories
+ * name and base stats, e.g. imported by hand). Used by schema 18 for the twelve accessories
  * whose detail screenshots arrived on 30 October.
  */
 export function addVerifiedItems(existing:GearItem[],batch:string):GearItem[]{
@@ -146,7 +150,7 @@ const STARS:Record<string,number>={
   'head-pearl-dominus':2,'head-race-valk':3,'head-reactor-fedora-a':2,'head-reactor-fedora-b':2,'head-royal-dominus':2,
   'head-steampunk-goggle-b':2,'head-luxury-ice-crown-b':2,'head-luxury-ice-crown-c':1,'head-royal-dominus-b':1,
   'head-dark-aura-dominus':1,'head-steampunk-valk-helm':1,'head-royal-dominus-gold':1,'head-demon-pumpkin-chrome':2,
-  'head-grave-crown':2,'head-candy-corn-antlers':1,'head-noble-vampire-top-hat':2,'head-owl-beanie':1,'head-turtle-fedora':1,'head-business-bowler':2,
+  'head-grave-crown':2,'head-candy-corn-antlers':1,'head-noble-vampire-top-hat':2,'head-owl-beanie':1,'head-turtle-fedora':1,'head-business-bowler':2,'head-demon-pumpkin-silver':2,'head-steampunk-goggle-c':1,
   'back-elegant-business-hologram':1,'back-steampunk-jacket':2,'back-autumn-wings':1,'wrist-luxury':2,
   'back-dark-heart-a':2,'back-dark-heart-b':1,'back-elegant-business':1,'back-luxury':2,'back-police-vest':2,'back-steampunk':2,
   'back-halloween-boombox':3,
