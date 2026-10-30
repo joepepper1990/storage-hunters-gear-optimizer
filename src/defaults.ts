@@ -71,7 +71,7 @@ export const DEFAULT_TROPHY_SETTINGS: TrophyOptimiserSettings = {
 
 
 export const LOCKED_DEFAULT_SETTINGS: AlgorithmSettings = {
-  version: '2.2',
+  version: '2.3',
   luckWeight: 1,
   // Arrow is a band, not a stat to maximise: value rises to 70% combined reduction and is
   // flat through 90%. Sets inside 70-90% always rank first.
@@ -101,18 +101,13 @@ export const LOCKED_DEFAULT_SETTINGS: AlgorithmSettings = {
   mainMaterialLossPct: 2,
   vehicleWeight: 0,
   walkWeight: 0,
-  // Preserves the previous specialist order Drink Prep -> Grading -> Shop / Idle.
-  drinkPriority: 8,
-  gradingPriority: 6,
-  shopPriority: 4,
+  // No specialist sets: the app answers with one best set. Energy counts in that set.
+  drinkPriority: 0,
+  gradingPriority: 0,
+  shopPriority: 0,
   shopTipWeight: 0.4,
   shopNpcWeight: 0.3
 };
-
-/** Pre-2.1 defaults, migrated only when a stored value still equals them. */
-export const LEGACY_V20_ARROW_DEFAULTS = { arrowWeight: 0.8, arrowSweetSpot: 75 } as const;
-/** Arrow band start defaults of earlier versions; both migrate to the 70-90 band. */
-export const LEGACY_ARROW_SWEET_SPOTS = [65, 75] as const;
 
 export function makeDefaultAuthModel(): AuthModelEntry[] {
   return CERTIFICATE_CATALOGUE.map(outcome=>({

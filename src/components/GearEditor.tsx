@@ -4,7 +4,7 @@ import { editAuthentication } from '../engine/certificateRolls';
 import { gameArrowToReduction, reductionToGameArrow } from '../engine/scoring';
 import { activeAuthenticationOptions, EXCLUSIVE_AUTH_EFFECTS, LEGACY_ALIEN_EFFECTS, LIMITED_AUTH_EFFECTS, PREMIUM_AUTH_EFFECTS } from '../authentication';
 import { generateGearName } from '../naming';
-import type { AuthModelEntry, GearItem, GearStats, Slot } from '../types';
+import type { GearItem, GearStats, Slot } from '../types';
 import { NumberInput, SHORT_STAT, STAT_LABELS } from '../ui';
 
 export function blankGear(slot: Slot = 'Head'): GearItem {
@@ -20,8 +20,8 @@ export function duplicateGear(item: GearItem): GearItem {
   return copy;
 }
 
-export function GearEditor({ item, authModel, mode, onClose, onSave }: {
-  item: GearItem; authModel: AuthModelEntry[]; mode: 'add' | 'edit'; onClose: () => void; onSave: (item: GearItem, keepAdding?: boolean) => void;
+export function GearEditor({ item, mode, onClose, onSave, onDelete }: {
+  item: GearItem; mode: 'add' | 'edit'; onClose: () => void; onSave: (item: GearItem, keepAdding?: boolean) => void; onDelete?: () => void;
 }) {
   const [v, setV] = useState({ ...item, name: generateGearName(item.baseName, item.stats, item.authenticated, item.authentication) });
   const [shown, setShown] = useState<Array<keyof GearStats>>(STAT_LABELS.filter(([key]) => Math.abs(item.stats[key]) > 1e-12).map(([key]) => key));
@@ -49,7 +49,7 @@ export function GearEditor({ item, authModel, mode, onClose, onSave }: {
       <label>Condition %<input type="number" min="0" max="100" step="any" inputMode="decimal" value={v.conditionPct ?? ''} onChange={e => patch({ conditionPct: e.target.value === '' ? undefined : Number(e.target.value) })} placeholder="Optional" /></label>
       <label>Stars<select value={v.gradeStars ?? ''} onChange={e => patch({ gradeStars: e.target.value === '' ? undefined : Number(e.target.value) })}>
         <option value="">Not recorded</option><option value="0">Not graded</option>{[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}★</option>)}</select></label>
-      <label className="check"><input type="checkbox" checked={v.favourite} onChange={e => patch({ favourite: e.target.checked })} /> Favourite</label>
+      <label className="check"><input type="checkbox" checked={v.favourite} onChange={e => patch({ favourite: e.target.checked })} /> Always keep</label>
     </div>
 
     <div className="quickEntrySection">
@@ -82,6 +82,7 @@ export function GearEditor({ item, authModel, mode, onClose, onSave }: {
     </div>
     {error && <p className="formError" role="alert">{error}</p>}
     <div className="stickyActions">
+      {onDelete && <button className="danger" onClick={onDelete}>Delete</button>}
       <button className="secondary" onClick={onClose}>Cancel</button>
       {mode === 'add' && <button className="secondary" onClick={() => save(true)}>Save + another</button>}
       <button className="primary" onClick={() => save()}>Save</button>

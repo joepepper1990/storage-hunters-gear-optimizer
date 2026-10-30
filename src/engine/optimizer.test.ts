@@ -50,7 +50,7 @@ describe('combination optimiser',()=>{
     const strong=g('Strong','Wrist',{luck:100});
     const gear=[g('H','Head',{}),g('B','Back',{}),unknown,strong];
     const results=analyseItems(gear,optimise(gear,LOCKED_DEFAULT_SETTINGS,1)[0],LOCKED_DEFAULT_SETTINGS);
-    expect(results.find(x=>x.item.id==='Unknown')?.verdict).toBe('PROTECTED / UNKNOWN');
+    expect(results.find(x=>x.item.id==='Unknown')?.verdict).toBe('KEEP');
   });
   it('resolves exact-score ties deterministically by Head/Back/Wrist IDs',()=>{
     const gear=[

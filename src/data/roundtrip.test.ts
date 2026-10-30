@@ -41,7 +41,7 @@ describe('backup round trips',()=>{
     d.settings={...d.settings,version:'1.0',arrowOvercapPenaltyMultiplier:1,luckBreakpoint1:100,zoneWeight:0.4,npcWeight:0.75,recoveryWeight:0.01,walkWeight:0.01};
     delete d.settings.npcBreakpoint1;
     const restored=importJson(JSON.stringify(d));
-    expect(restored.settings.version).toBe('2.2');
+    expect(restored.settings.version).toBe('2.3');
     expect(restored.settings.zoneWeight).toBe(0.6);
     expect(restored.settings.npcWeight).toBe(0);
     expect(restored.settings.recoveryWeight).toBe(0.2);

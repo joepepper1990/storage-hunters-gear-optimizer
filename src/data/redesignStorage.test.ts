@@ -14,33 +14,22 @@ function backupWith(rows:unknown[]):string {
   return JSON.stringify(d);
 }
 
-describe('settings migration to 2.2',()=>{
-  const v20={...LOCKED_DEFAULT_SETTINGS,version:'2.0',arrowWeight:.8,arrowSweetSpot:75} as unknown as AppData['settings'];
-  it('moves the old default Arrow coefficient and band start to the 70-90% band',()=>{
-    const d=makeInitialData();d.settings=v20;
-    const migrated=normalizeData(d);
-    expect(migrated.settings.version).toBe('2.2');
-    expect(migrated.settings.arrowWeight).toBe(migrated.settings.luckWeight);
-    expect([migrated.settings.arrowTargetMin,migrated.settings.arrowTargetMax]).toEqual([70,90]);
-    expect('arrowSweetSpot' in migrated.settings).toBe(false);
+describe('settings policy 2.3',()=>{
+  it('replaces every older optimiser setting with the fixed policy, once',()=>{
+    for(const old of [
+      {...LOCKED_DEFAULT_SETTINGS,version:'2.0',arrowWeight:.8,arrowSweetSpot:75},
+      {...LOCKED_DEFAULT_SETTINGS,version:'2.2',luckWeight:1.37,zoneWeight:.65,energyWeight:0,arrowTargetMin:72,drinkPriority:8}
+    ]){
+      const d=makeInitialData();d.settings=old as unknown as AppData['settings'];
+      expect(normalizeData(d).settings).toEqual(LOCKED_DEFAULT_SETTINGS);
+    }
   });
-  it('keeps every customised value exactly, including unrelated settings',()=>{
-    const d=makeInitialData();
-    d.settings={...v20,arrowWeight:.55,arrowSweetSpot:72,luckWeight:1.37,zoneWeight:.65,recoveryWeight:.33,energyTarget:60} as unknown as AppData['settings'];
-    const migrated=normalizeData(d);
-    expect(migrated.settings).toMatchObject({arrowWeight:.55,arrowTargetMin:72,arrowTargetMax:90,luckWeight:1.37,zoneWeight:.65,recoveryWeight:.33,energyTarget:60});
+  it('has no specialist sets and the agreed Arrow band and Energy policy',()=>{
+    expect(LOCKED_DEFAULT_SETTINGS).toMatchObject({version:'2.3',arrowTargetMin:70,arrowTargetMax:90,energyWeight:.3,zoneWeight:.6,drinkPriority:0,gradingPriority:0,shopPriority:0});
   });
-  it('adds specialist priorities that preserve the previous order',()=>{
-    const d=makeInitialData();d.settings=v20;
-    const migrated=normalizeData(d).settings;
-    expect(migrated.drinkPriority).toBeGreaterThan(migrated.gradingPriority);
-    expect(migrated.gradingPriority).toBeGreaterThan(migrated.shopPriority);
-    expect([migrated.shopTipWeight,migrated.shopNpcWeight]).toEqual([.4,.3]);
-  });
-  it('never re-migrates a 2.2 value that happens to equal an old default',()=>{
-    const d=makeInitialData();d.settings={...LOCKED_DEFAULT_SETTINGS,arrowWeight:.8,arrowTargetMin:65,energyWeight:0};
-    expect(normalizeData(d).settings).toMatchObject({arrowWeight:.8,arrowTargetMin:65,arrowTargetMax:90,energyWeight:0});
-  });
+});
+
+describe('reload and backups',()=>{
   it('preserves inventory, certificates, settings and history on reload',()=>{
     const d=makeInitialData();
     d.settings={...d.settings,zoneWeight:.61,shopPriority:9};

@@ -1,7 +1,7 @@
 import { validateStatDeltas } from './statDeltas';
 import { fillVerifiedTrophyStars, replaceWithVerifiedCertificates, replaceWithVerifiedTrophies } from './screenshotEquipment';
 import { addVerifiedItems, applyInventoryUpdate20261029, fillVerifiedGearStars, replaceWithVerifiedGear } from './knownGear';
-import { DEFAULT_TROPHY_SETTINGS, makeInitialData, LEGACY_ARROW_SWEET_SPOTS, LEGACY_V20_ARROW_DEFAULTS, LOCKED_DEFAULT_SETTINGS } from '../defaults';
+import { DEFAULT_TROPHY_SETTINGS, makeInitialData, LOCKED_DEFAULT_SETTINGS } from '../defaults';
 import { canonicalEffect, currentPool } from '../authentication';
 import type { AppData, CertificateRollLog, GavelTrophy, GearItem, TrophyOptimiserSettings } from '../types';
 import { generateGearName, generateTrophyName, inferBaseName } from '../naming';
@@ -538,42 +538,14 @@ function coerceStoredRollLog(raw: unknown, index: number): CertificateRollLog {
 
 function normalizeSettings(raw: Partial<AppData['settings']> | undefined): AppData['settings'] {
   const source = (raw ?? {}) as Record<string, unknown>;
-  const sourceVersion = String(source.version ?? '1.0');
-  const merged: Record<string, unknown> = { ...LOCKED_DEFAULT_SETTINGS, ...source };
-
-  // Algorithm 2.0 unifies Main Auction, specialist loadouts, retention and certificate evaluation. Old installations may have
-  // persisted the 1.0 defaults in IndexedDB, so simply changing defaults would leave
-  // those browsers on the obsolete model. Override the shared scoring fields changed by 2.0 once,
-  // while retaining unrelated user settings and all inventory/history data.
-  if (sourceVersion !== '2.0' && sourceVersion !== '2.1' && sourceVersion !== '2.2') {
-    const v20Keys: Array<keyof AppData['settings']> = [
-      'luckWeight','arrowWeight',
-      'npcWeight','npcBreakpoint1','npcBreakpoint2','npcMultiplier2','npcMultiplier3',
-      'zoneWeight','zoneBreakpoint1','zoneBreakpoint2','zoneMultiplier2','zoneMultiplier3',
-      'tipWeight','recoveryWeight','walkWeight','vehicleWeight'
-    ];
-    for (const key of v20Keys) merged[key] = LOCKED_DEFAULT_SETTINGS[key];
-  }
-
-  // 2.0 -> 2.1: Luck-equal Arrow priority replaced the old 0.8 default.
-  if (sourceVersion === '2.0' && Number(merged.arrowWeight) === LEGACY_V20_ARROW_DEFAULTS.arrowWeight) merged.arrowWeight = LOCKED_DEFAULT_SETTINGS.arrowWeight;
-
-  // -> 2.2: the single Arrow "sweet spot" becomes an explicit 70-90% band. Old defaults
-  // (65, or 75 before 2.1) move to the band; a custom start is kept only if it still forms a
-  // valid band below the 90% end. Energy joins the auction score unless already customised.
-  if (sourceVersion !== '2.2') {
-    const oldStart = Number(source.arrowSweetSpot);
-    const customStart = Number.isFinite(oldStart) && !LEGACY_ARROW_SWEET_SPOTS.includes(oldStart as never) && oldStart >= 0 && oldStart < LOCKED_DEFAULT_SETTINGS.arrowTargetMax;
-    merged.arrowTargetMin = customStart && sourceVersion !== '1.0' ? oldStart : LOCKED_DEFAULT_SETTINGS.arrowTargetMin;
-    merged.arrowTargetMax = LOCKED_DEFAULT_SETTINGS.arrowTargetMax;
-    if (Number(source.energyWeight ?? 0) === 0) merged.energyWeight = LOCKED_DEFAULT_SETTINGS.energyWeight;
-  }
-  delete merged.arrowSweetSpot;
-
-  const out: Record<string, unknown> = { ...LOCKED_DEFAULT_SETTINGS, version: '2.2' };
+  // 2.3: the optimiser policy is fixed and no longer edited in the app. Every older stored
+  // value (custom weights, specialist priorities, Arrow band) is replaced once by the policy,
+  // so a value nobody can see any more never silently steers the answers.
+  if (String(source.version ?? '') !== LOCKED_DEFAULT_SETTINGS.version) return { ...LOCKED_DEFAULT_SETTINGS };
+  const out: Record<string, unknown> = { ...LOCKED_DEFAULT_SETTINGS };
   for (const [key, defaultValue] of Object.entries(LOCKED_DEFAULT_SETTINGS)) {
     if (key === 'version') continue;
-    const n = Number(merged[key]);
+    const n = Number(source[key]);
     out[key] = Number.isFinite(n) ? n : defaultValue;
   }
   // Normalisation always yields a valid Arrow band.

@@ -30,7 +30,7 @@ vi.mock('./scanner/panelOcr', () => ({
 }));
 
 import App from './App';
-import { Discard } from './screens/Discard';
+import { Equipment, equipmentView } from './screens/Equipment';
 
 const lastSaved = () => store.saved.at(-1) as AppData;
 function gear(id: string, slot: GearItem['slot'], stats: Partial<GearItem['stats']> = {}): GearItem {
@@ -39,11 +39,18 @@ function gear(id: string, slot: GearItem['slot'], stats: Partial<GearItem['stats
 async function openApp(data: AppData) {
   store.initial = data;
   const root = await render(<StrictMode><App /></StrictMode>);
-  await waitFor(() => byText(root, 'h1', 'Best setup'));
+  await waitFor(() => byText(root, 'h2', 'Best Set'));
   return root;
 }
 async function go(root: HTMLElement, label: string) {
-  await click(byText(root, 'nav button', new RegExp(label)));
+  if (label === 'Settings') await click(root.querySelector<HTMLButtonElement>('button[aria-label="Settings"]')!);
+  else await click(byText(root, 'nav button', new RegExp(label)));
+}
+/** Opens the manual gear editor through the one Add action. */
+const addButton = (root: HTMLElement) => byText(root, 'nav button', /Add/) as HTMLButtonElement;
+async function addGear(root: HTMLElement, slot = 'Head') {
+  await click(addButton(root));
+  await click(button(root, slot));
 }
 
 beforeEach(() => {
@@ -59,8 +66,8 @@ describe('newer data saved by another window', () => {
     const newer = makeEmptyData(); newer.gear = [gear('New Cap', 'Head')];
     store.conflicts = 1; store.next = newer;
     const root = await openApp(older);
-    await go(root, 'Inventory');
-    await waitFor(() => byText(root, '.row strong', 'New Cap'));
+    await go(root, 'Equipment');
+    await waitFor(() => byText(root, '.itemRow strong', 'New Cap'));
     expect(root.querySelector('.banner')).toBeNull();
     // The adopted data is already saved; it is not written back over the other window.
     expect(store.saved).toEqual([]);
@@ -69,12 +76,12 @@ describe('newer data saved by another window', () => {
     const older = makeEmptyData(); older.gear = [gear('Old Cap', 'Head')];
     const newer = makeEmptyData(); newer.gear = [gear('New Cap', 'Head')];
     const root = await openApp(older);
-    await go(root, 'Inventory');
-    await waitFor(() => byText(root, '.row strong', 'Old Cap'));
+    await go(root, 'Equipment');
+    await waitFor(() => byText(root, '.itemRow strong', 'Old Cap'));
     const savesBefore = store.saved.length;
     store.conflicted = true; store.next = newer;
     await act(async () => { store.notify?.(); });
-    await waitFor(() => byText(root, '.row strong', 'New Cap'));
+    await waitFor(() => byText(root, '.itemRow strong', 'New Cap'));
     await flush(20);
     expect(store.saved.length).toBe(savesBefore);
     expect(root.querySelector('.banner')).toBeNull();
@@ -82,10 +89,10 @@ describe('newer data saved by another window', () => {
   it('is not adopted over unsaved changes when another window saves', async () => {
     let release!: () => void;
     const root = await openApp(makeEmptyData());
-    await go(root, 'Inventory');
+    await go(root, 'Equipment');
     const { saveData } = await import('./data/storage');
     vi.mocked(saveData).mockImplementationOnce(() => new Promise<void>(resolve => { release = resolve; }));
-    await click(button(root, '＋ Add gear'));
+    await addGear(root);
     await type(labelled(root, 'Name') as HTMLInputElement, 'Pending Visor');
     await click(button(root, 'Save'));
     store.conflicted = true; store.next = makeEmptyData();
@@ -93,63 +100,78 @@ describe('newer data saved by another window', () => {
     await act(async () => { store.notify?.(); });
     await flush(20);
     expect(store.loads).toBe(loadsBefore);
-    expect(byText(root, '.row strong', 'Pending Visor')).toBeTruthy();
+    expect(byText(root, '.itemRow strong', 'Pending Visor')).toBeTruthy();
     release();
   });
   it('keeps the warning when this window has unsaved changes', async () => {
     const root = await openApp(makeEmptyData());
-    await go(root, 'Inventory');
+    await go(root, 'Equipment');
     const loadsBefore = store.loads;
     store.conflicts = 1; store.next = makeEmptyData();
-    await click(button(root, '＋ Add gear'));
+    await addGear(root);
     await type(labelled(root, 'Name') as HTMLInputElement, 'Unsaved Visor');
     await click(button(root, 'Save'));
     await waitFor(() => byText(root, '.banner', /Another window saved newer data/));
     expect(byText(root, '.banner', /Download this window's changes/)).toBeTruthy();
     expect(store.loads).toBe(loadsBefore);
-    expect(byText(root, '.row strong', 'Unsaved Visor')).toBeTruthy();
+    expect(byText(root, '.itemRow strong', 'Unsaved Visor')).toBeTruthy();
   });
 });
 
 describe('navigation', () => {
-  it('opens on Best setup and reaches every screen', async () => {
+  it('opens on Home, reaches every screen, and keeps Add one tap away', async () => {
     const root = await openApp(makeInitialData());
-    for (const [tab, heading] of [['Certificates', 'Certificates'], ['Discard', 'Discard'], ['Inventory', 'Inventory'], ['Preferences', 'Preferences'], ['Best setup', 'Best setup']]) {
+    expect([...root.querySelectorAll('nav button')].map(b => b.textContent)).toEqual(['◎Home', '◆Equipment', '＋Add', '◈Certificates']);
+    for (const [tab, heading] of [['Equipment', 'Equipment'], ['Certificates', 'Certificates'], ['Settings', 'Settings'], ['Home', 'Home']]) {
       await go(root, tab);
       expect(root.querySelector('h1')?.textContent).toBe(heading);
-      expect(byText(root, 'nav button', new RegExp(tab)).getAttribute('aria-current')).toBe('page');
+      if (tab !== 'Settings') expect(byText(root, 'nav button', new RegExp(tab)).getAttribute('aria-current')).toBe('page');
+      expect(addButton(root)).toBeTruthy();
     }
   });
 });
 
-describe('Best setup', () => {
-  it('shows only selected items and short stats, with no score or explanation text', async () => {
+describe('Home', () => {
+  it('shows exactly one Best Set, one next certificate and the equipment counts, with no other loadouts', async () => {
     const data = makeEmptyData();
     data.gear = [gear('Lucky Cap', 'Head', { luck: 50 }), gear('Plain Cap', 'Head'), gear('Pack', 'Back', { arrowReduction: 70 }), gear('Watch', 'Wrist', { energy: 30 })];
     const root = await openApp(data);
-    const auction = byText(root, '.setCard', /Neutral/);
-    expect(auction.textContent).toContain('Lucky Cap');
-    expect(auction.textContent).not.toContain('Plain Cap');
-    expect(auction.textContent).toContain('Arrow -70% ✓');
-    // Identical trios across contexts share one card.
-    expect(auction.querySelector('h3')?.textContent).toBe('Neutral · Day · Night · Rain');
-    expect(byText(root, '.setCard', /Drink Prep/).textContent).toContain('Watch');
-    expect(root.querySelector('main')!.textContent).not.toMatch(/score|utility|confidence/i);
+    const cards = root.querySelectorAll('.bestSet .pieceCard');
+    expect([...cards].map(c => c.querySelector('strong')?.textContent)).toEqual(['Lucky Cap', 'Pack', 'Watch']);
+    expect(byText(root, '.totals', /Arrow/).textContent).toContain('Arrow 70% ✓');
+    expect(root.querySelectorAll('.answerCard .eyebrow')[0].textContent).toBe('Next certificate');
+    expect(root.textContent).toContain('No certificates');
+    await waitFor(() => byText(root, '.counts', /Keep/));
+    const main = root.querySelector('main')!.textContent!;
+    expect(main).not.toMatch(/Day Auction|Night Auction|Rain Auction|Drink Prep|Grading|Shop \/ Idle|score|utility|confidence/i);
   });
   it('uses short empty states for an incomplete inventory', async () => {
     const data = makeEmptyData(); data.gear = [gear('Cap', 'Head')];
     const root = await openApp(data);
-    expect(root.textContent).toContain('Needs Back, Wrist gear');
-    expect(root.textContent).toContain('No Gavels');
+    expect(root.textContent).toContain('Add a Head, Back and Wrist to see your Best Set');
     expect(root.textContent).not.toMatch(/vehicle/i);
   });
 });
 
-describe('Inventory', () => {
+describe('Equipment', () => {
+  it('splits equipment into Best Set, Keep and Safe to Discard, and never discards without a full set', async () => {
+    const data = makeEmptyData();
+    data.gear = [gear('Lucky Cap', 'Head', { luck: 50 }), gear('Plain Cap', 'Head'), gear('Pack', 'Back', { arrowReduction: 70 }), gear('Watch', 'Wrist')];
+    const root = await openApp(data);
+    await go(root, 'Equipment');
+    expect([...root.querySelectorAll('h2')].map(h => h.textContent)).toEqual(['Best Set', 'Keep', 'Safe to Discard']);
+    await waitFor(() => byText(root, '.itemRow.check strong', 'Plain Cap'));
+    const partial = makeEmptyData(); partial.gear = [gear('Only Cap', 'Head')];
+    const view = equipmentView(partial, [{ item: partial.gear[0], verdict: 'KEEP', reason: 'Needed for a full set', standalone: scoreStandalone(partial.gear[0], partial.settings), currentlyEquipped: false, loadoutMemberships: [] }], true, new Set());
+    expect(view.discard).toEqual([]);
+  });
+});
+
+describe('adding gear', () => {
   it('keeps the minus sign while a negative Bid Arrow is typed key by key', async () => {
     const root = await openApp(makeEmptyData());
-    await go(root, 'Inventory');
-    await click(button(root, '＋ Add gear'));
+    await go(root, 'Equipment');
+    await addGear(root);
     await type(labelled(root, 'Name') as HTMLInputElement, 'Test Hat');
     await click(button(root, /＋ Arrow/));
     const arrow = labelled(root, /Bid Arrow Speed/) as HTMLInputElement;
@@ -158,39 +180,34 @@ describe('Inventory', () => {
       expect(arrow.value).toBe(text);
     }
     await click(button(root, 'Save'));
-    await waitFor(() => byText(root, '.row strong', 'Test Hat'));
+    await waitFor(() => byText(root, '.itemRow strong', 'Test Hat'));
     // Game -24% Bid Arrow Speed is a +24 reduction (a slower arrow is good).
     expect(lastSaved().gear[0].stats.arrowReduction).toBe(24);
   });
-  it('adds, edits, duplicates and favourites gear', async () => {
+  it('adds, edits, locks and deletes gear', async () => {
     const root = await openApp(makeEmptyData());
-    await go(root, 'Inventory');
-    await click(button(root, '＋ Add gear'));
+    await go(root, 'Equipment');
+    await addGear(root);
     await type(labelled(root, 'Name') as HTMLInputElement, 'Test Visor');
     await click(button(root, 'Save'));
-    await waitFor(() => byText(root, '.row strong', 'Test Visor'));
+    await waitFor(() => byText(root, '.itemRow strong', 'Test Visor'));
     expect(lastSaved().gear.map(g => g.baseName)).toEqual(['Test Visor']);
 
-    await click(button(root, 'Edit'));
+    await click(byText(root, '.itemRow', /Test Visor/));
     await type(labelled(root, 'Name') as HTMLInputElement, 'Renamed Visor');
+    await click(labelled(root, 'Always keep'));
     await click(button(root, 'Save'));
-    await waitFor(() => byText(root, '.row strong', 'Renamed Visor'));
+    await waitFor(() => byText(root, '.itemRow strong', 'Renamed Visor'));
+    expect(lastSaved().gear[0]).toMatchObject({ baseName: 'Renamed Visor', favourite: true });
 
-    await click(button(root, 'Duplicate'));
-    await click(button(root, 'Save'));
-    await waitFor(() => expect(lastSaved().gear).toHaveLength(2));
-    expect(new Set(lastSaved().gear.map(g => g.id)).size).toBe(2);
-
-    const star = root.querySelector<HTMLButtonElement>('.star')!;
-    expect(star.getAttribute('aria-pressed')).toBe('false');
-    await click(star);
-    expect(root.querySelector('.star')!.getAttribute('aria-pressed')).toBe('true');
-    expect(lastSaved().gear[0].favourite).toBe(true);
+    await click(byText(root, '.itemRow', /Renamed Visor/));
+    await click(button(root, 'Delete'));
+    await waitFor(() => expect(lastSaved().gear).toHaveLength(0));
   });
   it('shows a validation message instead of saving an unnamed item', async () => {
     const root = await openApp(makeEmptyData());
-    await go(root, 'Inventory');
-    await click(button(root, '＋ Add gear'));
+    await go(root, 'Equipment');
+    await addGear(root);
     await click(button(root, 'Save'));
     expect(root.querySelector('.formError')?.textContent).toBe('Name is required.');
     expect(store.saved.every(d => (d as AppData).gear.length === 0)).toBe(true);
@@ -215,19 +232,19 @@ describe('Certificates', () => {
     await click(root.querySelectorAll<HTMLButtonElement>('.stepper button[aria-label="Add one"]')[0]);
     expect(lastSaved().ownedCertificates[0].quantity).toBe(4);
     // No gear: every certificate is held rather than given an invented target.
-    await waitFor(() => byText(root, '.hold h3', 'Hold'));
+    await waitFor(() => byText(root, '.answerCard .verdict', 'Hold certificates'));
   });
 
-  it('lists a numbered queue and records a result against the current item', async () => {
+  it('shows one next action and records a result against its item', async () => {
     const data = makeInitialData();
     const root = await openApp(data);
     await go(root, 'Certificates');
-    const rows = await waitFor(() => { if (root.querySelector('.updating')) throw new Error('pending'); return root.querySelectorAll('.queueRow'); }, 60000);
-    expect(rows.length).toBeGreaterThan(0);
-    expect(rows[0].querySelector('.queueNo')?.textContent).toBe('1');
-    expect(rows[0].querySelector('.chance b')?.textContent).toMatch(/^(Unclear|\d+%\+|0%|<1%|\d+%|\d+%–\d+%)$/);
+    const card = await waitFor(() => { if (root.querySelector('.updating')) throw new Error('pending'); return byText(root, '.answerCard', /Next certificate/); }, 60000);
+    expect(root.querySelectorAll('.answerCard')).toHaveLength(1);
+    expect(card.querySelector('.verdict')?.textContent).toMatch(/^(Use|Consider) /);
+    expect(card.querySelector('.facts b')?.textContent).toMatch(/^(0%|<1%|\d+%|\d+%–\d+%)$/);
     const before = data.ownedCertificates.reduce((n, c) => n + c.quantity, 0);
-    await click(rows[0].querySelector('button')!);
+    await click(button(card, 'Record result'));
     const result = labelled(document.body, 'Result') as HTMLSelectElement;
     await type(result, result.options[1].value);
     await type(labelled(document.body, 'Value') as HTMLInputElement, '5');
@@ -243,85 +260,50 @@ describe('Certificates', () => {
   }, 120000);
 });
 
-describe('Discard', () => {
+describe('Safe to Discard', () => {
   const data = makeEmptyData();
   data.gear = [gear('weak', 'Head'), gear('fav', 'Head'), gear('strong', 'Head', { luck: 100, energy: 50, tip: 20, npc: 20 }), gear('back', 'Back'), gear('wrist', 'Wrist')];
   data.gear[1].favourite = true;
-  const safe = (item: GearItem): ItemAnalysis => ({ item, verdict: 'SAFE TO DISCARD', reason: '', standalone: scoreStandalone(item, data.settings), currentlyEquipped: false, loadoutMemberships: [] });
+  const safe = (item: GearItem): ItemAnalysis => ({ item, verdict: 'SAFE TO DISCARD', reason: 'Not needed in any best set', standalone: scoreStandalone(item, data.settings), currentlyEquipped: false, loadoutMemberships: [] });
   const analyses = [safe(data.gear[0]), safe(data.gear[1])];
+  const show = (setData: (d: AppData) => void, current: boolean, targets?: Set<string>) =>
+    render(<Equipment data={data} setData={setData} view={equipmentView(data, analyses, current, targets)} />);
 
-  it('locks stale gear proofs', async () => {
-    const root = await render(<Discard data={data} setData={() => {}} gearAnalyses={analyses} gearCurrent={false} certificateTargets={new Set()} />);
-    expect(root.textContent).toContain('Gear updating…');
-    expect(root.textContent).not.toContain('weak');
+  it('offers nothing while the analysis is out of date', async () => {
+    const root = await show(() => {}, false, new Set());
+    expect(root.textContent).toContain('Updating…');
+    expect(root.querySelector('.itemRow.check')).toBeNull();
   });
-  it('excludes favourites and removes only reviewed, confirmed selections', async () => {
+  it('keeps favourites and removes only reviewed, confirmed selections', async () => {
     const setData = vi.fn();
-    const root = await render(<Discard data={data} setData={setData} gearAnalyses={analyses} gearCurrent={true} certificateTargets={new Set()} />);
-    expect(root.textContent).toContain('weak');
-    expect(root.textContent).not.toContain('fav');
-    expect(button(root, 'Review (0)').disabled).toBe(true);
-    await click(root.querySelector<HTMLInputElement>('input[type=checkbox]')!);
-    await click(button(root, 'Review (1)'));
+    const root = await show(setData, true, new Set());
+    expect(byText(root, '.itemRow.check strong', 'weak')).toBeTruthy();
+    expect(root.querySelectorAll('.itemRow.check')).toHaveLength(1);
+    expect(button(root, 'Remove (0)').disabled).toBe(true);
+    await click(root.querySelector<HTMLInputElement>('.itemRow.check input')!);
+    await click(button(root, 'Remove (1)'));
     expect(setData).not.toHaveBeenCalled();
     expect(document.body.querySelector('.reviewList')?.textContent).toContain('weak');
     await click(button(document.body, 'Remove 1'));
     expect(setData).toHaveBeenCalledTimes(1);
     expect((setData.mock.calls[0][0] as AppData).gear.map(g => g.id)).toEqual(['fav', 'strong', 'back', 'wrist']);
   });
-  it('never offers an item the certificate queue targets, and waits for that queue', async () => {
-    const pending = await render(<Discard data={data} setData={() => {}} gearAnalyses={analyses} gearCurrent={true} />);
-    expect(pending.textContent).toContain('Gear updating…');
-    expect(pending.textContent).not.toContain('weak');
-    const targeted = await render(<Discard data={data} setData={() => {}} gearAnalyses={analyses} gearCurrent={true} certificateTargets={new Set(['weak'])} />);
-    expect(targeted.textContent).toContain('Nothing to discard');
-  });
-  it('shows a short empty state', async () => {
-    const root = await render(<Discard data={makeEmptyData()} setData={() => {}} gearAnalyses={[]} gearCurrent={true} certificateTargets={new Set()} />);
-    expect(root.textContent).toContain('Nothing to discard');
+  it('keeps an item a certificate is aimed at, and waits for the certificate queue', async () => {
+    const pending = await show(() => {}, true);
+    expect(pending.querySelector('.itemRow.check')).toBeNull();
+    const view = equipmentView(data, analyses, true, new Set(['weak']));
+    expect(view.discard).toEqual([]);
+    expect(view.keep.find(r => r.item.id === 'weak')?.reason).toBe('Strong future certificate target');
   });
 });
 
-describe('Preferences', () => {
-  const outputs = (root: HTMLElement, section: RegExp) =>
-    [...byText(root, '.prefSection', section).querySelectorAll('.weightGroup output')].map(o => o.textContent);
-  it('shows each weight group as percentages that always add up to 100', async () => {
+describe('Settings', () => {
+  it('has no optimiser weights, sliders or model values', async () => {
     const root = await openApp(makeInitialData());
-    await go(root, 'Preferences');
-    for (const section of [/^Auctions/, /^Shop/]) {
-      const shown = outputs(root, section).map(t => Number(t!.replace('%', '')));
-      expect(shown.reduce((a, b) => a + b, 0)).toBe(100);
-    }
-    expect(byText(root, '.prefSection', /^Auctions/).textContent).toContain('Staying inside 70–90% Bid Arrow reduction always comes first');
-  });
-  it('moving one weight rebalances the others in its group immediately, and Reset restores it', async () => {
-    const root = await openApp(makeInitialData());
-    await go(root, 'Preferences');
-    const luck = labelled(root, 'Luck') as HTMLInputElement;
-    expect(luck.type).toBe('range');
-    await type(luck, '70');
-    expect(outputs(root, /^Auctions/)[0]).toBe('70%');
-    expect(outputs(root, /^Auctions/).map(t => Number(t!.replace('%', ''))).reduce((a, b) => a + b, 0)).toBe(100);
-    const s = lastSaved().settings;
-    const total = s.luckWeight + s.arrowWeight + s.zoneWeight + s.energyWeight + s.recoveryWeight;
-    expect(s.luckWeight / total).toBeCloseTo(.7, 9);
-    // The others keep their proportions (default Arrow 1 : Zone 0.6 : Energy 0.3 : Recovery 0.2).
-    expect(s.zoneWeight / s.arrowWeight).toBeCloseTo(.6, 9);
-    expect(s.energyWeight / s.arrowWeight).toBeCloseTo(.3, 9);
-    expect(s.recoveryWeight / s.arrowWeight).toBeCloseTo(.2, 9);
-    // Other groups are untouched.
-    expect(s.shopTipWeight).toBe(makeInitialData().settings.shopTipWeight);
-    expect(s.shopNpcWeight).toBe(makeInitialData().settings.shopNpcWeight);
-    await click(button(byText(root, '.prefSection', /^Auctions/), 'Reset'));
-    expect(lastSaved().settings.luckWeight).toBe(1);
-  });
-  it('keeps stored custom weights exactly until a weight in that group is moved', async () => {
-    const data = makeInitialData(); data.settings.zoneWeight = .65; data.settings.luckWeight = .3;
-    const root = await openApp(data);
-    await go(root, 'Preferences');
-    await type(labelled(root, 'Tip Chance') as HTMLInputElement, '50');
-    expect(lastSaved().settings.zoneWeight).toBe(.65);
-    expect(lastSaved().settings.luckWeight).toBe(.3);
+    await go(root, 'Settings');
+    expect(root.querySelector('input[type=range]')).toBeNull();
+    expect(root.querySelector('main')!.textContent).not.toMatch(/weight|priority|breakpoint|sweet spot|catalogue/i);
+    expect(root.textContent).toContain('Backup');
   });
 });
 
@@ -335,8 +317,8 @@ describe('screenshot import', () => {
     ];
     const data = makeInitialData();
     const root = await openApp(data);
-    await go(root, 'Inventory');
-    await click(button(root, 'Import screenshots'));
+    await click(addButton(root));
+    await click(button(root, 'Scan screenshots'));
     const input = document.body.querySelector<HTMLInputElement>('input[type=file][multiple]')!;
     Object.defineProperty(input, 'files', { value: ['a.png', 'b.png', 'c.png'].map(n => new File(['x'], n, { type: 'image/png' })), configurable: true });
     input.dispatchEvent(new Event('change', { bubbles: true }));
@@ -362,5 +344,22 @@ describe('screenshot import', () => {
     expect(lastSaved().trophies).toHaveLength(data.trophies.length);
     expect(document.body.textContent).toContain('3 of 3 done');
   });
+  it('saves every cleanly read screenshot in one tap and leaves the rest to check', async () => {
+    URL.revokeObjectURL = vi.fn();
+    scanner.reads = [
+      { stars: 1, infoLines: ['Cow Dominus', 'Mythical', 'Condition: 60%'], statLines: [{ text: '+58% Luck', color: 'green' }, { text: '-35% Bid Arrow Speed', color: 'green' }] },
+      { stars: 0, infoLines: ['Brand New Thing', 'Rare'], statLines: [{ text: '+20% Luck', color: 'green' }] }
+    ];
+    const data = makeInitialData();
+    const root = await openApp(data);
+    await click(addButton(root));
+    await click(button(root, 'Scan screenshots'));
+    const input = document.body.querySelector<HTMLInputElement>('input[type=file][multiple]')!;
+    Object.defineProperty(input, 'files', { value: ['a.png', 'b.png'].map(n => new File(['x'], n, { type: 'image/png' })), configurable: true });
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    await waitFor(() => { if (document.body.querySelectorAll('.importCard').length !== 2) throw new Error('reading'); return true; });
+    await click(button(document.body, 'Save all ready (1)'));
+    expect(lastSaved().gear.find(g => g.baseName === 'Cow Dominus')).toMatchObject({ conditionPct: 60, gradeStars: 1 });
+    expect(document.body.textContent).toContain('1 of 2 done · 1 to check');
+  });
 });
-

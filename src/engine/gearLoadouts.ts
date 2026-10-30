@@ -3,10 +3,11 @@ import type {
   GearStats, ItemAnalysis, MainAuctionContext, ScoreBreakdown
 } from '../types';
 import { algorithmIssues } from './settingsValidation';
-import { findDominator } from './dominance';
 import { arrowBandDistance, arrowEffective, arrowTargetBand, combineStats, effectiveItemStats, energyEffective, scoreStandalone, zoneEffective } from './scoring';
 import { MODEL_ASSUMPTIONS } from './modelAssumptions';
 import { hasUnknownEffect } from './effects';
+import { futureSweep } from './retention';
+import { canonicalEffect } from '../authentication';
 
 export type DynamicScenario = 'low' | 'central' | 'high';
 
@@ -52,9 +53,6 @@ const MUTATED_LUCK: Record<string, number> = {
   Hologram:35, Void:40, Secret:45, Rainbow:60, Onyx:75
 };
 
-const TRIO_DEPENDENT_OR_STATEFUL = new Set([
-  'Mutated Luck','Droughtbreaker','Drought Breaker','Golden Hour','Luck Frenzy'
-]);
 
 const LUCKY_GRADES = [
   // Lucky Grading gamepass: Replica 0%, 1★ 36%, 2★ 54%, 3★ 10%.
@@ -293,35 +291,24 @@ export function membershipsForItem(
   return memberships;
 }
 
-function uncertainProtection(item:GearItem):string|undefined {
-  if(!hasUnknownEffect(item))return undefined;
-  const effect=item.authentication.effect.trim();
-  if(effect==='Focused'||effect==='Focus')return "Focused boosts this item's strongest native stat by an unresolved amount, so this item cannot be irreversibly discarded.";
-  return effect+' is not yet modelled, so this item cannot be irreversibly discarded.';
-}
+/** Short reasons shown beside each item; the engine behind them is not shown. */
+export type RetentionReason =
+  | 'Current Best Set' | 'Tied with Best Set' | 'High Luck alternative' | 'High Arrow alternative'
+  | 'Useful Luck/Arrow balance' | 'Valuable authentication' | 'Valuable mutation' | 'Focused potential'
+  | 'Locked by you' | 'Strong future certificate target' | 'Needed for a full set' | 'Not needed in any best set';
 
-function hasStatefulOrTrioDependentValue(item:GearItem):boolean {
-  return Boolean(item.authenticated&&TRIO_DEPENDENT_OR_STATEFUL.has(item.authentication.effect.trim()));
-}
+const VALUABLE_EFFECTS = new Set(['Sunny','Nocturnal','Overcharged','Raindrop','Focused','Mutated Luck','Golden Hour','Drought Breaker','Luck Frenzy','Featherweight']);
 
 function buildMembershipMap(gear:GearItem[],settings:AlgorithmSettings):Map<string,GearLoadoutMembership[]> {
   const map=new Map<string,GearLoadoutMembership[]>();
   for(const state of RETENTION_DYNAMIC_STATES){
     const loadouts=buildGearLoadouts(gear,settings,state);
+    // Only auction sets protect items; there are no user-facing specialist sets.
+    const auction={main:loadouts.main,day:loadouts.day,night:loadouts.night,rain:loadouts.rain};
     for(const item of gear){
-      const memberships=membershipsForItem(item,loadouts,state.label);
-      for(const membership of memberships){
+      for(const membership of membershipsForItem(item,auction,state.label)){
         const list=map.get(item.id)??[];
-        const key=(m:GearLoadoutMembership)=>m.loadout+'|'+(m.context??'');
-        const existing=list.find(m=>key(m)===key(membership));
-        if(existing){
-          existing.selected=existing.selected||membership.selected;
-          existing.tied=existing.tied&&membership.tied;
-          if(state.label===PRESET_STATES.low.label)existing.scenario=undefined;
-          else if(existing.scenario&&existing.scenario!==state.label)existing.scenario='dynamic sensitivity';
-        }else{
-          list.push({...membership,scenario:state.label===PRESET_STATES.low.label?undefined:state.label});
-        }
+        if(!list.some(m=>m.loadout===membership.loadout))list.push(membership);
         map.set(item.id,list);
       }
     }
@@ -329,119 +316,49 @@ function buildMembershipMap(gear:GearItem[],settings:AlgorithmSettings):Map<stri
   return map;
 }
 
-/** Swapping `item` for `candidate` never hurts any auction set that can be built from the
- * current inventory: for every trio containing the item, in every context and preset
- * dynamic state, the swapped trio is no further from the Arrow band and scores at least
- * as much. This is how a different Arrow value can still prove redundancy. */
-function substitutionSafe(item:GearItem,candidate:GearItem,gear:GearItem[],settings:AlgorithmSettings):boolean {
-  const others=(slot:GearItem['slot'])=>gear.filter(g=>g.slot===slot&&g.id!==item.id&&g.id!==candidate.id);
-  const [slotA,slotB]=(['Head','Back','Wrist'] as const).filter(s=>s!==item.slot);
-  const contexts:MainAuctionContext[]=['Neutral','Day','Night','Rain'];
-  const states:DynamicScenario[]=['low','central','high'];
-  for(const a of others(slotA))for(const b of others(slotB)){
-    const before=combineStats([item,a,b]),after=combineStats([candidate,a,b]);
-    if(arrowDistance(after,settings)>arrowDistance(before,settings)+1e-9)return false;
-    for(const context of contexts)for(const state of states){
-      if(mainAuctionUtility([candidate,a,b],settings,context,state,after)<mainAuctionUtility([item,a,b],settings,context,state,before)-1e-9)return false;
-    }
-  }
-  return true;
-}
-
-/** Discard is stat by stat: a replacement must be at least as good on every stat that
- * matters (importance above 0), so no trade-off between stats can make an item redundant.
- * Arrow is a band, not a stat where more is better: a replacement must have the same
- * Arrow, or pass the substitution proof above against every trio in the inventory.
+/**
+ * Equip / Keep / Safe to discard for every item, with one short reason each.
+ *
+ * KEEP when the item is in or tied with the Best Set, belongs to any optimal Neutral, Day,
+ * Night or Rain set in any dynamic state, is a favourite, carries an effect whose value is
+ * unresolved, or could become part of the best set if one new piece arrived in another slot
+ * (see retention.ts). Only items none of that applies to are SAFE TO DISCARD. Items targeted
+ * by a certificate are kept by the screens, which know the certificate queue.
  */
-function futureSafeDominator(item:GearItem,candidates:GearItem[],settings:AlgorithmSettings,gear:GearItem[]) {
-  const target=effectiveItemStats(item);
-  const specialists=activeSpecialists(settings);
-  const drink=specialists.includes('Drink Prep');
-  const grading=specialists.includes('Grading');
-  const shop=specialists.includes('Shop / Idle');
-  const specialistSafe=candidates.filter(candidate=>{
-    const stats=effectiveItemStats(candidate);
-    // Ignored specialists (priority 0) and zero-importance Shop stats impose no requirement.
-    return (settings.luckWeight<=0||stats.luck>=target.luck)
-      && (settings.zoneWeight<=0||stats.zone>=target.zone)
-      && (settings.recoveryWeight<=0||stats.recovery>=target.recovery)
-      && ((!drink&&settings.energyWeight<=0)||stats.energy>=target.energy)
-      && (!shop||settings.shopTipWeight<=0||stats.tip>=target.tip)
-      && (!shop||settings.shopNpcWeight<=0||stats.npc>=target.npc)
-      && (!grading||gradeRerollValue([candidate])>=gradeRerollValue([item]))
-      // A future companion with Mutated Luck reads every member's mutation.
-      && mutationLuckForItem(candidate)>=mutationLuckForItem(item)
-      && (Math.abs(stats.arrowReduction-target.arrowReduction)<=.05||substitutionSafe(item,candidate,gear,settings));
-  });
-  // Being strictly better on a stat for an active specialist also counts as beating the
-  // item: a tiny weight makes it register without ever outweighing a Main stat.
-  const tiny=1e-6;
-  const mainSettings={...settings,vehicleWeight:0,walkWeight:0,
-    energyWeight:settings.energyWeight>0?settings.energyWeight:drink?tiny:0,
-    tipWeight:shop&&settings.shopTipWeight>0?tiny:0,
-    npcWeight:shop&&settings.shopNpcWeight>0?tiny:0};
-  const dominance=findDominator(item,specialistSafe,mainSettings);
-  if(!dominance.dominated && specialistSafe.length!==candidates.length) {
-    dominance.reason='No other item in this slot is at least as good on every stat that matters (Luck, Zone, Energy, Recovery, Tip, NPC, Grade Re-Roll and Mutated Luck) while keeping every set just as close to the Bid Arrow band.';
-  }
-  return dominance;
-}
-
 export function analyseGearRetention(gear:GearItem[],settings:AlgorithmSettings):ItemAnalysis[] {
   const issues=algorithmIssues(settings);
   if(issues.length)return gear.map(item=>({item,verdict:'KEEP',
-    reason:'Invalid algorithm settings prevent safe retention recommendations: '+issues.join('; ')+'.',
+    reason:'Invalid settings: '+issues.join('; '),
     standalone:scoreStandalone(item,settings),currentlyEquipped:false,loadoutMemberships:[]}));
-  // EQUIP must agree with Dashboard/Optimise, which use the robust ('low') Main baseline.
-  // Central/high alternatives are still retained by buildMembershipMap as KEEP.
-  const active=buildGearLoadouts(gear,settings,'low');
-  const mainIds=new Set(active.main?[active.main.head.id,active.main.back.id,active.main.wrist.id]:[]);
-  const membershipMap=buildMembershipMap(gear,settings);
+  const best=buildGearLoadouts(gear,settings,'low').main;
+  const bestIds=new Set(best?[best.head.id,best.back.id,best.wrist.id]:[]);
+  const bestInSlot=(slot:GearItem['slot'])=>best?[best.head,best.back,best.wrist].find(g=>g.slot===slot):undefined;
+  const memberships=buildMembershipMap(gear,settings);
+  const sweep=futureSweep(gear,settings);
   return gear.map(item=>{
     const standalone=scoreStandalone(item,settings);
-    const memberships=membershipMap.get(item.id)??[];
-    if(mainIds.has(item.id)){
-      return {
-        item,verdict:'EQUIP',reason:'Part of the current best Main Auction loadout.',
-        standalone,currentlyEquipped:true,loadoutMemberships:memberships
-      };
-    }
-    if(memberships.length){
-      const reasons=memberships.map(m=>m.loadout+(m.tied?' (tied optimum)':'')+(m.scenario?' ['+m.scenario+']':''));
-      return {
-        item,verdict:'KEEP',
-        reason:'Required by '+reasons.join(' / ')+'.',
-        standalone,currentlyEquipped:false,loadoutMemberships:memberships
-      };
-    }
-    if(item.favourite){
-      return {item,verdict:'KEEP',reason:'Manually locked / favourited.',standalone,currentlyEquipped:false,loadoutMemberships:[]};
-    }
-    const protection=uncertainProtection(item);
-    if(protection){
-      return {item,verdict:'PROTECTED / UNKNOWN',reason:protection,standalone,currentlyEquipped:false,loadoutMemberships:[]};
-    }
-    if(hasStatefulOrTrioDependentValue(item)){
-      return {
-        item,verdict:'KEEP',
-        reason:item.authentication.effect+' has state- or trio-dependent value that is not represented by the static dominance proof, so it is retained unless a future exact proof can establish redundancy.',
-        standalone,currentlyEquipped:false,loadoutMemberships:[]
-      };
-    }
-    const sameSlot=gear.filter(x=>x.slot===item.slot&&x.id!==item.id);
-    const dominance=futureSafeDominator(item,sameSlot,settings,gear);
-    if(dominance.dominated){
-      return {
-        item,verdict:'SAFE TO DISCARD',
-        reason:'No loss of Main Auction or specialist utility across future complementary states is proven, and '+dominance.reason,
-        standalone,currentlyEquipped:false,dominance,loadoutMemberships:[]
-      };
-    }
-    return {
-      item,verdict:'KEEP',
-      reason:dominance.reason||'Not globally redundant across the relevant loadouts.',
-      standalone,currentlyEquipped:false,dominance,loadoutMemberships:[]
+    const loadoutMemberships=memberships.get(item.id)??[];
+    const result=(verdict:ItemAnalysis['verdict'],reason:RetentionReason)=>({item,verdict,reason,standalone,currentlyEquipped:verdict==='EQUIP',loadoutMemberships});
+    const effect=item.authenticated?canonicalEffect(item.authentication.effect):'';
+    if(bestIds.has(item.id))return result('EQUIP','Current Best Set');
+    if(best?.tiedItemIds.has(item.id))return result('KEEP','Tied with Best Set');
+    if(item.favourite)return result('KEEP','Locked by you');
+    if(hasUnknownEffect(item))return result('KEEP',effect==='Focused'?'Focused potential':'Valuable authentication');
+    const profile=():RetentionReason=>{
+      const current=bestInSlot(item.slot);
+      if(!current)return 'Useful Luck/Arrow balance';
+      const a=effectiveItemStats(item),b=effectiveItemStats(current);
+      if(a.luck>b.luck+1e-9&&a.arrowReduction<b.arrowReduction-1e-9)return 'High Luck alternative';
+      if(a.arrowReduction>b.arrowReduction+1e-9&&a.luck<b.luck-1e-9)return 'High Arrow alternative';
+      return 'Useful Luck/Arrow balance';
     };
+    if(loadoutMemberships.length)return result('KEEP',VALUABLE_EFFECTS.has(effect)?'Valuable authentication':profile());
+    if(sweep.plain.has(item.id))return result('KEEP',VALUABLE_EFFECTS.has(effect)?'Valuable authentication':profile());
+    // Kept only once a Premium certificate gives Heads Mutated Luck: a Head is then itself
+    // the certificate target; a Back or Wrist is kept for the Luck its mutation would add.
+    if(sweep.mutation.has(item.id))return result('KEEP',item.slot==='Head'?'Strong future certificate target':'Valuable mutation');
+    // Without a full Head + Back + Wrist set nothing can be proven unnecessary yet.
+    if(!best)return result('KEEP','Needed for a full set');
+    return result('SAFE TO DISCARD','Not needed in any best set');
   });
 }
-
