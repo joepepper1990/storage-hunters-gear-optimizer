@@ -14,7 +14,6 @@ const REPLACED_KEY = 'storage-hunters-gear-optimizer:replaced-copy';
 const STORAGE_ENVELOPE_VERSION = 1;
 let capturedHead: StoredSnapshot | undefined;
 let committedHead: StoredSnapshot | undefined;
-let storageConflict=false;
 let ignoredMirrorToken: string | undefined;
 let captures = new WeakMap<AppData, CapturedSnapshot>();
 let localSnapshots = new Set<string>();
@@ -84,19 +83,24 @@ function selectRecoverySnapshot(indexed?:StoredSnapshot,mirror?:StoredSnapshot):
 export async function loadData(): Promise<AppData> {
   let indexedDbError: unknown;
   let indexed:StoredSnapshot|undefined;
-  try {
-    const db = await openDb();
-    const value = await request<unknown>(db.transaction(STORE, 'readonly').objectStore(STORE).get(KEY));
-    db.close();
-    indexed=decodeStoredSnapshot(value);
-  } catch (error) {
-    indexedDbError = error;
+  // Phones sometimes fail to open IndexedDB on the first try; one retry avoids falling
+  // back to an older emergency copy by accident.
+  for (let attempt = 0; attempt < 2 && !indexed; attempt++) {
+    try {
+      const db = await openDb();
+      const value = await request<unknown>(db.transaction(STORE, 'readonly').objectStore(STORE).get(KEY));
+      db.close();
+      indexed=decodeStoredSnapshot(value);
+      indexedDbError=undefined;
+      break;
+    } catch (error) {
+      indexedDbError = error;
+    }
   }
 
   const mirror=loadEmergencyMirror();
   const selected=selectRecoverySnapshot(indexed,mirror);
   ignoredMirrorToken=selected===indexed&&mirror&&indexed&&!sameSnapshot(indexed,mirror)?snapshotToken(mirror):undefined;
-  storageConflict=false;
   committedHead=indexed;
   capturedHead=selected;
   captures=new WeakMap();
@@ -106,31 +110,8 @@ export async function loadData(): Promise<AppData> {
   return makeInitialData();
 }
 
-/**
- * Keeps this window's data after another copy of the app saved first. What is stored now
- * becomes this window's starting point and this window's data is saved on top of it as the
- * newest version; a copy without unsaved edits then picks it up. The copy being replaced is
- * kept once (see replacedCopy) so nothing another copy saved is lost for good.
- */
-export async function keepThisWindow(data: AppData): Promise<void> {
-  await saveChain.catch(()=>undefined);
-  let indexed:StoredSnapshot|undefined;
-  try {
-    const db = await openDb();
-    try { indexed=decodeStoredSnapshot(await request<unknown>(db.transaction(STORE, 'readonly').objectStore(STORE).get(KEY))); }
-    finally { db.close(); }
-  } catch { /* the mirror alone is enough to continue */ }
-  const mirror=loadEmergencyMirror();
-  const newest=selectNewestStoredSnapshot(indexed,mirror);
-  if(newest&&!(newest.snapshotId&&localSnapshots.has(newest.snapshotId))){
-    try { localStorage.setItem(REPLACED_KEY,JSON.stringify({savedAt:newest.savedAt||Date.now(),data:newest.data})); }
-    catch { /* a full storage must not stop this window's save */ }
-  }
-  ignoredMirrorToken=newest&&mirror&&newest!==mirror&&!sameSnapshot(newest,mirror)?snapshotToken(mirror):undefined;
-  storageConflict=false;
-  committedHead=indexed;
-  capturedHead=newest;
-  captures=new WeakMap();
+/** Saves this window's data as the newest version. Kept for the fallback banner button. */
+export function keepThisWindow(data: AppData): Promise<void> {
   return saveData(data);
 }
 
@@ -155,7 +136,6 @@ interface CapturedSnapshot { envelope: StoredEnvelope; base?: StoredSnapshot }
 // Capture provenance before queuing. Never rebase an old in-memory inventory on a
 // newer mirror observed at write/pagehide time: that would turn stale data into a winner.
 function captureSnapshot(data: AppData, savedAt=Date.now()): CapturedSnapshot {
-  if(storageConflict)throw new StorageConflictError();
   const existing=captures.get(data);
   if(existing)return existing;
   let ancestorTokens=capturedHead?[snapshotToken(capturedHead),...(capturedHead.ancestorTokens??[])]:[];
@@ -176,27 +156,39 @@ function sameSnapshot(a:StoredSnapshot,b:StoredSnapshot):boolean {
   return snapshotToken(a)===snapshotToken(b);
 }
 
-function assertCompatible(current:StoredSnapshot|undefined,captured:CapturedSnapshot,mirror=false):void {
-  if(storageConflict)throw new StorageConflictError();
+/**
+ * The window in use always wins. A stored snapshot that is not part of this window's own
+ * history (another copy of the app saved it, or an old copy was left behind) is kept once
+ * as the replaced copy, then recorded as an ancestor of this window's snapshot, which gets a
+ * higher revision so every later reader picks it. Nothing is refused and nothing is lost.
+ */
+function supersede(current:StoredSnapshot|undefined,captured:CapturedSnapshot,mirror=false):void {
   if(!current)return;
   if(mirror&&snapshotToken(current)===ignoredMirrorToken)return;
-  if(captured.envelope.ancestorTokens?.includes(snapshotToken(current)))return;
-  if(current.snapshotId&&localSnapshots.has(current.snapshotId))return;
+  const token=snapshotToken(current),envelope=captured.envelope;
+  if(envelope.ancestorTokens?.includes(token))return;
+  if(current.snapshotId&&(localSnapshots.has(current.snapshotId)||current.snapshotId===envelope.snapshotId))return;
   if(captured.base&&sameSnapshot(current,captured.base))return;
-  storageConflict=true;
-  throw new StorageConflictError();
+  try { localStorage.setItem(REPLACED_KEY,JSON.stringify({savedAt:current.savedAt||Date.now(),data:current.data})); }
+  catch { /* a full storage must not stop this window's save */ }
+  envelope.ancestorTokens=[token,...(envelope.ancestorTokens??[])];
+  envelope.revision=Math.max(envelope.revision??0,(current.revision??0)+1);
+}
+
+/** A later snapshot this window itself wrote (a pagehide save) must not be overwritten by an older queued one. */
+function ownNewer(current:StoredSnapshot|undefined,envelope:StoredEnvelope):boolean {
+  return Boolean(current?.snapshotId&&current.snapshotId!==envelope.snapshotId&&localSnapshots.has(current.snapshotId)
+    &&selectNewestStoredSnapshot(envelope,current)===current);
 }
 
 /** Serialise local writes and compare the captured parent within the IDB write transaction. */
 export async function saveData(data: AppData): Promise<void> {
-  if(storageConflict)return Promise.reject(new StorageConflictError());
   const captured=captureSnapshot(data);
   saveChain=saveChain.catch(()=>undefined).then(()=>writeSnapshot(captured));
   return saveChain;
 }
 
 async function writeSnapshot(captured:CapturedSnapshot):Promise<void> {
-  if(storageConflict)throw new StorageConflictError();
   const {envelope}=captured;
   let wroteIndexed=false;
   let idbSaved=false, mirrorSaved=false;
@@ -215,11 +207,11 @@ async function writeSnapshot(captured:CapturedSnapshot):Promise<void> {
         read.onsuccess=()=>{
           try {
             const indexed=decodeStoredSnapshot(read.result),mirror=loadEmergencyMirror();
-            assertCompatible(indexed,captured);
-            assertCompatible(mirror,captured,true);
+            supersede(indexed,captured);
+            supersede(mirror,captured,true);
             const current=selectNewestStoredSnapshot(indexed,mirror&&snapshotToken(mirror)!==ignoredMirrorToken?mirror:undefined);
             // A later local pagehide already protected a queued edit; keep it newer.
-            if(current&&current.snapshotId!==envelope.snapshotId&&selectNewestStoredSnapshot(envelope,current)===current){resolve();return;}
+            if(ownNewer(current,envelope)){resolve();return;}
             store.put(envelope,KEY);
             wroteIndexed=true;
           } catch(error) { reject(error); }
@@ -234,8 +226,8 @@ async function writeSnapshot(captured:CapturedSnapshot):Promise<void> {
   }
   try {
     const current=loadEmergencyMirror();
-    assertCompatible(current,captured,true);
-    if(!current||snapshotToken(current)===ignoredMirrorToken||sameSnapshot(current,envelope)||selectNewestStoredSnapshot(envelope,current)===envelope)writeEmergencyMirror(envelope);
+    supersede(current,captured,true);
+    if(!ownNewer(current,envelope))writeEmergencyMirror(envelope);
     mirrorSaved=true;
   } catch(error) {
     if(error instanceof StorageConflictError)throw error;
@@ -248,14 +240,19 @@ async function writeSnapshot(captured:CapturedSnapshot):Promise<void> {
 export function saveEmergencyMirror(data: AppData,savedAt=Date.now()):void {
   const captured=captureSnapshot(data,savedAt);
   const current=loadEmergencyMirror();
-  assertCompatible(current,captured,true);
-  if(!current||snapshotToken(current)===ignoredMirrorToken||sameSnapshot(current,captured.envelope)||selectNewestStoredSnapshot(captured.envelope,current)===captured.envelope)writeEmergencyMirror(captured.envelope);
+  supersede(current,captured,true);
+  if(!ownNewer(current,captured.envelope))writeEmergencyMirror(captured.envelope);
 }
 
 /** Calls back when another window of this app saves. Returns an unsubscribe function. */
 export function onSavedElsewhere(callback:()=>void):()=>void {
   if(typeof window==='undefined')return ()=>{};
-  const listener=(event:StorageEvent)=>{ if(event.key===MIRROR_KEY&&event.newValue)callback(); };
+  const listener=(event:StorageEvent)=>{
+    if(event.key!==MIRROR_KEY||!event.newValue)return;
+    // Some browsers report a page's own writes back to it; those are not another copy's save.
+    try { const id=JSON.parse(event.newValue)?.snapshotId; if(typeof id==='string'&&localSnapshots.has(id))return; } catch { /* treat as foreign */ }
+    callback();
+  };
   window.addEventListener('storage',listener);
   return ()=>window.removeEventListener('storage',listener);
 }

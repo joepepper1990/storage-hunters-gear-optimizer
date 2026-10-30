@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { makeEmptyData, makeInitialData } from '../defaults';
-import { importJson, loadData, saveData, saveEmergencyMirror } from './storage';
+import { importJson, loadData, replacedCopy, saveData, saveEmergencyMirror } from './storage';
 
 const mirrorKey = 'storage-hunters-gear-optimizer:emergency-mirror';
 function browserStorage() {
@@ -15,7 +15,7 @@ function browserStorage() {
     }) };
     return tx;
   } };
-  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: (key: string) => memory.get(key) ?? null, setItem: (key: string, value: string) => memory.set(key, value) } });
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: (key: string) => memory.get(key) ?? null, setItem: (key: string, value: string) => memory.set(key, value), removeItem: (key: string) => memory.delete(key) } });
   Object.defineProperty(globalThis, 'indexedDB', { configurable: true, value: { open: () => request(db) } });
   return {
     foreignSave(revision=50, mirror=true, snapshotId: string | null = 'foreign-tab') {
@@ -33,68 +33,42 @@ function browserStorage() {
 }
 
 describe('storage snapshot provenance', () => {
-  it('does not promote stale pagehide data above a newer foreign save', async () => {
+  it('lets this window\'s pagehide save win over another copy, keeping that copy', async () => {
     const browser = browserStorage();
     try {
-      const stale = await loadData(); await saveData(stale);
+      const mine = await loadData(); await saveData(mine);
       browser.foreignSave();
-      expect(() => saveEmergencyMirror(stale)).toThrow(/another tab/i);
-      expect(browser.mirror().data.theme).toBe('dark');
-      expect((await loadData()).theme).toBe('dark');
-    } finally { browser.restore(); }
-  });
-  it('keeps committed IndexedDB authoritative over a concurrent mirror with the same revision', async () => {
-    const browser = browserStorage();
-    try {
-      const stale = await loadData(); browser.foreignSave(1, false);
-      saveEmergencyMirror(stale);
-      expect((await loadData()).theme).toBe('dark');
-    } finally { browser.restore(); }
-  });
-  it('also keeps committed pre-provenance envelopes authoritative on a revision tie', async () => {
-    const browser = browserStorage();
-    try {
-      const stale = await loadData(); browser.foreignSave(1, false, null);
-      saveEmergencyMirror(stale);
-      expect((await loadData()).theme).toBe('dark');
-    } finally { browser.restore(); }
-  });
-  it('rejects stale autosaves without overwriting newer IndexedDB data', async () => {
-    const browser = browserStorage();
-    try {
-      const stale = await loadData(); browser.foreignSave();
-      await expect(saveData({ ...stale, theme: 'light' })).rejects.toThrow(/another tab/i);
-      expect(browser.persisted().data.theme).toBe('dark');
-      expect(browser.mirror().data.theme).toBe('dark');
-    } finally { browser.restore(); }
-  });
-  it('blocks further pagehide writes after a conflict with an IndexedDB-only foreign save', async () => {
-    const browser = browserStorage();
-    try {
-      const stale = await loadData(); await saveData(stale);
-      browser.foreignSave(2, false);
-      await expect(saveData({ ...stale, theme: 'light' })).rejects.toThrow(/another tab/i);
-      expect(() => saveEmergencyMirror({ ...stale, theme: 'system' })).toThrow(/another tab/i);
-      expect((await loadData()).theme).toBe('dark');
-    } finally { browser.restore(); }
-  });
-  it('rejects a higher-revision stale pagehide branch when the foreign commit is hidden from the mirror', async () => {
-    const browser = browserStorage();
-    try {
-      const stale = await loadData(); await saveData(stale);
-      browser.foreignSave(2, false);
-      const a = saveData({ ...stale, theme: 'light' });
-      const b = saveData({ ...stale, theme: 'system' });
-      saveEmergencyMirror({ ...stale, theme: 'light' });
-      expect(browser.mirror().revision).toBeGreaterThan(2);
-      await expect(a).rejects.toThrow(/another tab/i);
-      await expect(b).rejects.toThrow(/another tab/i);
-      expect(browser.persisted().data.theme).toBe('dark');
-      const reloaded = await loadData();
-      expect(reloaded.theme).toBe('dark');
-      await saveData({ ...reloaded, theme: 'light' });
+      expect(() => saveEmergencyMirror({ ...mine, theme: 'light' })).not.toThrow();
+      expect(browser.mirror().data.theme).toBe('light');
       expect((await loadData()).theme).toBe('light');
+      expect(replacedCopy()?.data.theme).toBe('dark');
     } finally { browser.restore(); }
+  });
+  it('lets this window\'s autosave win over a higher-revision foreign save, keeping that copy', async () => {
+    const browser = browserStorage();
+    try {
+      const mine = await loadData(); browser.foreignSave(50);
+      await saveData({ ...mine, theme: 'light' });
+      expect(browser.persisted().data.theme).toBe('light');
+      expect(browser.persisted().revision).toBeGreaterThan(50);
+      expect(browser.mirror().data.theme).toBe('light');
+      expect((await loadData()).theme).toBe('light');
+      expect(replacedCopy()?.data.theme).toBe('dark');
+    } finally { browser.restore(); }
+  });
+  it('wins over an IndexedDB-only foreign save and over pre-provenance envelopes too', async () => {
+    for (const snapshotId of ['foreign-tab', null]) {
+      const browser = browserStorage();
+      try {
+        const mine = await loadData(); await saveData(mine);
+        browser.foreignSave(2, false, snapshotId);
+        await saveData({ ...mine, theme: 'light' });
+        saveEmergencyMirror({ ...mine, theme: 'system' });
+        expect((await loadData()).theme).toBe('system');
+        await saveData({ ...mine, theme: 'light' });
+        expect((await loadData()).theme).toBe('light');
+      } finally { browser.restore(); }
+    }
   });
   it('recovers legitimate unsaved pagehide edits descending from a legacy IndexedDB envelope', async () => {
     const browser = browserStorage();
