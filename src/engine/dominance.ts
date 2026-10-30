@@ -21,7 +21,7 @@ export function pairWorstCaseAdvantage(a: GearItem, b: GearItem, s: AlgorithmSet
     fn: x => npcEffective(x, s) * s.npcWeight
   });
   const arrow = minDifference(ae.arrowReduction, be.arrowReduction, {
-    breakpoints: [s.arrowSweetSpot],
+    breakpoints: [s.arrowTargetMin],
     fn: x => arrowEffective(x, s) * s.arrowWeight
   });
   const energy = minDifference(ae.energy, be.energy, {
@@ -50,7 +50,7 @@ export function pairBestCaseAdvantage(a: GearItem, b: GearItem, s: AlgorithmSett
     fn: x => npcEffective(x, s) * s.npcWeight
   });
   const arrow = maxDifference(ae.arrowReduction, be.arrowReduction, {
-    breakpoints: [s.arrowSweetSpot],
+    breakpoints: [s.arrowTargetMin],
     fn: x => arrowEffective(x, s) * s.arrowWeight
   });
   const energy = maxDifference(ae.energy, be.energy, {

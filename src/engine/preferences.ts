@@ -41,6 +41,7 @@ export const PREFERENCE_CONTROLS: PreferenceControl[] = [
   weight('auction', { ...algorithm('arrowWeight', 'Auctions', 'Bid Arrow', 0.1),
     labelFor: data => `Bid Arrow below ${arrowTargetBand(data.settings).min}%` }),
   weight('auction', algorithm('zoneWeight', 'Auctions', 'Bid Zone Width', 0.1)),
+  weight('auction', algorithm('energyWeight', 'Auctions', 'Energy Drink Time', 0.1)),
   weight('auction', algorithm('recoveryWeight', 'Auctions', 'Bid Recovery', 0.1)),
   algorithm('drinkPriority', 'Drink Prep', 'Priority', 1),
   algorithm('gradingPriority', 'Grading', 'Priority', 1),

@@ -7,9 +7,9 @@ it('continuous range prior does not invent a 20% atom at the maximum',()=>{
  d.authModel=d.authModel.filter(m=>m.certificateInventoryType==='Wooden Certificate of Authenticity'&&m.outcome==='Bid Zone Width').map(m=>({...m,min:15,max:75,typical:undefined,observedValues:[],observedSampleCount:0}));
  const roll={id:'r',date:'2026-10-27',certificateType:'Normal Certificate of Authenticity' as const,itemId:'0',itemName:'Head',slot:'Head' as const,previousAuthentication:'',previousValue:0,newAuthentication:'Bid Zone Width',newValue:75,improvedBestSet:false,bestScoreBefore:0,bestScoreAfter:0};
  const cert={id:'c',type:'Wooden Certificate of Authenticity' as const,quantity:1,gradeStars:2};
- expect(analyseConditionalNumberReroll(d,roll,cert)!.chanceAnyWorsePct).toBeCloseTo(100,6);
+ expect(analyseConditionalNumberReroll(d,roll,cert)!.worseChancePct).toBeCloseTo(100,6);
  roll.newValue=45;d.gear[0].authentication.value=45;
- expect(analyseConditionalNumberReroll(d,roll,cert)!.chanceAnyWorsePct).toBeCloseTo(50,6);
+ expect(analyseConditionalNumberReroll(d,roll,cert)!.worseChancePct).toBeCloseTo(50,6);
 });
 it('affected-trio optimisation matches the full enumeration number evaluator',async()=>{
  const {analyseCertificate}=await import('./certificateDecision');
@@ -21,5 +21,5 @@ it('affected-trio optimisation matches the full enumeration number evaluator',as
  const roll={id:'r',date:'2026-10-27',certificateType:'Normal Certificate of Authenticity' as const,itemId:h.id,itemName:h.name,slot:'Head' as const,previousAuthentication:'',previousValue:0,newAuthentication:'Bid Zone Width',newValue:0,improvedBestSet:false,bestScoreBefore:0,bestScoreAfter:0};
  const brute=analyseConditionalNumberReroll(d,roll,cert)!;
  const target=analyseCertificate(d,cert).targets.find(t=>t.item.id===h.id)!;
- expect(target.expectedImprovementPct).toBeCloseTo(brute.expectedMainPct,9);
+ expect(target.outcomes.find(o=>o.effect==='Bid Zone Width')!.improvePct.cautious).toBeCloseTo(brute.improveChancePct,9);
 });

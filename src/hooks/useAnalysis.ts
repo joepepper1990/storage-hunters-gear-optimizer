@@ -62,7 +62,7 @@ export function useCertificateAnalysis(data: AppData | null, activePostRollId?: 
     if (issues.length) { setState({ decisions: [], resultKey: '', computing: false, error: 'Correct invalid preferences first.' }); return; }
     setState(prev => ({ ...prev, computing: true, error: undefined }));
     const foreground = () => {
-      try { const decisions = analyseOwnedCertificates(data, { conversion: false }); if (id === requestId.current) setState({ decisions, resultKey: sourceKey, computing: false }); }
+      try { const decisions = analyseOwnedCertificates(data); if (id === requestId.current) setState({ decisions, resultKey: sourceKey, computing: false }); }
       catch (error) { if (id === requestId.current) setState(prev => ({ ...prev, computing: false, error: error instanceof Error ? error.message : String(error) })); }
     };
     const worker = certificateWorker();

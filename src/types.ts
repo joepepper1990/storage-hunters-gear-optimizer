@@ -98,11 +98,13 @@ export interface GearItem {
 }
 
 export interface AlgorithmSettings {
-  version: '2.1';
+  version: '2.2';
   luckWeight: number;
+  /** Weight of Bid Arrow below the band; inside the band more Arrow adds nothing. */
   arrowWeight: number;
-  /** Combined Bid Arrow reduction at which Main Auction value peaks; the ideal band runs from here to ARROW_TARGET_MAX. */
-  arrowSweetSpot: number;
+  /** Required combined Bid Arrow reduction band for auction sets (inclusive). */
+  arrowTargetMin: number;
+  arrowTargetMax: number;
   npcWeight: number;
   npcBreakpoint1: number;
   npcBreakpoint2: number;
@@ -119,6 +121,8 @@ export interface AlgorithmSettings {
   zoneMultiplier3: number;
   tipWeight: number;
   recoveryWeight: number;
+  /** Largest Neutral auction loss (%) a certificate roll may cause and still count as an improvement. Policy, not game data. */
+  mainMaterialLossPct: number;
   vehicleWeight: number;
   walkWeight: number;
   /** Specialist priorities (0 = ignore). Higher priorities are considered first after Main Auction. */
@@ -251,7 +255,7 @@ export interface OwnedCertificate {
 }
 
 export interface AppData {
-  schemaVersion: 18;
+  schemaVersion: 19;
   gear: GearItem[];
   settings: AlgorithmSettings;
   authModel: AuthModelEntry[];

@@ -14,20 +14,21 @@ function backupWith(rows:unknown[]):string {
   return JSON.stringify(d);
 }
 
-describe('settings migration 2.0 -> 2.1',()=>{
+describe('settings migration to 2.2',()=>{
   const v20={...LOCKED_DEFAULT_SETTINGS,version:'2.0',arrowWeight:.8,arrowSweetSpot:75} as unknown as AppData['settings'];
-  it('moves the old default Arrow coefficient and sweet spot to the new defaults',()=>{
+  it('moves the old default Arrow coefficient and band start to the 70-90% band',()=>{
     const d=makeInitialData();d.settings=v20;
     const migrated=normalizeData(d);
-    expect(migrated.settings.version).toBe('2.1');
+    expect(migrated.settings.version).toBe('2.2');
     expect(migrated.settings.arrowWeight).toBe(migrated.settings.luckWeight);
-    expect(migrated.settings.arrowSweetSpot).toBe(65);
+    expect([migrated.settings.arrowTargetMin,migrated.settings.arrowTargetMax]).toEqual([70,90]);
+    expect('arrowSweetSpot' in migrated.settings).toBe(false);
   });
   it('keeps every customised value exactly, including unrelated settings',()=>{
     const d=makeInitialData();
-    d.settings={...v20,arrowWeight:.55,arrowSweetSpot:70,luckWeight:1.37,zoneWeight:.65,recoveryWeight:.33,energyTarget:60};
+    d.settings={...v20,arrowWeight:.55,arrowSweetSpot:72,luckWeight:1.37,zoneWeight:.65,recoveryWeight:.33,energyTarget:60} as unknown as AppData['settings'];
     const migrated=normalizeData(d);
-    expect(migrated.settings).toMatchObject({arrowWeight:.55,arrowSweetSpot:70,luckWeight:1.37,zoneWeight:.65,recoveryWeight:.33,energyTarget:60});
+    expect(migrated.settings).toMatchObject({arrowWeight:.55,arrowTargetMin:72,arrowTargetMax:90,luckWeight:1.37,zoneWeight:.65,recoveryWeight:.33,energyTarget:60});
   });
   it('adds specialist priorities that preserve the previous order',()=>{
     const d=makeInitialData();d.settings=v20;
@@ -36,9 +37,9 @@ describe('settings migration 2.0 -> 2.1',()=>{
     expect(migrated.gradingPriority).toBeGreaterThan(migrated.shopPriority);
     expect([migrated.shopTipWeight,migrated.shopNpcWeight]).toEqual([.4,.3]);
   });
-  it('never re-migrates a 2.1 value that happens to equal an old default',()=>{
-    const d=makeInitialData();d.settings={...LOCKED_DEFAULT_SETTINGS,arrowWeight:.8,arrowSweetSpot:75};
-    expect(normalizeData(d).settings).toMatchObject({arrowWeight:.8,arrowSweetSpot:75});
+  it('never re-migrates a 2.2 value that happens to equal an old default',()=>{
+    const d=makeInitialData();d.settings={...LOCKED_DEFAULT_SETTINGS,arrowWeight:.8,arrowTargetMin:65,energyWeight:0};
+    expect(normalizeData(d).settings).toMatchObject({arrowWeight:.8,arrowTargetMin:65,arrowTargetMax:90,energyWeight:0});
   });
   it('preserves inventory, certificates, settings and history on reload',()=>{
     const d=makeInitialData();
@@ -120,7 +121,7 @@ describe('schema 15 inventory replacement',()=>{
     Object.assign(d,{vehicleParts:[{id:'p'}],trailers:[{id:'t'}],vehicleProfile:{name:'Truck'},vehicleSettings:{speedWeight:1}});
 
     const migrated=normalizeData(d);
-    expect(migrated.schemaVersion).toBe(18);
+    expect(migrated.schemaVersion).toBe(19);
     expect(migrated.gear).toHaveLength(39);
     const cow=migrated.gear.find(g=>g.baseName==='Cow Dominus')!;
     expect(cow).toMatchObject({id:'my-cow',favourite:true,createdAt:'2026-10-01T00:00:00.000Z'});

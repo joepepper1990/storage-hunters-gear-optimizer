@@ -36,10 +36,11 @@ describe('analytical dominance proof',()=>{
     expect(findDominator(target,[unknownCandidate],LOCKED_DEFAULT_SETTINGS).dominated).toBe(false);
   });
 
-  it('ignores specialist-only Energy Drink Time when proving Main Auction dominance',()=>{
-    const betterMain=g('BetterMain',{luck:1,energy:-20});
+  it('counts Energy Drink Time in Main Auction dominance now that it is an auction stat',()=>{
+    const lessEnergy=g('LessEnergy',{luck:1,energy:-20});
     const weakerMain=g('WeakerMain',{});
-    expect(findDominator(weakerMain,[betterMain],LOCKED_DEFAULT_SETTINGS).dominated).toBe(true);
+    expect(findDominator(weakerMain,[lessEnergy],LOCKED_DEFAULT_SETTINGS).dominated).toBe(false);
+    expect(findDominator(weakerMain,[lessEnergy],{...LOCKED_DEFAULT_SETTINGS,energyWeight:0}).dominated).toBe(true);
   });
   it('never proves a contextual-authentication item safe through static dominance',()=>{
     const candidate=g('StaticBetter',{luck:200});

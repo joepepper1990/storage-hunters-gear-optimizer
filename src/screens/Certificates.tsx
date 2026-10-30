@@ -8,11 +8,6 @@ import { CertificateBatchEditor, HistoryEditor, RecordResultEditor } from '../co
 import type { AppData, CertificateRollLog, OwnedCertificate } from '../types';
 import { Empty, itemTitle, Notice, num, type SetData } from '../ui';
 
-const GOAL_LABEL: Record<CertificateTargetDecision['decisionBasis'], string> = {
-  'Main Auction': 'Auction', 'Contextual Main': 'Day / Night / Rain', 'Main secondary preference': 'Auction effect',
-  'Drink Prep': 'Drink Prep', Grading: 'Grading', 'Shop / Idle': 'Shop / Idle', None: '—'
-};
-
 function pct(value: number): string {
   if (value <= 0) return '0%';
   if (value < 1) return '<1%';
@@ -20,19 +15,36 @@ function pct(value: number): string {
 }
 
 /**
- * Chance that this certificate improves the row's goal. When some possible results are
- * effects the app cannot value yet, only the results known to help are counted, so the
- * figure is a minimum.
+ * Chance this certificate improves the best re-optimised loadout. When the figure depends on
+ * dynamic effects (Golden Hour, Drought Breaker, Luck Frenzy, Overcharged) it is shown as the
+ * range across the cautious, central and favourable states; none of them is a claimed average.
+ * Unresolved roll strengths can only raise the upper end.
  */
-export function chanceText(target: CertificateTargetDecision): { value: string; detail?: string } {
-  if (target.goalChancePct === null || target.goalChancePct === undefined) {
-    return target.goalChanceLowerBoundPct >= 1
-      ? { value: `${pct(target.goalChanceLowerBoundPct)}+`, detail: 'some results can\'t be scored yet' }
-      : { value: 'Unclear', detail: 'depends on results that can\'t be scored yet' };
-  }
-  const low = target.goalChanceLowerBoundPct, high = target.goalChanceUpperBoundPct ?? target.goalChancePct;
-  if (Math.round(high) - Math.round(low) >= 1) return { value: `${pct(low)}–${pct(high)}` };
-  return { value: pct(target.goalChancePct) };
+export function chanceText(target: CertificateTargetDecision): { value: string; detail: string } {
+  const lower = target.improveChanceLowerPct, exact = target.improveChancePct;
+  const low = Math.min(lower.cautious, lower.central, lower.favourable);
+  const high = Math.max(exact.cautious, exact.central, exact.favourable, target.improveChanceUpperPct);
+  const ranged = Math.round(high) - Math.round(low) >= 1;
+  return { value: ranged ? `${pct(low)}–${pct(high)}` : pct(low), detail: ranged ? 'better sets · depends on active effects' : 'better sets' };
+}
+
+function arrowText(target: CertificateTargetDecision): string {
+  return `Arrow ${Math.round(target.currentArrow)}%${target.currentArrowInBand ? '' : target.arrowNeeded ? ' · below band' : ' · above band'}`;
+}
+
+function TargetDetails({ target }: { target: CertificateTargetDecision }) {
+  const best = target.bestRoll;
+  return <details className="compactDetails">
+    <summary>Why</summary>
+    <ul className="plainList">
+      {target.currentAuthentication && <li>Now: {target.currentAuthentication.effect}{target.currentAuthentication.rank ? ` (#${target.currentAuthentication.rank.rank} of ${target.currentAuthentication.rank.of} wanted${target.currentAuthentication.rank.higher.length ? `; higher: ${target.currentAuthentication.rank.higher.join(', ')}` : ''})` : target.currentAuthentication.calculated ? ' (value calculated from the trio)' : ' (not a wanted result for this certificate)'}</li>}
+      {best && <li>Best roll: {best.label} → {best.loadout.context === 'Neutral' ? 'main' : best.loadout.context} set {itemTitle(best.loadout.head)} / {itemTitle(best.loadout.back)} / {itemTitle(best.loadout.wrist)} · Arrow {num(best.loadout.arrow)}%{best.loadout.inBand ? '' : ' (outside band)'} · Luck {num(best.loadout.luck)} · Zone {num(best.loadout.zone)} · Energy {num(best.loadout.energy)}{best.state === 'central' ? ' (with active effects at the central sensitivity setting)' : ''}</li>}
+      <li>Worse: up to {pct(target.worseChanceUpperPct)} (cautious){target.safeInCautious ? ' · safe' : ''}</li>
+      {target.calculatedRanks.map(r => <li key={r.effect}>{r.effect}{r.defaultRank ? ` · default #${r.defaultRank}` : ''}{r.calculatedRank ? ` · here #${r.calculatedRank}` : ''}: {r.reason}</li>)}
+      {target.unwantedOutcomePct > 0 && <li>{pct(target.unwantedOutcomePct)} of outcomes are unwanted.</li>}
+      {target.unresolvedOutcomeMassPct > 1e-6 && <li>Some roll strengths ({target.unresolvedEffects.join(', ')}) are unresolved, so the range is wider.</li>}
+    </ul>
+  </details>;
 }
 
 function holdGroups(hold: CertificateQueue['hold']): Array<[string, number]> {
@@ -112,9 +124,10 @@ export function Certificates({ data, setData, analysis, queue, onRecorded }: {
           <div className="rowMain">
             <strong>{certificateLabel(row.certificate)}</strong>
             <span>→ {itemTitle(row.target.item)} · {row.target.item.slot}</span>
-            <small>{GOAL_LABEL[row.target.decisionBasis]}{row.target.verdict === 'CONSIDER' ? ' · consider' : ''}</small>
+            <small>Wanted roll {pct(row.target.wantedChancePct)} · {arrowText(row.target)}{row.target.verdict === 'CONSIDER' ? ' · consider' : ''}</small>
+            <TargetDetails target={row.target} />
           </div>
-          <div className="chance" aria-label="Chance of improvement"><b>{chance.value}</b>{chance.detail && <small>{chance.detail}</small>}</div>
+          <div className="chance" aria-label="Chance of a better loadout"><b>{chance.value}</b><small>{chance.detail}</small></div>
           <button className="primary compact" onClick={() => setRecording({ certificate: row.certificate, itemId: row.target.item.id })}>Record result</button>
         </li>;
       })}</ol> : <Empty>{data.ownedCertificates.some(c => c.quantity > 0) ? 'Nothing worth using now' : 'No certificates'}</Empty>}

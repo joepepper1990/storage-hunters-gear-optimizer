@@ -1,19 +1,25 @@
 import type { AlgorithmSettings, GearItem, GearStats, ScoreBreakdown } from '../types';
 import { effectKnowledge } from './effects';
 
-/** Upper edge of the ideal combined Bid Arrow band. Display only: value is already flat above the sweet spot. */
-export const ARROW_TARGET_MAX = 80;
-
-/** The band of combined Bid Arrow reduction that is equally ideal for Main Auction. */
+/** The required band of combined Bid Arrow reduction (70-90% by default), inclusive. */
 export function arrowTargetBand(s: AlgorithmSettings): { min: number; max: number } {
-  return { min: s.arrowSweetSpot, max: Math.max(s.arrowSweetSpot, ARROW_TARGET_MAX) };
+  return { min: s.arrowTargetMin, max: Math.max(s.arrowTargetMin, s.arrowTargetMax) };
+}
+
+/** Distance of a combined Arrow reduction from the band: 0 inside it, else points outside.
+ * Auction sets rank by this first, so 69% and 91% are equally far and 110% loses to 69%. */
+export function arrowBandDistance(r: number, s: AlgorithmSettings): number {
+  const band = arrowTargetBand(s), eps = 1e-9;
+  if (r < band.min - eps) return band.min - r;
+  if (r > band.max + eps) return r - band.max;
+  return 0;
 }
 
 export function arrowEffective(r: number, s: AlgorithmSettings): number {
-  // User preference: value rises up to 65% combined reduction, then every value from
-  // 65% through 80% is equally ideal. Beyond 80% adds nothing; no game penalty is invented.
+  // Arrow is a constraint: value rises up to the band start, then every value in the band
+  // is equally good. More Arrow never adds value once the minimum is reached.
   if (r < 0) return r;
-  return Math.min(r, s.arrowSweetSpot);
+  return Math.min(r, s.arrowTargetMin);
 }
 
 export function luckEffective(l: number, _s: AlgorithmSettings): number {

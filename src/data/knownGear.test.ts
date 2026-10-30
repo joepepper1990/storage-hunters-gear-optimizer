@@ -55,9 +55,9 @@ describe('verified 26-27 October 2026 accessory inventory',()=>{
     expect(police.authentication).toMatchObject({kind:'Normal',effect:'Bid Zone Width',value:18});
     expect(effectiveItemStats(police).zone).toBe(18);
 
-    const dark=by('Dark Heart Backpack').find(g=>g.authentication.effect==='Droughtbreaker')!;
+    const dark=by('Dark Heart Backpack').find(g=>g.authentication.effect==='Drought Breaker')!;
     expect(dark.stats).toMatchObject({arrowReduction:40,walk:35});
-    expect(dark.authentication).toMatchObject({kind:'Premium',effect:'Droughtbreaker',value:18});
+    expect(dark.authentication).toMatchObject({kind:'Premium',effect:'Drought Breaker',value:18});
 
     const jelly=one('Jellyfish Wristband');
     expect(jelly.authentication).toMatchObject({kind:'Premium',effect:'Club Pact',value:4});
@@ -84,7 +84,7 @@ describe('verified 26-27 October 2026 accessory inventory',()=>{
       by('Steampunk Goggle').find(g=>g.authentication.effect==='Mutated Luck')!,
       one('Jellyfish Wristband'),
       one('Reactor Wristband'),
-      by('Dark Heart Backpack').find(g=>g.authentication.effect==='Droughtbreaker')!
+      by('Dark Heart Backpack').find(g=>g.authentication.effect==='Drought Breaker')!
     ]){
       expect(analyses.find(a=>a.item.id===item.id)?.verdict).not.toBe('PROTECTED / UNKNOWN');
     }
@@ -96,7 +96,7 @@ describe('verified 26-27 October 2026 accessory inventory',()=>{
     const decision=analyseCertificate(data,cert);
     const premium=decision.targets.find(t=>t.item.authentication.kind==='Premium');
     expect(premium).toBeDefined();
-    expect(premium?.reasons.some(r=>r.includes('Replaces current Premium authentication'))).toBe(true);
+    expect(premium?.reasons.some(r=>r.includes('Replaces the current authentication'))).toBe(true);
   });
 
   it('stores the seven accessories added on 27 October with their signed stats',()=>{
@@ -114,7 +114,7 @@ describe('verified 26-27 October 2026 accessory inventory',()=>{
     const matching={...one('Luxury Ice Crown'),id:'my-luxury',favourite:true};
     const old={...makeInitialData(),schemaVersion:8,gear:[matching,changed]} as any;
     const upgraded=normalizeData(old);
-    expect(upgraded.schemaVersion).toBe(18);
+    expect(upgraded.schemaVersion).toBe(19);
     expect(upgraded.gear).toHaveLength(39);
     // An item with the same base stats keeps its ID and favourite; one with other stats is not owned.
     expect(upgraded.gear.find(g=>g.id==='my-luxury')?.favourite).toBe(true);
@@ -164,7 +164,7 @@ describe('29 October inventory update (schema 17)',()=>{
     const old=before();
     expect(old.gear).toHaveLength(29);
     const next=normalizeData(old);
-    expect(next.schemaVersion).toBe(18);
+    expect(next.schemaVersion).toBe(19);
     expect(next.gear).toHaveLength(39); // 29 - 4 gone + 2 (schema 17) + 12 (schema 18)
     expect(next.gear.some(g=>g.id.startsWith('old-'))).toBe(false);
     expect(next.gear.find(g=>g.baseName==='Demon Pumpkin Head')).toMatchObject({slot:'Head',gradeStars:2,conditionPct:98,stats:expect.objectContaining({npc:8,recovery:-4})});

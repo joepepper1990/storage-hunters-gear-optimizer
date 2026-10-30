@@ -1,3 +1,4 @@
+import { canonicalEffect } from '../authentication';
 import { addCertificateBatch } from '../engine/certificateInventory';
 import { generateGearName, generateTrophyName } from '../naming';
 import type { PanelScan } from '../scanner/panel';
@@ -121,7 +122,7 @@ export function applyDraft(data: AppData, draft: ImportDraft, now = new Date().t
   if (match.status === 'invalid') throw new Error(match.reason);
   if (draft.kind === 'gear') {
     const authenticated = draft.authentication.kind !== 'None' && Boolean(draft.authentication.effect);
-    const authentication = authenticated ? draft.authentication : { kind: 'None' as const, effect: '', value: 0 };
+    const authentication = authenticated ? { ...draft.authentication, effect: canonicalEffect(draft.authentication.effect) } : { kind: 'None' as const, effect: '', value: 0 };
     const fields = {
       baseName: draft.baseName.trim(), slot: draft.slot!, mutation: draft.mutation || 'None', conditionPct: draft.conditionPct,
       gradeStars: draft.stars, stats: { ...draft.stats }, authenticated, authentication,
@@ -149,6 +150,6 @@ export function applyDraft(data: AppData, draft: ImportDraft, now = new Date().t
 
 function sameAuth(a: Pick<GearItem, 'authenticated' | 'authentication'>, b: Pick<GearItem, 'authenticated' | 'authentication'>): boolean {
   return a.authenticated === b.authenticated && a.authentication.kind === b.authentication.kind
-    && a.authentication.effect.trim().toLowerCase() === b.authentication.effect.trim().toLowerCase()
+    && canonicalEffect(a.authentication.effect).toLowerCase() === canonicalEffect(b.authentication.effect).toLowerCase()
     && sameNumber(a.authentication.value, b.authentication.value);
 }

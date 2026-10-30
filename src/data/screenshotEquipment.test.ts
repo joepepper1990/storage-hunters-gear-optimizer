@@ -91,7 +91,7 @@ describe('October screenshot inventory — schema 15',()=>{
     legacy.ownedCertificates=[{id:'stale-cert',type:'Wooden Certificate of Authenticity',quantity:99}];
     legacy.trophies=[screenshotTrophies()[0]];
     const first=normalizeData(legacy);
-    expect(first.schemaVersion).toBe(18);
+    expect(first.schemaVersion).toBe(19);
     expect(first.gear).toHaveLength(39);
     expect(first.trophies).toHaveLength(18);
     expect(first.ownedCertificates).toHaveLength(9);

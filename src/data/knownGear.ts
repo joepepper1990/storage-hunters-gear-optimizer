@@ -78,7 +78,7 @@ const KNOWN_GEAR:InventorySeed[]=[
   {id:'back-dark-heart-a',baseName:'Dark Heart Backpack',slot:'Back',mutation:'Exclusive',conditionPct:91,
     stats:{luck:77,tip:12}},
   {id:'back-dark-heart-b',baseName:'Dark Heart Backpack',slot:'Back',mutation:'Exclusive',conditionPct:83,
-    stats:{arrowReduction:40,walk:35},authentication:{kind:'Premium',effect:'Droughtbreaker',value:18,notes:'Adds +18 Luck per auction without a mutation, up to 5 stacks.'}},
+    stats:{arrowReduction:40,walk:35},authentication:{kind:'Premium',effect:'Drought Breaker',value:18,notes:'Adds +18 Luck per auction without a mutation, up to 5 stacks.'}},
   {id:'back-elegant-business',baseName:'Elegant Business Backpack',slot:'Back',mutation:'Void',conditionPct:92,
     stats:{luck:80,energy:11}},
   {id:'back-police-vest',baseName:'Police Vest',slot:'Back',mutation:'Police',conditionPct:96,

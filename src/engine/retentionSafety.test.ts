@@ -19,7 +19,7 @@ describe('shared settings validation',()=>{
     expect(algorithmIssues(settings)).toEqual([]);
     expect(algorithmIssues({...settings,zoneMultiplier2:3,zoneMultiplier3:2})).toEqual([]);
   });
-  it.each(['luckWeight','arrowWeight','arrowSweetSpot','recoveryWeight','zoneWeight','zoneBreakpoint1','zoneBreakpoint2','zoneMultiplier2','zoneMultiplier3','energyTarget','energyCeiling','energySecondStageMultiplier'] as const)('rejects nonfinite and negative active model values for %s',key=>{
+  it.each(['luckWeight','arrowWeight','arrowTargetMin','recoveryWeight','zoneWeight','zoneBreakpoint1','zoneBreakpoint2','zoneMultiplier2','zoneMultiplier3','energyTarget','energyCeiling','energySecondStageMultiplier'] as const)('rejects nonfinite and negative active model values for %s',key=>{
     for(const value of [NaN,Infinity,-Infinity,-1])expect(algorithmIssues({...settings,[key]:value}).length).toBeGreaterThan(0);
   });
 });
@@ -28,7 +28,7 @@ describe('irreversible retention safety',()=>{
   it.each([
     {zoneBreakpoint1:60,zoneBreakpoint2:30,zoneMultiplier2:3,zoneMultiplier3:2},
     {energyTarget:200,energyCeiling:100}, {zoneMultiplier2:-1}, {energySecondStageMultiplier:-1},
-    {energyTarget:-1}, {energyCeiling:Infinity}, {arrowSweetSpot:NaN}, {recoveryWeight:-1}
+    {energyTarget:-1}, {energyCeiling:Infinity}, {arrowTargetMin:NaN}, {recoveryWeight:-1}
   ])('never certifies discard with invalid settings %j',invalid=>{
     const s={...settings,...invalid};
     const weak=gear('weak','Head');

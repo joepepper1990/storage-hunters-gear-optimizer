@@ -76,7 +76,7 @@ export function GearEditor({ item, authModel, mode, onClose, onSave }: {
         <label>Value %<input type="number" step="any" value={v.authentication.value} onChange={e => setAuthentication({ value: Number(e.target.value) })} /></label>
       </> : <>
         <label>Certificate<select value={kind} onChange={e => setAuthentication({ kind: e.target.value as 'Normal' | 'Premium' | 'Limited', effect: '', value: 0 })}><option>Normal</option><option>Premium</option><option>Limited</option></select></label>
-        <label>Effect<select value={v.authentication.effect} onChange={e => setAuthentication({ effect: e.target.value })}>{activeAuthenticationOptions(v.slot, v.authentication.effect, authModel, kind).map(x => <option value={x} key={x}>{x || 'Select effect'}</option>)}</select></label>
+        <label>Effect<select value={v.authentication.effect} onChange={e => setAuthentication({ effect: e.target.value })}>{activeAuthenticationOptions(v.slot, v.authentication.effect, kind).map(x => <option value={x} key={x}>{x || 'Select effect'}</option>)}</select></label>
         <label>Value %<input type="number" inputMode="decimal" step="any" value={v.authentication.value} onChange={e => setAuthentication({ value: Number(e.target.value) })} /></label>
       </>)}
     </div>

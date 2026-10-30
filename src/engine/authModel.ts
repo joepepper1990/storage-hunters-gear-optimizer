@@ -1,4 +1,5 @@
 import type { AuthModelEntry, OwnedCertificate, Slot } from '../types';
+import { canonicalEffect, catalogueOutcome, currentPool } from '../authentication';
 
 export function authModelCertificateType(type:OwnedCertificate['type']):AuthModelEntry['certificateType'] {
   if(type==='Premium Certificate of Authenticity')return 'Premium Certificate of Authenticity';
@@ -6,27 +7,35 @@ export function authModelCertificateType(type:OwnedCertificate['type']):AuthMode
   return 'Normal Certificate of Authenticity';
 }
 
+/**
+ * Range/evidence rows for the fixed current outcome pool of a certificate tier on a slot,
+ * one per canonical effect. Pool membership comes only from the canonical catalogue; the
+ * editable rows supply ranges, confidence and observations. A row's `enabled` flag and
+ * custom rows never add or remove an outcome. A missing row falls back to the catalogue.
+ */
 export function catalogueRowsFor(
   model:AuthModelEntry[],
   certificateType:OwnedCertificate['type'],
   slot:Slot
 ):AuthModelEntry[] {
   const modelType=authModelCertificateType(certificateType);
-  const scoped=model.filter(row=>
-    row.enabled &&
-    row.certificateType===modelType &&
-    row.certificateInventoryType===certificateType &&
-    (row.slot==='Any'||row.slot===slot)
-  );
-
-  // One effect can have an Any row or a slot-specific override. Slot-specific wins.
-  // Duplicate rows at the same specificity are ignored after the first deterministic row.
-  const grouped=new Map<string,AuthModelEntry>();
-  for(const row of scoped){
-    const existing=grouped.get(row.outcome);
-    if(!existing || (existing.slot==='Any'&&row.slot===slot))grouped.set(row.outcome,row);
-  }
-  return [...grouped.values()];
+  return currentPool(certificateType,slot).map(effect=>{
+    const rows=model.filter(row=>
+      row.certificateType===modelType &&
+      row.certificateInventoryType===certificateType &&
+      canonicalEffect(row.outcome)===effect &&
+      (row.slot==='Any'||row.slot===slot)
+    );
+    const row=rows.find(r=>r.slot===slot)??rows[0];
+    if(row)return {...row,outcome:effect};
+    const fallback=catalogueOutcome(certificateType,slot,effect)!;
+    return {
+      id:'catalogue:'+certificateType+'|'+slot+'|'+effect,certificateInventoryType:certificateType,certificateType:modelType,
+      slot:fallback.slot,outcome:effect,category:fallback.category,assumedLikelihoodClass:'MEDIUM',
+      observedSampleCount:0,observedValues:[],min:fallback.min,typical:fallback.typical,max:fallback.max,
+      confidence:fallback.confidence,empiricalConfidence:'Unknown',enabled:true
+    };
+  });
 }
 
 export function authenticationCatalogueIssues(model:AuthModelEntry[]):string[] {
