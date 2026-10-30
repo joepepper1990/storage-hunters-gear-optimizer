@@ -105,6 +105,29 @@ export async function loadData(): Promise<AppData> {
   return makeInitialData();
 }
 
+/**
+ * The user chose to keep this window's data after another copy of the app saved first.
+ * What is stored now becomes this window's starting point, and this window's data is saved
+ * on top of it as the newest version. A copy without unsaved edits then picks it up.
+ */
+export async function keepThisWindow(data: AppData): Promise<void> {
+  await saveChain.catch(()=>undefined);
+  let indexed:StoredSnapshot|undefined;
+  try {
+    const db = await openDb();
+    try { indexed=decodeStoredSnapshot(await request<unknown>(db.transaction(STORE, 'readonly').objectStore(STORE).get(KEY))); }
+    finally { db.close(); }
+  } catch { /* the mirror alone is enough to continue */ }
+  const mirror=loadEmergencyMirror();
+  const newest=selectNewestStoredSnapshot(indexed,mirror);
+  ignoredMirrorToken=newest&&mirror&&newest!==mirror&&!sameSnapshot(newest,mirror)?snapshotToken(mirror):undefined;
+  storageConflict=false;
+  committedHead=indexed;
+  capturedHead=newest;
+  captures=new WeakMap();
+  return saveData(data);
+}
+
 export class StorageConflictError extends Error {
   constructor() { super('Another tab saved newer data. Download a backup of this tab before reloading.'); this.name='StorageConflictError'; }
 }
