@@ -10,6 +10,7 @@ const DB_NAME = 'storage-hunters-gear-optimizer';
 const STORE = 'app';
 const KEY = 'data';
 const MIRROR_KEY = 'storage-hunters-gear-optimizer:emergency-mirror';
+const REPLACED_KEY = 'storage-hunters-gear-optimizer:replaced-copy';
 const STORAGE_ENVELOPE_VERSION = 1;
 let capturedHead: StoredSnapshot | undefined;
 let committedHead: StoredSnapshot | undefined;
@@ -106,9 +107,10 @@ export async function loadData(): Promise<AppData> {
 }
 
 /**
- * The user chose to keep this window's data after another copy of the app saved first.
- * What is stored now becomes this window's starting point, and this window's data is saved
- * on top of it as the newest version. A copy without unsaved edits then picks it up.
+ * Keeps this window's data after another copy of the app saved first. What is stored now
+ * becomes this window's starting point and this window's data is saved on top of it as the
+ * newest version; a copy without unsaved edits then picks it up. The copy being replaced is
+ * kept once (see replacedCopy) so nothing another copy saved is lost for good.
  */
 export async function keepThisWindow(data: AppData): Promise<void> {
   await saveChain.catch(()=>undefined);
@@ -120,12 +122,28 @@ export async function keepThisWindow(data: AppData): Promise<void> {
   } catch { /* the mirror alone is enough to continue */ }
   const mirror=loadEmergencyMirror();
   const newest=selectNewestStoredSnapshot(indexed,mirror);
+  if(newest&&!(newest.snapshotId&&localSnapshots.has(newest.snapshotId))){
+    try { localStorage.setItem(REPLACED_KEY,JSON.stringify({savedAt:newest.savedAt||Date.now(),data:newest.data})); }
+    catch { /* a full storage must not stop this window's save */ }
+  }
   ignoredMirrorToken=newest&&mirror&&newest!==mirror&&!sameSnapshot(newest,mirror)?snapshotToken(mirror):undefined;
   storageConflict=false;
   committedHead=indexed;
   capturedHead=newest;
   captures=new WeakMap();
   return saveData(data);
+}
+
+/** The data another copy of the app had saved before this window's data replaced it. */
+export function replacedCopy():{savedAt:number;data:AppData}|undefined {
+  try {
+    const raw=JSON.parse(localStorage.getItem(REPLACED_KEY)??'null');
+    return raw&&raw.data&&Array.isArray(raw.data.gear)?{savedAt:Number(raw.savedAt)||0,data:raw.data as AppData}:undefined;
+  } catch { return undefined; }
+}
+
+export function clearReplacedCopy():void {
+  try { localStorage.removeItem(REPLACED_KEY); } catch { /* nothing to clear */ }
 }
 
 export class StorageConflictError extends Error {

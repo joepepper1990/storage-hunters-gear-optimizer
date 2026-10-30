@@ -104,7 +104,7 @@ describe('newer data saved by another window', () => {
     expect(byText(root, '.itemRow strong', 'Pending Visor')).toBeTruthy();
     release();
   });
-  it('keeps the warning when this window has unsaved changes', async () => {
+  it('keeps this window\'s changes without asking when another copy saved first', async () => {
     const root = await openApp(makeEmptyData());
     await go(root, 'Equipment');
     const loadsBefore = store.loads;
@@ -112,15 +112,10 @@ describe('newer data saved by another window', () => {
     await addGear(root);
     await type(labelled(root, 'Name') as HTMLInputElement, 'Unsaved Visor');
     await click(button(root, 'Save'));
-    await waitFor(() => byText(root, '.banner', /also open somewhere else/));
-    expect(byText(root, '.banner', /also open somewhere else/)).toBeTruthy();
-    expect(button(root, 'Use the other copy')).toBeTruthy();
-    // One tap keeps this window's changes instead of losing them.
-    await click(button(root, 'Keep my changes'));
-    await waitFor(() => expect(root.querySelector('.banner')).toBeNull());
-    expect(lastSaved().gear.map(g => g.baseName)).toEqual(['Unsaved Visor']);
+    await waitFor(() => expect(lastSaved().gear.map(g => g.baseName)).toEqual(['Unsaved Visor']));
+    await flush(20);
+    expect(root.querySelector('.banner')).toBeNull();
     expect(store.loads).toBe(loadsBefore);
-    expect(byText(root, '.itemRow strong', 'Unsaved Visor')).toBeTruthy();
   });
 });
 
