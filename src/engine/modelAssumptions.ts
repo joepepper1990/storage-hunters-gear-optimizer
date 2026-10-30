@@ -16,22 +16,20 @@ export const MODEL_ASSUMPTIONS = {
     }
   },
   certificate: {
-    // Native specialist utility units; these are decision-policy tolerances.
-    specialist: {drinkMinGainPoints:3,gradingMinGainPoints:.25,shopMinGainPoints:1,neutralTolerancePoints:.25},
+    // Roll-strength prior only (virtual samples inside one effect's range). Effect selection is always equal.
     priorStrength: 8,
-    outcomePriorStrength: 40, // Virtual samples across the whole effect pool, not per outcome; user calibration, not Roblox odds.
     use: {
-      normalMinWorstStateEvPct: 1,
-      rareMinWorstStateEvPct: 2,
-      normalMinImproveChancePct: 35,
-      rareMinImproveChancePct: 45,
-      maxMainWorsePct: 25,
-      minConfidencePct: 45
+      maxCautiousWorsePct: 25,
+      minCautiousImprovePct: 30,
+      minFavourableImprovePct: 50,
+      minConfidencePct: 35
     },
     consider: {
-      minResolvedEvPct: 0.25,
-      minPotentialImproveChancePct: 20,
-      maxMainWorsePct: 45
+      minImprovePct: 20,
+      maxCautiousWorsePct: 45
+    },
+    doNotUse: {
+      minCautiousWorsePct: 55
     },
     provenance: 'Decision-policy thresholds, not Roblox odds. Named here so audits and future tuning have one source of truth.'
   },

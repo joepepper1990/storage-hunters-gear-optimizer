@@ -1,6 +1,7 @@
 import type { AppData, AuthModelEntry, CertificateRollLog, GearItem, GearStats, OwnedCertificate } from '../types';
 import { effectiveItemStats } from './scoring';
 import { empiricalConfidenceForCount } from './authModel';
+import { canonicalEffect } from '../authentication';
 
 export function authModelTypeForOwnedCertificate(cert:OwnedCertificate):AuthModelEntry['certificateType'] {
   if(cert.type==='Premium Certificate of Authenticity') return 'Premium Certificate of Authenticity';
@@ -12,7 +13,7 @@ function matchingModelEntry(model:AuthModelEntry[],roll:CertificateRollLog):Auth
   const candidates=model.filter(m=>
     m.certificateType===roll.certificateType &&
     (!roll.certificateInventoryType||m.certificateInventoryType===roll.certificateInventoryType) &&
-    m.outcome===roll.newAuthentication &&
+    canonicalEffect(m.outcome)===canonicalEffect(roll.newAuthentication) &&
     (m.slot==='Any'||m.slot===roll.slot)
   );
   return candidates.find(m=>m.slot===roll.slot)??candidates.find(m=>m.slot==='Any');

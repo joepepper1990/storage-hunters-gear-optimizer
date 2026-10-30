@@ -1,5 +1,7 @@
 import { screenshotTrophies, screenshotCertificates } from './data/screenshotEquipment';
 import { makeKnownGear } from './data/knownGear';
+import { CERTIFICATE_CATALOGUE } from './authentication';
+import { authModelCertificateType } from './engine/authModel';
 import type { AlgorithmSettings, AppData, AuthModelEntry, GearStats, TrophyOptimiserSettings } from './types';
 
 export const ZERO_STATS: GearStats = {
@@ -69,17 +71,21 @@ export const DEFAULT_TROPHY_SETTINGS: TrophyOptimiserSettings = {
 
 
 export const LOCKED_DEFAULT_SETTINGS: AlgorithmSettings = {
-  version: '2.1',
+  version: '2.2',
   luckWeight: 1,
-  // Equal default priority to Luck; Arrow value peaks at 65% and stays flat through 80%.
+  // Arrow is a band, not a stat to maximise: value rises to 70% combined reduction and is
+  // flat through 90%. Sets inside 70-90% always rank first.
   arrowWeight: 1,
-  arrowSweetSpot: 65,
+  arrowTargetMin: 70,
+  arrowTargetMax: 90,
   npcWeight: 0,
   npcBreakpoint1: 20,
   npcBreakpoint2: 40,
   npcMultiplier2: 0.75,
   npcMultiplier3: 0.5,
-  energyWeight: 0,
+  // Policy default, not a game fact: Energy counts in auction sets below Zone, with
+  // full value to 50%, a tenth from 50% to 100% and nothing above 100%.
+  energyWeight: 0.3,
   energyTarget: 50,
   energySecondStageMultiplier: 0.1,
   energyCeiling: 100,
@@ -90,6 +96,9 @@ export const LOCKED_DEFAULT_SETTINGS: AlgorithmSettings = {
   zoneMultiplier3: 0.5,
   tipWeight: 0,
   recoveryWeight: 0.2,
+  // Policy default, not a game fact: a certificate roll that costs the Neutral auction
+  // set more than this percentage is not counted as an improvement.
+  mainMaterialLossPct: 2,
   vehicleWeight: 0,
   walkWeight: 0,
   // Preserves the previous specialist order Drink Prep -> Grading -> Shop / Idle.
@@ -102,102 +111,33 @@ export const LOCKED_DEFAULT_SETTINGS: AlgorithmSettings = {
 
 /** Pre-2.1 defaults, migrated only when a stored value still equals them. */
 export const LEGACY_V20_ARROW_DEFAULTS = { arrowWeight: 0.8, arrowSweetSpot: 75 } as const;
-
-type ModelSeed={
-  outcome:string;
-  slot:'Any'|'Head'|'Back'|'Wrist';
-  min?:number;
-  typical?:number;
-  max?:number;
-  confidence:AuthModelEntry['confidence'];
-  category:string;
-};
-
-const WOODEN_MODEL:ModelSeed[]=[
-  {outcome:'Luck',slot:'Any',confidence:'Unknown',category:'Wooden basic — range unresolved'},
-  {outcome:'Bid Recovery',slot:'Any',min:5,max:25,confidence:'Medium',category:'Wooden basic'},
-  {outcome:'Bid Arrow Speed',slot:'Any',min:-60,max:-12,confidence:'Medium',category:'Wooden basic'},
-  {outcome:'Bid Zone Width',slot:'Any',min:15,max:75,confidence:'Medium',category:'Wooden basic'},
-  {outcome:'Energy Drink Time',slot:'Any',min:10,max:50,confidence:'Medium',category:'Wooden basic'},
-  {outcome:'Tip Chance',slot:'Any',min:3,max:15,confidence:'Medium',category:'Wooden basic'},
-  {outcome:'NPC Offers Bonus',slot:'Any',min:3,max:15,confidence:'Medium',category:'Wooden basic'},
-  {outcome:'Walkspeed',slot:'Any',min:10,max:50,confidence:'Medium',category:'Wooden basic'},
-  {outcome:'Sunny',slot:'Head',min:10,max:100,confidence:'Medium',category:'Wooden exclusive'},
-  {outcome:'Nocturnal',slot:'Head',min:10,max:100,confidence:'Medium',category:'Wooden exclusive'},
-  {outcome:'Overcharged',slot:'Head',min:5,max:20,confidence:'Medium',category:'Wooden exclusive'},
-  {outcome:'Raindrop',slot:'Back',min:10,max:100,confidence:'Medium',category:'Wooden exclusive'},
-  {outcome:'Focused',slot:'Back',confidence:'Unknown',category:'Wooden exclusive — formula/range unresolved'},
-  {outcome:'Time Keeper',slot:'Wrist',min:5,max:40,confidence:'Medium',category:'Wooden exclusive'},
-  {outcome:'Connected',slot:'Wrist',min:2,max:12,confidence:'Medium',category:'Wooden exclusive'}
-];
-
-const RIPPED_MODEL:ModelSeed[]=[
-  {outcome:'Luck',slot:'Any',confidence:'Unknown',category:'Ripped basic — range unresolved'},
-  {outcome:'Bid Recovery',slot:'Any',min:3.8,max:13,confidence:'Medium',category:'Ripped basic'},
-  {outcome:'Bid Arrow Speed',slot:'Any',min:-30,max:-15,confidence:'Low',category:'Ripped basic — published band remains community/unconfirmed'},
-  {outcome:'Bid Zone Width',slot:'Any',min:11,max:38,confidence:'Medium',category:'Ripped basic'},
-  {outcome:'Energy Drink Time',slot:'Any',min:7,max:25,confidence:'Medium',category:'Ripped basic'},
-  {outcome:'Tip Chance',slot:'Any',min:2.3,max:7.5,confidence:'Medium',category:'Ripped basic'},
-  {outcome:'NPC Offers Bonus',slot:'Any',min:2.3,max:7.5,confidence:'Medium',category:'Ripped basic'},
-  {outcome:'Walkspeed',slot:'Any',min:7.5,max:25,confidence:'Medium',category:'Ripped basic'},
-  {outcome:'Sunny',slot:'Head',confidence:'Unknown',category:'Ripped exclusive — availability/range not yet confirmed'},
-  {outcome:'Nocturnal',slot:'Head',confidence:'Unknown',category:'Ripped exclusive — availability/range not yet confirmed'},
-  {outcome:'Overcharged',slot:'Head',confidence:'Unknown',category:'Ripped exclusive — availability/range not yet confirmed'},
-  {outcome:'Raindrop',slot:'Back',min:8,max:50,confidence:'Medium',category:'Ripped exclusive — confirmed'},
-  {outcome:'Focused',slot:'Back',confidence:'Unknown',category:'Ripped exclusive — availability/range not yet confirmed'},
-  {outcome:'Time Keeper',slot:'Wrist',min:4,max:20,confidence:'Medium',category:'Ripped exclusive — confirmed'},
-  {outcome:'Connected',slot:'Wrist',confidence:'Unknown',category:'Ripped exclusive — availability/range not yet confirmed'}
-];
-
-const PREMIUM_MODEL:ModelSeed[]=[
-  {outcome:'Mutated Luck',slot:'Head',confidence:'High',category:'Premium perk'},
-  {outcome:'Droughtbreaker',slot:'Back',confidence:'Low',category:'Premium perk'},
-  {outcome:'Golden Hour',slot:'Back',confidence:'Low',category:'Premium perk'},
-  {outcome:'Club Pact',slot:'Wrist',confidence:'Medium',category:'Premium perk'},
-  {outcome:'Temporal Split',slot:'Wrist',confidence:'Medium',category:'Premium perk'}
-];
-
-const LIMITED_MODEL:ModelSeed[]=[
-  {outcome:'Auto X-Ray',slot:'Head',min:3,max:30,confidence:'High',category:'Limited passive'},
-  {outcome:'Grade Re-Roll',slot:'Head',min:5,max:25,confidence:'High',category:'Limited passive'},
-  {outcome:'Luck Frenzy',slot:'Back',min:10,max:110,confidence:'Medium',category:'Limited passive'},
-  {outcome:'Featherweight',slot:'Back',min:3,max:20,confidence:'High',category:'Limited passive'},
-  {outcome:'Second Chance',slot:'Wrist',min:4,max:33,confidence:'High',category:'Limited passive'},
-  {outcome:'Steady Hand',slot:'Wrist',min:4,max:33,confidence:'High',category:'Limited passive'}
-];
-
-function modelEntry(seed:ModelSeed,inventoryType:AuthModelEntry['certificateInventoryType'],certificateType:AuthModelEntry['certificateType']):AuthModelEntry{
-  return {
-    id:crypto.randomUUID(),
-    certificateInventoryType:inventoryType,
-    certificateType,
-    slot:seed.slot,
-    outcome:seed.outcome,
-    category:seed.category,
-    assumedLikelihoodClass:seed.category.includes('exclusive')?'LOW':'MEDIUM',
-    observedSampleCount:0,
-    observedValues:[],
-    min:seed.min,
-    typical:seed.typical,
-    max:seed.max,
-    confidence:seed.confidence,
-    empiricalConfidence:'Unknown',
-    enabled:true
-  };
-}
+/** Arrow band start defaults of earlier versions; both migrate to the 70-90 band. */
+export const LEGACY_ARROW_SWEET_SPOTS = [65, 75] as const;
 
 export function makeDefaultAuthModel(): AuthModelEntry[] {
-  return [
-    ...WOODEN_MODEL.map(seed=>modelEntry(seed,'Wooden Certificate of Authenticity','Normal Certificate of Authenticity')),
-    ...RIPPED_MODEL.map(seed=>modelEntry(seed,'Ripped Certificate of Authenticity','Normal Certificate of Authenticity')),
-    ...PREMIUM_MODEL.map(seed=>modelEntry(seed,'Premium Certificate of Authenticity','Premium Certificate of Authenticity')),
-    ...LIMITED_MODEL.map(seed=>modelEntry(seed,'Limited Certificate of Authenticity','Limited Certificate of Authenticity'))
-  ];
+  return CERTIFICATE_CATALOGUE.map(outcome=>({
+    id:crypto.randomUUID(),
+    certificateInventoryType:outcome.type,
+    certificateType:authModelCertificateType(outcome.type),
+    slot:outcome.slot,
+    outcome:outcome.effect,
+    category:outcome.category,
+    // Stored for compatibility only: effect-selection chance is always equal.
+    assumedLikelihoodClass:'MEDIUM' as const,
+    observedSampleCount:0,
+    observedValues:[],
+    min:outcome.min,
+    typical:outcome.typical,
+    max:outcome.max,
+    confidence:outcome.confidence,
+    empiricalConfidence:'Unknown' as const,
+    enabled:true
+  }));
 }
 
 export function makeEmptyData():AppData{
   return {
-    schemaVersion:18,
+    schemaVersion:19,
     gear:[],
     settings:{...LOCKED_DEFAULT_SETTINGS},
     authModel:makeDefaultAuthModel(),
@@ -212,7 +152,7 @@ export function makeEmptyData():AppData{
 
 export function makeInitialData(): AppData {
   return {
-    schemaVersion: 18,
+    schemaVersion: 19,
     gear: makeKnownGear(),
     settings: { ...LOCKED_DEFAULT_SETTINGS },
     authModel: makeDefaultAuthModel(),

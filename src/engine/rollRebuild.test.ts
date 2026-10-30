@@ -5,12 +5,12 @@ import type { AuthModelEntry, CertificateRollLog } from '../types';
 
 const roll = (overrides: Partial<CertificateRollLog> = {}): CertificateRollLog => ({
   id: 'r1', date: '2026-10-20T00:00:00.000Z', certificateType: 'Normal Certificate of Authenticity', itemId: 'x', itemName: 'Cap', slot: 'Head',
-  previousAuthentication: '', previousValue: 0, newAuthentication: 'Luck', newValue: 7.25, improvedBestSet: true, bestScoreBefore: 0, bestScoreAfter: 0, ...overrides
+  previousAuthentication: '', previousValue: 0, newAuthentication: 'Bid Zone Width', newValue: 7.25, improvedBestSet: true, bestScoreBefore: 0, bestScoreAfter: 0, ...overrides
 } as CertificateRollLog);
 
 describe('rebuilding roll evidence', () => {
   const model = makeInitialData().authModel;
-  const luckRows = (m: AuthModelEntry[]) => m.filter(e => e.outcome === 'Luck' && e.certificateType === 'Normal Certificate of Authenticity');
+  const luckRows = (m: AuthModelEntry[]) => m.filter(e => e.outcome === 'Bid Zone Width' && e.certificateType === 'Normal Certificate of Authenticity');
   const count = (m: AuthModelEntry[], value: number) => luckRows(m).reduce((n, e) => n + e.observedValues.filter(v => v === value).length, 0);
 
   it('re-saving an unchanged roll never adds a copy, with or without a certificate tier', () => {

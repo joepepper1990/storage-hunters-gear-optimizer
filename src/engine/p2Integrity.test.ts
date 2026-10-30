@@ -1,7 +1,7 @@
 import {describe,it,expect} from 'vitest';
 import {makeInitialData,makeEmptyData} from '../defaults';
 import {selectNewestStoredSnapshot,saveEmergencyMirror,saveData,loadData} from '../data/storage';
-import {empiricalSupports,compareCertificateTargets,analyseOwnedCertificates,analyseCertificate,certificateOutcomeLikelihoods,certificateEvidenceCoverage} from './certificateDecision';
+import {empiricalSupports,analyseOwnedCertificates,certificateOutcomeLikelihoods} from './certificateDecision';
 
 describe('P2 statistical and recovery integrity',()=>{
   it('preserves observed frequencies and rare tails without quantile compression',()=>{
@@ -15,31 +15,6 @@ describe('P2 statistical and recovery integrity',()=>{
     expect(selectNewestStoredSnapshot(old,fresh)).toBe(fresh);
     expect(selectNewestStoredSnapshot(fresh,old)).toBe(fresh);
   });
-  it('does not rank attractive conditional EV above complete evidence',()=>{
-    const partial={verdict:'CONSIDER',resolvedOutcomeMassPct:30,expectedImprovementLowPct:20,chanceOfImprovementPct:20,mainFitPct:100,item:{id:'partial'}};
-    const complete={...partial,resolvedOutcomeMassPct:100,expectedImprovementLowPct:2,item:{id:'complete'}};
-    expect(compareCertificateTargets(complete as never,partial as never)).toBeLessThan(0);
-  });
-  it('keeps a complete EV unavailable when the outcome range is unresolved',()=>{
-    const data=makeInitialData();
-    data.gear=[...new Map(data.gear.map(g=>[g.slot,g])).values()];
-    data.authModel=data.authModel.map(m=>({...m,enabled:m.outcome==='Luck'&&m.certificateInventoryType==='Wooden Certificate of Authenticity'}));
-    const cert={id:'test',type:'Wooden Certificate of Authenticity' as const,quantity:1};
-    const target=analyseCertificate(data,cert).targets[0];
-    expect(target.fullExpectedMainPct).toBeNull();
-    expect(target.fullMainUpperBoundPct).toBeNull();
-    expect(target.fullMainLowerBoundPct).toBe(-100);
-  });
-  it('exposes sensitivity to weaker and stronger outcome priors',()=>{
-    const data=makeInitialData();
-    data.gear=[...new Map(data.gear.map(g=>[g.slot,g])).values()];
-    const cert={id:'test',type:'Wooden Certificate of Authenticity' as const,quantity:1,gradeStars:2};
-    const item=data.gear.find(g=>g.slot==='Head')!;
-    data.rollLog=[{id:'one',date:'2026-10-26',certificateType:'Normal Certificate of Authenticity',certificateInventoryType:cert.type,certificateGradeStars:2,itemId:item.id,itemName:item.name,slot:'Head',previousAuthentication:'',previousValue:0,newAuthentication:'Bid Zone Width',newValue:50,improvedBestSet:false,bestScoreBefore:0,bestScoreAfter:0}];
-    const row=certificateOutcomeLikelihoods(data,cert,'Head').find(r=>r.effect==='Bid Zone Width')!;
-    expect(row.minProbability).toBeLessThan(row.probability);
-    expect(row.maxProbability).toBeGreaterThan(row.probability);
-  });
   it('does not reintroduce mismatched rolls through derived catalogue counts',()=>{
     const data=makeInitialData();
     const cert={id:'known',type:'Wooden Certificate of Authenticity' as const,quantity:1,gradeStars:2,mutation:'Onyx'};
@@ -47,7 +22,6 @@ describe('P2 statistical and recovery integrity',()=>{
     data.rollLog=[{id:'mismatch',date:'2026-10-26',certificateType:'Normal Certificate of Authenticity',certificateInventoryType:cert.type,certificateGradeStars:1,certificateMutation:'Diamond',itemId:'h',itemName:'h',slot:'Head',previousAuthentication:'',previousValue:0,newAuthentication:'Bid Zone Width',newValue:75,improvedBestSet:false,bestScoreBefore:0,bestScoreAfter:0}];
     data.authModel=data.authModel.map(m=>m.certificateInventoryType===cert.type&&m.outcome==='Bid Zone Width'?{...m,observedValues:[75],observedSampleCount:1}:m);
     expect(certificateOutcomeLikelihoods(data,cert,'Head')).toEqual(before);
-    expect(certificateEvidenceCoverage(data,cert,'Head')).toEqual({exact:0,partial:0,excluded:1});
   });
   it('orders modern revisions correctly when the wall clock moves backwards',()=>{
     const a={savedAt:200,revision:1,data:makeEmptyData()};
@@ -105,11 +79,9 @@ describe('P2 statistical and recovery integrity',()=>{
       Object.defineProperty(globalThis,'indexedDB',{configurable:true,value:oldDb});
     }
   });
-  it('never presents an unpriced conversion as an economic recommendation',()=>{
+  it('never uses certificate rarity, cost or a Premium conversion in the recommendation',()=>{
     const data=makeInitialData();
     data.gear=[...new Map(data.gear.map(g=>[g.slot,g])).values()];
-    const decision=analyseOwnedCertificates(data).find(d=>d.conversion);
-    expect(decision?.conversion?.recommendation).not.toBe('PREFER PREMIUM CONVERSION');
-    expect(decision?.conversion?.reason).toContain('affordability');
+    for(const decision of analyseOwnedCertificates(data))expect('conversion' in decision).toBe(false);
   });
 });

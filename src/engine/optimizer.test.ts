@@ -21,20 +21,20 @@ describe('combination optimiser',()=>{
     const best=optimise(items,LOCKED_DEFAULT_SETTINGS,1)[0];
     expect(best.head.id).toBe('H1');
     expect(best.stats.arrowReduction).toBe(80);
-    expect(best.score.arrow).toBeCloseTo(65,8);
+    expect(best.score.arrow).toBeCloseTo(70,8);
   });
 
-  it('treats Arrow above 80 as wasted rather than beneficial or penalised',()=>{
+  it('treats Arrow above 90 as wasted, and picks the in-band set over the overshooting one',()=>{
     const h=g('H','Head',{arrowReduction:80});
     const over=g('Over','Back',{arrowReduction:30,luck:20});
     const plain=g('Plain','Back',{luck:20});
     const w=g('W','Wrist',{});
     const overResult=optimise([h,over,w],LOCKED_DEFAULT_SETTINGS,1)[0];
-    expect(overResult.score.arrow).toBeCloseTo(65,8);
-    expect(overResult.wastedArrow).toBe(30);
+    expect(overResult.score.arrow).toBeCloseTo(70,8);
+    expect(overResult.wastedArrow).toBe(20);
     expect(overResult.penalisedArrow).toBe(0);
     const best=optimise([h,over,plain,w],LOCKED_DEFAULT_SETTINGS,1)[0];
-    expect(['Over','Plain']).toContain(best.back.id);
+    expect(best.back.id).toBe('Plain');
   });
 
   it('ranks Arrow specialists by effective utility capped at the 65% band start',()=>{

@@ -292,7 +292,7 @@ describe('Preferences', () => {
       const shown = outputs(root, section).map(t => Number(t!.replace('%', '')));
       expect(shown.reduce((a, b) => a + b, 0)).toBe(100);
     }
-    expect(byText(root, '.prefSection', /^Auctions/).textContent).toContain('Reaching 65–80% Bid Arrow reduction always comes first.');
+    expect(byText(root, '.prefSection', /^Auctions/).textContent).toContain('Staying inside 70–90% Bid Arrow reduction always comes first');
   });
   it('moving one weight rebalances the others in its group immediately, and Reset restores it', async () => {
     const root = await openApp(makeInitialData());
@@ -303,10 +303,11 @@ describe('Preferences', () => {
     expect(outputs(root, /^Auctions/)[0]).toBe('70%');
     expect(outputs(root, /^Auctions/).map(t => Number(t!.replace('%', ''))).reduce((a, b) => a + b, 0)).toBe(100);
     const s = lastSaved().settings;
-    const total = s.luckWeight + s.arrowWeight + s.zoneWeight + s.recoveryWeight;
+    const total = s.luckWeight + s.arrowWeight + s.zoneWeight + s.energyWeight + s.recoveryWeight;
     expect(s.luckWeight / total).toBeCloseTo(.7, 9);
-    // The other three keep their proportions (default Arrow 1 : Zone 0.6 : Recovery 0.2).
+    // The others keep their proportions (default Arrow 1 : Zone 0.6 : Energy 0.3 : Recovery 0.2).
     expect(s.zoneWeight / s.arrowWeight).toBeCloseTo(.6, 9);
+    expect(s.energyWeight / s.arrowWeight).toBeCloseTo(.3, 9);
     expect(s.recoveryWeight / s.arrowWeight).toBeCloseTo(.2, 9);
     // Other groups are untouched.
     expect(s.shopTipWeight).toBe(makeInitialData().settings.shopTipWeight);

@@ -1,7 +1,8 @@
 import { validateStatDeltas } from './statDeltas';
 import { fillVerifiedTrophyStars, replaceWithVerifiedCertificates, replaceWithVerifiedTrophies } from './screenshotEquipment';
 import { addVerifiedItems, applyInventoryUpdate20261029, fillVerifiedGearStars, replaceWithVerifiedGear } from './knownGear';
-import { DEFAULT_TROPHY_SETTINGS, makeInitialData, LEGACY_V20_ARROW_DEFAULTS, LOCKED_DEFAULT_SETTINGS } from '../defaults';
+import { DEFAULT_TROPHY_SETTINGS, makeInitialData, LEGACY_ARROW_SWEET_SPOTS, LEGACY_V20_ARROW_DEFAULTS, LOCKED_DEFAULT_SETTINGS } from '../defaults';
+import { canonicalEffect, currentPool } from '../authentication';
 import type { AppData, CertificateRollLog, GavelTrophy, GearItem, TrophyOptimiserSettings } from '../types';
 import { generateGearName, generateTrophyName, inferBaseName } from '../naming';
 
@@ -269,11 +270,11 @@ export function normalizeData(raw: AppData, options: { preserveInventory?: boole
   const gear = add1030 ? addVerifiedItems(updated, '20261030') : updated;
   const trophies = replace ? replaceWithVerifiedTrophies(storedTrophies) : storedTrophies;
   return {
-    schemaVersion: 18,
+    schemaVersion: 19,
     gear: fillStars ? fillVerifiedGearStars(gear) : gear,
     settings: normalizeSettings(raw?.settings),
-    authModel: normalizeAuthModel(raw?.authModel, initial.authModel, Number(raw?.schemaVersion ?? 0)),
-    rollLog: Array.isArray(raw?.rollLog) ? raw.rollLog.map((roll, index) => preserveInventory ? normalizeRollLog(roll, index) : coerceStoredRollLog(roll, index)) : [],
+    authModel: canonicaliseAuthModel(normalizeAuthModel(raw?.authModel, initial.authModel, Number(raw?.schemaVersion ?? 0)), initial.authModel),
+    rollLog: Array.isArray(raw?.rollLog) ? raw.rollLog.map((roll, index) => canonicalRoll(preserveInventory ? normalizeRollLog(roll, index) : coerceStoredRollLog(roll, index))) : [],
     ownedCertificates: replace ? replaceWithVerifiedCertificates(storedCertificates) : storedCertificates,
     theme: raw?.theme ?? 'system',
     trophies: fillStars ? fillVerifiedTrophyStars(trophies) : trophies,
@@ -389,6 +390,39 @@ function normalizeAuthModel(raw: AppData['authModel'] | undefined, defaults: App
     for(const entry of defaults) if(!existing.has(key(entry))) upgraded.push(entry);
   }
   return upgraded;
+}
+
+/** Schema 19: outcome names are canonical, one row per (tier, slot, effect) with alias rows
+ * merged (observations kept), every current catalogue outcome has a row for its range, and
+ * rows that are not current outcomes of their tier (plain Luck on Wooden/Ripped, Fossil
+ * Finder, custom rows) stay readable but are marked legacy. Pool membership never comes
+ * from these rows, so `enabled` cannot change outcome probabilities. */
+function canonicaliseAuthModel(rows: AppData['authModel'], defaults: AppData['authModel']): AppData['authModel'] {
+  const key=(e:AppData['authModel'][number])=>`${e.certificateInventoryType??'legacy'}|${e.certificateType}|${e.slot}|${e.outcome}`;
+  const merged=new Map<string,AppData['authModel'][number]>();
+  for(const row of rows){
+    const next={...row,outcome:canonicalEffect(row.outcome),observedValues:[...row.observedValues]};
+    const existing=merged.get(key(next));
+    if(existing){
+      existing.observedValues.push(...next.observedValues);
+      existing.observedSampleCount+=next.observedSampleCount;
+    }else merged.set(key(next),next);
+  }
+  for(const row of defaults)if(!merged.has(key(row)))merged.set(key(row),{...row,observedValues:[]});
+  return [...merged.values()].map(row=>{
+    const type=row.certificateInventoryType;
+    const current=type&&(['Head','Back','Wrist'] as const).some(slot=>(row.slot==='Any'||row.slot===slot)&&currentPool(type,slot).includes(row.outcome));
+    if(current||!row.enabled||!type)return row;
+    return {...row,enabled:false,category:row.category.startsWith('Legacy')?row.category:'Legacy — not a current outcome of this certificate'};
+  });
+}
+
+function canonicalRoll(roll: CertificateRollLog): CertificateRollLog {
+  return {
+    ...roll,
+    previousAuthentication: typeof roll.previousAuthentication === 'string' ? canonicalEffect(roll.previousAuthentication) : roll.previousAuthentication,
+    newAuthentication: typeof roll.newAuthentication === 'string' ? canonicalEffect(roll.newAuthentication) : roll.newAuthentication
+  };
 }
 
 function conditionOrUndefined(value:unknown):number|undefined {
@@ -511,9 +545,9 @@ function normalizeSettings(raw: Partial<AppData['settings']> | undefined): AppDa
   // persisted the 1.0 defaults in IndexedDB, so simply changing defaults would leave
   // those browsers on the obsolete model. Override the shared scoring fields changed by 2.0 once,
   // while retaining unrelated user settings and all inventory/history data.
-  if (sourceVersion !== '2.0' && sourceVersion !== '2.1') {
+  if (sourceVersion !== '2.0' && sourceVersion !== '2.1' && sourceVersion !== '2.2') {
     const v20Keys: Array<keyof AppData['settings']> = [
-      'luckWeight','arrowWeight','arrowSweetSpot',
+      'luckWeight','arrowWeight',
       'npcWeight','npcBreakpoint1','npcBreakpoint2','npcMultiplier2','npcMultiplier3',
       'zoneWeight','zoneBreakpoint1','zoneBreakpoint2','zoneMultiplier2','zoneMultiplier3',
       'tipWeight','recoveryWeight','walkWeight','vehicleWeight'
@@ -521,19 +555,31 @@ function normalizeSettings(raw: Partial<AppData['settings']> | undefined): AppDa
     for (const key of v20Keys) merged[key] = LOCKED_DEFAULT_SETTINGS[key];
   }
 
-  // 2.0 -> 2.1: the 65-85% Arrow band and Luck-equal Arrow priority replace the old
-  // 75% / 0.8 defaults. Only values still equal to those old defaults move; any
-  // customised value, and every unrelated setting, is kept exactly.
-  if (sourceVersion === '2.0') {
-    if (Number(merged.arrowWeight) === LEGACY_V20_ARROW_DEFAULTS.arrowWeight) merged.arrowWeight = LOCKED_DEFAULT_SETTINGS.arrowWeight;
-    if (Number(merged.arrowSweetSpot) === LEGACY_V20_ARROW_DEFAULTS.arrowSweetSpot) merged.arrowSweetSpot = LOCKED_DEFAULT_SETTINGS.arrowSweetSpot;
-  }
+  // 2.0 -> 2.1: Luck-equal Arrow priority replaced the old 0.8 default.
+  if (sourceVersion === '2.0' && Number(merged.arrowWeight) === LEGACY_V20_ARROW_DEFAULTS.arrowWeight) merged.arrowWeight = LOCKED_DEFAULT_SETTINGS.arrowWeight;
 
-  const out: Record<string, unknown> = { ...LOCKED_DEFAULT_SETTINGS, version: '2.1' };
+  // -> 2.2: the single Arrow "sweet spot" becomes an explicit 70-90% band. Old defaults
+  // (65, or 75 before 2.1) move to the band; a custom start is kept only if it still forms a
+  // valid band below the 90% end. Energy joins the auction score unless already customised.
+  if (sourceVersion !== '2.2') {
+    const oldStart = Number(source.arrowSweetSpot);
+    const customStart = Number.isFinite(oldStart) && !LEGACY_ARROW_SWEET_SPOTS.includes(oldStart as never) && oldStart >= 0 && oldStart < LOCKED_DEFAULT_SETTINGS.arrowTargetMax;
+    merged.arrowTargetMin = customStart && sourceVersion !== '1.0' ? oldStart : LOCKED_DEFAULT_SETTINGS.arrowTargetMin;
+    merged.arrowTargetMax = LOCKED_DEFAULT_SETTINGS.arrowTargetMax;
+    if (Number(source.energyWeight ?? 0) === 0) merged.energyWeight = LOCKED_DEFAULT_SETTINGS.energyWeight;
+  }
+  delete merged.arrowSweetSpot;
+
+  const out: Record<string, unknown> = { ...LOCKED_DEFAULT_SETTINGS, version: '2.2' };
   for (const [key, defaultValue] of Object.entries(LOCKED_DEFAULT_SETTINGS)) {
     if (key === 'version') continue;
     const n = Number(merged[key]);
     out[key] = Number.isFinite(n) ? n : defaultValue;
+  }
+  // Normalisation always yields a valid Arrow band.
+  if (!(Number(out.arrowTargetMin) >= 0 && Number(out.arrowTargetMin) < Number(out.arrowTargetMax))) {
+    out.arrowTargetMin = LOCKED_DEFAULT_SETTINGS.arrowTargetMin;
+    out.arrowTargetMax = LOCKED_DEFAULT_SETTINGS.arrowTargetMax;
   }
   return out as unknown as AppData['settings'];
 }
@@ -549,7 +595,9 @@ function normalizeItem(i: GearItem): GearItem {
     arrowReduction: finite(i?.stats?.arrowReduction), npc: finite(i?.stats?.npc)
   };
   const authenticated = Boolean(i?.authenticated);
-  const authentication = i?.authentication ?? { kind: 'None' as const, effect: '', value: 0 };
+  const rawAuthentication = i?.authentication ?? { kind: 'None' as const, effect: '', value: 0 };
+  // Older spellings (Droughtbreaker, Club Packed, Timekeeper...) load as the canonical effect.
+  const authentication = typeof rawAuthentication.effect === 'string' ? { ...rawAuthentication, effect: canonicalEffect(rawAuthentication.effect) } : rawAuthentication;
   return {
     id: i?.id || crypto.randomUUID(),
     baseName,

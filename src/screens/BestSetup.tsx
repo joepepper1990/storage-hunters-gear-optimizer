@@ -57,7 +57,7 @@ export function BestSetup({ data }: { data: AppData }) {
     {!valid && <Empty>Fix preferences to see sets</Empty>}
     {valid && missingSlots.length > 0 && <Empty>Needs {missingSlots.join(', ')} gear</Empty>}
     <div className="setGrid">{auctionGroups.map(({ labels, loadout }) => <LoadoutCard gear={data.gear} key={labels.join()} title={labels.join(' · ')} loadout={loadout}
-      stats={[['Luck', num(loadout.stats.luck)], arrowStat(loadout.stats.arrowReduction), ['Zone', `${num(loadout.stats.zone)}%`], ['Recovery', `${num(loadout.stats.recovery)}%`]]} />)}</div>
+      stats={[['Luck', num(loadout.stats.luck)], arrowStat(loadout.stats.arrowReduction), ['Zone', `${num(loadout.stats.zone)}%`], ['Energy', `${num(loadout.stats.energy)}%`], ['Recovery', `${num(loadout.stats.recovery)}%`]]} />)}</div>
 
     <h2>Specialist</h2>
     <div className="setGrid">

@@ -51,48 +51,41 @@ describe('specialist priorities',()=>{
   });
 });
 
-function syntheticTarget(id:string,basis:CertificateTargetDecision['decisionBasis'],rank:number,gain:number):CertificateTargetDecision {
-  return {item:gear(id,'Head'),verdict:'CONSIDER',decisionBasis:basis,goalRank:rank,goalGainLowerBound:gain,
-    goalChancePct:60,goalChanceLowerBoundPct:60,goalChanceUpperBoundPct:60,resolvedOutcomeMassPct:100,
-    expectedImprovementLowPct:0,chanceOfImprovementPct:0,mainFitPct:50} as unknown as CertificateTargetDecision;
+function syntheticTarget(id:string,chance:number,gain:number,verdict:CertificateTargetDecision['verdict']='CONSIDER',preference=0):CertificateTargetDecision {
+  const range=(x:number)=>({cautious:x,central:x,favourable:x});
+  return {item:gear(id,'Head'),verdict,improveChanceLowerPct:range(chance),improveChancePct:range(chance),
+    expectedBestGainPct:range(gain),worseChanceUpperPct:0,bestRoll:{preference}} as unknown as CertificateTargetDecision;
 }
 
-describe('P2: certificate sorting honours specialist priority and gain, not item IDs',()=>{
-  it('ranks Drink Prep +9 above Shop +3.6 even when the Shop item ID sorts first',()=>{
-    const shop=syntheticTarget('a-shop','Shop / Idle',5,3.6);
-    const drink=syntheticTarget('z-drink','Drink Prep',3,9);
-    expect([shop,drink].sort(compareCertificateTargets).map(t=>t.item.id)).toEqual(['z-drink','a-shop']);
+describe('certificate sorting: verdict, then chance, then gain, then preference order; never item IDs or rarity',()=>{
+  it('ranks the higher central chance first even when its item ID sorts last',()=>{
+    const low=syntheticTarget('a-low',20,9),high=syntheticTarget('z-high',40,1);
+    expect([low,high].sort(compareCertificateTargets).map(t=>t.item.id)).toEqual(['z-high','a-low']);
   });
-  it('ranks the larger gain first within one goal regardless of ID',()=>{
-    const small=syntheticTarget('a','Drink Prep',3,4);
-    const large=syntheticTarget('z','Drink Prep',3,9);
+  it('ranks the larger gain first at equal chance',()=>{
+    const small=syntheticTarget('a',30,4),large=syntheticTarget('z',30,9);
     expect([small,large].sort(compareCertificateTargets)[0].item.id).toBe('z');
   });
-  it('keeps Main Auction ahead of every specialist',()=>{
-    const main=syntheticTarget('z-main','Main Auction',0,.5);
-    const drink=syntheticTarget('a-drink','Drink Prep',3,50);
-    expect([drink,main].sort(compareCertificateTargets)[0].item.id).toBe('z-main');
+  it('uses the preference order only to break an exact tie',()=>{
+    const zone=syntheticTarget('a-zone',30,5,'CONSIDER',3),sunny=syntheticTarget('z-sunny',30,5,'CONSIDER',0);
+    expect([zone,sunny].sort(compareCertificateTargets)[0].item.id).toBe('z-sunny');
   });
-  it('engine decisions carry ranks that follow the user priorities',()=>{
+  it('keeps USE ahead of CONSIDER',()=>{
+    const use=syntheticTarget('z-use',30,1,'USE'),consider=syntheticTarget('a-consider',90,50);
+    expect([consider,use].sort(compareCertificateTargets)[0].item.id).toBe('z-use');
+  });
+  it('engine output is sorted consistently with the comparator',()=>{
     const data=makeInitialData();
     const cert=data.ownedCertificates.find(c=>c.quantity>0)!;
     const decision=analyseCertificate(data,cert);
-    for(const target of decision.targets){
-      if(target.decisionBasis==='Drink Prep')expect(target.goalRank).toBe(3);
-      if(target.decisionBasis==='Shop / Idle')expect(target.goalRank).toBe(5);
-    }
-    // Sorted output is consistent with the comparator.
     for(let i=1;i<decision.targets.length;i++)expect(compareCertificateTargets(decision.targets[i-1],decision.targets[i])).toBeLessThanOrEqual(0);
   });
-  it('never presents a conditional chance as complete when outcomes are unresolved',()=>{
+  it('keeps every chance a valid percentage and the upper bound above the resolved figure',()=>{
     const data=makeInitialData();
     for(const decision of analyseOwnedCertificates(data))for(const target of decision.targets){
-      if(target.unresolvedOutcomeMassPct>1e-6){
-        expect(target.goalChancePct).toBeNull();
-        expect(target.goalChanceUpperBoundPct).toBeNull();
-      }
-      if(target.decisionBasis==='None')expect(target.goalChancePct).toBeNull();
-      expect(target.goalChanceLowerBoundPct).toBeGreaterThanOrEqual(0);
+      for(const value of Object.values(target.improveChancePct))expect(value).toBeGreaterThanOrEqual(0);
+      expect(target.improveChanceUpperPct).toBeGreaterThanOrEqual(target.improveChanceLowerPct.favourable-1e-9);
+      expect(target.worseChanceUpperPct).toBeLessThanOrEqual(100);
     }
   });
 });
@@ -104,7 +97,7 @@ const wooden=(id:string,quantity:number):OwnedCertificate=>({id,type:'Wooden Cer
 
 describe('certificate action queue',()=>{
   it('allocates no more rows than owned units and shows each target once',()=>{
-    const a=syntheticTarget('target-a','Main Auction',0,5),b=syntheticTarget('target-b','Main Auction',0,3),c=syntheticTarget('target-c','Main Auction',0,1);
+    const a=syntheticTarget('target-a',50,5),b=syntheticTarget('target-b',40,3),c=syntheticTarget('target-c',30,1);
     const queue=buildCertificateQueue([decision(wooden('w1',2),[a,b,c]),decision(wooden('w2',3),[a,b])]);
     expect(queue.rows.length).toBe(3);
     expect(new Set(queue.rows.map(r=>r.target.item.id)).size).toBe(3);
@@ -115,7 +108,7 @@ describe('certificate action queue',()=>{
     expect(queue.hold.reduce((n,h)=>n+h.quantity,0)).toBe(5-3);
   });
   it('holds certificates with no qualifying opportunity',()=>{
-    const hold=syntheticTarget('x','None',9,0);(hold as {verdict:string}).verdict='HOLD';
+    const hold=syntheticTarget('x',0,0,'HOLD');
     const queue=buildCertificateQueue([decision(wooden('w1',2),[hold])]);
     expect(queue.rows).toEqual([]);
     expect(queue.hold).toEqual([{certificate:wooden('w1',2),quantity:2}]);
@@ -205,12 +198,14 @@ describe('preference sliders drive the engines',()=>{
     expect(reset.settings.drinkPriority).toBe(1);
     expect(reset.settings.shopTipWeight).toBe(.9);
   });
-  it('Luck and Arrow sliders change the Main Auction trio',()=>{
-    const items=[gear('lucky','Head',{luck:40}),gear('arrow','Head',{arrowReduction:30}),gear('b','Back'),gear('w','Wrist')];
+  it('Luck and Zone sliders change the Main Auction trio, while the Arrow band always comes first',()=>{
+    const items=[gear('lucky','Head',{luck:40,arrowReduction:70}),gear('zone','Head',{zone:80,arrowReduction:70}),gear('b','Back'),gear('w','Wrist')];
     const pick=(settings:AlgorithmSettings)=>buildGearLoadouts(items,settings).main!.head.id;
     expect(pick(s)).toBe('lucky');
-    expect(pick({...s,luckWeight:0})).toBe('arrow');
-    expect(pick({...s,arrowWeight:0})).toBe('lucky');
+    expect(pick({...s,luckWeight:0})).toBe('zone');
+    expect(pick({...s,zoneWeight:2})).toBe('zone');
+    const below=[gear('lucky','Head',{luck:400}),gear('arrow','Head',{arrowReduction:30}),gear('b','Back'),gear('w','Wrist')];
+    expect(buildGearLoadouts(below,{...s,arrowWeight:0}).main!.head.id).toBe('arrow');
   });
   it('a specialist priority of 0 removes its loadout and its retention protection consistently',()=>{
     const energy=gear('energy','Head',{energy:40});
@@ -218,7 +213,8 @@ describe('preference sliders drive the engines',()=>{
     const items=[energy,main,gear('b','Back'),gear('w','Wrist')];
     expect(buildGearLoadouts(items,s).drink?.head.id).toBe('energy');
     expect(verdictOf(items,'energy')).toBe('KEEP');
-    const ignore={...s,drinkPriority:0};
+    // Energy also counts in auction sets now, so ignoring it means Drink Prep off and Energy weight 0.
+    const ignore={...s,drinkPriority:0,energyWeight:0};
     expect(buildGearLoadouts(items,ignore).drink).toBeUndefined();
     expect(verdictOf(items,'energy',ignore)).toBe('SAFE TO DISCARD');
   });
@@ -234,26 +230,26 @@ describe('preference sliders drive the engines',()=>{
     expect(optimiseTrophies(d.trophies,{...d.trophySettings,maxActive:3})[0]?.trophies.length??0).toBeLessThanOrEqual(3);
   });
   it('Arrow band is consistent across Main, retention and standalone scoring',()=>{
-    const at65=gear('a65','Head',{arrowReduction:65}),at85=gear('a85','Head',{arrowReduction:85});
+    const at65=gear('a65','Head',{arrowReduction:70}),at85=gear('a85','Head',{arrowReduction:90});
     const back=gear('b','Back'),wrist=gear('w','Wrist');
     expect(mainAuctionUtility([at65,back,wrist],s)).toBeCloseTo(mainAuctionUtility([at85,back,wrist],s),8);
     expect(scoreStandalone(at65,s).total).toBeCloseTo(scoreStandalone(at85,s).total,8);
-    // 85% alone is not worse than 65%, but with a future complementary Arrow piece 65% can be better: both are kept.
+    // 90% alone is not worse than 70%, but with a complementary Arrow piece 70% can be better: both are kept.
     expect(verdictOf([at65,at85,back,wrist],'a85')).not.toBe('SAFE TO DISCARD');
   });
 });
 
 describe('loadout evaluator optimisation is exact',()=>{
-  // Reference: recompute everything and fully sort (Arrow tier first: inside 65-80%, above, below; then score).
+  // Reference: recompute everything and fully sort (distance to the 70-90% band first, then score).
   function reference(items:GearItem[],settings:AlgorithmSettings,utility:(trio:GearItem[])=>number){
     const heads=items.filter(g=>g.slot==='Head'),backs=items.filter(g=>g.slot==='Back'),wrists=items.filter(g=>g.slot==='Wrist');
     const trios:GearItem[][]=[];for(const h of heads)for(const b of backs)for(const w of wrists)trios.push([h,b,w]);
     const tier=(t:GearItem[])=>{
-      const r=t.reduce((n,i)=>n+effectiveItemStats(i).arrowReduction,0);
-      return r<settings.arrowSweetSpot?0:r<=arrowTargetBand(settings).max?2:1;
+      const r=t.reduce((n,i)=>n+effectiveItemStats(i).arrowReduction,0),band=arrowTargetBand(settings);
+      return r<band.min?band.min-r:r>band.max?r-band.max:0;
     };
     const scored=trios.map(t=>({t,tier:tier(t),u:utility(t),main:mainAuctionUtility(t,settings,'Neutral','low')}));
-    scored.sort((a,b)=>b.tier-a.tier||b.u-a.u||b.main-a.main||a.t.map(x=>x.id).join('|').localeCompare(b.t.map(x=>x.id).join('|')));
+    scored.sort((a,b)=>a.tier-b.tier||b.u-a.u||b.main-a.main||a.t.map(x=>x.id).join('|').localeCompare(b.t.map(x=>x.id).join('|')));
     const best=scored[0];
     const tied=scored.filter(x=>x.tier===best.tier&&Math.abs(x.u-best.u)<=1e-9&&Math.abs(x.main-best.main)<=1e-9);
     return {ids:best.t.map(x=>x.id),u:best.u,tied:[...new Set(tied.flatMap(x=>x.t.map(i=>i.id)))].sort()};
@@ -292,15 +288,15 @@ describe('review: queue allocation never downgrades a higher-ranked row',()=>{
   it('keeps the strong certificate on the Auction target instead of trading it for a Shop row',()=>{
     const limited:OwnedCertificate={id:'L',type:'Limited Certificate of Authenticity',quantity:1};
     const woodenCert:OwnedCertificate={id:'W',type:'Wooden Certificate of Authenticity',quantity:1};
-    const strongMain={...syntheticTarget('main-item','Main Auction',0,20),verdict:'USE'} as CertificateTargetDecision;
-    const shop=syntheticTarget('shop-item','Shop / Idle',5,.5);
-    const weakMain=syntheticTarget('main-item','Main Auction',0,1);
+    const strongMain=syntheticTarget('main-item',60,20,'USE');
+    const shop=syntheticTarget('shop-item',20,.5);
+    const weakMain=syntheticTarget('main-item',25,1);
     const queue=buildCertificateQueue([decision(limited,[strongMain,shop]),decision(woodenCert,[weakMain])]);
     expect(queue.rows[0]).toMatchObject({certificate:{id:'L'},target:{item:{id:'main-item'}}});
     expect(queue.rows.some(r=>r.certificate.id==='L'&&r.target.item.id==='shop-item')).toBe(false);
   });
   it('still re-routes between equally good certificates to fill more rows',()=>{
-    const a=syntheticTarget('target-a','Main Auction',0,5),b=syntheticTarget('target-b','Main Auction',0,3);
+    const a=syntheticTarget('target-a',30,5),b=syntheticTarget('target-b',30,3);
     const queue=buildCertificateQueue([decision(wooden('w1',1),[a,b]),decision(wooden('w2',1),[a])]);
     expect(queue.rows.map(r=>r.target.item.id).sort()).toEqual(['target-a','target-b']);
   });
@@ -309,9 +305,9 @@ describe('review: queue allocation never downgrades a higher-ranked row',()=>{
 describe('review: Arrow slider label follows the stored band',()=>{
   it('reflects a customised band start',()=>{
     const control=PREFERENCE_CONTROLS.find(c=>c.id==='arrowWeight')!;
-    expect(control.labelFor!(makeInitialData())).toBe('Bid Arrow below 65%');
-    const d=makeInitialData();d.settings.arrowSweetSpot=70;
-    expect(control.labelFor!(d)).toBe('Bid Arrow below 70%');
+    expect(control.labelFor!(makeInitialData())).toBe('Bid Arrow below 70%');
+    const d=makeInitialData();d.settings.arrowTargetMin=72;
+    expect(control.labelFor!(d)).toBe('Bid Arrow below 72%');
   });
 });
 
@@ -320,11 +316,11 @@ describe('Main Auction: reach the Arrow band first, then Luck',()=>{
     gear('luck-back','Back',{luck:120}),gear('arrow-back','Back',{arrowReduction:40}),
     gear('head','Head',{luck:100}),gear('wrist','Wrist',{luck:50,arrowReduction:32})
   ];
-  it('picks the set that reaches 65% even when another set has far more Luck',()=>{
+  it('picks the set that reaches 70% even when another set has far more Luck',()=>{
     for(const luckWeight of [1,.3,.01]){
       const main=buildGearLoadouts(items(),{...s,luckWeight}).main!;
       expect(main.back.id).toBe('arrow-back');
-      expect(main.arrowTier).toBe(2);
+      expect(main.arrowDistance).toBe(0);
       expect(main.stats.arrowReduction).toBe(72);
     }
   });
@@ -332,10 +328,11 @@ describe('Main Auction: reach the Arrow band first, then Luck',()=>{
     const extra=[...items(),gear('arrow-luck-back','Back',{arrowReduction:40,luck:30})];
     expect(buildGearLoadouts(extra,s).main!.back.id).toBe('arrow-luck-back');
   });
-  it('falls back to the weighted score when no set can reach the band',()=>{
+  it('picks the set nearest the band when no set can reach it, then the weighted score',()=>{
     const unreachable=[gear('luck-back','Back',{luck:120}),gear('arrow-back','Back',{arrowReduction:20}),gear('head','Head',{luck:100}),gear('wrist','Wrist',{luck:50,arrowReduction:32})];
-    expect(buildGearLoadouts(unreachable,s).main!.back.id).toBe('luck-back');
-    expect(buildGearLoadouts(unreachable,{...s,luckWeight:.1}).main!.back.id).toBe('arrow-back');
+    expect(buildGearLoadouts(unreachable,s).main!.back.id).toBe('arrow-back');
+    const tied=[gear('luck-back','Back',{luck:120,arrowReduction:20}),gear('arrow-back','Back',{arrowReduction:20}),gear('head','Head',{luck:100}),gear('wrist','Wrist',{luck:50,arrowReduction:32})];
+    expect(buildGearLoadouts(tied,s).main!.back.id).toBe('luck-back');
   });
   it('applies to Day / Night / Rain sets too',()=>{
     const contextual=[...items(),gear('rain-back','Back',{luck:60},'Raindrop',100)];
@@ -351,23 +348,21 @@ describe('Main Auction: reach the Arrow band first, then Luck',()=>{
   it('counts gaining the band as an improvement for certificates and losing it as a loss',()=>{
     const data=makeEmptyData();
     data.gear=[gear('head','Head',{luck:100}),gear('back','Back',{luck:120}),gear('wrist','Wrist',{luck:50,arrowReduction:32})];
-    data.authModel=data.authModel.map(m=>m.certificateInventoryType==='Wooden Certificate of Authenticity'
-      ?{...m,enabled:m.outcome==='Bid Arrow Speed',min:-40,max:-40}:m);
+    data.authModel=data.authModel.map(m=>m.certificateInventoryType==='Wooden Certificate of Authenticity'&&m.outcome==='Bid Arrow Speed'?{...m,min:-40,max:-40}:m);
     const cert:OwnedCertificate={id:'w',type:'Wooden Certificate of Authenticity',quantity:1};
     const target=analyseCertificate(data,cert).targets.find(t=>t.item.id==='head')!;
-    // Every roll gives -40% Arrow: 32 + 40 = 72% reaches the band, despite replacing no Luck.
-    expect(target.chanceOfImprovementPct).toBeGreaterThan(99);
-    expect(target.expectedImprovementPct).toBeGreaterThanOrEqual(99);
-    expect(['USE','CONSIDER']).toContain(target.verdict);
-    expect(target.decisionBasis).toBe('Main Auction');
+    // Every Arrow roll gives -40%: 32 + 40 = 72% reaches the band, and Arrow is wanted while below it.
+    const arrow=target.outcomes.find(o=>o.effect==='Bid Arrow Speed')!;
+    expect(arrow.improvePct.cautious).toBe(100);
+    expect(arrow.wanted).toBe(true);
+    expect(target.arrowNeeded).toBe(true);
+    expect(target.wantedChancePct).toBeCloseTo(60);
 
-    // Rerolling the authentication that holds the band can only lose it.
+    // Rerolling the authentication that holds the band loses it on every other outcome.
     const holding=makeEmptyData();
     holding.gear=[gear('head','Head',{luck:100},'Bid Arrow Speed',-40),gear('back','Back',{luck:120}),gear('wrist','Wrist',{luck:50,arrowReduction:32})];
-    holding.authModel=holding.authModel.map(m=>m.certificateInventoryType==='Wooden Certificate of Authenticity'
-      ?{...m,enabled:m.outcome==='Bid Recovery',min:20,max:25}:m);
     const risky=analyseCertificate(holding,cert).targets.find(t=>t.item.id==='head')!;
-    expect(risky.chanceMainWorsePct).toBeGreaterThan(99);
+    expect(risky.worseChancePct.cautious).toBeGreaterThan(85);
     expect(risky.verdict).toBe('DO NOT USE');
   });
 });
@@ -377,7 +372,7 @@ describe('weights as percentages adding up to 100',()=>{
     const d=makeInitialData();
     const shares=weightShares(d,'auction');
     expect(shares.reduce((a,b)=>a+b,0)).toBeCloseTo(100,9);
-    expect(shares[0]).toBeCloseTo(100/2.8,9); // Luck 1 of 1 + 1 + 0.6 + 0.2
+    expect(shares[0]).toBeCloseTo(100/3.1,9); // Luck 1 of 1 + 1 + 0.6 + 0.3 + 0.2
     expect(roundedShares(shares).reduce((a,b)=>a+b,0)).toBe(100);
     expect(roundedShares([33.4,33.3,33.3])).toEqual([34,33,33]);
     expect(roundedShares([0,0])).toEqual([0,0]);
@@ -389,10 +384,10 @@ describe('weights as percentages adding up to 100',()=>{
     expect(tip).toBeCloseTo(25,9);expect(npc).toBeCloseTo(75,9);
     expect(next.settings.shopTipWeight+next.settings.shopNpcWeight).toBeCloseTo(.7,9); // native Shop thresholds keep their scale
     const luck=setWeightShare(d,'auction','luckWeight',100);
-    expect(weightShares(luck,'auction').map(x=>Math.round(x))).toEqual([100,0,0,0]);
-    expect(weightShares(setWeightShare(luck,'auction','arrowWeight',40),'auction').map(x=>Math.round(x))).toEqual([60,40,0,0]);
+    expect(weightShares(luck,'auction').map(x=>Math.round(x))).toEqual([100,0,0,0,0]);
+    expect(weightShares(setWeightShare(luck,'auction','arrowWeight',40),'auction').map(x=>Math.round(x))).toEqual([60,40,0,0,0]);
     // When every other weight is zero, the rest is shared equally.
-    expect(weightShares(setWeightShare(luck,'auction','luckWeight',40),'auction').map(x=>Math.round(x))).toEqual([40,20,20,20]);
+    expect(weightShares(setWeightShare(luck,'auction','luckWeight',40),'auction').map(x=>Math.round(x))).toEqual([40,15,15,15,15]);
   });
   it('drives the engines the same way as the raw coefficients',()=>{
     const items=[gear('tip','Head',{tip:10}),gear('npc','Head',{npc:12}),gear('b','Back'),gear('w','Wrist')];

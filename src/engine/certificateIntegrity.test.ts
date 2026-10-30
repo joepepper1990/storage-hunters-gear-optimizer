@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { makeInitialData, ZERO_STATS } from '../defaults';
 import type { AppData, CertificateRollLog, OwnedCertificate, Slot } from '../types';
-import { analyseCertificate, analyseConditionalNumberReroll, certificateEvidenceCoverage, certificateOutcomeLikelihoods, specialistUtilityDelta } from './certificateDecision';
+import { analyseCertificate, analyseConditionalNumberReroll, certificateOutcomeLikelihoods } from './certificateDecision';
 
 const cert:OwnedCertificate={id:'test',type:'Wooden Certificate of Authenticity',quantity:1,gradeStars:2,mutation:'Onyx'};
 function fixture():AppData {
@@ -12,112 +12,48 @@ function fixture():AppData {
 function roll(slot:Slot='Head',overrides:Partial<CertificateRollLog>={}):CertificateRollLog {
   return {id:'r',date:'2026-10-27',certificateType:'Normal Certificate of Authenticity',certificateInventoryType:cert.type,certificateGradeStars:2,certificateMutation:'Onyx',itemId:slot,itemName:slot,slot,previousAuthentication:'',previousValue:0,newAuthentication:'Bid Zone Width',newValue:75,improvedBestSet:false,bestScoreBefore:0,bestScoreAfter:0,...overrides};
 }
-function onlyZone(data:AppData){
-  data.authModel=data.authModel.filter(row=>row.certificateInventoryType===cert.type&&row.outcome==='Bid Zone Width').map(row=>({...row,slot:'Any',min:15,max:75,typical:undefined,observedValues:[],observedSampleCount:0}));
+/** Sets the Wooden Zone range. Other outcomes stay in the fixed pool. */
+function zoneRange(data:AppData,min:number,max:number,typical?:number){
+  data.authModel=data.authModel.map(row=>row.certificateInventoryType===cert.type&&row.outcome==='Bid Zone Width'
+    ?{...row,min,max,typical,observedValues:[],observedSampleCount:0}:row);
 }
 
 describe('certificate evidence and numerical integrity',()=>{
-  it('strips other-slot Any-row observations before legacy counts, including explicitly excluded histories',()=>{
+  it('never lets observations change which effect is rolled',()=>{
     const data=fixture();
     const before=certificateOutcomeLikelihoods(data,cert,'Head');
-    data.rollLog=[roll('Back',{certificateGradeStars:1,certificateMutation:'Diamond'})];
+    data.rollLog=[roll('Back',{certificateGradeStars:1,certificateMutation:'Diamond'}),roll('Head')];
     data.authModel=data.authModel.map(row=>row.certificateInventoryType===cert.type&&row.outcome==='Bid Zone Width'?{...row,observedValues:[75],observedSampleCount:1}:row);
     expect(certificateOutcomeLikelihoods(data,cert,'Head')).toEqual(before);
   });
-  it('does not duplicate partial roll strengths through model-only fallback while retaining manual samples',()=>{
-    const data=fixture();onlyZone(data);
-    const unknown={...cert,gradeStars:undefined,mutation:undefined};
-    data.rollLog=[roll('Head',{certificateGradeStars:undefined,certificateMutation:undefined})];
-    const current=roll();
-    const before=analyseConditionalNumberReroll(data,current,unknown)!;
-    data.authModel[0].observedValues=[75];data.authModel[0].observedSampleCount=1;
-    const represented=analyseConditionalNumberReroll(data,current,unknown)!;
-    expect(represented.expectedMainPct).toBeCloseTo(before.expectedMainPct,12);
-    data.authModel[0].observedValues.push(75);data.authModel[0].observedSampleCount++;
-    expect(analyseConditionalNumberReroll(data,current,unknown)!.expectedMainPct).toBeGreaterThan(before.expectedMainPct);
-  });
-  it('preserves exact / partial / excluded evidence matching after stripping provenance',()=>{
-    const data=fixture();
-    data.rollLog=[roll(),roll('Head',{id:'partial',certificateGradeStars:undefined}),roll('Head',{id:'excluded',certificateMutation:'Diamond'})];
-    expect(certificateEvidenceCoverage(data,cert,'Head')).toEqual({exact:1,partial:1,excluded:1});
-  });
-  it('cannot pass the 25% downside policy when midpoint rounding reports 25% for a true 25.4%',()=>{
-    const data=fixture();onlyZone(data);
-    data.authModel[0]={...data.authModel[0],min:0,max:100,confidence:'Empirical'};
+
+  it('adds the integration guard so a true 25.4% downside cannot read as 25%',()=>{
+    const data=fixture();zoneRange(data,0,100);
     data.gear[0].authenticated=true;data.gear[0].authentication={kind:'Normal',effect:'Bid Zone Width',value:25.4};
-    const target=analyseCertificate(data,cert,undefined,'Head').recommendedTarget!;
-    expect(target.chanceMainWorsePct).toBeCloseTo(25,8);
-    expect(target.numericalProbabilityErrorPct).toBeGreaterThanOrEqual(1-1e-10);
-    expect(target.verdict).not.toBe('USE');
     const conditional=analyseConditionalNumberReroll(data,roll('Head',{newValue:25.4}),cert)!;
-    expect(conditional.chanceMainWorseUpperBoundPct).toBeGreaterThan(25.4);
+    expect(conditional.worseChancePct).toBeCloseTo(25,8);
+    expect(conditional.worseChanceUpperPct).toBeGreaterThan(25.4);
+    const target=analyseCertificate(data,cert,undefined,'Head').targets[0];
+    expect(target.numericalProbabilityErrorPct).toBeGreaterThan(0);
   });
+
   it('keeps empirical atom mass exact and applies the integration guard only to remaining prior mass',()=>{
-    const data=fixture();onlyZone(data);data.authModel[0]={...data.authModel[0],min:0,max:100};
+    const data=fixture();zoneRange(data,0,100);
     data.gear[0].authenticated=true;data.gear[0].authentication={kind:'Normal',effect:'Bid Zone Width',value:25.4};
     data.rollLog=Array.from({length:72},(_,i)=>roll('Head',{id:String(i),newValue:0}));
     const result=analyseConditionalNumberReroll(data,roll(),cert)!;
-    expect(result.chanceMainWorsePct).toBeCloseTo(92.5,8);
-    expect(result.chanceMainWorseUpperBoundPct-result.chanceMainWorsePct).toBeCloseTo(.1,8);
+    expect(result.worseChancePct).toBeCloseTo(92.5,8);
+    expect(result.worseChanceUpperPct-result.worseChancePct).toBeCloseTo(.1,8);
   });
-  it('requires the specialist EV threshold to pass its integration lower bound',()=>{
-    const data=fixture();onlyZone(data);
-    data.gear.push({...structuredClone(data.gear[0]),id:'strong-head',stats:{...ZERO_STATS,luck:200}});
-    data.authModel[0]={...data.authModel[0],outcome:'Energy Drink Time',min:2.01,max:4.01};
-    const target=analyseCertificate(data,cert,undefined,'Head').recommendedTarget!;
-    expect(target.expectedDrinkPrepPct).toBeGreaterThan(3);
-    expect(target.expectedDrinkPrepLowerBound).toBeLessThan(3);
-    expect(target.verdict).toBe('HOLD');
-  });
-  it('guards personal-tier chance thresholds when numeric strength changes Main membership',()=>{
-    const data=fixture();onlyZone(data);
-    for(const item of data.gear)item.stats.luck=10000;
-    data.gear.push({...structuredClone(data.gear[0]),id:'alternative-head',stats:{...ZERO_STATS,luck:10000,zone:6.04}});
-    data.authModel[0]={...data.authModel[0],min:0,max:10};
-    const target=analyseCertificate(data,cert,undefined,'Head').recommendedTarget!;
-    expect(target.chancePersonalPreferenceImprovesPct).toBeCloseTo(40,8);
-    expect(target.expectedPersonalPreferenceDelta).toBeGreaterThan(.2);
-    expect(target.expectedPersonalPreferenceLowerBound).toBeLessThan(target.expectedPersonalPreferenceDelta);
-    expect(target.numericalProbabilityErrorPct).toBeGreaterThan(0);
-    expect(target.verdict).toBe('HOLD');
-  });
-  it('does not calculate relative Main percentages at a zero baseline',()=>{
-    const data=fixture();onlyZone(data);
-    for(const item of data.gear)item.stats.luck=0;
-    expect(analyseCertificate(data,cert).targets).toEqual([]);
-    expect(analyseConditionalNumberReroll(data,roll(),cert)).toBeUndefined();
-  });
+
   it('integrates exact tent-prior bin mass when the mode falls inside a bin',()=>{
-    const data=fixture();onlyZone(data);
-    data.authModel[0].typical=47.3;
+    const data=fixture();zoneRange(data,15,75,47.3);
     data.gear[0].authenticated=true;data.gear[0].authentication={kind:'Normal',effect:'Bid Zone Width',value:47.4};
     const result=analyseConditionalNumberReroll(data,roll('Head',{newValue:47.4}),cert)!;
     const x=47.4,mode=47.3;
     const integral=.15*(x-15)+(mode-15)/2+(x-mode)-(x-mode)**2/(2*(75-mode));
-    expect(result.chanceMainWorsePct).toBeCloseTo(integral/(.65*60)*100,8);
+    expect(result.worseChancePct).toBeCloseTo(integral/(.65*60)*100,8);
     expect(result.resolvedMassPct).toBeCloseTo(100,8);
-    expect(result.chanceMainWorseUpperBoundPct).toBeGreaterThan(result.chanceMainWorsePct);
-  });
-  it('retains useful grading recommendations in native expected-value points',()=>{
-    const data=fixture();onlyZone(data);
-    data.gear.push({...structuredClone(data.gear[0]),id:'strong-head',stats:{...ZERO_STATS,luck:120}});
-    const limited={...cert,type:'Limited Certificate of Authenticity' as const};
-    data.authModel[0]={...data.authModel[0],certificateType:limited.type,certificateInventoryType:limited.type,outcome:'Grade Re-Roll',min:10,max:25};
-    const target=analyseCertificate(data,limited,undefined,'Head').recommendedTarget!;
-    expect(target.expectedGradingLowerBound).toBeGreaterThan(.25);
-    expect(target.expectedGradingPct).toBeLessThan(1.78);
-    expect(target.verdict).toBe('CONSIDER');
-    expect(target.decisionBasis).toBe('Grading');
-  });
-  it('uses continuous specialist utility points at zero and tiny baselines',()=>{
-    expect(specialistUtilityDelta(1,0)).toBe(1);
-    expect(specialistUtilityDelta(1.001,.001)).toBeCloseTo(1,12);
-    const zero=fixture();onlyZone(zero);
-    zero.authModel[0]={...zero.authModel[0],outcome:'Energy Drink Time',min:1,max:2};
-    const tiny=structuredClone(zero);tiny.gear[0].stats.energy=.001;
-    const a=analyseCertificate(zero,cert,undefined,'Head').recommendedTarget!;
-    const b=analyseCertificate(tiny,cert,undefined,'Head').recommendedTarget!;
-    expect(b.expectedDrinkPrepPct).toBeCloseTo(a.expectedDrinkPrepPct,8);
-    expect(b.verdict).toBe(a.verdict);
+    expect(result.worseChanceUpperPct).toBeGreaterThan(result.worseChancePct);
   });
 });

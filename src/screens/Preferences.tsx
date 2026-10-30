@@ -59,7 +59,7 @@ function Section({ title, data, setData, section, note, children }: { title: str
 
 /** Stored model parameters stay editable here so earlier custom values remain reachable. */
 const MODEL_FIELDS: Array<[keyof Omit<AppData['settings'], 'version'>, string]> = [
-  ['arrowSweetSpot', 'Arrow band start %'], ['zoneBreakpoint1', 'Zone breakpoint 1'], ['zoneBreakpoint2', 'Zone breakpoint 2'],
+  ['arrowTargetMin', 'Arrow band start %'], ['arrowTargetMax', 'Arrow band end %'], ['mainMaterialLossPct', 'Allowed main-set loss for a certificate %'], ['zoneBreakpoint1', 'Zone breakpoint 1'], ['zoneBreakpoint2', 'Zone breakpoint 2'],
   ['zoneMultiplier2', 'Zone middle multiplier'], ['zoneMultiplier3', 'Zone upper multiplier'], ['energyTarget', 'Energy target'],
   ['energyCeiling', 'Energy ceiling'], ['energySecondStageMultiplier', 'Energy above-target multiplier']
 ];
@@ -84,7 +84,7 @@ export function Preferences({ data, setData, cloud }: { data: AppData; setData: 
     {message && <Notice tone={message.tone}>{message.text}</Notice>}
 
     <Section title="Auctions" section="Auctions" data={data} setData={setData}
-      note={`Reaching ${arrowTargetBand(data.settings).min}–${arrowTargetBand(data.settings).max}% Bid Arrow reduction always comes first.`} />
+      note={`Staying inside ${arrowTargetBand(data.settings).min}–${arrowTargetBand(data.settings).max}% Bid Arrow reduction always comes first; inside it, more Arrow adds nothing.`} />
     <Section title="Drink Prep" section="Drink Prep" data={data} setData={setData} />
     <Section title="Grading" section="Grading" data={data} setData={setData} />
     <Section title="Shop / Idle" section="Shop / Idle" data={data} setData={setData} />

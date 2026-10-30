@@ -4,7 +4,7 @@ import type {
 } from '../types';
 import { algorithmIssues } from './settingsValidation';
 import { findDominator } from './dominance';
-import { arrowEffective, arrowTargetBand, combineStats, effectiveItemStats, energyEffective, scoreStandalone, zoneEffective } from './scoring';
+import { arrowBandDistance, arrowEffective, arrowTargetBand, combineStats, effectiveItemStats, energyEffective, scoreStandalone, zoneEffective } from './scoring';
 import { MODEL_ASSUMPTIONS } from './modelAssumptions';
 import { hasUnknownEffect } from './effects';
 
@@ -28,9 +28,9 @@ export interface GearLoadoutResult {
   stats: GearStats;
   utility: number;
   mainUtility: number;
-  /** 1 when the set reaches the ideal Bid Arrow band. Ranks before `utility` for auction sets
-   * and before `mainUtility` as every tie-break: reaching the band always comes first. */
-  arrowTier: number;
+  /** Points of combined Bid Arrow outside the required band (0 = inside). Smaller ranks
+   * before `utility` for auction sets and before `mainUtility` as every tie-break. */
+  arrowDistance: number;
   tiedItemIds: Set<string>;
   rationale: string;
 }
@@ -139,6 +139,7 @@ export function mainAuctionUtility(
   return luck*settings.luckWeight
     + arrowEffective(stats.arrowReduction,settings)*settings.arrowWeight
     + zoneEffective(stats.zone,settings)*settings.zoneWeight
+    + energyEffective(stats.energy,settings)*settings.energyWeight
     + stats.recovery*settings.recoveryWeight;
 }
 
@@ -153,12 +154,13 @@ export function mainCombination(
   const arrow=arrowEffective(stats.arrowReduction,settings)*settings.arrowWeight;
   const zone=zoneEffective(stats.zone,settings)*settings.zoneWeight;
   const recovery=stats.recovery*settings.recoveryWeight;
-  const total=luck+arrow+zone+recovery;
+  const energy=energyEffective(stats.energy,settings)*settings.energyWeight;
+  const total=luck+arrow+zone+energy+recovery;
   const passive=extraLuck*settings.luckWeight;
   const score:ScoreBreakdown={
     core:total-passive, passive, total,
     luck, arrow, zone, recovery,
-    npc:0, energy:0, tip:0, vehicle:0, walk:0,
+    npc:0, energy, tip:0, vehicle:0, walk:0,
     passiveDetails: extraLuck?[{label:'Dynamic / contextual Luck',score:passive}]:[],
     hasUnknownProtectedPassive:false, hasProvisionalPassive:false
   };
@@ -201,20 +203,17 @@ function drinkValue(stats:GearStats,settings:AlgorithmSettings):number {
 
 /** One evaluated trio. Combined stats and the robust Main tie-break are computed once
  * and shared by every loadout, instead of once per loadout utility. */
-interface Trio { items:GearItem[]; stats:GearStats; main:number; tier:number; key:string }
+interface Trio { items:GearItem[]; stats:GearStats; main:number; dist:number; key:string }
 
-/** Main Auction priority: reaching the Bid Arrow band (65% by default) comes before
- * everything else; only then do Luck and the other weighted stats decide. Combined
- * Arrow is unaffected by dynamic Luck states and contexts, so the tier is per trio. */
-export function arrowBandReached(stats:Pick<GearStats,'arrowReduction'>,settings:AlgorithmSettings):boolean {
-  return stats.arrowReduction>=settings.arrowSweetSpot-1e-9;
+/** Auction priority: being inside the Bid Arrow band (70-90% by default) comes before
+ * everything else; outside it, the set nearer the band wins, whichever side it is on.
+ * Combined Arrow is unaffected by dynamic Luck states and contexts, so this is per trio. */
+export function arrowDistance(stats:Pick<GearStats,'arrowReduction'>,settings:AlgorithmSettings):number {
+  return arrowBandDistance(stats.arrowReduction,settings);
 }
 
-/** Arrow tier of a set, compared before any score: 2 inside the ideal band (65-80% by
- * default), 1 above it (the band is reached but overshot), 0 below it. */
-export function arrowTier(stats:Pick<GearStats,'arrowReduction'>,settings:AlgorithmSettings):number {
-  if(!arrowBandReached(stats,settings))return 0;
-  return stats.arrowReduction<=arrowTargetBand(settings).max+1e-9?2:1;
+export function inArrowBand(stats:Pick<GearStats,'arrowReduction'>,settings:AlgorithmSettings):boolean {
+  return arrowDistance(stats,settings)<=1e-9;
 }
 
 function allTrios(gear:GearItem[],settings:AlgorithmSettings):Trio[] {
@@ -232,7 +231,7 @@ function allTrios(gear:GearItem[],settings:AlgorithmSettings):Trio[] {
   for(const h of heads)for(const b of backs)for(const w of wrists){
     const items=[h,b,w],stats=sum(own(h),own(b),own(w));
     out.push({items,stats,main:mainAuctionUtility(items,settings,'Neutral','low',stats),
-      tier:arrowTier(stats,settings),key:h.id+'|'+b.id+'|'+w.id});
+      dist:arrowDistance(stats,settings),key:h.id+'|'+b.id+'|'+w.id});
   }
   return out;
 }
@@ -243,23 +242,23 @@ function makeResult(
   dynamic:DynamicScenario|DynamicState='low', auction=false
 ):GearLoadoutResult|undefined {
   if(!trios.length)return undefined;
-  // Auction sets: Arrow band first, then utility. Specialists: utility first. Ties then
-  // fall to the Main priority (band, then robust Main score), then trio IDs.
-  const scored=trios.map(trio=>({trio,u:utility(trio),rank:auction?trio.tier:0}));
+  // Auction sets: distance to the Arrow band first, then utility. Specialists: utility
+  // first. Ties then fall to the Main priority (band distance, robust Main score), then IDs.
+  const scored=trios.map(trio=>({trio,u:utility(trio),rank:auction?trio.dist:0}));
   const better=(x:typeof scored[number],y:typeof scored[number])=>
-    x.rank!==y.rank?x.rank>y.rank:x.u!==y.u?x.u>y.u:x.trio.tier!==y.trio.tier?x.trio.tier>y.trio.tier
+    x.rank!==y.rank?x.rank<y.rank:x.u!==y.u?x.u>y.u:x.trio.dist!==y.trio.dist?x.trio.dist<y.trio.dist
       :x.trio.main!==y.trio.main?x.trio.main>y.trio.main:x.trio.key.localeCompare(y.trio.key)<0;
   let best=scored[0];
   for(const x of scored)if(better(x,best))best=x;
   if(requirePositive&&best.u<=1e-9)return undefined;
   const epsilon=1e-9;
-  const tied=scored.filter(x=>x.rank===best.rank&&x.trio.tier===best.trio.tier&&Math.abs(x.u-best.u)<=epsilon&&Math.abs(x.trio.main-best.trio.main)<=epsilon);
+  const tied=scored.filter(x=>x.rank===best.rank&&x.trio.dist===best.trio.dist&&Math.abs(x.u-best.u)<=epsilon&&Math.abs(x.trio.main-best.trio.main)<=epsilon);
   const tiedItemIds=new Set(tied.flatMap(x=>x.trio.items.map(i=>i.id)));
   const items=best.trio.items,stats=best.trio.stats;
   return {
     name,context,head:items[0],back:items[1],wrist:items[2],
     stats:{...stats,luck:stats.luck+dynamicLuck(items,context??'Neutral',dynamic)},utility:best.u,mainUtility:best.trio.main,
-    arrowTier:best.trio.tier,tiedItemIds,rationale
+    arrowDistance:best.trio.dist,tiedItemIds,rationale
   };
 }
 
@@ -270,7 +269,7 @@ export function buildGearLoadouts(
   const specialists=activeSpecialists(settings);
   const auction=(context:MainAuctionContext)=>(t:Trio)=>mainAuctionUtility(t.items,settings,context,dynamic,t.stats);
   return {
-    main:makeResult('Main Auction',trios,auction('Neutral'),settings,'Neutral','Primary loadout: reach the Bid Arrow band first, then Luck, Bid Zone and Recovery.',false,dynamic,true),
+    main:makeResult('Main Auction',trios,auction('Neutral'),settings,'Neutral','Primary loadout: get inside the Bid Arrow band first, then Luck, Bid Zone, Energy and Recovery.',false,dynamic,true),
     day:makeResult('Day Auction',trios,auction('Day'),settings,'Day','Main Auction with Sunny effects active.',false,dynamic,true),
     night:makeResult('Night Auction',trios,auction('Night'),settings,'Night','Main Auction with Nocturnal effects active.',false,dynamic,true),
     rain:makeResult('Rain Auction',trios,auction('Rain'),settings,'Rain','Main Auction with Raindrop effects active.',false,dynamic,true),
@@ -297,7 +296,7 @@ export function membershipsForItem(
 function uncertainProtection(item:GearItem):string|undefined {
   if(!hasUnknownEffect(item))return undefined;
   const effect=item.authentication.effect.trim();
-  if(effect==='Focused'||effect==='Focus')return 'Focused is A-tier for this profile but its exact numerical formula is still unresolved, so this item cannot be irreversibly discarded.';
+  if(effect==='Focused'||effect==='Focus')return "Focused boosts this item's strongest native stat by an unresolved amount, so this item cannot be irreversibly discarded.";
   return effect+' is not yet modelled, so this item cannot be irreversibly discarded.';
 }
 
@@ -330,12 +329,31 @@ function buildMembershipMap(gear:GearItem[],settings:AlgorithmSettings):Map<stri
   return map;
 }
 
+/** Swapping `item` for `candidate` never hurts any auction set that can be built from the
+ * current inventory: for every trio containing the item, in every context and preset
+ * dynamic state, the swapped trio is no further from the Arrow band and scores at least
+ * as much. This is how a different Arrow value can still prove redundancy. */
+function substitutionSafe(item:GearItem,candidate:GearItem,gear:GearItem[],settings:AlgorithmSettings):boolean {
+  const others=(slot:GearItem['slot'])=>gear.filter(g=>g.slot===slot&&g.id!==item.id&&g.id!==candidate.id);
+  const [slotA,slotB]=(['Head','Back','Wrist'] as const).filter(s=>s!==item.slot);
+  const contexts:MainAuctionContext[]=['Neutral','Day','Night','Rain'];
+  const states:DynamicScenario[]=['low','central','high'];
+  for(const a of others(slotA))for(const b of others(slotB)){
+    const before=combineStats([item,a,b]),after=combineStats([candidate,a,b]);
+    if(arrowDistance(after,settings)>arrowDistance(before,settings)+1e-9)return false;
+    for(const context of contexts)for(const state of states){
+      if(mainAuctionUtility([candidate,a,b],settings,context,state,after)<mainAuctionUtility([item,a,b],settings,context,state,before)-1e-9)return false;
+    }
+  }
+  return true;
+}
+
 /** Discard is stat by stat: a replacement must be at least as good on every stat that
  * matters (importance above 0), so no trade-off between stats can make an item redundant.
- * Componentwise bounds also stay valid when future complementary gear moves a stat across
- * a saturation breakpoint.
+ * Arrow is a band, not a stat where more is better: a replacement must have the same
+ * Arrow, or pass the substitution proof above against every trio in the inventory.
  */
-function futureSafeDominator(item:GearItem,candidates:GearItem[],settings:AlgorithmSettings) {
+function futureSafeDominator(item:GearItem,candidates:GearItem[],settings:AlgorithmSettings,gear:GearItem[]) {
   const target=effectiveItemStats(item);
   const specialists=activeSpecialists(settings);
   const drink=specialists.includes('Drink Prep');
@@ -344,28 +362,27 @@ function futureSafeDominator(item:GearItem,candidates:GearItem[],settings:Algori
   const specialistSafe=candidates.filter(candidate=>{
     const stats=effectiveItemStats(candidate);
     // Ignored specialists (priority 0) and zero-importance Shop stats impose no requirement.
-    // Less raw Arrow could drop a future set out of the Arrow band, which outranks any score.
-    return stats.arrowReduction>=target.arrowReduction
-      && (settings.luckWeight<=0||stats.luck>=target.luck)
+    return (settings.luckWeight<=0||stats.luck>=target.luck)
       && (settings.zoneWeight<=0||stats.zone>=target.zone)
       && (settings.recoveryWeight<=0||stats.recovery>=target.recovery)
-      && (!drink||stats.energy>=target.energy)
+      && ((!drink&&settings.energyWeight<=0)||stats.energy>=target.energy)
       && (!shop||settings.shopTipWeight<=0||stats.tip>=target.tip)
       && (!shop||settings.shopNpcWeight<=0||stats.npc>=target.npc)
       && (!grading||gradeRerollValue([candidate])>=gradeRerollValue([item]))
       // A future companion with Mutated Luck reads every member's mutation.
-      && mutationLuckForItem(candidate)>=mutationLuckForItem(item);
+      && mutationLuckForItem(candidate)>=mutationLuckForItem(item)
+      && (Math.abs(stats.arrowReduction-target.arrowReduction)<=.05||substitutionSafe(item,candidate,gear,settings));
   });
   // Being strictly better on a stat for an active specialist also counts as beating the
   // item: a tiny weight makes it register without ever outweighing a Main stat.
   const tiny=1e-6;
   const mainSettings={...settings,vehicleWeight:0,walkWeight:0,
-    energyWeight:drink?tiny:0,
+    energyWeight:settings.energyWeight>0?settings.energyWeight:drink?tiny:0,
     tipWeight:shop&&settings.shopTipWeight>0?tiny:0,
     npcWeight:shop&&settings.shopNpcWeight>0?tiny:0};
   const dominance=findDominator(item,specialistSafe,mainSettings);
   if(!dominance.dominated && specialistSafe.length!==candidates.length) {
-    dominance.reason='No other item in this slot is at least as good on every stat that matters (Luck, Arrow, Zone, Recovery, Energy, Tip, NPC, Grade Re-Roll and Mutated Luck).';
+    dominance.reason='No other item in this slot is at least as good on every stat that matters (Luck, Zone, Energy, Recovery, Tip, NPC, Grade Re-Roll and Mutated Luck) while keeping every set just as close to the Bid Arrow band.';
   }
   return dominance;
 }
@@ -412,7 +429,7 @@ export function analyseGearRetention(gear:GearItem[],settings:AlgorithmSettings)
       };
     }
     const sameSlot=gear.filter(x=>x.slot===item.slot&&x.id!==item.id);
-    const dominance=futureSafeDominator(item,sameSlot,settings);
+    const dominance=futureSafeDominator(item,sameSlot,settings,gear);
     if(dominance.dominated){
       return {
         item,verdict:'SAFE TO DISCARD',

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ZERO_STATS } from '../defaults';
-import { activeCertificateOutcomeOptions } from '../authentication';
+import { activeCertificateOutcomeOptions, canonicalEffect, currentPool } from '../authentication';
 import { authModelTypeForOwnedCertificate, withObservedAuthenticationStats } from '../engine/certificateRolls';
 import { addOutcomeToItem, removeNumericAuthentication } from '../engine/dominance';
 import { optimise } from '../engine/optimizer';
-import { arrowTier } from '../engine/gearLoadouts';
+import { arrowDistance } from '../engine/gearLoadouts';
 import { effectiveItemStats, gameArrowToReduction, reductionToGameArrow } from '../engine/scoring';
 import { CERTIFICATE_TYPES, certificateLabel, type CertificateBatchInput } from '../engine/certificateInventory';
 import { authModelCertificateType } from '../engine/authModel';
@@ -45,11 +45,11 @@ export function RecordResultEditor({ data, certificate, initialItemId, onClose, 
   const setFinal = (key: keyof GearStats, value: number) => setFinalStats(current => ({ ...ZERO_STATS, ...current, [key]: Number.isFinite(value) ? value : 0 }));
   const save = () => {
     if (!item || !preview) return;
-    // Same ranking as Best setup: the Arrow tier first, then the score.
-    const best = (gear: GearItem[]) => { const top = optimise(gear, data.settings, 1)[0]; return { tier: top ? arrowTier(top.stats, data.settings) : 0, score: top?.score.total ?? 0 }; };
+    // Same ranking as Best setup: distance to the Arrow band first, then the score.
+    const best = (gear: GearItem[]) => { const top = optimise(gear, data.settings, 1)[0]; return { distance: top ? arrowDistance(top.stats, data.settings) : Infinity, score: top?.score.total ?? 0 }; };
     const was = best(data.gear), now = best(data.gear.map(g => g.id === preview.id ? preview : g));
     const before = was.score, after = now.score;
-    const improved = now.tier > was.tier || (now.tier === was.tier && after > before);
+    const improved = now.distance < was.distance || (now.distance === was.distance && after > before);
     onSave({ id: crypto.randomUUID(), date: new Date().toISOString(), certificateType: type, itemId: item.id, itemName: item.name, slot: item.slot,
       previousAuthentication: item.authentication.effect, previousValue: item.authentication.value, newAuthentication: newAuth, newValue,
       improvedBestSet: improved, bestScoreBefore: before, bestScoreAfter: after, certificateId: certificate.id,
@@ -63,7 +63,7 @@ export function RecordResultEditor({ data, certificate, initialItemId, onClose, 
     <p className="modalMeta">{certificateLabel(certificate)} · {certificate.quantity} left</p>
     <div className="formGrid">
       <label className="wide">Item<select value={itemId} onChange={e => setItemId(e.target.value)}>{data.gear.map(g => <option value={g.id} key={g.id}>{itemTitle(g)} · {g.slot}</option>)}</select></label>
-      <label>Result<select value={newAuth} onChange={e => setNewAuth(e.target.value)}><option value="">Select</option>{activeCertificateOutcomeOptions(item?.slot, data.authModel, kind, certificate.type).map(a => <option key={a}>{a}</option>)}</select></label>
+      <label>Result<select value={newAuth} onChange={e => setNewAuth(e.target.value)}><option value="">Select</option>{activeCertificateOutcomeOptions(item?.slot, kind, certificate.type).map(a => <option key={a}>{a}</option>)}</select></label>
       <label>Value %<NumberInput value={newValue} onValue={setNewValue} /></label>
     </div>
     {finalStats && newAuth && <details className="compactDetails"><summary>Stats shown in game</summary><div className="formGrid">
@@ -81,7 +81,7 @@ export function HistoryEditor({ data, roll, onClose, onSave, onDelete }: {
   const kind = roll.certificateType.startsWith('Premium') ? 'Premium' : roll.certificateType.startsWith('Limited') ? 'Limited' : 'Normal';
   const [effect, setEffect] = useState(roll.newAuthentication);
   const [value, setValue] = useState(roll.newValue);
-  const options = activeCertificateOutcomeOptions(roll.slot, data.authModel, kind, roll.certificateInventoryType);
+  const options = activeCertificateOutcomeOptions(roll.slot, kind, roll.certificateInventoryType);
   return <Modal title="Fix history entry" onClose={onClose} actions={<>
     <button className="danger" onClick={onDelete}>Delete entry</button>
     <button className="secondary" onClick={onClose}>Cancel</button>
@@ -128,19 +128,18 @@ export function CatalogueRow({ entry, onChange, onDelete }: { entry: AuthModelEn
     entry.certificateType === 'Premium Certificate of Authenticity' ? 'Premium Certificate of Authenticity' :
     entry.certificateType === 'Limited Certificate of Authenticity' ? 'Limited Certificate of Authenticity' : 'Wooden Certificate of Authenticity');
   const optional = (value: string) => value === '' ? undefined : Number(value);
+  const current = (['Head', 'Back', 'Wrist'] as const).some(slot => (entry.slot === 'Any' || entry.slot === slot) && currentPool(inventoryType, slot).includes(canonicalEffect(entry.outcome)));
   return <details className="modelRow">
-    <summary><span>{entry.outcome}</span><span>{inventoryType.replace(' Certificate of Authenticity', '')} · {entry.slot}{entry.enabled ? '' : ' · off'}</span></summary>
+    <summary><span>{entry.outcome}</span><span>{inventoryType.replace(' Certificate of Authenticity', '')} · {entry.slot}{current ? '' : ' · history only'}</span></summary>
     <div className="formGrid">
       <label className="wide">Outcome<input value={entry.outcome} onChange={e => onChange({ ...entry, outcome: e.target.value })} /></label>
       <label>Certificate<select value={inventoryType} onChange={e => { const t = e.target.value as OwnedCertificate['type']; onChange({ ...entry, certificateInventoryType: t, certificateType: authModelCertificateType(t) }); }}>{CERTIFICATE_TYPES.map(t => <option key={t} value={t}>{t.replace(' Certificate of Authenticity', '')}</option>)}</select></label>
       <label>Slot<select value={entry.slot} onChange={e => onChange({ ...entry, slot: e.target.value as AuthModelEntry['slot'] })}><option>Any</option><option>Head</option><option>Back</option><option>Wrist</option></select></label>
-      <label>Relative weight<select value={entry.assumedLikelihoodClass} onChange={e => onChange({ ...entry, assumedLikelihoodClass: e.target.value as AuthModelEntry['assumedLikelihoodClass'] })}>{['VERY HIGH','HIGH','MEDIUM','LOW','VERY LOW'].map(x => <option key={x}>{x}</option>)}</select></label>
       <label>Confidence<select value={entry.confidence} onChange={e => onChange({ ...entry, confidence: e.target.value as AuthModelEntry['confidence'] })}>{['Unknown','Low','Medium','High','Empirical'].map(x => <option key={x}>{x}</option>)}</select></label>
       <label>Min<input type="number" step="any" value={entry.min ?? ''} onChange={e => onChange({ ...entry, min: optional(e.target.value) })} /></label>
       <label>Typical<input type="number" step="any" value={entry.typical ?? ''} onChange={e => onChange({ ...entry, typical: optional(e.target.value) })} /></label>
       <label>Max<input type="number" step="any" value={entry.max ?? ''} onChange={e => onChange({ ...entry, max: optional(e.target.value) })} /></label>
-      <label className="check"><input type="checkbox" checked={entry.enabled} onChange={e => onChange({ ...entry, enabled: e.target.checked })} /> Enabled</label>
-      <p className="wide modalMeta">{entry.observedSampleCount} observed</p>
+      <p className="wide modalMeta">{entry.observedSampleCount} observed{current ? ' · ranges only: which outcomes exist and their equal odds are fixed game data' : ' · not a current outcome of this certificate, kept for history'}</p>
       <button className="danger wide" onClick={onDelete}>Delete outcome</button>
     </div>
   </details>;

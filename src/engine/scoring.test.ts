@@ -9,16 +9,17 @@ function item(name:string,stats:Partial<GearStats>,effect='',value=0,kind?:GearI
   return {id:name,baseName:name,name,slot:'Wrist',stats:{luck:0,energy:0,tip:0,walk:0,vehicle:0,recovery:0,zone:0,arrowReduction:0,npc:0,...stats},authenticated:!!effect,authentication:{kind:kind??(effect?'Normal':'None'),effect,value},favourite:false,createdAt:now,updatedAt:now};
 }
 
-describe('Main Auction scoring 2.1',()=>{
+describe('Main Auction scoring 2.2',()=>{
   it('uses the user-approved priorities',()=>{
-    expect(s.version).toBe('2.1');
+    expect(s.version).toBe('2.2');
     expect(s.luckWeight).toBe(1);
     // Confirmed requirement: Arrow's default priority equals Luck, as the same coefficient.
     expect(s.arrowWeight).toBe(s.luckWeight);
-    expect(s.arrowSweetSpot).toBe(65);
+    expect([s.arrowTargetMin,s.arrowTargetMax]).toEqual([70,90]);
     expect(s.zoneWeight).toBe(.6);
     expect(s.recoveryWeight).toBe(.2);
-    expect(s.energyWeight).toBe(0);
+    expect(s.energyWeight).toBe(.3);
+    expect(s.mainMaterialLossPct).toBe(2);
     expect(s.npcWeight).toBe(0);
     expect(s.tipWeight).toBe(0);
     expect(s.walkWeight).toBe(0);
@@ -31,20 +32,15 @@ describe('Main Auction scoring 2.1',()=>{
     expect(scoreStandalone(item('Luck 400',{luck:400}),s).luck).toBe(400);
   });
 
-  it('treats every combined Bid Arrow value from 65% through 80% as equally ideal',()=>{
-    expect(arrowTargetBand(s)).toEqual({min:65,max:80});
+  it('treats every combined Bid Arrow value from 70% through 90% as equally good',()=>{
+    expect(arrowTargetBand(s)).toEqual({min:70,max:90});
     // Below the band value still rises.
     expect(arrowEffective(50,s)).toBe(50);
-    expect(arrowEffective(64.9,s)).toBeCloseTo(64.9,8);
-    expect(arrowEffective(50,s)).toBeLessThan(arrowEffective(64,s));
-    // 65, 75 and 80 are all the maximum.
-    expect(arrowEffective(65,s)).toBe(65);
-    expect(arrowEffective(75,s)).toBe(65);
-    expect(arrowEffective(80,s)).toBe(65);
-    // Above 80 adds nothing and is not penalised.
-    expect(arrowEffective(86,s)).toBe(65);
-    expect(arrowEffective(130,s)).toBe(65);
-    for(const arrow of [65,75,85,130])expect(scoreStandalone(item('Arrow '+arrow,{arrowReduction:arrow}),s).arrow).toBeCloseTo(65,8);
+    expect(arrowEffective(69.9,s)).toBeCloseTo(69.9,8);
+    expect(arrowEffective(50,s)).toBeLessThan(arrowEffective(69,s));
+    // 70 through 90 are all the same; more Arrow never adds value.
+    for(const arrow of [70,75,80,85,90,91,130])expect(arrowEffective(arrow,s)).toBe(70);
+    for(const arrow of [70,75,85,130])expect(scoreStandalone(item('Arrow '+arrow,{arrowReduction:arrow}),s).arrow).toBeCloseTo(70,8);
   });
 
   it('weights Luck and in-band Arrow points equally by default',()=>{
@@ -57,9 +53,13 @@ describe('Main Auction scoring 2.1',()=>{
     expect(gameArrowToReduction(-24)).toBe(24);
   });
 
-  it('keeps specialist stats out of Main Auction scoring',()=>{
-    const specialist=item('Specialist',{energy:100,npc:40,tip:15,walk:50,vehicle:50});
+  it('keeps shop and travel stats out of Main Auction scoring, and gives Energy diminishing returns',()=>{
+    const specialist=item('Specialist',{npc:40,tip:15,walk:50,vehicle:50});
     expect(scoreStandalone(specialist,s).total).toBe(0);
+    // Full value to 50%, a tenth from 50% to 100%, nothing above 100%.
+    expect(scoreStandalone(item('E50',{energy:50}),s).energy).toBeCloseTo(50*.3,8);
+    expect(scoreStandalone(item('E100',{energy:100}),s).energy).toBeCloseTo((50+5)*.3,8);
+    expect(scoreStandalone(item('E150',{energy:150}),s).energy).toBeCloseTo((50+5)*.3,8);
   });
 
   it('still applies numeric authentication to the underlying stat before scoring',()=>{

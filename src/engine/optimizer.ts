@@ -1,6 +1,6 @@
 import type { AlgorithmSettings, CombinationResult, GearItem, ItemAnalysis, Slot } from '../types';
 import { arrowEffective, combineStats } from './scoring';
-import { analyseGearRetention, arrowTier, mainCombination } from './gearLoadouts';
+import { analyseGearRetention, arrowDistance, mainCombination } from './gearLoadouts';
 
 export function evaluateCombination(head: GearItem, back: GearItem, wrist: GearItem, settings: AlgorithmSettings): CombinationResult {
   return mainCombination(head, back, wrist, settings, 'Neutral', 'low');
@@ -22,10 +22,10 @@ function combinationKey(value:CombinationResult):string {
   return [value.head.id,value.back.id,value.wrist.id].join('|');
 }
 
-/** Same Main priority as the loadout engine: Arrow tier first, then score. */
+/** Same Main priority as the loadout engine: distance to the Arrow band first, then score. */
 function compareCombination(a:CombinationResult,b:CombinationResult,settings:AlgorithmSettings):number {
-  const tier=(c:CombinationResult)=>arrowTier(c.stats,settings);
-  return tier(b)-tier(a) || b.score.total-a.score.total || combinationKey(a).localeCompare(combinationKey(b));
+  const distance=(c:CombinationResult)=>arrowDistance(c.stats,settings);
+  return distance(a)-distance(b) || b.score.total-a.score.total || combinationKey(a).localeCompare(combinationKey(b));
 }
 
 function insertRanked(list: CombinationResult[], value: CombinationResult, limit: number, settings: AlgorithmSettings) {
