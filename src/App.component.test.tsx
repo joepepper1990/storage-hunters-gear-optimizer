@@ -18,6 +18,7 @@ vi.mock('./data/storage', async importOriginal => {
       store.saved.push(data);
     }),
     saveEmergencyMirror: vi.fn(),
+    keepThisWindow: vi.fn(async (data: unknown) => { store.conflicted = false; store.saved.push(data); }),
     onSavedElsewhere: vi.fn((callback: () => void) => { store.notify = callback; return () => { store.notify = undefined; }; })
   };
 });
@@ -111,8 +112,13 @@ describe('newer data saved by another window', () => {
     await addGear(root);
     await type(labelled(root, 'Name') as HTMLInputElement, 'Unsaved Visor');
     await click(button(root, 'Save'));
-    await waitFor(() => byText(root, '.banner', /Another window saved newer data/));
-    expect(byText(root, '.banner', /Download this window's changes/)).toBeTruthy();
+    await waitFor(() => byText(root, '.banner', /also open somewhere else/));
+    expect(byText(root, '.banner', /also open somewhere else/)).toBeTruthy();
+    expect(button(root, 'Use the other copy')).toBeTruthy();
+    // One tap keeps this window's changes instead of losing them.
+    await click(button(root, 'Keep my changes'));
+    await waitFor(() => expect(root.querySelector('.banner')).toBeNull());
+    expect(lastSaved().gear.map(g => g.baseName)).toEqual(['Unsaved Visor']);
     expect(store.loads).toBe(loadsBefore);
     expect(byText(root, '.itemRow strong', 'Unsaved Visor')).toBeTruthy();
   });

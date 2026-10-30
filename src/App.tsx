@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { makeEmptyData } from './defaults';
-import { exportJson, loadData, onSavedElsewhere, saveData, saveEmergencyMirror } from './data/storage';
+import { exportJson, keepThisWindow, loadData, onSavedElsewhere, saveData, saveEmergencyMirror } from './data/storage';
 import { algorithmIssues } from './engine/settingsValidation';
 import { useCertificateAnalysis, useGearAnalysis } from './hooks/useAnalysis';
 import { useCloudSync } from './hooks/useCloudSync';
@@ -27,7 +27,7 @@ export const TABS: Array<{ tab: Exclude<Tab, 'Settings'>; label: string; icon: s
   { tab: 'Certificates', label: 'Certificates', icon: '◈' }
 ];
 
-const CONFLICT_WITH_CHANGES = 'Another window saved newer data. Download this window\'s changes, then Reload.';
+const CONFLICT_WITH_CHANGES = 'This app is also open somewhere else (another tab or the Home Screen app), and it saved first. Your changes here are not saved yet.';
 const isConflict = (error: unknown) => (error as { name?: string } | undefined)?.name === 'StorageConflictError';
 
 function applyTheme(theme: AppData['theme']) {
@@ -116,8 +116,14 @@ export default function App() {
     </header>
     {saveError && <div className="notice dangerNotice banner" role="alert">{saveError}
       <div className="actions">
-        <button onClick={() => downloadText(`storage-hunters-backup-${dateStamp()}.json`, exportJson(data), 'application/json')}>Download</button>
-        <button onClick={() => { if (confirm('Reload saved data? Download this tab first to keep its edits.')) window.location.reload(); }}>Reload</button>
+        {saveError === CONFLICT_WITH_CHANGES && <button onClick={() => {
+          if (!confirm('Keep this window\'s data? It replaces what the other copy saved.')) return;
+          const kept = data;
+          keepThisWindow(kept).then(() => { if (latest.current === kept) dirty.current = false; setSaveError(''); })
+            .catch(error => setSaveError(isConflict(error) ? CONFLICT_WITH_CHANGES : 'Not saved. Download a backup before leaving.'));
+        }}>Keep my changes</button>}
+        <button onClick={() => downloadText(`storage-hunters-backup-${dateStamp()}.json`, exportJson(data), 'application/json')}>Download backup</button>
+        <button onClick={() => { if (confirm(saveError === CONFLICT_WITH_CHANGES ? 'Use the other copy\'s data? This window\'s unsaved changes are lost unless you downloaded a backup.' : 'Reload saved data? Download a backup first to keep this window\'s edits.')) window.location.reload(); }}>{saveError === CONFLICT_WITH_CHANGES ? 'Use the other copy' : 'Reload'}</button>
       </div>
     </div>}
     {cloud.status === 'conflict' && <div className="notice warning banner" role="alert">
