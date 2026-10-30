@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { makeEmptyData } from '../defaults';
-import { keepThisWindow, loadData, saveData, StorageConflictError } from './storage';
+import { clearReplacedCopy, keepThisWindow, loadData, replacedCopy, saveData, StorageConflictError } from './storage';
 
 /** A minimal IndexedDB and localStorage, shared like two windows of one origin. */
 let stored: unknown;
@@ -18,7 +18,7 @@ let oldStorage: Storage, oldDb: IDBFactory;
 beforeEach(() => {
   stored = undefined; memory.clear();
   oldStorage = globalThis.localStorage; oldDb = globalThis.indexedDB;
-  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: (k: string) => memory.get(k) ?? null, setItem: (k: string, v: string) => memory.set(k, v) } });
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: (k: string) => memory.get(k) ?? null, setItem: (k: string, v: string) => memory.set(k, v), removeItem: (k: string) => memory.delete(k) } });
   Object.defineProperty(globalThis, 'indexedDB', { configurable: true, value: { open: () => asyncRequest(db) } });
 });
 afterEach(() => {
@@ -41,6 +41,10 @@ describe('keeping this window after another copy saved first', () => {
 
     await keepThisWindow(named('mine-2'));
     expect(storedId()).toBe('mine-2');
+    // What the other copy had saved is kept once, so it can be restored.
+    expect(replacedCopy()?.data.ownedCertificates[0].id).toBe('theirs');
+    clearReplacedCopy();
+    expect(replacedCopy()).toBeUndefined();
     await saveData(named('mine-3'));
     expect(storedId()).toBe('mine-3');
   });

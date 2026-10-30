@@ -55,9 +55,21 @@ export default function App() {
 
   useEffect(() => { loadData().then(setData).catch(error => setLoadError(error instanceof Error ? error.message : String(error))); }, []);
 
+  // Another copy of the app saved first while this window has its own edits: the window being
+  // used wins, silently. What it replaces is kept as a copy that Settings can restore.
+  const keepMine = (attempt = 0) => {
+    const mine = latest.current;
+    if (!mine) return;
+    keepThisWindow(mine).then(() => { if (latest.current === mine) dirty.current = false; setSaveError(''); })
+      .catch(error => {
+        if (isConflict(error) && attempt < 1) { keepMine(attempt + 1); return; }
+        setSaveError(isConflict(error) ? CONFLICT_WITH_CHANGES : 'Not saved. Download a backup before leaving.');
+      });
+  };
+
   const adoptSaved = () => loadData().then(fresh => {
-    // An edit made while reading would be lost by adopting; keep it and ask instead.
-    if (dirty.current) { setSaveError(CONFLICT_WITH_CHANGES); return; }
+    // An edit made while reading would be lost by adopting; this window's data wins instead.
+    if (dirty.current) { keepMine(); return; }
     adopted.current = fresh;
     setSaveError('');
     setData(fresh);
@@ -74,14 +86,14 @@ export default function App() {
         if (latest.current === data) dirty.current = false;
         setSaveError('');
       }).catch(error => {
-        if (isConflict(error) && !dirty.current) { void adoptSaved(); return; }
-        setSaveError(isConflict(error) ? CONFLICT_WITH_CHANGES : 'Not saved. Download a backup before leaving.');
+        if (isConflict(error)) { if (dirty.current) keepMine(); else void adoptSaved(); return; }
+        setSaveError('Not saved. Download a backup before leaving.');
       });
     }
     const flush = () => {
       if (!dirty.current) return; // Nothing unsaved in this window to protect.
       try { saveEmergencyMirror(data); }
-      catch (error) { setSaveError(isConflict(error) ? CONFLICT_WITH_CHANGES : error instanceof Error ? error.message : 'Recovery save failed. Download a backup.'); }
+      catch (error) { if (isConflict(error)) keepMine(); else setSaveError(error instanceof Error ? error.message : 'Recovery save failed. Download a backup.'); }
     };
     window.addEventListener('pagehide', flush);
     return () => window.removeEventListener('pagehide', flush);

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { makeEmptyData } from '../defaults';
 import { csvToGear, gearToCsv } from '../data/csv';
-import { exportJson, importJson } from '../data/storage';
+import { clearReplacedCopy, exportJson, importJson, replacedCopy } from '../data/storage';
 import type { AppData, GearItem } from '../types';
 import type { CloudSync } from '../hooks/useCloudSync';
 import { CLOUD_SETUP_SQL, cloudConfigProblem, OWNER_PROJECT } from '../data/cloud';
@@ -19,6 +19,7 @@ function prepareImportedGear(existing: GearItem[], incoming: GearItem[]): GearIt
 export function Settings({ data, setData, cloud }: { data: AppData; setData: SetData; cloud?: CloudSync }) {
   const jsonRef = useRef<HTMLInputElement>(null), csvRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<{ tone: 'info' | 'danger'; text: string }>();
+  const [replaced, setReplaced] = useState(() => replacedCopy());
 
   return <section aria-labelledby="settings-heading">
     <h1 id="settings-heading">Settings</h1>
@@ -28,6 +29,12 @@ export function Settings({ data, setData, cloud }: { data: AppData; setData: Set
 
     <div className="prefSection">
       <h2>Backup</h2>
+      {replaced && <p className="note replacedCopy">Copy replaced on {new Date(replaced.savedAt).toLocaleString()} ({replaced.data.gear.length} gear)
+        <button className="link" onClick={() => {
+          try { const restored = importJson(JSON.stringify(replaced.data)); if (confirm('Use the replaced copy instead of your current data?')) { setData(restored); clearReplacedCopy(); setReplaced(undefined); setMessage({ tone: 'info', text: 'Replaced copy restored' }); } }
+          catch (err) { setMessage({ tone: 'danger', text: `Restore failed: ${err instanceof Error ? err.message : 'invalid copy'}` }); }
+        }}>Restore</button>
+        <button className="link danger" onClick={() => { clearReplacedCopy(); setReplaced(undefined); }}>Delete</button></p>}
       <div className="buttonGrid">
         <button className="primary" onClick={() => downloadText(`storage-hunters-backup-${dateStamp()}.json`, exportJson(data), 'application/json')}>Download backup</button>
         <button className="secondary" onClick={() => jsonRef.current?.click()}>Restore backup</button>

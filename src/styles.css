@@ -155,3 +155,4 @@ label.check{flex-direction:row;align-items:center;gap:8px;min-height:44px}
 .importMore{width:100%;margin-top:8px}
 .chip{font-size:12px;font-weight:800;background:var(--surface2);border-radius:999px;padding:2px 8px}
 .zoomOverlay{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.85);display:grid;place-items:center;padding:16px}.zoomOverlay img{max-width:100%;max-height:100%}
+.replacedCopy{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin:0 0 10px}
