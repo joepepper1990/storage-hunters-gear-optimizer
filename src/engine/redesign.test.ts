@@ -7,7 +7,6 @@ import { analyseCertificate, analyseOwnedCertificates, compareCertificateTargets
 import { buildCertificateQueue } from './certificateQueue';
 import { addCertificateBatch, removeCertificateBatch, setCertificateQuantity, updateCertificateBatch } from './certificateInventory';
 import { applyRecordedCertificateRoll } from './certificateRolls';
-import { PREFERENCE_CONTROLS, controlsFor, resetPreferenceSection, roundedShares, setPreference, setWeightShare, sliderView, weightShares } from './preferences';
 import { optimiseTrophies } from './trophies';
 import { arrowTargetBand, effectiveItemStats, scoreStandalone } from './scoring';
 
@@ -40,14 +39,11 @@ describe('P1: unknown effects are protected for every authentication kind',()=>{
   });
 });
 
-describe('specialist priorities',()=>{
-  it('keep Drink Prep -> Grading -> Shop / Idle by default',()=>{
-    expect(activeSpecialists(s)).toEqual(['Drink Prep','Grading','Shop / Idle']);
-  });
-  it('reorder when the user changes priorities and drop ignored specialists',()=>{
-    expect(activeSpecialists({...s,shopPriority:10})).toEqual(['Shop / Idle','Drink Prep','Grading']);
-    expect(activeSpecialists({...s,drinkPriority:0})).toEqual(['Grading','Shop / Idle']);
-    expect(activeSpecialists({...s,shopTipWeight:0,shopNpcWeight:0})).toEqual(['Drink Prep','Grading']);
+describe('no specialist sets in the app',()=>{
+  it('builds no Drink Prep, Grading or Shop set with the fixed policy',()=>{
+    expect(activeSpecialists(s)).toEqual([]);
+    const spec={...s,drinkPriority:8,gradingPriority:6,shopPriority:4};
+    expect(activeSpecialists(spec)).toEqual(['Drink Prep','Grading','Shop / Idle']);
   });
 });
 
@@ -167,37 +163,7 @@ describe('P2: certificate batches',()=>{
   });
 });
 
-describe('preference sliders drive the engines',()=>{
-  const data=()=>{const d=makeInitialData();return d;};
-  it('maps every default to an exact integer position',()=>{
-    for(const control of PREFERENCE_CONTROLS){
-      const view=sliderView(control,data());
-      expect(view.custom,control.id).toBe(false);
-      expect(Number.isInteger(view.position)).toBe(true);
-    }
-    const luck=controlsFor('Auctions').find(c=>c.id==='luckWeight')!,arrow=controlsFor('Auctions').find(c=>c.id==='arrowWeight')!;
-    expect(sliderView(luck,data()).position).toBe(sliderView(arrow,data()).position);
-  });
-  it('round-trips positions without float residue and preserves custom values until changed',()=>{
-    const zone=PREFERENCE_CONTROLS.find(c=>c.id==='zoneWeight')!;
-    const set=setPreference(data(),zone,6);
-    expect(set.settings.zoneWeight).toBe(.6);
-    const custom={...data(),settings:{...data().settings,zoneWeight:.65,luckWeight:2.5}};
-    expect(sliderView(zone,custom)).toMatchObject({custom:true,exact:6.5});
-    const luck=PREFERENCE_CONTROLS.find(c=>c.id==='luckWeight')!;
-    expect(sliderView(luck,custom)).toMatchObject({custom:true,position:10,exact:25});
-    // Moving another slider leaves the custom values exact.
-    const moved=setPreference(custom,PREFERENCE_CONTROLS.find(c=>c.id==='recoveryWeight')!,3);
-    expect(moved.settings.zoneWeight).toBe(.65);
-    expect(moved.settings.luckWeight).toBe(2.5);
-  });
-  it('resets only the selected section',()=>{
-    const custom={...data(),settings:{...data().settings,zoneWeight:.65,drinkPriority:1,shopTipWeight:.9}};
-    const reset=resetPreferenceSection(custom,'Auctions');
-    expect(reset.settings.zoneWeight).toBe(s.zoneWeight);
-    expect(reset.settings.drinkPriority).toBe(1);
-    expect(reset.settings.shopTipWeight).toBe(.9);
-  });
+describe('scoring policy drives the engines',()=>{
   it('Luck and Zone sliders change the Main Auction trio, while the Arrow band always comes first',()=>{
     const items=[gear('lucky','Head',{luck:40,arrowReduction:70}),gear('zone','Head',{zone:80,arrowReduction:70}),gear('b','Back'),gear('w','Wrist')];
     const pick=(settings:AlgorithmSettings)=>buildGearLoadouts(items,settings).main!.head.id;
@@ -206,24 +172,6 @@ describe('preference sliders drive the engines',()=>{
     expect(pick({...s,zoneWeight:2})).toBe('zone');
     const below=[gear('lucky','Head',{luck:400}),gear('arrow','Head',{arrowReduction:30}),gear('b','Back'),gear('w','Wrist')];
     expect(buildGearLoadouts(below,{...s,arrowWeight:0}).main!.head.id).toBe('arrow');
-  });
-  it('a specialist priority of 0 removes its loadout and its retention protection consistently',()=>{
-    const energy=gear('energy','Head',{energy:40});
-    const main=gear('main','Head',{luck:100});
-    const items=[energy,main,gear('b','Back'),gear('w','Wrist')];
-    expect(buildGearLoadouts(items,s).drink?.head.id).toBe('energy');
-    expect(verdictOf(items,'energy')).toBe('KEEP');
-    // Energy also counts in auction sets now, so ignoring it means Drink Prep off and Energy weight 0.
-    const ignore={...s,drinkPriority:0,energyWeight:0};
-    expect(buildGearLoadouts(items,ignore).drink).toBeUndefined();
-    expect(verdictOf(items,'energy',ignore)).toBe('SAFE TO DISCARD');
-  });
-  it('Shop sliders change the Shop / Idle trio',()=>{
-    const items=[gear('tip','Head',{tip:10}),gear('npc','Head',{npc:12}),gear('b','Back'),gear('w','Wrist')];
-    const pick=(settings:AlgorithmSettings)=>buildGearLoadouts(items,settings).shop?.head.id;
-    expect(pick(s)).toBe('tip'); // 10 x 0.4 > 12 x 0.3
-    expect(pick({...s,shopTipWeight:.1})).toBe('npc');
-    expect(pick({...s,shopPriority:0})).toBeUndefined();
   });
   it('Gavel slots control how many trophies are equipped',()=>{
     const d=makeInitialData();
@@ -302,15 +250,6 @@ describe('review: queue allocation never downgrades a higher-ranked row',()=>{
   });
 });
 
-describe('review: Arrow slider label follows the stored band',()=>{
-  it('reflects a customised band start',()=>{
-    const control=PREFERENCE_CONTROLS.find(c=>c.id==='arrowWeight')!;
-    expect(control.labelFor!(makeInitialData())).toBe('Bid Arrow below 70%');
-    const d=makeInitialData();d.settings.arrowTargetMin=72;
-    expect(control.labelFor!(d)).toBe('Bid Arrow below 72%');
-  });
-});
-
 describe('Main Auction: reach the Arrow band first, then Luck',()=>{
   const items=()=>[
     gear('luck-back','Back',{luck:120}),gear('arrow-back','Back',{arrowReduction:40}),
@@ -367,32 +306,4 @@ describe('Main Auction: reach the Arrow band first, then Luck',()=>{
   });
 });
 
-describe('weights as percentages adding up to 100',()=>{
-  it('reports exact shares and whole-number shares that total 100',()=>{
-    const d=makeInitialData();
-    const shares=weightShares(d,'auction');
-    expect(shares.reduce((a,b)=>a+b,0)).toBeCloseTo(100,9);
-    expect(shares[0]).toBeCloseTo(100/3.1,9); // Luck 1 of 1 + 1 + 0.6 + 0.3 + 0.2
-    expect(roundedShares(shares).reduce((a,b)=>a+b,0)).toBe(100);
-    expect(roundedShares([33.4,33.3,33.3])).toEqual([34,33,33]);
-    expect(roundedShares([0,0])).toEqual([0,0]);
-  });
-  it('setting one share rebalances the rest proportionally and keeps the group size',()=>{
-    const d=makeInitialData();
-    const next=setWeightShare(d,'shop','shopTipWeight',25);
-    const [tip,npc]=weightShares(next,'shop');
-    expect(tip).toBeCloseTo(25,9);expect(npc).toBeCloseTo(75,9);
-    expect(next.settings.shopTipWeight+next.settings.shopNpcWeight).toBeCloseTo(.7,9); // native Shop thresholds keep their scale
-    const luck=setWeightShare(d,'auction','luckWeight',100);
-    expect(weightShares(luck,'auction').map(x=>Math.round(x))).toEqual([100,0,0,0,0]);
-    expect(weightShares(setWeightShare(luck,'auction','arrowWeight',40),'auction').map(x=>Math.round(x))).toEqual([60,40,0,0,0]);
-    // When every other weight is zero, the rest is shared equally.
-    expect(weightShares(setWeightShare(luck,'auction','luckWeight',40),'auction').map(x=>Math.round(x))).toEqual([40,15,15,15,15]);
-  });
-  it('drives the engines the same way as the raw coefficients',()=>{
-    const items=[gear('tip','Head',{tip:10}),gear('npc','Head',{npc:12}),gear('b','Back'),gear('w','Wrist')];
-    const d=makeInitialData();
-    expect(buildGearLoadouts(items,setWeightShare(d,'shop','shopTipWeight',80).settings).shop?.head.id).toBe('tip');
-    expect(buildGearLoadouts(items,setWeightShare(d,'shop','shopTipWeight',20).settings).shop?.head.id).toBe('npc');
-  });
-});
+

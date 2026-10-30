@@ -46,16 +46,12 @@ describe('legacy authentications stay readable',()=>{
     expect(catalogueRowsFor(data.authModel,'Wooden Certificate of Authenticity','Back').map(r=>r.outcome)).not.toContain('Luck');
   });
 
-  it('moves old Arrow settings to a valid 70-90 band',()=>{
-    const settings=(version:string,arrowSweetSpot:number,energyWeight=0)=>normalizeData({...makeInitialData(),schemaVersion:18,
-      settings:{...makeInitialData().settings,version,arrowSweetSpot,energyWeight}} as unknown as AppData).settings;
-    const band=(s:AppData['settings'])=>[s.arrowTargetMin,s.arrowTargetMax];
-    expect(band(settings('2.1',65))).toEqual([70,90]);
-    expect(band(settings('2.0',75))).toEqual([70,90]);
-    expect(band(settings('2.1',72))).toEqual([72,90]);
-    expect(band(settings('2.1',95))).toEqual([70,90]);
-    expect(settings('2.1',65).energyWeight).toBe(.3);
-    expect(settings('2.1',65,.5).energyWeight).toBe(.5);
-    expect(settings('2.1',65).version).toBe('2.2');
+  it('moves old Arrow settings to the fixed 70-90 band',()=>{
+    const settings=(version:string,arrowSweetSpot:number)=>normalizeData({...makeInitialData(),schemaVersion:18,
+      settings:{...makeInitialData().settings,version,arrowSweetSpot}} as unknown as AppData).settings;
+    for(const [version,start] of [['2.1',65],['2.0',75],['2.1',72],['2.1',95]] as const){
+      const s=settings(version,start);
+      expect([s.arrowTargetMin,s.arrowTargetMax,s.version]).toEqual([70,90,'2.3']);
+    }
   });
 });

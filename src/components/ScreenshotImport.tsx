@@ -119,16 +119,33 @@ export function ScreenshotImport({ data, setData, onClose }: { data: AppData; se
     catch (e) { setError(e instanceof Error ? e.message : 'Could not save this item.'); }
   };
   const pending = entries.filter(e => e.state === 'pending').length;
+  // Screenshots read cleanly (recognised, no warnings, nothing invalid) can be saved in one tap.
+  const ready = entries.filter(e => e.state === 'pending' && e.draft.kind !== 'unknown' && !e.draft.warnings.length && matchDraft(data, e.draft).status !== 'invalid');
+  const saveReady = () => {
+    let next = data;
+    const saved: string[] = [];
+    try {
+      for (const entry of ready) {
+        if (matchDraft(next, entry.draft).status === 'invalid') continue;
+        next = applyDraft(next, entry.draft);
+        saved.push(entry.id);
+      }
+      setData(next);
+      setEntries(current => current.map(e => saved.includes(e.id) ? { ...e, state: 'approved' } : e));
+      setError('');
+    } catch (e) { setError(e instanceof Error ? e.message : 'Could not save these items.'); }
+  };
 
   return <Modal title="Import screenshots" onClose={onClose}>
     <div className="importModal">
       {!entries.length && !reading && <div className="scannerStart">
-        <p>Choose up to about 10 inventory screenshots. Each one is read on this device and shown beside what was read, so you can check, edit, approve or skip it.</p>
+        <p>Choose screenshots of your items. They are read on this device; clear ones can be saved in one tap, anything unclear is shown for you to check.</p>
         <button className="primary" onClick={() => fileRef.current?.click()}>Choose screenshots</button>
       </div>}
       {reading && <div className="scannerProgress" role="status"><progress max={reading.total} value={reading.done} /><span>{reading.status} · {reading.done} of {reading.total} done</span></div>}
       {error && <p className="formError" role="alert">{error}</p>}
       {entries.length > 0 && <p className="muted importSummary">{entries.length - pending} of {entries.length} done{pending ? ` · ${pending} to check` : ''}</p>}
+      {ready.length > 0 && !reading && <button className="primary wideButton" onClick={saveReady}>Save all ready ({ready.length})</button>}
       {entries.map((entry, index) => {
         const match = matchDraft(data, entry.draft);
         const onChange = (draft: ImportDraft) => update(entry.id, { draft });

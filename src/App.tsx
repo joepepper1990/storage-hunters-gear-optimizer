@@ -5,21 +5,26 @@ import { algorithmIssues } from './engine/settingsValidation';
 import { useCertificateAnalysis, useGearAnalysis } from './hooks/useAnalysis';
 import { useCloudSync } from './hooks/useCloudSync';
 import { buildCertificateQueue } from './engine/certificateQueue';
-import { BestSetup } from './screens/BestSetup';
+import { buildGearLoadouts } from './engine/gearLoadouts';
+import { addCertificateBatch } from './engine/certificateInventory';
 import { Certificates } from './screens/Certificates';
-import { Discard } from './screens/Discard';
-import { Inventory } from './screens/Inventory';
-import { Preferences } from './screens/Preferences';
+import { Equipment, equipmentView } from './screens/Equipment';
+import { Home } from './screens/Home';
+import { Settings } from './screens/Settings';
+import { AddSheet, type AddChoice } from './components/AddSheet';
+import { blankGear, GearEditor } from './components/GearEditor';
+import { ScreenshotImport } from './components/ScreenshotImport';
+import { blankTrophy, TrophyEditor, validateTrophy } from './components/TrophyEditor';
+import { CertificateBatchEditor } from './components/CertificateEditors';
+import { generateTrophyName } from './naming';
 import type { AppData } from './types';
 import { dateStamp, downloadText } from './ui';
 
-export type Tab = 'Best' | 'Certificates' | 'Discard' | 'Inventory' | 'Preferences';
-export const TABS: Array<{ tab: Tab; label: string; icon: string }> = [
-  { tab: 'Best', label: 'Best setup', icon: '◎' },
-  { tab: 'Certificates', label: 'Certificates', icon: '◈' },
-  { tab: 'Discard', label: 'Discard', icon: '⌫' },
-  { tab: 'Inventory', label: 'Inventory', icon: '◆' },
-  { tab: 'Preferences', label: 'Preferences', icon: '⚙' }
+export type Tab = 'Home' | 'Equipment' | 'Certificates' | 'Settings';
+export const TABS: Array<{ tab: Exclude<Tab, 'Settings'>; label: string; icon: string }> = [
+  { tab: 'Home', label: 'Home', icon: '◎' },
+  { tab: 'Equipment', label: 'Equipment', icon: '◆' },
+  { tab: 'Certificates', label: 'Certificates', icon: '◈' }
 ];
 
 const CONFLICT_WITH_CHANGES = 'Another window saved newer data. Download this window\'s changes, then Reload.';
@@ -32,7 +37,8 @@ function applyTheme(theme: AppData['theme']) {
 
 export default function App() {
   const [data, setData] = useState<AppData | null>(null);
-  const [tab, setTab] = useState<Tab>('Best');
+  const [tab, setTab] = useState<Tab>('Home');
+  const [adding, setAdding] = useState<AddChoice | 'menu' | null>(null);
   const [loadError, setLoadError] = useState('');
   const [saveError, setSaveError] = useState('');
 
@@ -89,6 +95,9 @@ export default function App() {
   const certificates = useCertificateAnalysis(data, activePostRollId);
   const queue = useMemo(() => certificates.current ? buildCertificateQueue(certificates.decisions) : undefined, [certificates.current, certificates.decisions]);
   const certificateTargets = useMemo(() => queue ? new Set(queue.rows.map(row => row.target.item.id)) : undefined, [queue]);
+  const valid = data ? algorithmIssues(data.settings).length === 0 : false;
+  const best = useMemo(() => data && valid ? buildGearLoadouts(data.gear, data.settings, 'low').main : undefined, [data?.gear, data?.settings, valid]);
+  const view = useMemo(() => data ? equipmentView(data, gear.analyses, gear.current, certificateTargets) : undefined, [data, gear.analyses, gear.current, certificateTargets]);
 
   if (!data) return <div className="splash">
     <div className="logoMark">SH</div>
@@ -101,8 +110,9 @@ export default function App() {
 
   return <div className="appShell">
     <header className="topbar">
-      <div className="brand"><div className="logoMark small">SH</div><strong>Storage Hunters Optimiser</strong></div>
+      <div className="brand"><div className="logoMark small">SH</div><strong>Storage Hunters</strong></div>
       {(gear.computing || certificates.computing) && <span className="status" role="status">Updating…</span>}
+      <button className={`iconButton${tab === 'Settings' ? ' active' : ''}`} aria-label="Settings" onClick={() => setTab('Settings')}>⚙</button>
     </header>
     {saveError && <div className="notice dangerNotice banner" role="alert">{saveError}
       <div className="actions">
@@ -117,20 +127,34 @@ export default function App() {
         <button onClick={() => { if (confirm('Replace the cloud copy with this device\'s data?')) cloud.keepDevice(); }}>Keep this device</button>
       </div>
     </div>}
-    {cloud.status === 'error' && tab !== 'Preferences' && <div className="notice dangerNotice banner" role="alert">Cloud sync failed: {cloud.message} <button className="link" onClick={() => setTab('Preferences')}>Open</button></div>}
-    {algorithmIssues(data.settings).length > 0 && tab !== 'Preferences' && <div className="notice dangerNotice banner" role="alert">Preferences need fixing <button className="link" onClick={() => setTab('Preferences')}>Open</button></div>}
+    {cloud.status === 'error' && tab !== 'Settings' && <div className="notice dangerNotice banner" role="alert">Cloud sync failed: {cloud.message} <button className="link" onClick={() => setTab('Settings')}>Open</button></div>}
 
     <main className="content">
-      {tab === 'Best' && <BestSetup data={data} />}
+      {tab === 'Home' && view && <Home data={data} best={best} view={view} queue={queue} onOpen={setTab} onAdd={() => setAdding('menu')} />}
+      {tab === 'Equipment' && view && <Equipment data={data} setData={edit} best={best} view={view} />}
       {tab === 'Certificates' && <Certificates data={data} setData={edit} analysis={certificates} queue={queue} onRecorded={setActivePostRollId} />}
-      {tab === 'Discard' && <Discard data={data} setData={edit} gearAnalyses={gear.analyses} gearCurrent={gear.current} certificateTargets={certificateTargets} />}
-      {tab === 'Inventory' && <Inventory data={data} setData={edit} />}
-      {tab === 'Preferences' && <Preferences data={data} setData={edit} cloud={cloud} />}
+      {tab === 'Settings' && <Settings data={data} setData={edit} cloud={cloud} />}
     </main>
 
-    <nav className="bottomNav" aria-label="Main">{TABS.map(t =>
-      <button key={t.tab} className={tab === t.tab ? 'active' : ''} aria-current={tab === t.tab ? 'page' : undefined} onClick={() => setTab(t.tab)}>
-        <span aria-hidden="true">{t.icon}</span>{t.label}
-      </button>)}</nav>
+    {adding === 'menu' && <AddSheet onClose={() => setAdding(null)} onChoose={setAdding} />}
+    {adding && adding !== 'menu' && adding.kind === 'scan' && <ScreenshotImport data={data} setData={edit} onClose={() => setAdding(null)} />}
+    {adding && adding !== 'menu' && adding.kind === 'gear' && <GearEditor item={blankGear(adding.slot)} mode="add" onClose={() => setAdding(null)}
+      onSave={(item, keepAdding) => { edit({ ...data, gear: [...data.gear, item] }); setAdding(keepAdding ? { kind: 'gear', slot: item.slot } : null); }} />}
+    {adding && adding !== 'menu' && adding.kind === 'gavel' && <TrophyEditor item={blankTrophy(data.trophySettings.mutationWeights)} weights={data.trophySettings.mutationWeights} mode="add" onClose={() => setAdding(null)}
+      onSave={input => { const item = { ...input, name: generateTrophyName(input.modifiers) }; if (validateTrophy(item)) return; edit({ ...data, trophies: [...data.trophies, item] }); setAdding(null); }} />}
+    {adding && adding !== 'menu' && adding.kind === 'certificates' && <CertificateBatchEditor onClose={() => setAdding(null)}
+      onSave={input => { try { edit(addCertificateBatch(data, input)); setAdding(null); } catch (e) { alert(e instanceof Error ? e.message : String(e)); } }} />}
+
+    <nav className="bottomNav" aria-label="Main">
+      {TABS.slice(0, 2).map(t => <NavButton key={t.tab} tab={t} current={tab} onClick={setTab} />)}
+      <button className="addNav" aria-label="Add equipment" onClick={() => setAdding('menu')}><span aria-hidden="true">＋</span>Add</button>
+      {TABS.slice(2).map(t => <NavButton key={t.tab} tab={t} current={tab} onClick={setTab} />)}
+    </nav>
   </div>;
+}
+
+function NavButton({ tab, current, onClick }: { tab: typeof TABS[number]; current: Tab; onClick: (tab: Tab) => void }) {
+  return <button className={current === tab.tab ? 'active' : ''} aria-current={current === tab.tab ? 'page' : undefined} onClick={() => onClick(tab.tab)}>
+    <span aria-hidden="true">{tab.icon}</span>{tab.label}
+  </button>;
 }

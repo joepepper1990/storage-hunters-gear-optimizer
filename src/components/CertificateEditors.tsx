@@ -7,7 +7,6 @@ import { optimise } from '../engine/optimizer';
 import { arrowDistance } from '../engine/gearLoadouts';
 import { effectiveItemStats, gameArrowToReduction, reductionToGameArrow } from '../engine/scoring';
 import { CERTIFICATE_TYPES, certificateLabel, type CertificateBatchInput } from '../engine/certificateInventory';
-import { authModelCertificateType } from '../engine/authModel';
 import { generateGearName } from '../naming';
 import type { AppData, AuthModelEntry, CertificateRollLog, GearItem, GearStats, OwnedCertificate } from '../types';
 import { itemTitle, Modal, NumberInput, STAT_LABELS } from '../ui';
@@ -116,31 +115,4 @@ export function CertificateBatchEditor({ batch, onClose, onSave }: {
       <label>Quantity<input type="number" min={batch ? 0 : 1} step="1" inputMode="numeric" value={quantity} onChange={e => setQuantity(e.target.value)} /></label>
     </div>
   </Modal>;
-}
-
-export function newAuthModelEntry(): AuthModelEntry {
-  return { id: crypto.randomUUID(), certificateInventoryType: 'Wooden Certificate of Authenticity', certificateType: 'Normal Certificate of Authenticity', slot: 'Any',
-    outcome: 'Custom outcome', category: 'Custom / unknown', assumedLikelihoodClass: 'MEDIUM', observedSampleCount: 0, observedValues: [], confidence: 'Unknown', empiricalConfidence: 'Unknown', enabled: true };
-}
-
-export function CatalogueRow({ entry, onChange, onDelete }: { entry: AuthModelEntry; onChange: (e: AuthModelEntry) => void; onDelete: () => void }) {
-  const inventoryType = entry.certificateInventoryType ?? (
-    entry.certificateType === 'Premium Certificate of Authenticity' ? 'Premium Certificate of Authenticity' :
-    entry.certificateType === 'Limited Certificate of Authenticity' ? 'Limited Certificate of Authenticity' : 'Wooden Certificate of Authenticity');
-  const optional = (value: string) => value === '' ? undefined : Number(value);
-  const current = (['Head', 'Back', 'Wrist'] as const).some(slot => (entry.slot === 'Any' || entry.slot === slot) && currentPool(inventoryType, slot).includes(canonicalEffect(entry.outcome)));
-  return <details className="modelRow">
-    <summary><span>{entry.outcome}</span><span>{inventoryType.replace(' Certificate of Authenticity', '')} · {entry.slot}{current ? '' : ' · history only'}</span></summary>
-    <div className="formGrid">
-      <label className="wide">Outcome<input value={entry.outcome} onChange={e => onChange({ ...entry, outcome: e.target.value })} /></label>
-      <label>Certificate<select value={inventoryType} onChange={e => { const t = e.target.value as OwnedCertificate['type']; onChange({ ...entry, certificateInventoryType: t, certificateType: authModelCertificateType(t) }); }}>{CERTIFICATE_TYPES.map(t => <option key={t} value={t}>{t.replace(' Certificate of Authenticity', '')}</option>)}</select></label>
-      <label>Slot<select value={entry.slot} onChange={e => onChange({ ...entry, slot: e.target.value as AuthModelEntry['slot'] })}><option>Any</option><option>Head</option><option>Back</option><option>Wrist</option></select></label>
-      <label>Confidence<select value={entry.confidence} onChange={e => onChange({ ...entry, confidence: e.target.value as AuthModelEntry['confidence'] })}>{['Unknown','Low','Medium','High','Empirical'].map(x => <option key={x}>{x}</option>)}</select></label>
-      <label>Min<input type="number" step="any" value={entry.min ?? ''} onChange={e => onChange({ ...entry, min: optional(e.target.value) })} /></label>
-      <label>Typical<input type="number" step="any" value={entry.typical ?? ''} onChange={e => onChange({ ...entry, typical: optional(e.target.value) })} /></label>
-      <label>Max<input type="number" step="any" value={entry.max ?? ''} onChange={e => onChange({ ...entry, max: optional(e.target.value) })} /></label>
-      <p className="wide modalMeta">{entry.observedSampleCount} observed{current ? ' · ranges only: which outcomes exist and their equal odds are fixed game data' : ' · not a current outcome of this certificate, kept for history'}</p>
-      <button className="danger wide" onClick={onDelete}>Delete outcome</button>
-    </div>
-  </details>;
 }

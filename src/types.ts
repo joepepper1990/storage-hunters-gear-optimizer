@@ -1,7 +1,7 @@
 export type Slot = 'Head' | 'Back' | 'Wrist';
 export type AuthKind = 'None' | 'Normal' | 'Premium' | 'Limited' | 'Alien';
 export type ThemeMode = 'system' | 'light' | 'dark';
-export type Verdict = 'EQUIP' | 'KEEP' | 'SAFE TO DISCARD' | 'PROTECTED / UNKNOWN';
+export type Verdict = 'EQUIP' | 'KEEP' | 'SAFE TO DISCARD';
 export type LikelihoodClass = 'VERY HIGH' | 'HIGH' | 'MEDIUM' | 'LOW' | 'VERY LOW';
 export type Confidence = 'Unknown' | 'Low' | 'Medium' | 'High' | 'Empirical';
 export type MainAuctionContext = 'Neutral' | 'Day' | 'Night' | 'Rain';
@@ -98,7 +98,7 @@ export interface GearItem {
 }
 
 export interface AlgorithmSettings {
-  version: '2.2';
+  version: '2.3';
   luckWeight: number;
   /** Weight of Bid Arrow below the band; inside the band more Arrow adds nothing. */
   arrowWeight: number;

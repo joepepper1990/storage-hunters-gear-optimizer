@@ -38,34 +38,30 @@ describe('irreversible retention safety',()=>{
     expect(verdict(items,'weak',s).verdict).not.toBe('SAFE TO DISCARD');
   });
 
-  it('retains saturated Energy head for a future Back replacement',()=>{
+  it('counts Energy in the Best Set rather than in a separate Drink Prep set',()=>{
     const head=gear('energy-head','Head',{energy:100});
     const luckyHead=gear('luck-head','Head',{luck:1});
-    const wrist=gear('wrist','Wrist');
-    const items=[head,luckyHead,gear('saturating-back','Back',{energy:100}),wrist];
-    expect(buildGearLoadouts(items,settings).drink?.head.id).toBe(luckyHead.id);
-    expect(buildGearLoadouts([head,luckyHead,gear('future-back','Back'),wrist],settings).drink?.head.id).toBe(head.id);
-    expect(verdict(items,head.id).verdict).toBe('KEEP');
+    const items=[head,luckyHead,gear('back','Back'),gear('wrist','Wrist')];
+    expect(buildGearLoadouts(items,settings).drink).toBeUndefined();
+    expect(verdict(items,head.id).verdict).toBe('EQUIP');
   });
 
-  it.each(['Tip Chance','NPC Offers Bonus','Grade Re-Roll'])('does not let a Main-only winner erase future %s utility',effect=>{
+  it.each(['Tip Chance','NPC Offers Bonus','Grade Re-Roll'])('does not keep a weak item for %s alone',effect=>{
     const specialist=gear('specialist','Head',{},effect,20);
     const winner=gear('main','Head',{luck:100});
-    // A current better specialist hides the target from every current loadout.
-    const back=gear('back','Back',{},effect,1000);
-    const items=[specialist,winner,back,gear('wrist','Wrist')];
-    // Grading is linear and hence the specialist is currently selected already;
-    // either membership or a dominance guard must preserve it.
-    expect(verdict(items,specialist.id).verdict).not.toBe('SAFE TO DISCARD');
+    const items=[specialist,winner,gear('back','Back'),gear('wrist','Wrist')];
+    expect(verdict(items,specialist.id).verdict).toBe('SAFE TO DISCARD');
   });
 
-  it('preserves a mutation that a future complementary Mutated Luck can exploit',()=>{
+  it('keeps a Head whose mutation would pay off once it gets Premium Mutated Luck',()=>{
     const target={...gear('mutation','Head'),mutation:'Onyx'};
     const better=gear('static','Head',{luck:1});
     const items=[target,better,gear('back','Back'),gear('wrist','Wrist')];
-    expect(verdict(items,target.id).verdict).toBe('KEEP');
-    const future=gear('back','Back',{},'Mutated Luck');
-    expect(buildGearLoadouts([target,better,future,items[3]],settings).main?.head.id).toBe(target.id);
+    const result=verdict(items,target.id);
+    expect(result.verdict).toBe('KEEP');
+    expect(result.reason).toBe('Strong future certificate target');
+    const premium={...target,authenticated:true,authentication:{kind:'Premium' as const,effect:'Mutated Luck',value:0}};
+    expect(buildGearLoadouts([premium,better,items[2],items[3]],settings).main?.head.id).toBe(target.id);
   });
 
   it('still certifies a uniformly inferior ordinary item',()=>{

@@ -11,7 +11,7 @@ function item(name:string,stats:Partial<GearStats>,effect='',value=0,kind?:GearI
 
 describe('Main Auction scoring 2.2',()=>{
   it('uses the user-approved priorities',()=>{
-    expect(s.version).toBe('2.2');
+    expect(s.version).toBe('2.3');
     expect(s.luckWeight).toBe(1);
     // Confirmed requirement: Arrow's default priority equals Luck, as the same coefficient.
     expect(s.arrowWeight).toBe(s.luckWeight);

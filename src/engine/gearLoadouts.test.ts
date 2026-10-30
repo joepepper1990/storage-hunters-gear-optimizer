@@ -14,29 +14,30 @@ function g(id:string,slot:Slot,stats:Partial<GearStats>,auth?:GearItem['authenti
   };
 }
 
+/** The engine still builds specialist sets when asked; the app itself no longer does. */
+const SPEC={...LOCKED_DEFAULT_SETTINGS,drinkPriority:8,gradingPriority:6,shopPriority:4};
+
 describe('unified gear loadouts and retention',()=>{
   it('allows the same physical item to be used by multiple loadouts',()=>{
     const shared=g('Shared','Back',{luck:100,energy:100,tip:30,npc:30});
     const gear=[g('H','Head',{luck:100}),shared,g('W','Wrist',{luck:100})];
-    const loadouts=buildGearLoadouts(gear,LOCKED_DEFAULT_SETTINGS);
+    const loadouts=buildGearLoadouts(gear,SPEC);
     expect(loadouts.main?.back.id).toBe('Shared');
     expect(loadouts.drink?.back.id).toBe('Shared');
     expect(loadouts.shop?.back.id).toBe('Shared');
     const analysis=analyseGearRetention(gear,LOCKED_DEFAULT_SETTINGS).find(a=>a.item.id==='Shared')!;
     expect(analysis.verdict).toBe('EQUIP');
-    expect(analysis.loadoutMemberships.map(m=>m.loadout)).toEqual(expect.arrayContaining(['Main Auction','Drink Prep','Shop / Idle']));
+    expect(analysis.reason).toBe('Current Best Set');
   });
 
-  it('keeps a specialist-only item even when it is not part of Main Auction',()=>{
+  it('no longer keeps an item only because a specialist set would use it',()=>{
     const mainBack=g('MainBack','Back',{luck:120});
     const drinkBack=g('DrinkBack','Back',{energy:100});
     const gear=[g('H','Head',{luck:100}),mainBack,drinkBack,g('W','Wrist',{luck:100})];
-    const loadouts=buildGearLoadouts(gear,LOCKED_DEFAULT_SETTINGS);
-    expect(loadouts.main?.back.id).toBe('MainBack');
-    expect(loadouts.drink?.back.id).toBe('DrinkBack');
+    expect(buildGearLoadouts(gear,SPEC).drink?.back.id).toBe('DrinkBack');
+    expect(buildGearLoadouts(gear,LOCKED_DEFAULT_SETTINGS).drink).toBeUndefined();
     const analysis=analyseGearRetention(gear,LOCKED_DEFAULT_SETTINGS).find(a=>a.item.id==='DrinkBack')!;
-    expect(analysis.verdict).toBe('KEEP');
-    expect(analysis.loadoutMemberships.some(m=>m.loadout==='Drink Prep')).toBe(true);
+    expect(analysis.verdict).toBe('SAFE TO DISCARD');
   });
 
   it('does not create a fake Grading loadout when no Grade Re-Roll exists',()=>{
@@ -53,7 +54,7 @@ describe('unified gear loadouts and retention',()=>{
     const strongWrist=g('StrongWrist','Wrist',{luck:100});
     const weakWrist=g('WeakWrist','Wrist',{});
     const gear=[grading,strongBack,weakBack,strongWrist,weakWrist];
-    const loadouts=buildGearLoadouts(gear,LOCKED_DEFAULT_SETTINGS);
+    const loadouts=buildGearLoadouts(gear,SPEC);
     expect(loadouts.grading?.head.id).toBe('GradeHead');
     expect(loadouts.grading?.back.id).toBe('StrongBack');
     expect(loadouts.grading?.wrist.id).toBe('StrongWrist');
@@ -85,13 +86,13 @@ describe('unified gear loadouts and retention',()=>{
   });
 
   it('never marks a stateful dynamic item SAFE when static dominance cannot prove its mechanic',()=>{
-    const dynamic=g('Dynamic','Back',{}, {kind:'Premium',effect:'Droughtbreaker',value:1});
+    const dynamic=g('Dynamic','Back',{}, {kind:'Premium',effect:'Drought Breaker',value:30});
     const strong=g('Strong','Back',{luck:100});
     const gear=[g('H','Head',{luck:100}),dynamic,strong,g('W','Wrist',{luck:100})];
     const result=analyseGearRetention(gear,LOCKED_DEFAULT_SETTINGS).find(a=>a.item.id==='Dynamic')!;
+    // Five stacks of 30 = 150 Luck beats the static Back in the favourable state.
     expect(result.verdict).toBe('KEEP');
-    expect(result.verdict).not.toBe('PROTECTED / UNKNOWN');
-    expect(result.reason).toContain('state- or trio-dependent');
+    expect(result.reason).toBe('Valuable authentication');
   });
 
   it('never marks an item SAFE TO DISCARD if it belongs to any relevant loadout',()=>{
@@ -125,7 +126,7 @@ describe('unified gear loadouts and retention',()=>{
     const analysis=analyseGearRetention(gear,LOCKED_DEFAULT_SETTINGS).find(a=>a.item.id==='Dynamic')!;
     expect(analysis.verdict).toBe('KEEP');
     expect(analysis.loadoutMemberships.some(m=>m.scenario)).toBe(true);
-    expect(analysis.reason).toMatch(/DB 5|dynamic sensitivity/);
+    expect(analysis.reason).toBe('Valuable authentication');
   });
 
   it('uses a robust zero-state Main baseline instead of assuming Droughtbreaker, Golden Hour or Frenzy uptime',()=>{
@@ -142,7 +143,7 @@ describe('unified gear loadouts and retention',()=>{
     const over=g('Over','Head',{},{kind:'Normal',effect:'Overcharged',value:20});
     const energy=g('Energy','Head',{energy:40});
     const gear=[over,energy,g('B','Back',{}),g('W','Wrist',{})];
-    const prep=buildGearLoadouts(gear,LOCKED_DEFAULT_SETTINGS,'low').drink!;
+    const prep=buildGearLoadouts(gear,SPEC,'low').drink!;
     expect(prep.head.id).toBe('Energy');
     const noDrink=mainAuctionUtility([over,gear[2],gear[3]],LOCKED_DEFAULT_SETTINGS,'Neutral','low');
     const drinkState={droughtbreakerStacks:0,goldenHourLuck:0,luckFrenzyUptime:0,drinkLuckBoost:150,label:'Drink 2 active'};

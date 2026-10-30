@@ -17,31 +17,12 @@ const gearVerdict=(items:GearItem[],id:string,settings=s)=>analyseGearRetention(
 // stat, it never dominates the items under test, which are judged only against each other.
 const filler=[gear('main','Head',{arrowReduction:70}),gear('b','Back'),gear('w','Wrist')];
 
-describe('gear is discarded only when beaten stat by stat',()=>{
-  it('keeps an item that is better on one weighted stat, however much Luck the other has',()=>{
-    const zone=gear('zone','Head',{luck:10,zone:12});
-    const lucky=gear('lucky','Head',{luck:60});
-    expect(gearVerdict([...filler,zone,lucky],'zone')).not.toBe('SAFE TO DISCARD');
-  });
-  it('discards an item beaten or matched on every stat and beaten on one',()=>{
+describe('gear retention basics',()=>{
+  it('discards an item that never makes a best set, whatever Arrow a future piece brings',()=>{
     const weaker=gear('weaker','Head',{luck:53,arrowReduction:31});
-    const better=gear('better','Head',{luck:58,arrowReduction:35});
+    const better=gear('better','Head',{luck:58,arrowReduction:31});
     expect(gearVerdict([...filler,weaker,better],'weaker')).toBe('SAFE TO DISCARD');
     expect(gearVerdict([...filler,weaker,better],'better')).not.toBe('SAFE TO DISCARD');
-  });
-  it('ignores a stat whose importance is 0',()=>{
-    const zone=gear('zone','Head',{luck:10,zone:12});
-    const lucky=gear('lucky','Head',{luck:60});
-    expect(gearVerdict([...filler,zone,lucky],'zone',{...s,zoneWeight:0})).toBe('SAFE TO DISCARD');
-  });
-  it('counts being better on an active specialist stat as beating the item',()=>{
-    // A stronger Back and a big Energy Head fill Main and Drink Prep, so these two are judged only against each other.
-    const items=[filler[0],gear('drinkHead','Head',{energy:200}),gear('mainBack','Back',{luck:50}),filler[2],gear('less','Back',{luck:5,energy:10}),gear('more','Back',{luck:5,energy:20})];
-    const less=analyseGearRetention(items,s).find(a=>a.item.id==='less')!;
-    expect(less.verdict).toBe('SAFE TO DISCARD');
-    expect(less.dominance?.dominator?.id).toBe('more');
-    // 'more' is never beaten by its weaker twin.
-    expect(gearVerdict(items,'more')).not.toBe('SAFE TO DISCARD');
   });
   it('never discards an exact duplicate on the strength of its twin',()=>{
     const a=gear('a','Head',{luck:40}),b=gear('b2','Head',{luck:40});

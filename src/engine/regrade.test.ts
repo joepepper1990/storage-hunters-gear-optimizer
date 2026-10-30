@@ -25,8 +25,10 @@ describe('star value', () => {
 
 describe('regrade suggestions on the verified inventory', () => {
   const data = makeInitialData();
-  const loadouts = buildGearLoadouts(data.gear, data.settings, 'low');
-  const result = regradeSuggestions(loadouts, data.settings, []);
+  // The engine still supports specialist sets; the app uses the Best Set only.
+  const spec = { ...LOCKED_DEFAULT_SETTINGS, drinkPriority: 8, gradingPriority: 6, shopPriority: 4 };
+  const loadouts = buildGearLoadouts(data.gear, spec, 'low');
+  const result = regradeSuggestions(loadouts, spec, []);
   it('suggests 1★ pieces of the best sets first, Main Auction before specialists', () => {
     const safe = result.suggestions.filter(s => s.advice !== 'gamble');
     expect(safe.map(s => [s.item.baseName, s.stars, s.sets[0]])).toEqual([
@@ -39,7 +41,7 @@ describe('regrade suggestions on the verified inventory', () => {
     expect(result.starValue).toBeUndefined();
   });
   it('ignores sets for activities set to 0', () => {
-    const none = regradeSuggestions(buildGearLoadouts(data.gear, { ...LOCKED_DEFAULT_SETTINGS, shopPriority: 0 }, 'low'), { ...LOCKED_DEFAULT_SETTINGS, shopPriority: 0 }, []);
+    const none = regradeSuggestions(buildGearLoadouts(data.gear, { ...spec, shopPriority: 0 }, 'low'), { ...spec, shopPriority: 0 }, []);
     expect(none.suggestions.some(s => s.sets.includes('Shop / Idle'))).toBe(false);
   });
 });
