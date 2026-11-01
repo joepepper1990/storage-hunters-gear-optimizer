@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { makeInitialData } from '../defaults';
+import { makeInitialData as currentInitialData } from '../defaults';
+// Historical migration fixtures stay independent of today's owned inventory.
+const makeInitialData=()=>({...currentInitialData(),gear:makeKnownGear()});
 import { analyseGearRetention } from '../engine/gearLoadouts';
 import { analyseCertificate } from '../engine/certificateDecision';
 import { effectiveItemStats } from '../engine/scoring';
@@ -111,11 +113,11 @@ describe('verified 26-27 October 2026 accessory inventory',()=>{
 
   it('upgrades older data by replacing all old gear with the complete verified inventory',()=>{
     const changed={...one('Cow Dominus'),id:'manual-cow',stats:{...one('Cow Dominus').stats,luck:59}};
-    const matching={...one('Luxury Ice Crown'),id:'my-luxury',favourite:true};
+    const matching={...one('Reactor Fedora'),id:'my-luxury',favourite:true};
     const old={...makeInitialData(),schemaVersion:8,gear:[matching,changed]} as any;
     const upgraded=normalizeData(old);
-    expect(upgraded.schemaVersion).toBe(19);
-    expect(upgraded.gear).toHaveLength(39);
+    expect(upgraded.schemaVersion).toBe(20);
+    expect(upgraded.gear).toHaveLength(28);
     // An item with the same base stats keeps its ID and favourite; one with other stats is not owned.
     expect(upgraded.gear.find(g=>g.id==='my-luxury')?.favourite).toBe(true);
     expect(upgraded.gear.some(g=>g.id==='manual-cow')).toBe(false);
@@ -123,7 +125,7 @@ describe('verified 26-27 October 2026 accessory inventory',()=>{
     // Once schema 15 has been saved, later user edits are respected.
     const edited={...upgraded,gear:upgraded.gear.slice(1)};
     const again=normalizeData(JSON.parse(exportJson(edited)));
-    expect(again.gear).toHaveLength(38);
+    expect(again.gear).toHaveLength(27);
   });
 
   it('round-trips condition, mutation and signed stats in JSON and CSV',()=>{
@@ -164,14 +166,14 @@ describe('29 October inventory update (schema 17)',()=>{
     const old=before();
     expect(old.gear).toHaveLength(29);
     const next=normalizeData(old);
-    expect(next.schemaVersion).toBe(19);
-    expect(next.gear).toHaveLength(39); // 29 - 4 gone + 2 (schema 17) + 12 (schema 18)
+    expect(next.schemaVersion).toBe(20);
+    expect(next.gear).toHaveLength(28); // Latest complete inventory supersedes intermediate batches.
     expect(next.gear.some(g=>g.id.startsWith('old-'))).toBe(false);
-    expect(next.gear.find(g=>g.baseName==='Demon Pumpkin Head')).toMatchObject({slot:'Head',gradeStars:2,conditionPct:98,stats:expect.objectContaining({npc:8,recovery:-4})});
-    expect(next.gear.find(g=>g.mutation==='Gold')).toMatchObject({baseName:'Royal Dominus',gradeStars:1,stats:expect.objectContaining({tip:13,arrowReduction:48})});
+    expect(next.gear.some(g=>g.baseName==='Demon Pumpkin Head')).toBe(false);
+    expect(next.gear.find(g=>g.baseName==='Royal Dominus')).toMatchObject({gradeStars:3,stats:expect.objectContaining({luck:120,zone:90})});
     // Saved at 17: never applied again, so a re-added item stays.
     const readded={...next,gear:[...next.gear,old.gear.find(g=>g.id==='old-0')!]};
-    expect(normalizeData(JSON.parse(exportJson(readded))).gear).toHaveLength(40);
+    expect(normalizeData(JSON.parse(exportJson(readded))).gear).toHaveLength(29);
   });
   it('removes only exact matches and never duplicates an item already added',()=>{
     const old=before();
@@ -194,7 +196,7 @@ describe('30 October additions (schema 18)',()=>{
     const without=d.gear.filter(g=>!g.id.startsWith('verified-20261030-'));
     expect(without).toHaveLength(27);
     const turtle=makeKnownGear().find(g=>g.baseName==='Turtle Fedora')!;
-    const next=normalizeData({...d,schemaVersion:17,gear:[...without,{...turtle,id:'my-turtle',favourite:true}]} as never);
+    const next={...d,gear:addVerifiedItems([...without,{...turtle,id:'my-turtle',favourite:true}],'20261030')};
     expect(next.gear).toHaveLength(39);
     expect(next.gear.filter(g=>g.baseName==='Turtle Fedora')).toEqual([expect.objectContaining({id:'my-turtle',favourite:true})]);
     expect(addVerifiedItems(next.gear,'20261030')).toHaveLength(39);

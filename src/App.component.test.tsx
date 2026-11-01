@@ -31,6 +31,7 @@ vi.mock('./scanner/panelOcr', () => ({
 }));
 
 import App from './App';
+import { makeKnownGear } from './data/knownGear';
 import { Equipment, equipmentView } from './screens/Equipment';
 
 const lastSaved = () => store.saved.at(-1) as AppData;
@@ -317,6 +318,7 @@ describe('screenshot import', () => {
       { stars: 2, infoLines: ['[Void +74%] Gavel Trophy', 'Legendary'], statLines: [] }
     ];
     const data = makeInitialData();
+    data.gear.push(makeKnownGear().find(g=>g.baseName==='Cow Dominus')!);
     const root = await openApp(data);
     await click(addButton(root));
     await click(button(root, 'Scan screenshots'));
@@ -352,6 +354,7 @@ describe('screenshot import', () => {
       { stars: 0, infoLines: ['Brand New Thing', 'Rare'], statLines: [{ text: '+20% Luck', color: 'green' }] }
     ];
     const data = makeInitialData();
+    data.gear.push(makeKnownGear().find(g=>g.baseName==='Cow Dominus')!);
     const root = await openApp(data);
     await click(addButton(root));
     await click(button(root, 'Scan screenshots'));

@@ -174,3 +174,9 @@ Where those unknowns can change a recommendation, confidence is reduced and the 
 **Clear all local data** and the storage-recovery **Start empty** action now create a genuinely empty workspace: no gear, certificates, roll history or trophies. The default algorithm/settings catalogue remains available so the empty workspace can be rebuilt manually.
 
 Historical design/audit files under `docs/` retain their original dates and model versions for traceability.
+
+## Confirmed 1 November inventory (v3.0.4)
+
+The owner confirmed 28 accessories from complete detail screenshots: 15 Head, 9 Back and 4 Wrist. Schema 20 reconciles equipment once, removes obsolete rolls and retains matching item IDs, favourites and creation dates. Certificates, Gavels, settings, roll history and grading observations are not replaced by this reconciliation. Explicit backup restores keep their own inventory; later edits are not reseeded.
+
+Authentication is separate from base stats: Void Elegant Business Backpack has base Luck 80, Focused 28% and an observed +23 Luck delta (displayed 103); Hologram Elegant Business Backpack has Energy Drink Time +35 authentication; Diamond Jellyfish Wristband has Energy Drink Time +24 instead of Club Pact. Mutated Luck has no numeric magnitude shown.
