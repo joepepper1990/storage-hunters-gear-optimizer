@@ -6,7 +6,7 @@ import { algorithmIssues } from './settingsValidation';
 import { arrowBandDistance, arrowEffective, arrowTargetBand, combineStats, effectiveItemStats, energyEffective, scoreStandalone, zoneEffective } from './scoring';
 import { MODEL_ASSUMPTIONS } from './modelAssumptions';
 import { hasUnknownEffect } from './effects';
-import { futureSweep } from './retention';
+import { futureSweep, hasSafeReplacement } from './retention';
 import { canonicalEffect } from '../authentication';
 
 export type DynamicScenario = 'low' | 'central' | 'high';
@@ -322,7 +322,8 @@ function buildMembershipMap(gear:GearItem[],settings:AlgorithmSettings):Map<stri
  * KEEP when the item is in or tied with the Best Set, belongs to any optimal Neutral, Day,
  * Night or Rain set in any dynamic state, is a favourite, carries an effect whose value is
  * unresolved, or could become part of the best set if one new piece arrived in another slot
- * (see retention.ts). Only items none of that applies to are SAFE TO DISCARD. Items targeted
+ * (see retention.ts). SAFE TO DISCARD additionally requires a componentwise same-slot
+ * replacement proof valid with arbitrary companions. Unproven alternatives are kept. Items targeted
  * by a certificate are kept by the screens, which know the certificate queue.
  */
 export function analyseGearRetention(gear:GearItem[],settings:AlgorithmSettings):ItemAnalysis[] {
@@ -359,6 +360,7 @@ export function analyseGearRetention(gear:GearItem[],settings:AlgorithmSettings)
     if(sweep.mutation.has(item.id))return result('KEEP',item.slot==='Head'?'Strong future certificate target':'Valuable mutation');
     // Without a full Head + Back + Wrist set nothing can be proven unnecessary yet.
     if(!best)return result('KEEP','Needed for a full set');
-    return result('SAFE TO DISCARD','Not needed in any best set');
+    if(hasSafeReplacement(item,gear,settings))return result('SAFE TO DISCARD','Not needed in any best set');
+    return result('KEEP',profile());
   });
 }

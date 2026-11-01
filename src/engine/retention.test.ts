@@ -36,11 +36,11 @@ describe('Keep: the Luck/Arrow frontier', () => {
     const redundant = gear('redundant', 'Head', { luck: 60, arrowReduction: 35 });
     expect(result([...items, redundant], 'redundant')).toMatchObject({ verdict: 'SAFE TO DISCARD', reason: 'Not needed in any best set' });
   });
-  it('ignores a knife-edge win at one exact Arrow value', () => {
-    // 3 Arrow apart, equal otherwise: only a 1-step window at the band edge separates them.
+  it('keeps narrow Arrow alternatives without an equal-Arrow replacement proof', () => {
+    // A small Arrow difference can create a narrow but real future band role.
     const a = gear('a', 'Head', { luck: 100 }), b = gear('b', 'Head', { luck: 99, arrowReduction: -2 });
     const list = [a, b, gear('back2', 'Back', { arrowReduction: 70 }), gear('w2', 'Wrist')];
-    expect(result(list, 'b').verdict).toBe('SAFE TO DISCARD');
+    expect(result(list, 'b').verdict).toBe('KEEP');
   });
 });
 
@@ -72,10 +72,10 @@ describe('Keep: authentication, mutation and other exceptions', () => {
     const verdicts = analyseGearRetention(list, s).filter(x => x.item.slot === 'Head').map(x => x.verdict).sort();
     expect(verdicts).toEqual(['EQUIP', 'KEEP']);
   });
-  it('does not keep a weak item for Recovery, Tip, NPC or Walkspeed', () => {
+  it('keeps a Recovery tradeoff that has no componentwise replacement', () => {
     const minor = gear('minor', 'Head', { recovery: 20, tip: 15, npc: 15, walk: 30 });
     const list = [gear('h', 'Head', { luck: 100, arrowReduction: 70 }), gear('h0', 'Head', { luck: 50 }), minor, gear('b', 'Back'), gear('w', 'Wrist')];
-    expect(result(list, 'minor').verdict).toBe('SAFE TO DISCARD');
+    expect(result(list, 'minor').verdict).toBe('KEEP');
   });
   it('keeps everything until a full Head + Back + Wrist set exists', () => {
     const list = [gear('h1', 'Head', { luck: 10 }), gear('h2', 'Head', { luck: 90 })];
@@ -84,7 +84,7 @@ describe('Keep: authentication, mutation and other exceptions', () => {
 });
 
 describe('Keep on the verified inventory', () => {
-  it('is selective and fast', () => {
+  it('keeps unproven alternatives and remains fast', () => {
     const data = makeInitialData();
     const start = Date.now();
     const analyses = analyseGearRetention(data.gear, data.settings);
@@ -92,6 +92,6 @@ describe('Keep on the verified inventory', () => {
     expect(analyses.filter(a => a.verdict === 'EQUIP')).toHaveLength(3);
     const kept = analyses.filter(a => a.verdict === 'KEEP').length;
     expect(kept).toBeGreaterThan(0);
-    expect(kept).toBeLessThan(data.gear.length / 2);
+    expect(analyses.filter(a => a.verdict === 'SAFE TO DISCARD').length).toBeGreaterThan(0);
   });
 });

@@ -1,15 +1,19 @@
-import type { AlgorithmSettings, GearItem, Slot } from '../types';
-import { buildGearLoadouts, type DynamicScenario, type GearLoadoutCollection } from './gearLoadouts';
-import { hasUnknownEffect } from './effects';
+import type { AlgorithmSettings, GearItem, GearStats, Slot } from '../types';
+import { buildGearLoadouts, mutationLuckForItem, type DynamicScenario, type GearLoadoutCollection } from './gearLoadouts';
+import { effectKnowledge, hasUnknownEffect } from './effects';
+import { effectiveItemStats, isNumericAuth } from './scoring';
+import { canonicalEffect } from '../authentication';
 
 /**
- * Future-proof retention along the Luck/Arrow frontier.
+ * Heuristic retention reasons along the Luck/Arrow frontier.
+ * Winning a sample can protect an item; missing every sample never proves disposal.
  *
  * The question for each item is: if one new piece arrived in another slot, with any Bid
  * Arrow from 0 to 90%, could this item become part of the best set? For every slot and every
  * such Arrow value, a hypothetical piece is placed alone in that slot and the other two slots
- * are re-solved with the normal band-first ranking. Because only the hypothetical piece's
- * Arrow matters to which companions it needs, its other stats are left at zero.
+ * are re-solved with the normal band-first ranking. Other stats are left at zero for
+ * these illustrative samples; Energy/Zone saturation can change the companions needed.
+ * hasSafeReplacement, rather than this sweep, supplies the disposal proof.
  *
  * This is band-aware by construction: an item with less Arrow and more Luck is kept when some
  * future companion makes it the in-band choice, and so is the opposite profile. Nothing is
@@ -90,4 +94,43 @@ export function futureSweep(all: GearItem[], settings: AlgorithmSettings): Sweep
     }
   }
   return { plain, mutation: new Set([...withMutation].filter(id => !plain.has(id))) };
+}
+
+/** A disposal proof must hold with arbitrary companions, not just sampled loadouts.
+ * Equal Arrow preserves band distance, while componentwise improvements survive the
+ * monotone Energy/Zone saturation curves. Strict improvement prevents duplicate cycles.
+ * Proofs form an acyclic partial order, so deleting several dominated items together
+ * still leaves a maximal replacement in each same-slot chain.
+ */
+export function hasSafeReplacement(target: GearItem, all: GearItem[], settings: AlgorithmSettings): boolean {
+  if (hasUnknownEffect(target)) return false;
+  const keys: Array<keyof GearStats> = ['luck','zone','energy','recovery'];
+  if (settings.shopPriority > 0) {
+    if (settings.shopTipWeight > 0) keys.push('tip');
+    if (settings.shopNpcWeight > 0) keys.push('npc');
+  }
+  const effect = (item: GearItem) => {
+    const name = item.authenticated ? canonicalEffect(item.authentication.effect) : '';
+    return isNumericAuth(name) || effectKnowledge(name) === 'zero' || (name === 'Grade Re-Roll' && settings.gradingPriority <= 0) ? '' : name;
+  };
+  const targetStats = effectiveItemStats(target), targetEffect = effect(target);
+  return all.some(candidate => {
+    if (candidate.id === target.id || candidate.slot !== target.slot || hasUnknownEffect(candidate)) return false;
+    const candidateStats = effectiveItemStats(candidate);
+    // Different nonnumeric effects cannot replace each other across every state/context.
+    if (effect(candidate) !== targetEffect) return false;
+    const values: Array<[number,number]> = keys.map(key => [candidateStats[key],targetStats[key]]);
+    const arrows: Array<[number,number]> = [[candidateStats.arrowReduction,targetStats.arrowReduction]];
+    // Future certificates replace numeric authentication on every slot. A currently
+    // boosted replacement must also be no worse on native stats and native Arrow.
+    for (const key of keys) values.push([candidate.stats[key],target.stats[key]]);
+    arrows.push([candidate.stats.arrowReduction,target.stats.arrowReduction]);
+    values.push([mutationLuckForItem(candidate),mutationLuckForItem(target)]);
+    if (targetEffect && targetEffect !== 'Golden Hour' && targetEffect !== 'Mutated Luck') {
+      values.push([candidate.authentication.value,target.authentication.value]);
+    }
+    if (arrows.some(([a,b]) => !Number.isFinite(a) || !Number.isFinite(b) || a !== b)) return false;
+    if (values.some(([a,b]) => !Number.isFinite(a) || !Number.isFinite(b) || a < b)) return false;
+    return values.some(([a,b]) => a > b);
+  });
 }

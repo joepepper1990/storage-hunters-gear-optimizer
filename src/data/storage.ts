@@ -576,24 +576,10 @@ function coerceStoredRollLog(raw: unknown, index: number): CertificateRollLog {
   return out as unknown as CertificateRollLog;
 }
 
-function normalizeSettings(raw: Partial<AppData['settings']> | undefined): AppData['settings'] {
-  const source = (raw ?? {}) as Record<string, unknown>;
-  // 2.3: the optimiser policy is fixed and no longer edited in the app. Every older stored
-  // value (custom weights, specialist priorities, Arrow band) is replaced once by the policy,
-  // so a value nobody can see any more never silently steers the answers.
-  if (String(source.version ?? '') !== LOCKED_DEFAULT_SETTINGS.version) return { ...LOCKED_DEFAULT_SETTINGS };
-  const out: Record<string, unknown> = { ...LOCKED_DEFAULT_SETTINGS };
-  for (const [key, defaultValue] of Object.entries(LOCKED_DEFAULT_SETTINGS)) {
-    if (key === 'version') continue;
-    const n = Number(source[key]);
-    out[key] = Number.isFinite(n) ? n : defaultValue;
-  }
-  // Normalisation always yields a valid Arrow band.
-  if (!(Number(out.arrowTargetMin) >= 0 && Number(out.arrowTargetMin) < Number(out.arrowTargetMax))) {
-    out.arrowTargetMin = LOCKED_DEFAULT_SETTINGS.arrowTargetMin;
-    out.arrowTargetMax = LOCKED_DEFAULT_SETTINGS.arrowTargetMax;
-  }
-  return out as unknown as AppData['settings'];
+function normalizeSettings(_raw: Partial<AppData['settings']> | undefined): AppData['settings'] {
+  // The app has one fixed optimisation policy and no settings editor. Apply it to
+  // every load and restore, including same-version backups with hidden overrides.
+  return { ...LOCKED_DEFAULT_SETTINGS };
 }
 
 function normalizeItem(i: GearItem): GearItem {

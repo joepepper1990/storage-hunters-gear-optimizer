@@ -30,14 +30,15 @@ describe('unified gear loadouts and retention',()=>{
     expect(analysis.reason).toBe('Current Best Set');
   });
 
-  it('no longer keeps an item only because a specialist set would use it',()=>{
+  it('keeps an unproven Energy alternative without inventing a specialist set',()=>{
     const mainBack=g('MainBack','Back',{luck:120});
     const drinkBack=g('DrinkBack','Back',{energy:100});
     const gear=[g('H','Head',{luck:100}),mainBack,drinkBack,g('W','Wrist',{luck:100})];
     expect(buildGearLoadouts(gear,SPEC).drink?.back.id).toBe('DrinkBack');
     expect(buildGearLoadouts(gear,LOCKED_DEFAULT_SETTINGS).drink).toBeUndefined();
     const analysis=analyseGearRetention(gear,LOCKED_DEFAULT_SETTINGS).find(a=>a.item.id==='DrinkBack')!;
-    expect(analysis.verdict).toBe('SAFE TO DISCARD');
+    // A sampled search cannot prove a Luck/Energy tradeoff redundant.
+    expect(analysis.verdict).toBe('KEEP');
   });
 
   it('does not create a fake Grading loadout when no Grade Re-Roll exists',()=>{

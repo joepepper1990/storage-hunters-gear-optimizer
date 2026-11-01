@@ -26,8 +26,9 @@ const PREMIUM='Premium Certificate of Authenticity', LIMITED='Limited Certificat
 
 /**
  * The single source of truth for which outcomes exist. Selectors, the default catalogue
- * rows and the equal-probability pools are all derived from this list, so they cannot
- * drift. Plain Luck is not a current Wooden/Ripped outcome (it remains a native gear stat
+ * rows and the outcome pools are all derived from this list, so they cannot
+ * drift. Equal effect probabilities are a modelling assumption, not verified game odds.
+ * Plain Luck is not a current Wooden/Ripped outcome (it remains a native gear stat
  * and legacy authentications stay readable). Fossil Finder and Alien effects are historical.
  */
 export const CERTIFICATE_CATALOGUE: readonly CatalogueOutcome[] = [
@@ -93,7 +94,7 @@ export function certificateFamily(type:CertificateInventoryType):CertificateFami
   return type===PREMIUM?'Premium':type===LIMITED?'Limited':'Normal';
 }
 
-/** Fixed, canonical outcome pool of a certificate tier on a slot. Each entry is equally likely. */
+/** Canonical outcome pool. The probability model assumes equal odds; official odds are unknown. */
 export function currentPool(type:CertificateInventoryType,slot:Slot):string[] {
   return [...new Set(CERTIFICATE_CATALOGUE.filter(o=>o.type===type&&(o.slot==='Any'||o.slot===slot)).map(o=>o.effect))];
 }
@@ -147,7 +148,7 @@ export function activeCertificateOutcomeOptions(
 /** Player-reported enchantment behaviour; informational, not an official score formula. */
 export function enchantmentDescription(effect:string,value:number):string {
   switch(effect){
-    case 'Mutated Luck': return 'Adds Luck from the actual mutations on the equipped Head + Back + Wrist trio; calculated by the unified loadout engine.';
+    case 'Mutated Luck': return 'Models extra Luck from mutations on the equipped Head + Back + Wrist trio. Mutation values and the highest-mutation-per-item rule are model assumptions, not verified game formulas.';
     case 'Nocturnal': return `Adds +${value}% Luck at night. Evaluated in the Night Auction context rather than averaged with invented uptime.`;
     case 'Temporal Split': return `${value}% chance for an item to instantly mutate when placed in the Time Capsule. Not counted as ordinary gear Luck.`;
     case 'Club Pact': return 'Premium wrist effect. It is not a wanted result for this profile and adds no auction value.';
