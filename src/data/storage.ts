@@ -1,3 +1,4 @@
+import { reconcileCurrentGear } from './currentInventory';
 import { validateStatDeltas } from './statDeltas';
 import { fillVerifiedTrophyStars, replaceWithVerifiedCertificates, replaceWithVerifiedTrophies } from './screenshotEquipment';
 import { addVerifiedItems, applyInventoryUpdate20261029, fillVerifiedGearStars, replaceWithVerifiedGear } from './knownGear';
@@ -308,8 +309,9 @@ export function normalizeData(raw: AppData, options: { preserveInventory?: boole
   const gear = add1030 ? addVerifiedItems(updated, '20261030') : updated;
   const trophies = replace ? replaceWithVerifiedTrophies(storedTrophies) : storedTrophies;
   return {
-    schemaVersion: 19,
-    gear: fillStars ? fillVerifiedGearStars(gear) : gear,
+    schemaVersion: 20,
+    gear: !preserveInventory && !(Number(raw?.schemaVersion) >= 20)
+      ? reconcileCurrentGear(storedGear) : (fillStars ? fillVerifiedGearStars(gear) : gear),
     settings: normalizeSettings(raw?.settings),
     authModel: canonicaliseAuthModel(normalizeAuthModel(raw?.authModel, initial.authModel, Number(raw?.schemaVersion ?? 0)), initial.authModel),
     rollLog: Array.isArray(raw?.rollLog) ? raw.rollLog.map((roll, index) => canonicalRoll(preserveInventory ? normalizeRollLog(roll, index) : coerceStoredRollLog(roll, index))) : [],

@@ -33,7 +33,8 @@ describe('regrade suggestions on the verified inventory', () => {
     const safe = result.suggestions.filter(s => s.advice !== 'gamble');
     expect(safe.map(s => [s.item.baseName, s.stars, s.sets[0]])).toEqual([
       ['Elegant Business Backpack', 1, 'Auction'],
-      ['Royal Dominus', 1, 'Shop / Idle']
+      ['Elegant Business Backpack', 1, 'Drink Prep'],
+      ['Fox Backpack', 1, 'Shop / Idle']
     ]);
     expect(result.suggestions.filter(s => s.advice === 'gamble').every(s => s.stars === 2)).toBe(true);
     expect(result.suggestions.some(s => s.stars === 3)).toBe(false);
@@ -49,11 +50,11 @@ describe('regrade suggestions on the verified inventory', () => {
 describe('recorded star grades', () => {
   it('fills the screenshot grades once and keeps a grade already recorded', () => {
     const d = makeInitialData();
-    const cow = d.gear.find(g => g.baseName === 'Cow Dominus')!;
-    const old = { ...d, schemaVersion: 15, gear: d.gear.map(g => g.id === cow.id ? { ...g, gradeStars: 3 } : { ...g, gradeStars: undefined }),
+    const cow = d.gear.find(g => g.baseName === 'Reactor Fedora')!;
+    const old = { ...d, schemaVersion: 15, gear: d.gear.map(g => g.id === cow.id ? { ...g, gradeStars: 2 } : { ...g, gradeStars: undefined }),
       trophies: d.trophies.map(t => ({ ...t, gradeStars: undefined })) } as never;
     const filled = normalizeData(old);
-    expect(filled.gear.find(g => g.id === cow.id)?.gradeStars).toBe(3);
+    expect(filled.gear.find(g => g.id === cow.id)?.gradeStars).toBe(2);
     expect(filled.gear.find(g => g.baseName === 'Race Valk')?.gradeStars).toBe(3);
     expect(filled.gear.every(g => g.gradeStars !== undefined)).toBe(true);
     expect(filled.trophies.find(t => t.name === 'Gem +194%')?.gradeStars).toBe(1);
@@ -75,7 +76,7 @@ describe('importing a regraded item', () => {
       statLines: [{ text: '+95% Luck', color: 'green' }, { text: '+13% Energy Drink Time', color: 'green' }] }, knownSlots(data));
     const match = matchDraft(data, scan);
     expect(match).toMatchObject({ status: 'update', id: backpack.id, regrade: { fromStars: 1, toStars: 3 } });
-    expect(match.status === 'update' && match.changes).toEqual(['Regraded: 1★ → 3★', 'Luck: 80% → 95%', 'Energy: 11% → 13%']);
+    expect(match.status === 'update' && match.changes).toEqual(['Regraded: 1★ → 3★', 'Luck: 80% → 95%', 'Energy: 11% → 13%', 'Effect: Focused 28% (Normal) → none']);
     const next = applyDraft(data, scan);
     expect(next.gear).toHaveLength(data.gear.length);
     expect(next.gear.find(g => g.id === backpack.id)).toMatchObject({ gradeStars: 3, stats: expect.objectContaining({ luck: 95, energy: 13 }) });
