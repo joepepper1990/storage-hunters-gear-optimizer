@@ -88,7 +88,7 @@ describe('cloud sync in the app', () => {
     expect(server.rows.get('uid-joe@example.com')?.revision).toBe(1);
 
     // A change on A is uploaded.
-    device().setData({ ...device().data, settings: { ...device().data.settings, luckWeight: 4 } });
+    device().setData({ ...device().data, theme: 'dark' });
     await settle();
     await waitFor(() => { if (server.rows.get('uid-joe@example.com')?.revision !== 2) throw new Error('waiting'); });
 
@@ -104,7 +104,7 @@ describe('cloud sync in the app', () => {
     expect(server.rows.get('uid-joe@example.com')?.revision).toBe(2);
     device().cloud.useCloud();
     await settle();
-    expect(device().data.settings.luckWeight).toBe(4);
+    expect(device().data.theme).toBe('dark');
     await waitFor(() => { if (device().cloud.status !== 'synced') throw new Error(device().cloud.status); });
     expect(server.rows.get('uid-joe@example.com')?.revision).toBe(2); // Adopting does not re-upload.
   }, 30000);

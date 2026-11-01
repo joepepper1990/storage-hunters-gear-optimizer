@@ -12,7 +12,7 @@ import { catalogueRowsFor } from './authModel';
 import { algorithmIssues } from './settingsValidation';
 import { MODEL_ASSUMPTIONS } from './modelAssumptions';
 import { arrowNeeded, CALCULATED_RANK_EFFECTS, isUnwanted, preferenceOrder, preferenceRank, wantedChance, wantedEffects } from './certificatePolicy';
-import { arrowTargetBand } from './scoring';
+import { arrowTargetBand, effectiveItemStats } from './scoring';
 
 /**
  * Certificate decisions sit on top of the one authoritative loadout engine. For every
@@ -21,7 +21,8 @@ import { arrowTargetBand } from './scoring';
  * (Head x Back x Wrist) with the Arrow band ranked first. A roll counts as an improvement
  * only when that complete re-optimised result is better than doing nothing.
  *
- * Effect selection: every canonical outcome of a certificate on a slot is equally likely.
+ * Effect selection assumes equal probability for each canonical outcome on a slot;
+ * this is a model assumption, not independently verified game odds.
  * Roll history and range priors only shape how strong a roll is, never which effect.
  */
 
@@ -127,6 +128,7 @@ type RollSupport = {
   label?:string;
   /** Continuous-prior quadrature only; empirical samples never carry integration error. */
   integrationCellMass?:number;
+  interval?: { min:number; max:number };
 };
 
 type Loadouts = ReturnType<typeof buildGearLoadouts>;
@@ -274,7 +276,8 @@ function rollSupports(def:CertificateOutcomeDefinition,data:AppData,slot:Slot,ce
     const priorValues=Array.from({length:count},(_,i)=>min+(max-min)*((i+.5)/count));
     const priorWeights=normalizedPriorWeights(priorValues,min,max,def.typical);
     const maxCellMass=min===max?0:priorMass*Math.max(...priorWeights);
-    const prior:RollSupport[]=priorValues.map((value,i)=>({value,weight:priorMass*priorWeights[i],unresolved:mechanicUnknown,integrationCellMass:maxCellMass}));
+    const prior:RollSupport[]=priorValues.map((value,i)=>({value,weight:priorMass*priorWeights[i],unresolved:mechanicUnknown,integrationCellMass:maxCellMass,
+      ...(min===max?{}:{interval:{min:min+(max-min)*i/count,max:min+(max-min)*(i+1)/count}})}));
     // Zero-weight endpoint evaluations bound the monotone utility variation in
     // each numeric effect. They are bounds, never endpoint probability atoms.
     if(min!==max)prior.push(...[min,max].map(value=>({value,weight:0,unresolved:mechanicUnknown,integrationCellMass:maxCellMass})));
@@ -392,8 +395,8 @@ function judge(before:Loadouts,after:Loadouts,data:AppData,eligible:boolean):Sta
   const gain=bestGain>1e-4;
   return {
     mainChange:main,bestGain,bestContext,
-    improves:eligible&&mainOK&&gain,
-    worse:!mainOK||(!gain&&anyLower)
+    improves:eligible&&mainOK&&gain&&!anyLower,
+    worse:!mainOK||anyLower
   };
 }
 
@@ -409,21 +412,64 @@ type Branch = {
   label:string;
   states?:Record<DynamicScenario,StateOutcome>;
   next?:Record<DynamicScenario,Loadouts>;
+  edges?: [Record<DynamicScenario,StateOutcome>,Record<DynamicScenario,StateOutcome>];
+  certified?:boolean;
+  mainLower?:number;
 };
 
-/** Monotone numeric effects: midpoint integration error is at most the largest cell mass
- * times the total variation of the integrand within each effect's prior. */
+/** Cell probability bounds: endpoints certify monotone regions; every unproved cell
+ * contributes its entire probability mass to uncertainty, even if all samples agree. */
 function integrationError(branches:Branch[],pick:(b:Branch)=>number):number {
-  const groups=new Map<string,Branch[]>();
-  for(const b of branches)if(b.integrationGroup&&!b.unresolved){
-    const group=groups.get(b.integrationGroup)??[];group.push(b);groups.set(b.integrationGroup,group);
+  return branches.reduce((sum,b)=>{
+    if(!b.edges||b.unresolved||b.p<=0)return sum;
+    if(!b.certified)return sum+b.p;
+    const mid=pick(b),values=b.edges.map(states=>pick({...b,states}));
+    return sum+b.p*Math.max(...values.map(value=>Math.abs(value-mid)));
+  },0);
+}
+
+function companionPairs(data:AppData,item:GearItem):GearItem[][] {
+  const slots=(['Head','Back','Wrist'] as Slot[]).filter(slot=>slot!==item.slot);
+  return data.gear.filter(g=>g.slot===slots[0]).flatMap(a=>
+    data.gear.filter(g=>g.slot===slots[1]).map(b=>[a,b]));
+}
+
+/** Arrow is nonmonotone across its band. Certify only cells in which no affected
+ * trio crosses either edge, and either an in-band trio exists throughout or every
+ * affected trio is on the same side. Mixed-side envelopes remain uncertain. */
+function certifiedCell(data:AppData,item:GearItem,effect:string,min:number,max:number):boolean {
+  if(effect!=='Bid Arrow Speed')return true;
+  const band=arrowTargetBand(data.settings);
+  let inside=false,below=false,above=false;
+  for(const pair of companionPairs(data,item)){
+    const base=item.stats.arrowReduction+pair.reduce((sum,g)=>sum+effectiveItemStats(g).arrowReduction,0);
+    const lo=base-max,hi=base-min;
+    if(lo>=band.min&&hi<=band.max)inside=true;
+    else if(hi<band.min)below=true;
+    else if(lo>band.max)above=true;
+    else return false;
   }
-  let error=0;
-  for(const group of groups.values()){
-    const values=group.map(pick);
-    error+=Math.max(...group.map(b=>b.integrationCellMass))*(Math.max(...values)-Math.min(...values));
+  return inside||!(below&&above);
+}
+
+/** Lower utility bound for an uncertified Arrow cell. Each individual trio's utility
+ * is monotone in numeric Arrow; its minimum is at an endpoint. The chosen optimum
+ * can never have utility below the minimum of every candidate. Band losses are -100. */
+function cellMainLower(data:AppData,item:GearItem,cert:OwnedCertificate,effect:string,min:number,max:number,before:Loadout,unaffected:Loadouts):number {
+  let floor=unaffected.main?.utility??Infinity;
+  for(const pair of companionPairs(data,item))for(const value of [min,max]){
+    floor=Math.min(floor,mainAuctionUtility([...pair,replaceAuthentication(item,cert,effect,value)],data.settings,'Neutral','low'));
   }
-  return error;
+  return Math.min(-ARROW_BAND_CHANGE_PCT,pct(floor,before.utility));
+}
+
+/** An unaffected optimum is an exact safety witness for arbitrary replacement effects. */
+function noLoss(before:Loadouts,after:Loadouts):boolean {
+  return AUCTION_KEYS.every(key=>{
+    const a=after[key],b=before[key];
+    return Boolean(a&&b)&&(a!.arrowDistance<b!.arrowDistance-1e-9||
+      (Math.abs(a!.arrowDistance-b!.arrowDistance)<=1e-9&&a!.utility>=b!.utility-1e-9));
+  });
 }
 
 const NATIVE_STAT_LABEL:Record<string,string>={luck:'Luck',zone:'Bid Zone Width',energy:'Energy Drink Time',arrowReduction:'Bid Arrow',recovery:'Bid Recovery',tip:'Tip Chance',npc:'NPC Offers',walk:'Walkspeed',vehicle:'Vehicle'};
@@ -507,11 +553,6 @@ function targetDecision(data:AppData,cert:OwnedCertificate,item:GearItem,baselin
   const needArrow=arrowNeeded(base.main.stats,data.settings);
   const family=certificateFamily(cert.type);
 
-  // What the current authentication is worth: the item bare, with everything re-optimised.
-  const bare={...item,authenticated:false,authentication:{kind:'None' as const,effect:'',value:0}};
-  const without=auctionLoadouts(data.gear.map(g=>g.id===item.id?bare:g),data,'low');
-  const currentValued=judge(base,without,data,false).worse;
-
   const unaffectedGear=data.gear.filter(g=>g.id!==item.id);
   const unaffected={} as Record<DynamicScenario,Loadouts>;
   for(const state of STATES)unaffected[state]=auctionLoadouts(unaffectedGear,data,state);
@@ -520,6 +561,17 @@ function targetDecision(data:AppData,cert:OwnedCertificate,item:GearItem,baselin
   const branches:Branch[]=[];
   for(const def of defs){
     const eligible=!isUnwanted(def.effect);
+    const evaluated=new Map<number,{next:Record<DynamicScenario,Loadouts>;states:Record<DynamicScenario,StateOutcome>}>();
+    const evaluate=(value:number)=>{
+      const cached=evaluated.get(value);if(cached)return cached;
+      const gear=others.concat(replaceAuthentication(item,cert,def.effect,value));
+      const next={} as Record<DynamicScenario,Loadouts>,states={} as Record<DynamicScenario,StateOutcome>;
+      for(const state of STATES){
+        next[state]=mergeLoadouts(unaffected[state],auctionLoadouts(gear,data,state));
+        states[state]=judge(baselines[state],next[state],data,eligible);
+      }
+      const result={next,states};evaluated.set(value,result);return result;
+    };
     for(const support of rollSupports(def,data,item.slot,cert)){
       const branch:Branch={
         p:p*support.weight,effect:def.effect,value:support.value,
@@ -531,15 +583,16 @@ function targetDecision(data:AppData,cert:OwnedCertificate,item:GearItem,baselin
         label:def.effect+(support.unresolved?' — '+(support.label??'strength unresolved'):support.value?' '+(Math.round(support.value*10)/10)+'%':'')
       };
       if(!support.unresolved){
-        const updated=replaceAuthentication(item,cert,def.effect,support.value);
-        const gear=others.concat(updated);
-        const next={} as Record<DynamicScenario,Loadouts>;
-        const states={} as Record<DynamicScenario,StateOutcome>;
-        for(const state of STATES){
-          next[state]=mergeLoadouts(unaffected[state],auctionLoadouts(gear,data,state));
-          states[state]=judge(baselines[state],next[state],data,eligible);
+        const result=evaluate(support.value);
+        branch.next=result.next;branch.states=result.states;
+        if(support.interval){
+          const {min,max}=support.interval;
+          branch.edges=[evaluate(min).states,evaluate(max).states];
+          branch.certified=certifiedCell(data,item,def.effect,min,max);
+          branch.mainLower=branch.certified
+            ?Math.min(...branch.edges.map(states=>states.low.mainChange))
+            :cellMainLower(data,item,cert,def.effect,min,max,base.main!,unaffected.low);
         }
-        branch.next=next;branch.states=states;
       }
       branches.push(branch);
     }
@@ -568,9 +621,9 @@ function targetDecision(data:AppData,cert:OwnedCertificate,item:GearItem,baselin
   };
   const worseChancePct:StateRange={cautious:mass(worse('low')),central:mass(worse('central')),favourable:mass(worse('high'))};
   const potentialMass=branches.filter(b=>b.unresolved&&b.potential).reduce((s,b)=>s+b.p,0)*100;
-  const unresolvedAtRisk=currentValued?unresolvedMass*100:0;
+  const unresolvedAtRisk=noLoss(base,unaffected.low)?0:Math.max(0,unresolvedMass)*100;
   const worseChanceUpperPct=Math.min(100,worseChancePct.cautious+err(worse('low'))+unresolvedAtRisk);
-  const improveChanceUpperPct=Math.min(100,Math.max(improveChancePct.cautious,improveChancePct.central,improveChancePct.favourable)+err(improve('high'))+potentialMass);
+  const improveChanceUpperPct=Math.min(100,Math.max(improveChancePct.cautious,improveChancePct.central,improveChancePct.favourable)+Math.max(...STATES.map(state=>err(improve(state))))+potentialMass);
   const expectedMainChangePct=range(o=>o.mainChange);
   const expectedBestGainPct=range(o=>o.improves?o.bestGain:0);
   const numericalProbabilityErrorPct=Math.max(...STATES.flatMap(s=>[err(improve(s)),err(worse(s))]));
@@ -578,7 +631,8 @@ function targetDecision(data:AppData,cert:OwnedCertificate,item:GearItem,baselin
   const confidence=Math.max(0,Math.min(100,branches.reduce((s,b)=>s+b.p*b.confidence,0)*100*Math.max(.35,1-unresolvedMass*100/140)));
 
   const use=MODEL_ASSUMPTIONS.certificate.use, consider=MODEL_ASSUMPTIONS.certificate.consider;
-  const safeInCautious=worseChanceUpperPct<=use.maxCautiousWorsePct&&expectedMainChangePct.cautious>=-data.settings.mainMaterialLossPct;
+  const expectedMainLower=unresolvedAtRisk>1e-9?-Infinity:resolved.reduce((sum,b)=>sum+b.p*(b.mainLower??b.states!.low.mainChange),0);
+  const safeInCautious=worseChanceUpperPct<=use.maxCautiousWorsePct&&expectedMainLower>=-data.settings.mainMaterialLossPct;
   let verdict:CertificateDecisionVerdict='HOLD';
   if(worseChanceUpperPct>=MODEL_ASSUMPTIONS.certificate.doNotUse.minCautiousWorsePct)verdict='DO NOT USE';
   // Always-on rolls give the same figure in every state, so they qualify on the cautious
@@ -642,7 +696,7 @@ function targetDecision(data:AppData,cert:OwnedCertificate,item:GearItem,baselin
     bestRoll:best&&bestLoadout?{effect:best.effect,label:best.label,gainPct:best.states!.central.bestGain,loadout:bestLoadout,state:bestState,preference:preferenceOrder(family,item.slot,best.effect)}:undefined,
     calculatedRanks:calculatedRanks(item,cert,pool,needArrow,branches),
     reasons:[
-      `Every one of the ${pool.length} possible outcomes is equally likely (${(p*100).toFixed(1)}% each).`,
+      `The model assumes every one of the ${pool.length} possible outcomes is equally likely (${(p*100).toFixed(1)}% each).`,
       `Each roll is put back into the inventory and the Neutral, Day, Night and Rain sets are re-optimised with the ${band.min}–${band.max}% Bid Arrow band first.`,
       'A roll improves things only if a re-optimised set gains, every set stays as close to the Arrow band, and the Neutral set loses no more than '+data.settings.mainMaterialLossPct+'%.',
       'Cautious, central and favourable dynamic states are shown as a range; none of them is a claimed average.',
@@ -660,7 +714,7 @@ export function analyseConditionalNumberReroll(
   data:AppData,
   roll:AppData['rollLog'][number],
   cert:OwnedCertificate
-):{improveChancePct:number;worseChancePct:number;worseChanceUpperPct:number;resolvedMassPct:number;unresolvedMassPct:number;modelNote:string}|undefined {
+):{improveChancePct:number;improveChanceLowerPct:number;improveChanceUpperPct:number;worseChancePct:number;worseChanceUpperPct:number;resolvedMassPct:number;unresolvedMassPct:number;modelNote:string}|undefined {
   if(algorithmIssues(data.settings).length)return undefined;
   const original=data.gear.find(g=>g.id===roll.itemId);
   if(!original)return undefined;
@@ -670,23 +724,35 @@ export function analyseConditionalNumberReroll(
   if(!supports.length)return undefined;
   const baseline=auctionLoadouts(data.gear,data,'low');
   if(!baseline.main)return undefined;
-  let resolvedMass=0,improve=0,worse=0,largestCell=0;
-  const priorWorse:number[]=[];
+  let resolvedMass=0,improve=0,worse=0,improveError=0,worseError=0;
+  const evaluated=new Map<number,StateOutcome>();
+  const evaluate=(value:number)=>{
+    const old=evaluated.get(value);if(old)return old;
+    const hypothetical=replaceAuthentication(original,cert,def.effect,value);
+    const result=judge(baseline,auctionLoadouts(data.gear.map(item=>item.id===original.id?hypothetical:item),data,'low'),data,!isUnwanted(def.effect));
+    evaluated.set(value,result);return result;
+  };
   for(const support of supports){
     if(support.unresolved)continue;
-    const hypothetical=replaceAuthentication(original,cert,def.effect,support.value);
-    const result=judge(baseline,auctionLoadouts(data.gear.map(item=>item.id===original.id?hypothetical:item),data,'low'),data,!isUnwanted(def.effect));
+    const result=evaluate(support.value);
     resolvedMass+=support.weight;
     if(result.improves)improve+=support.weight;
     if(result.worse)worse+=support.weight;
-    if(support.integrationCellMass){largestCell=Math.max(largestCell,support.integrationCellMass);priorWorse.push(result.worse?1:0);}
+    if(support.interval){
+      const {min,max}=support.interval;
+      const edges=[evaluate(min),evaluate(max)];
+      const certified=certifiedCell(data,original,def.effect,min,max);
+      if(!certified||edges.some(edge=>edge.improves!==result.improves))improveError+=support.weight;
+      if(!certified||edges.some(edge=>edge.worse!==result.worse))worseError+=support.weight;
+    }
   }
-  // Midpoint quadrature can misplace at most one prior cell across the worse/not-worse edge.
-  const error=priorWorse.length?largestCell*(Math.max(...priorWorse)-Math.min(...priorWorse)):0;
   return {
-    improveChancePct:improve*100,worseChancePct:worse*100,worseChanceUpperPct:Math.min(100,(worse+error)*100),
+    improveChancePct:improve*100,
+    improveChanceLowerPct:Math.max(0,(improve-improveError)*100),
+    improveChanceUpperPct:Math.min(100,(improve+improveError+Math.max(0,1-resolvedMass))*100),
+    worseChancePct:worse*100,worseChanceUpperPct:Math.min(100,(worse+worseError)*100),
     resolvedMassPct:resolvedMass*100,unresolvedMassPct:Math.max(0,1-resolvedMass)*100,
-    modelNote:'Same authentication effect only, judged in the cautious state. The current roll is excluded from the strength model.'
+    modelNote:'Same authentication effect only, using conservative interval bounds in the cautious state. Equal effect odds and strength distributions are assumptions; the current roll is excluded from training.'
   };
 }
 
@@ -722,7 +788,7 @@ export function analyseCertificate(data:AppData,cert:OwnedCertificate,sharedBase
     recommendedTarget,
     targets,
     modelNotes:[
-      'Outcome pools are fixed game data; every outcome of a certificate on a slot is equally likely.',
+      'Outcome pools use the current catalogue; equal effect probabilities are a model assumption, not independently verified game odds.',
       'Roll history only informs roll strength, never which effect is rolled.',
       'Every roll is judged by re-optimising the complete Head + Back + Wrist sets with the Arrow band first.',
       'HOLD is a first-class option with zero guaranteed change.'

@@ -25,7 +25,12 @@ export function chanceText(target: CertificateTargetDecision): { value: string; 
   const low = Math.min(lower.cautious, lower.central, lower.favourable);
   const high = Math.max(exact.cautious, exact.central, exact.favourable, target.improveChanceUpperPct);
   const ranged = Math.round(high) - Math.round(low) >= 1;
-  return { value: ranged ? `${pct(low)}–${pct(high)}` : pct(low), detail: ranged ? 'better sets · depends on active effects' : 'better sets' };
+  const stateValues = [exact.cautious, exact.central, exact.favourable];
+  const causes = [
+    Math.max(...stateValues) - Math.min(...stateValues) >= 1 ? 'active-effect scenarios' : '',
+    target.unresolvedOutcomeMassPct > 1e-6 ? 'unresolved roll strengths' : ''
+  ].filter(Boolean);
+  return { value: ranged ? `${pct(low)}–${pct(high)}` : pct(low), detail: ['model estimate', ...causes].join(' · ') };
 }
 
 function arrowText(target: CertificateTargetDecision): string {
@@ -38,11 +43,11 @@ function TargetDetails({ target }: { target: CertificateTargetDecision }) {
     <summary>Why</summary>
     <ul className="plainList">
       {target.currentAuthentication && <li>Now: {target.currentAuthentication.effect}{target.currentAuthentication.rank ? ` (#${target.currentAuthentication.rank.rank} of ${target.currentAuthentication.rank.of} wanted${target.currentAuthentication.rank.higher.length ? `; higher: ${target.currentAuthentication.rank.higher.join(', ')}` : ''})` : target.currentAuthentication.calculated ? ' (value calculated from the trio)' : ' (not a wanted result for this certificate)'}</li>}
-      {best && <li>Best roll: {best.label} → {best.loadout.context === 'Neutral' ? 'main' : best.loadout.context} set {itemTitle(best.loadout.head)} / {itemTitle(best.loadout.back)} / {itemTitle(best.loadout.wrist)} · Arrow {num(best.loadout.arrow)}%{best.loadout.inBand ? '' : ' (outside band)'} · Luck {num(best.loadout.luck)} · Zone {num(best.loadout.zone)} · Energy {num(best.loadout.energy)}{best.state === 'central' ? ' (with active effects at the central sensitivity setting)' : ''}</li>}
-      <li>Worse: up to {pct(target.worseChanceUpperPct)} (cautious){target.safeInCautious ? ' · safe' : ''}</li>
+      {best && <li>Best roll: {best.label} → {best.loadout.context === 'Neutral' ? 'main' : best.loadout.context} set {itemTitle(best.loadout.head)} / {itemTitle(best.loadout.back)} / {itemTitle(best.loadout.wrist)} · Arrow {num(best.loadout.arrow)}%{best.loadout.inBand ? '' : ' (outside band)'} · Modelled Luck {num(best.loadout.luck)} · Zone {num(best.loadout.zone)} · Energy {num(best.loadout.energy)}{best.state === 'central' ? ' (with active effects at the central sensitivity setting)' : ''}</li>}
+      <li>Modelled downside: up to {pct(target.worseChanceUpperPct)} for a worse Main, Day, Night or Rain set (cautious scenario){target.safeInCautious ? ' · within the policy risk limit' : ''}</li>
       {target.calculatedRanks.map(r => <li key={r.effect}>{r.effect}{r.defaultRank ? ` · default #${r.defaultRank}` : ''}{r.calculatedRank ? ` · here #${r.calculatedRank}` : ''}: {r.reason}</li>)}
       {target.unwantedOutcomePct > 0 && <li>{pct(target.unwantedOutcomePct)} of outcomes are unwanted.</li>}
-      {target.unresolvedOutcomeMassPct > 1e-6 && <li>Some roll strengths ({target.unresolvedEffects.join(', ')}) are unresolved, so the range is wider.</li>}
+      {target.unresolvedOutcomeMassPct > 1e-6 && <li>Unresolved roll strengths ({target.unresolvedEffects.join(', ')}) widen the range independently of active-effect scenarios.</li>}
     </ul>
   </details>;
 }
@@ -73,7 +78,8 @@ export function NextCertificate({ row, computing, hasCertificates, onRecord, det
     <strong className={`verdict ${t.verdict === 'USE' ? 'use' : 'consider'}`}>{VERDICT_WORD[t.verdict]} {certificateLabel(row.certificate)}</strong>
     <p className="target">→ {itemTitle(t.item)} · {t.item.slot}</p>
     <ul className="facts">
-      <li><b>{chance.value}</b> chance of a better Best Set</li>
+      <li>Model estimate: <b>{chance.value}</b> chance of a better Best Set</li>
+      <li>{chance.detail} · assumes equal effect odds and modelled roll strengths; not official game odds.</li>
       <li>Wanted roll {pct(t.wantedChancePct)}{t.unwantedOutcomePct > 0 ? ` · ${pct(t.unwantedOutcomePct)} of rolls unwanted` : ''}</li>
       {t.bestRoll && <li>Best result: {t.bestRoll.effect}</li>}
       <li>{arrowText(t)}</li>

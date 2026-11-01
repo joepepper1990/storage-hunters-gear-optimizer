@@ -83,8 +83,8 @@ export function analysePostRollOptions(data:AppData,roll:CertificateRollLog):Pos
   const number=analyseConditionalNumberReroll(trainingData,roll,cert);
   const numberReroll:PostRollOption|undefined=number&&{
     action:'REROLL NUMBER',
-    recommendable:number.unresolvedMassPct<1e-9&&number.worseChanceUpperPct<=POLICY.maxCautiousWorsePct&&number.improveChancePct>=POLICY.minCautiousImprovePct,
-    improveChancePct:number.improveChancePct,
+    recommendable:number.unresolvedMassPct<1e-9&&number.worseChanceUpperPct<=POLICY.maxCautiousWorsePct&&number.improveChanceLowerPct>=POLICY.minCautiousImprovePct,
+    improveChancePct:number.improveChanceLowerPct,
     worseChancePct:Math.min(100,number.worseChanceUpperPct+number.unresolvedMassPct),
     unresolvedOutcomeMassPct:number.unresolvedMassPct,
     note:number.modelNote

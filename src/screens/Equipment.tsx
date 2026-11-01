@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { algorithmIssues } from '../engine/settingsValidation';
 import { analyseTrophyRetention, optimiseTrophies, trophyMutationBoost } from '../engine/trophies';
-import { effectiveItemStats } from '../engine/scoring';
+import { combineStats, effectiveItemStats } from '../engine/scoring';
 import { hasUnknownEffect } from '../engine/effects';
 import type { GearLoadoutResult } from '../engine/gearLoadouts';
 import { GearEditor } from '../components/GearEditor';
@@ -75,6 +75,8 @@ export function removeRecords(data: AppData, ids: Set<string>): AppData {
 export function BestSetCards({ best }: { best?: GearLoadoutResult }) {
   if (!best) return <Empty>Add a Head, Back and Wrist to see your Best Set</Empty>;
   const s = best.stats;
+  const itemLuck = combineStats([best.head, best.back, best.wrist]).luck;
+  const modelledLuck = s.luck - itemLuck;
   return <div className="bestSet">
     {[best.head, best.back, best.wrist].map(item => <article className="pieceCard" key={item.id}>
       <span className="slotName">{item.slot}</span>
@@ -83,11 +85,13 @@ export function BestSetCards({ best }: { best?: GearLoadoutResult }) {
       {keyStats(item) && <small>{keyStats(item)}</small>}
     </article>)}
     <div className="totals" aria-label="Best Set totals">
-      <span>Luck <b>{num(s.luck)}</b></span>
+      <span>Item Luck <b>{num(itemLuck)}</b></span>
+      {Math.abs(modelledLuck) > 1e-9 && <span>Modelled Luck <b>{num(s.luck)}</b></span>}
       <span>Arrow <b>{num(s.arrowReduction)}%{best.arrowDistance <= 1e-9 ? ' ✓' : ''}</b></span>
       {Math.abs(s.zone) > 1e-9 && <span>Zone <b>{num(s.zone)}%</b></span>}
       {Math.abs(s.energy) > 1e-9 && <span>Energy <b>{num(s.energy)}%</b></span>}
     </div>
+    {Math.abs(modelledLuck) > 1e-9 && <small>Includes {modelledLuck >= 0 ? '+' : ''}{num(modelledLuck)} Luck from modelled effects; excludes other game boosts.</small>}
   </div>;
 }
 

@@ -24,28 +24,38 @@ describe('settings policy 2.3',()=>{
       expect(normalizeData(d).settings).toEqual(LOCKED_DEFAULT_SETTINGS);
     }
   });
+  it('resets every same-version algorithm field without changing inventory or history',()=>{
+    const d=makeInitialData();
+    for(const key of Object.keys(d.settings) as Array<keyof typeof d.settings>){
+      if(key!=='version')(d.settings[key] as number)=123;
+    }
+    d.rollLog=[roll() as AppData['rollLog'][number]];
+    const reloaded=normalizeData(structuredClone(d));
+    expect(reloaded.settings).toEqual(LOCKED_DEFAULT_SETTINGS);
+    expect({...reloaded,settings:d.settings}).toEqual(d);
+  });
   it('has no specialist sets and the agreed Arrow band and Energy policy',()=>{
     expect(LOCKED_DEFAULT_SETTINGS).toMatchObject({version:'2.3',arrowTargetMin:70,arrowTargetMax:90,energyWeight:.3,zoneWeight:.6,drinkPriority:0,gradingPriority:0,shopPriority:0});
   });
 });
 
 describe('reload and backups',()=>{
-  it('preserves inventory, certificates, settings and history on reload',()=>{
+  it('preserves inventory, certificates and history while restoring fixed settings on reload',()=>{
     const d=makeInitialData();
     d.settings={...d.settings,zoneWeight:.61,shopPriority:9};
     d.rollLog=[roll() as AppData['rollLog'][number]];
     const reloaded=normalizeData(JSON.parse(exportJson(d)));
     expect(reloaded.gear).toEqual(d.gear);
     expect(reloaded.ownedCertificates).toEqual(d.ownedCertificates);
-    expect(reloaded.settings).toEqual(d.settings);
+    expect(reloaded.settings).toEqual(LOCKED_DEFAULT_SETTINGS);
     expect(reloaded.rollLog).toEqual(d.rollLog);
     expect(reloaded.trophies).toEqual(d.trophies);
   });
-  it('round-trips a backup with custom preferences unchanged',()=>{
+  it('restores the fixed policy from a same-version backup with custom algorithm values',()=>{
     const d=makeInitialData();
     d.settings={...d.settings,luckWeight:2.5,zoneWeight:.65,drinkPriority:0};
     const restored=importJson(exportJson(d));
-    expect(restored.settings).toEqual(d.settings);
+    expect(restored.settings).toEqual(LOCKED_DEFAULT_SETTINGS);
     expect(restored.gear).toEqual(d.gear);
   });
 });
@@ -92,7 +102,7 @@ describe('schema 15 inventory replacement',()=>{
     (d as unknown as {schemaVersion:number}).schemaVersion=14;
     return d;
   }
-  it('replaces gear, certificates and Gavels once and keeps settings and history',()=>{
+  it('replaces gear, certificates and Gavels once and keeps history with the fixed policy',()=>{
     const d=schema14();
     const fresh=makeInitialData();
     // A schema-14 store: an old 22-item list with a favourite and a roll on a kept item,
@@ -121,7 +131,7 @@ describe('schema 15 inventory replacement',()=>{
     expect(migrated.trophies).toHaveLength(18);
     expect(migrated.trophies.find(t=>t.id==='my-gem')?.favourite).toBe(true);
     expect(migrated.trophies.filter(t=>t.modifiers[0].mutation==='Huge')).toHaveLength(1);
-    expect(migrated.settings.zoneWeight).toBe(.61);
+    expect(migrated.settings).toEqual(LOCKED_DEFAULT_SETTINGS);
     expect(migrated.rollLog).toEqual(d.rollLog);
     for(const key of ['vehicleParts','trailers','vehicleProfile','vehicleSettings'])expect(key in migrated).toBe(false);
 
