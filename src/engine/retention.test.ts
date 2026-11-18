@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LOCKED_DEFAULT_SETTINGS, makeInitialData, ZERO_STATS } from '../defaults';
+import { LOCKED_DEFAULT_SETTINGS, makeInitialData, ZERO_STATS } from '../test/legacyDefaults';
 import type { GearItem, GearStats, Slot } from '../types';
 import { analyseGearRetention, buildGearLoadouts } from './gearLoadouts';
 

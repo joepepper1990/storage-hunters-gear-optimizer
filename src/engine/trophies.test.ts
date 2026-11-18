@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_TROPHY_SETTINGS } from '../defaults';
+import { DEFAULT_TROPHY_SETTINGS } from '../test/legacyDefaults';
 import type { GavelTrophy } from '../types';
 import { analyseTrophyRetention, evaluateTrophySet, optimiseTrophies, specialistTrophyLoadout, TROPHY_ACTIVE_LIMIT, trophyScore } from './trophies';
 

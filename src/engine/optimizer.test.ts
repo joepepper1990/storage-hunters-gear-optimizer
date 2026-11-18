@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LOCKED_DEFAULT_SETTINGS } from '../defaults';
+import { LOCKED_DEFAULT_SETTINGS } from '../test/legacyDefaults';
 import { analyseItems, optimise, specialistLoadout } from './optimizer';
 import type { GearItem, GearStats, Slot } from '../types';
 

@@ -148,7 +148,7 @@ export default function App() {
     {cloud.status === 'error' && tab !== 'Settings' && <div className="notice dangerNotice banner" role="alert">Cloud sync failed: {cloud.message} <button className="link" onClick={() => setTab('Settings')}>Open</button></div>}
 
     <main className="content">
-      {tab === 'Home' && view && <Home data={data} best={best} view={view} queue={queue} onOpen={setTab} onAdd={() => setAdding('menu')} />}
+      {tab === 'Home' && view && <Home data={data} setData={edit} best={best} view={view} queue={queue} onOpen={setTab} onAdd={() => setAdding('menu')} />}
       {tab === 'Equipment' && view && <Equipment data={data} setData={edit} best={best} view={view} />}
       {tab === 'Certificates' && <Certificates data={data} setData={edit} analysis={certificates} queue={queue} onRecorded={setActivePostRollId} />}
       {tab === 'Settings' && <Settings data={data} setData={edit} cloud={cloud} />}

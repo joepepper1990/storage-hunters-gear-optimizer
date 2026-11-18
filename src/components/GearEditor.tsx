@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ZERO_STATS } from '../defaults';
 import { editAuthentication } from '../engine/certificateRolls';
 import { gameArrowToReduction, reductionToGameArrow } from '../engine/scoring';
-import { activeAuthenticationOptions, EXCLUSIVE_AUTH_EFFECTS, LEGACY_ALIEN_EFFECTS, LIMITED_AUTH_EFFECTS, PREMIUM_AUTH_EFFECTS } from '../authentication';
+import { activeAuthenticationOptions, CARNIVAL_AUTH_EFFECTS, EXCLUSIVE_AUTH_EFFECTS, LEGACY_ALIEN_EFFECTS, LIMITED_AUTH_EFFECTS, PREMIUM_AUTH_EFFECTS } from '../authentication';
 import { generateGearName } from '../naming';
 import type { GearItem, GearStats, Slot } from '../types';
 import { NumberInput, SHORT_STAT, STAT_LABELS } from '../ui';
@@ -32,7 +32,7 @@ export function GearEditor({ item, mode, onClose, onSave, onDelete }: {
   const setAuthentication = (next: Partial<GearItem['authentication']>) => setV(current => renamed({ ...current, authentication: editAuthentication(current.authentication, next) }));
   const hideStat = (key: keyof GearStats) => { setStat(key, 0); setShown(current => current.filter(k => k !== key)); };
   const legacyAlien = v.authenticated && v.authentication.kind === 'Alien';
-  const kind = v.authentication.kind === 'Premium' ? 'Premium' : v.authentication.kind === 'Limited' ? 'Limited' : 'Normal';
+  const kind = v.authentication.kind === 'Carnival' ? 'Carnival' : v.authentication.kind === 'Premium' ? 'Premium' : v.authentication.kind === 'Limited' ? 'Limited' : 'Normal';
   const save = (keepAdding = false) => {
     const issue = validateGear(v);
     if (issue) { setError(issue); return; }
@@ -75,7 +75,7 @@ export function GearEditor({ item, mode, onClose, onSave, onDelete }: {
         <label>Effect<input value={v.authentication.effect} readOnly /></label>
         <label>Value %<input type="number" step="any" value={v.authentication.value} onChange={e => setAuthentication({ value: Number(e.target.value) })} /></label>
       </> : <>
-        <label>Certificate<select value={kind} onChange={e => setAuthentication({ kind: e.target.value as 'Normal' | 'Premium' | 'Limited', effect: '', value: 0 })}><option>Normal</option><option>Premium</option><option>Limited</option></select></label>
+        <label>Certificate<select value={kind} onChange={e => setAuthentication({ kind: e.target.value as 'Normal' | 'Premium' | 'Limited' | 'Carnival', effect: '', value: 0 })}><option>Normal</option><option>Premium</option><option>Limited</option><option>Carnival</option></select></label>
         <label>Effect<select value={v.authentication.effect} onChange={e => setAuthentication({ effect: e.target.value })}>{activeAuthenticationOptions(v.slot, v.authentication.effect, kind).map(x => <option value={x} key={x}>{x || 'Select effect'}</option>)}</select></label>
         <label>Value %<input type="number" inputMode="decimal" step="any" value={v.authentication.value} onChange={e => setAuthentication({ value: Number(e.target.value) })} /></label>
       </>)}
@@ -102,7 +102,7 @@ export function validateGear(i: GearItem): string {
   if (!effect) return 'Choose an authentication effect.';
   if (i.authentication.kind === 'Normal' && LEGACY_ALIEN_EFFECTS.includes(effect as never)) return `${effect} is a legacy Alien effect.`;
   if (i.authentication.kind === 'Alien') return '';
-  const exclusive = i.authentication.kind === 'Premium' ? PREMIUM_AUTH_EFFECTS : i.authentication.kind === 'Limited' ? LIMITED_AUTH_EFFECTS : EXCLUSIVE_AUTH_EFFECTS;
+  const exclusive = i.authentication.kind === 'Carnival' ? CARNIVAL_AUTH_EFFECTS : i.authentication.kind === 'Premium' ? PREMIUM_AUTH_EFFECTS : i.authentication.kind === 'Limited' ? LIMITED_AUTH_EFFECTS : EXCLUSIVE_AUTH_EFFECTS;
   for (const [slot, effects] of Object.entries(exclusive) as Array<[Slot, readonly string[]]>) if (effects.includes(effect) && slot !== i.slot) return `${effect} is ${slot} only.`;
   return '';
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_TROPHY_SETTINGS, LOCKED_DEFAULT_SETTINGS, makeInitialData, ZERO_STATS } from '../defaults';
+import { DEFAULT_TROPHY_SETTINGS, LOCKED_DEFAULT_SETTINGS, makeInitialData, ZERO_STATS } from '../test/legacyDefaults';
 import { analyseGearRetention } from './gearLoadouts';
 import { analyseTrophyRetention } from './trophies';
 import type { GavelTrophy, GearItem, GearStats, Slot } from '../types';

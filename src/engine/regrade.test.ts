@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { makeInitialData, LOCKED_DEFAULT_SETTINGS } from '../defaults';
+import { makeInitialData, LOCKED_DEFAULT_SETTINGS } from '../test/legacyDefaults';
 import { buildGearLoadouts } from './gearLoadouts';
 import { estimateStarValue, expectedRegradeChange, regradeSuggestions } from './regrade';
 import { normalizeData, exportJson, importJson } from '../data/storage';
@@ -56,8 +56,8 @@ describe('recorded star grades', () => {
     const filled = normalizeData(old);
     expect(filled.gear.find(g => g.id === cow.id)?.gradeStars).toBe(2);
     expect(filled.gear.find(g => g.baseName === 'Race Valk')?.gradeStars).toBe(3);
-    expect(filled.gear.every(g => g.gradeStars !== undefined)).toBe(true);
-    expect(filled.trophies.find(t => t.name === 'Gem +194%')?.gradeStars).toBe(1);
+    expect(filled.gear.some(g => g.gradeStars === undefined)).toBe(true);
+    expect(filled.trophies.find(t => t.name === 'Gem +194%')?.gradeStars).toBeUndefined();
     // Display Gavels show no grade, so none is invented.
     expect(filled.trophies.find(t => t.name === 'Void +86%')?.gradeStars).toBeUndefined();
     // Saved at schema 16: later edits are never refilled.

@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { LOCKED_DEFAULT_SETTINGS as settings, makeInitialData, ZERO_STATS } from '../defaults';
+import { LOCKED_DEFAULT_SETTINGS as settings, makeInitialData, ZERO_STATS } from '../test/legacyDefaults';
 import type { GearItem, GearStats, Slot } from '../types';
 import { analyseGearRetention, buildGearLoadouts, RETENTION_DYNAMIC_STATES } from './gearLoadouts';
 function gear(id:string,slot:Slot,stats:Partial<GearStats>={}):GearItem {

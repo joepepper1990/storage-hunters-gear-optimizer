@@ -1,5 +1,5 @@
 import {it,expect} from 'vitest';
-import {makeInitialData} from '../defaults';
+import {makeInitialData} from '../test/legacyDefaults';
 import {effectiveItemStats} from './scoring';
 import {editAuthentication} from './certificateRolls';
 it('changing effect or value discards previous observed deltas, but unchanged identity preserves them',()=>{

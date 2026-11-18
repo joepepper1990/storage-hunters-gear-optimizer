@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { makeInitialData } from '../defaults';
+import { makeInitialData } from '../test/legacyDefaults';
 import { rebuildEmpiricalModel } from './certificateRolls';
 import type { AuthModelEntry, CertificateRollLog } from '../types';
 

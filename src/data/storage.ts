@@ -1,3 +1,4 @@
+import { currentGavels, currentLooseCharms, reconcileCurrentGavels } from './currentGavels';
 import { reconcileCurrentGear } from './currentInventory';
 import { validateStatDeltas } from './statDeltas';
 import { fillVerifiedTrophyStars, replaceWithVerifiedCertificates, replaceWithVerifiedTrophies } from './screenshotEquipment';
@@ -309,15 +310,16 @@ export function normalizeData(raw: AppData, options: { preserveInventory?: boole
   const gear = add1030 ? addVerifiedItems(updated, '20261030') : updated;
   const trophies = replace ? replaceWithVerifiedTrophies(storedTrophies) : storedTrophies;
   return {
-    schemaVersion: 20,
-    gear: !preserveInventory && !(Number(raw?.schemaVersion) >= 20)
+    schemaVersion: 21,
+    gear: !preserveInventory && !(Number(raw?.schemaVersion) >= 21)
       ? reconcileCurrentGear(storedGear) : (fillStars ? fillVerifiedGearStars(gear) : gear),
-    settings: normalizeSettings(raw?.settings),
+    settings: normalizeSettings(raw?.settings,Number(raw?.schemaVersion)>=21),
     authModel: canonicaliseAuthModel(normalizeAuthModel(raw?.authModel, initial.authModel, Number(raw?.schemaVersion ?? 0)), initial.authModel),
     rollLog: Array.isArray(raw?.rollLog) ? raw.rollLog.map((roll, index) => canonicalRoll(preserveInventory ? normalizeRollLog(roll, index) : coerceStoredRollLog(roll, index))) : [],
     ownedCertificates: replace ? replaceWithVerifiedCertificates(storedCertificates) : storedCertificates,
     theme: raw?.theme ?? 'system',
-    trophies: fillStars ? fillVerifiedTrophyStars(trophies) : trophies,
+    trophies: !preserveInventory && Number(raw?.schemaVersion)<21 ? reconcileCurrentGavels(storedTrophies) : (fillStars ? fillVerifiedTrophyStars(trophies) : trophies),
+    looseCharms: !preserveInventory && Number(raw?.schemaVersion)<21 ? currentLooseCharms() : (raw?.looseCharms??[]),
     trophySettings: normalizeTrophySettings(raw?.trophySettings,Number(raw?.schemaVersion)<6),
     gradeObservations: Array.isArray(raw?.gradeObservations) ? raw.gradeObservations.filter(validGradeObservation) : []
   };
@@ -333,7 +335,9 @@ function normalizeTrophy(item: GavelTrophy): GavelTrophy {
     .map(m => ({ mutation: m.mutation.trim(), boostPct: Math.max(0, finite(m.boostPct)) })) : [];
   return {
     id: item?.id || crypto.randomUUID(),
-    name: generateTrophyName(modifiers),
+    name: item?.name || generateTrophyName(modifiers),
+    charm: item?.charm,
+    displayedValue: item?.displayedValue,
     modifiers,
     conditionPct: conditionOrUndefined(item?.conditionPct),
     ...gradeOf(item?.gradeStars),
@@ -487,8 +491,8 @@ function normalizeOwnedCertificate(raw: AppData['ownedCertificates'][number]):Ap
     mutation:typeof raw.mutation==='string'&&raw.mutation.trim()?raw.mutation.trim():undefined};
 }
 
-const ROLL_CERTIFICATE_TYPES = ['Normal Certificate of Authenticity','Premium Certificate of Authenticity','Limited Certificate of Authenticity','Certificate of Alienticity'] as const;
-const OWNED_CERTIFICATE_TYPES = ['Wooden Certificate of Authenticity','Ripped Certificate of Authenticity','Premium Certificate of Authenticity','Limited Certificate of Authenticity'] as const;
+const ROLL_CERTIFICATE_TYPES = ['Normal Certificate of Authenticity','Premium Certificate of Authenticity','Limited Certificate of Authenticity','Certificate of Alienticity','Certificate of Clownticity'] as const;
+const OWNED_CERTIFICATE_TYPES = ['Wooden Certificate of Authenticity','Ripped Certificate of Authenticity','Premium Certificate of Authenticity','Limited Certificate of Authenticity','Certificate of Clownticity'] as const;
 
 /** Every roll-history row is rebuilt with typed fields, so restored numeric strings
  * become numbers and malformed rows are rejected before any screen renders them.
@@ -576,10 +580,14 @@ function coerceStoredRollLog(raw: unknown, index: number): CertificateRollLog {
   return out as unknown as CertificateRollLog;
 }
 
-function normalizeSettings(_raw: Partial<AppData['settings']> | undefined): AppData['settings'] {
+function normalizeSettings(raw: Partial<AppData['settings']> | undefined,current=false): AppData['settings'] {
   // The app has one fixed optimisation policy and no settings editor. Apply it to
   // every load and restore, including same-version backups with hidden overrides.
-  return { ...LOCKED_DEFAULT_SETTINGS };
+  const clamp=(v:unknown,fallback:number,max:number)=>typeof v==='number'&&Number.isFinite(v)?Math.min(max,Math.max(0,v)):fallback;
+  const target=current?clamp(raw?.arrowTargetMin,100,500):100;
+  return {...LOCKED_DEFAULT_SETTINGS,arrowTargetMin:target,arrowTargetMax:target,
+    droughtbreakerStacks:current?Math.round(clamp(raw?.droughtbreakerStacks,0,5)):0,
+    goldenHourLuck:current?clamp(raw?.goldenHourLuck,100,100):100,intermissionLuck:current?clamp(raw?.intermissionLuck,0,125):0};
 }
 
 function normalizeItem(i: GearItem): GearItem {
@@ -598,6 +606,7 @@ function normalizeItem(i: GearItem): GearItem {
   const authentication = typeof rawAuthentication.effect === 'string' ? { ...rawAuthentication, effect: canonicalEffect(rawAuthentication.effect) } : rawAuthentication;
   return {
     id: i?.id || crypto.randomUUID(),
+    displayedValue: i?.displayedValue,
     baseName,
     name: generateGearName(baseName, stats, authenticated, authentication),
     slot: i?.slot,
@@ -655,7 +664,7 @@ function validateImportedData(raw: AppData): void {
       if (value !== '' && value !== null && value !== undefined && !Number.isFinite(Number(value))) throw new Error(`${prefix}: ${key} is not a finite number.`);
     }
     if (item.authentication?.statDeltas !== undefined) validateStatDeltas(item.authentication.statDeltas, `${prefix}: Authentication Stat Deltas`);
-    if (item.authentication?.kind !== undefined && !['None','Normal','Premium','Limited','Alien'].includes(item.authentication.kind)) throw new Error(`${prefix}: invalid authentication type.`);
+    if (item.authentication?.kind !== undefined && !['None','Normal','Premium','Limited','Alien','Carnival'].includes(item.authentication.kind)) throw new Error(`${prefix}: invalid authentication type.`);
     if (item.authentication?.value !== undefined && !Number.isFinite(Number(item.authentication.value))) throw new Error(`${prefix}: authentication value is not finite.`);
   });
   if (raw.settings && typeof raw.settings === 'object') {

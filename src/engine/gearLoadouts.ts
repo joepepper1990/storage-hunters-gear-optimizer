@@ -62,7 +62,7 @@ const LUCKY_GRADES = [
 ] as const;
 
 const PRESET_STATES: Record<DynamicScenario,DynamicState> = {
-  low:{droughtbreakerStacks:0,goldenHourLuck:0,luckFrenzyUptime:0,drinkLuckBoost:0,label:'Robust baseline'},
+  low:{droughtbreakerStacks:0,goldenHourLuck:100,luckFrenzyUptime:0,drinkLuckBoost:0,label:'Robust baseline'},
   central:{...MODEL_ASSUMPTIONS.dynamic.central,label:'Central sensitivity · Drink 2'},
   high:{...MODEL_ASSUMPTIONS.dynamic.high,label:'High sensitivity · Drink 3'}
 };
@@ -88,8 +88,13 @@ export function gradeRerollExpectedValueGainPct(rollPct:number):number {
   return baseline>0?gain/baseline*100:0;
 }
 
+const mutationContributions=new Map<string,number>();
 export function mutationLuckForItem(item:GearItem):number {
-  return (item.mutation??'').split('+').map(x=>x.trim()).reduce((best,name)=>Math.max(best,MUTATED_LUCK[name]??0),0);
+  const key=item.mutation??'';
+  const cached=mutationContributions.get(key);if(cached!==undefined)return cached;
+  const value= (item.mutation??'').split('+').map(x=>x.trim()).reduce((best,name)=>Math.max(best,MUTATED_LUCK[name]??0),0);
+  if(mutationContributions.size<1000)mutationContributions.set(key,value);
+  return value;
 }
 
 export function resolveDynamicState(input:DynamicScenario|DynamicState='low'):DynamicState {
@@ -115,6 +120,8 @@ export function dynamicLuck(
       luck += value*state.droughtbreakerStacks;
     } else if(effect==='Golden Hour') {
       luck += state.goldenHourLuck;
+    } else if(effect==='Intermission') {
+      luck += Math.min(125,Math.max(0,(state as DynamicState & {intermissionLuck?:number}).intermissionLuck??0));
     } else if(effect==='Luck Frenzy') {
       luck += value*state.luckFrenzyUptime;
     } else if(effect==='Overcharged'&&state.drinkLuckBoost>0) {
@@ -243,14 +250,15 @@ function makeResult(
   // Auction sets: distance to the Arrow band first, then utility. Specialists: utility
   // first. Ties then fall to the Main priority (band distance, robust Main score), then IDs.
   const scored=trios.map(trio=>({trio,u:utility(trio),rank:auction?trio.dist:0}));
+  const tie=(x:Trio,y:Trio)=> compareAuctionSecondary(x.stats,y.stats);
   const better=(x:typeof scored[number],y:typeof scored[number])=>
-    x.rank!==y.rank?x.rank<y.rank:x.u!==y.u?x.u>y.u:x.trio.dist!==y.trio.dist?x.trio.dist<y.trio.dist
+    x.rank!==y.rank?x.rank<y.rank:x.u!==y.u?x.u>y.u:auction&&tie(x.trio,y.trio)!==0?tie(x.trio,y.trio)<0:x.trio.dist!==y.trio.dist?x.trio.dist<y.trio.dist
       :x.trio.main!==y.trio.main?x.trio.main>y.trio.main:x.trio.key.localeCompare(y.trio.key)<0;
   let best=scored[0];
   for(const x of scored)if(better(x,best))best=x;
   if(requirePositive&&best.u<=1e-9)return undefined;
   const epsilon=1e-9;
-  const tied=scored.filter(x=>x.rank===best.rank&&x.trio.dist===best.trio.dist&&Math.abs(x.u-best.u)<=epsilon&&Math.abs(x.trio.main-best.trio.main)<=epsilon);
+  const tied=scored.filter(x=>x.rank===best.rank&&x.trio.dist===best.trio.dist&&Math.abs(x.u-best.u)<=epsilon&&Math.abs(x.trio.main-best.trio.main)<=epsilon&&(!auction||tie(x.trio,best.trio)===0));
   const tiedItemIds=new Set(tied.flatMap(x=>x.trio.items.map(i=>i.id)));
   const items=best.trio.items,stats=best.trio.stats;
   return {
@@ -263,11 +271,12 @@ function makeResult(
 export function buildGearLoadouts(
   gear:GearItem[], settings:AlgorithmSettings, dynamic:DynamicScenario|DynamicState='low'
 ):GearLoadoutCollection {
+  if(dynamic==='low')dynamic=defaultDynamicState(settings);
   const trios=allTrios(gear,settings);
   const specialists=activeSpecialists(settings);
   const auction=(context:MainAuctionContext)=>(t:Trio)=>mainAuctionUtility(t.items,settings,context,dynamic,t.stats);
   return {
-    main:makeResult('Main Auction',trios,auction('Neutral'),settings,'Neutral','Primary loadout: get inside the Bid Arrow band first, then Luck, Bid Zone, Energy and Recovery.',false,dynamic,true),
+    main:makeResult('Main Auction',trios,auction('Neutral'),settings,'Neutral','Closest Arrow target, then highest Luck, then Bid Zone. Other auction stats break equal choices.',false,dynamic,true),
     day:makeResult('Day Auction',trios,auction('Day'),settings,'Day','Main Auction with Sunny effects active.',false,dynamic,true),
     night:makeResult('Night Auction',trios,auction('Night'),settings,'Night','Main Auction with Nocturnal effects active.',false,dynamic,true),
     rain:makeResult('Rain Auction',trios,auction('Rain'),settings,'Rain','Main Auction with Raindrop effects active.',false,dynamic,true),
@@ -335,7 +344,8 @@ export function analyseGearRetention(gear:GearItem[],settings:AlgorithmSettings)
   const bestIds=new Set(best?[best.head.id,best.back.id,best.wrist.id]:[]);
   const bestInSlot=(slot:GearItem['slot'])=>best?[best.head,best.back,best.wrist].find(g=>g.slot===slot):undefined;
   const memberships=buildMembershipMap(gear,settings);
-  const sweep=futureSweep(gear,settings);
+  // Samples are explanatory only; the exact replacement proof governs disposal.
+  const sweep={plain:new Set<string>(),mutation:new Set<string>()};
   return gear.map(item=>{
     const standalone=scoreStandalone(item,settings);
     const loadoutMemberships=memberships.get(item.id)??[];
@@ -361,6 +371,17 @@ export function analyseGearRetention(gear:GearItem[],settings:AlgorithmSettings)
     // Without a full Head + Back + Wrist set nothing can be proven unnecessary yet.
     if(!best)return result('KEEP','Needed for a full set');
     if(hasSafeReplacement(item,gear,settings))return result('SAFE TO DISCARD','Not needed in any best set');
+    if(VALUABLE_EFFECTS.has(effect))return result('KEEP','Valuable authentication');
+    if(mutationLuckForItem(item)>mutationLuckForItem(bestInSlot(item.slot)??item))return result('KEEP',item.slot==='Head'?'Strong future certificate target':'Valuable mutation');
     return result('KEEP',profile());
   });
+}
+
+/** The owner's selected effect assumptions, shared by screens and calculations. */
+export function defaultDynamicState(settings:AlgorithmSettings):DynamicState & {intermissionLuck:number} {
+  return {droughtbreakerStacks:Math.min(5,Math.max(0,settings.droughtbreakerStacks??0)),goldenHourLuck:Math.min(100,Math.max(0,settings.goldenHourLuck??100)),luckFrenzyUptime:0,drinkLuckBoost:0,intermissionLuck:Math.min(125,Math.max(0,settings.intermissionLuck??0)),label:'Selected bonuses'};
+}
+/** Lower is better. No secondary stat can buy away a point of Luck. */
+export function compareAuctionSecondary(a:GearStats,b:GearStats):number {
+  return b.zone-a.zone || b.recovery-a.recovery || b.energy-a.energy || b.tip-a.tip || b.npc-a.npc;
 }

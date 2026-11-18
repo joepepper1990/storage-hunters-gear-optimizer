@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { makeInitialData, ZERO_STATS } from '../defaults';
+import { makeInitialData, ZERO_STATS } from '../test/legacyDefaults';
 import type { AppData, CertificateRollLog, OwnedCertificate, Slot } from '../types';
 import { analyseCertificate, analyseConditionalNumberReroll, certificateOutcomeLikelihoods } from './certificateDecision';
 

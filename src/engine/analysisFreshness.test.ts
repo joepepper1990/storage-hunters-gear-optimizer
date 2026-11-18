@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LOCKED_DEFAULT_SETTINGS, makeInitialData } from '../defaults';
+import { LOCKED_DEFAULT_SETTINGS, makeInitialData } from '../test/legacyDefaults';
 import type { GearItem } from '../types';
 import { certificateInputKey, optimisationInputKey } from './analysisFreshness';
 

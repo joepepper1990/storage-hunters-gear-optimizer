@@ -2,6 +2,7 @@ import type { AppData, AuthModelEntry, GearItem, MainAuctionContext, OwnedCertif
 import { canonicalEffect, certificateFamily, currentPool } from '../authentication';
 import {
   buildGearLoadouts,
+  compareAuctionSecondary,
   gradeRerollExpectedValueGainPct,
   LUCKY_GRADING,
   mainAuctionUtility,
@@ -245,7 +246,7 @@ export function empiricalSupports(values:number[],mass:number):Array<{value:numb
     .map(([value,count])=>({value,weight:mass*count/values.length}));
 }
 
-function rollSupports(def:CertificateOutcomeDefinition,data:AppData,slot:Slot,cert:OwnedCertificate):RollSupport[] {
+function rollSupports(def:CertificateOutcomeDefinition,data:AppData,slot:Slot,cert:OwnedCertificate,target?:GearItem,dense=false):RollSupport[] {
   const relevant=data.rollLog
     .filter(r=>r.slot===slot&&canonicalEffect(r.newAuthentication)===def.effect&&rollMatchesCertificate(r,cert)&&Number.isFinite(r.newValue));
   const exact=relevant.filter(r=>evidenceWeight(r,cert)===1);
@@ -272,7 +273,7 @@ function rollSupports(def:CertificateOutcomeDefinition,data:AppData,slot:Slot,ce
 
     // Midpoint quadrature represents a continuous prior without inventing atoms
     // at legal extrema. Uniform prior nodes each carry 1% of prior mass.
-    const count=min===max?1:100;
+    const count=min===max?1:dense?100:5;
     const priorValues=Array.from({length:count},(_,i)=>min+(max-min)*((i+.5)/count));
     const priorWeights=normalizedPriorWeights(priorValues,min,max,def.typical);
     const maxCellMass=min===max?0:priorMass*Math.max(...priorWeights);
@@ -285,6 +286,14 @@ function rollSupports(def:CertificateOutcomeDefinition,data:AppData,slot:Slot,ce
       ...empiricalSupports(observed,exactMass),
       ...empiricalSupports(fallbackValues,weakMass)
     ].map(x=>({...x,unresolved:mechanicUnknown}));
+    if(def.effect==='Bid Arrow Speed'){
+      const candidates=new Set<number>();
+      for(const item of target?[target]:data.gear.filter(g=>g.slot===slot))for(const pair of companionPairs(data,item)){
+        const needed=item.stats.arrowReduction+pair.reduce((n,g)=>n+effectiveItemStats(g).arrowReduction,0)-data.settings.arrowTargetMin;
+        if(needed>=min&&needed<=max)candidates.add(needed);
+      }
+      for(const value of candidates)prior.push({value,weight:0,unresolved:mechanicUnknown,integrationCellMass:maxCellMass});
+    }
     return [...prior,...empirical].filter(x=>x.weight>1e-12||Boolean(x.integrationCellMass));
   }
 
@@ -294,7 +303,7 @@ function rollSupports(def:CertificateOutcomeDefinition,data:AppData,slot:Slot,ce
     return empiricalSupports(observed.length?observed:fallbackValues,1).map(x=>({...x,unresolved:true}));
   }
 
-  const kind=cert.type==='Premium Certificate of Authenticity'?'Premium':cert.type==='Limited Certificate of Authenticity'?'Limited':'Normal';
+  const kind=certificateFamily(cert.type);
   const inventoryValues=data.gear
     .filter(g=>g.slot===slot&&g.authentication.kind===kind&&canonicalEffect(g.authentication.effect)===def.effect)
     .map(g=>g.authentication.value)
@@ -321,7 +330,7 @@ function rollSupports(def:CertificateOutcomeDefinition,data:AppData,slot:Slot,ce
 }
 
 function replaceAuthentication(item:GearItem,cert:OwnedCertificate,effect:string,value:number):GearItem {
-  const kind=cert.type==='Limited Certificate of Authenticity'?'Limited':cert.type==='Premium Certificate of Authenticity'?'Premium':'Normal';
+  const kind=certificateFamily(cert.type);
   return {...item,authenticated:true,authentication:{kind,effect,value}};
 }
 
@@ -340,7 +349,10 @@ export const ARROW_BAND_CHANGE_PCT=100;
 function auctionChangePct(after:Loadout|undefined,before:Loadout|undefined):number {
   if(!after||!before)return after?ARROW_BAND_CHANGE_PCT:before?-ARROW_BAND_CHANGE_PCT:0;
   if(Math.abs(after.arrowDistance-before.arrowDistance)>1e-9)return after.arrowDistance<before.arrowDistance?ARROW_BAND_CHANGE_PCT:-ARROW_BAND_CHANGE_PCT;
-  return pct(after.utility,before.utility);
+  if(Math.abs(after.utility-before.utility)>1e-9)return pct(after.utility,before.utility);
+  const fields=['zone','recovery','energy','tip','npc'] as const;
+  for(const field of fields)if(Math.abs(after.stats[field]-before.stats[field])>1e-9)return pct(after.stats[field],before.stats[field]);
+  return 0;
 }
 
 /** A replacement changes only trios containing the target. Reuse the best unaffected
@@ -352,7 +364,7 @@ function mergeLoadouts(a:Loadouts,b:Loadouts):Loadouts {
     if(!x||!y){out[key]=x??y;continue;}
     const id=(v:Loadout)=>[v.head.id,v.back.id,v.wrist.id].join('|');
     // Same order as buildGearLoadouts: Arrow band distance, utility, robust Main score, IDs.
-    const order=x.arrowDistance-y.arrowDistance||y.utility-x.utility||y.mainUtility-x.mainUtility||id(x).localeCompare(id(y));
+    const order=x.arrowDistance-y.arrowDistance||y.utility-x.utility||compareAuctionSecondary(x.stats,y.stats)||y.mainUtility-x.mainUtility||id(x).localeCompare(id(y));
     out[key]=order<=0?x:y;
   }
   return out;
@@ -468,7 +480,7 @@ function noLoss(before:Loadouts,after:Loadouts):boolean {
   return AUCTION_KEYS.every(key=>{
     const a=after[key],b=before[key];
     return Boolean(a&&b)&&(a!.arrowDistance<b!.arrowDistance-1e-9||
-      (Math.abs(a!.arrowDistance-b!.arrowDistance)<=1e-9&&a!.utility>=b!.utility-1e-9));
+      (Math.abs(a!.arrowDistance-b!.arrowDistance)<=1e-9&&(a!.utility>b!.utility+1e-9||Math.abs(a!.utility-b!.utility)<=1e-9&&compareAuctionSecondary(a!.stats,b!.stats)<=0)));
   });
 }
 
@@ -572,7 +584,7 @@ function targetDecision(data:AppData,cert:OwnedCertificate,item:GearItem,baselin
       }
       const result={next,states};evaluated.set(value,result);return result;
     };
-    for(const support of rollSupports(def,data,item.slot,cert)){
+    for(const support of rollSupports(def,data,item.slot,cert,item)){
       const branch:Branch={
         p:p*support.weight,effect:def.effect,value:support.value,
         integrationGroup:support.integrationCellMass?def.effect:undefined,
@@ -621,7 +633,7 @@ function targetDecision(data:AppData,cert:OwnedCertificate,item:GearItem,baselin
   };
   const worseChancePct:StateRange={cautious:mass(worse('low')),central:mass(worse('central')),favourable:mass(worse('high'))};
   const potentialMass=branches.filter(b=>b.unresolved&&b.potential).reduce((s,b)=>s+b.p,0)*100;
-  const unresolvedAtRisk=noLoss(base,unaffected.low)?0:Math.max(0,unresolvedMass)*100;
+  const unresolvedAtRisk=STATES.every(state=>noLoss(baselines[state],unaffected[state]))?0:Math.max(0,unresolvedMass)*100;
   const worseChanceUpperPct=Math.min(100,worseChancePct.cautious+err(worse('low'))+unresolvedAtRisk);
   const improveChanceUpperPct=Math.min(100,Math.max(improveChancePct.cautious,improveChancePct.central,improveChancePct.favourable)+Math.max(...STATES.map(state=>err(improve(state))))+potentialMass);
   const expectedMainChangePct=range(o=>o.mainChange);
@@ -632,16 +644,17 @@ function targetDecision(data:AppData,cert:OwnedCertificate,item:GearItem,baselin
 
   const use=MODEL_ASSUMPTIONS.certificate.use, consider=MODEL_ASSUMPTIONS.certificate.consider;
   const expectedMainLower=unresolvedAtRisk>1e-9?-Infinity:resolved.reduce((sum,b)=>sum+b.p*(b.mainLower??b.states!.low.mainChange),0);
-  const safeInCautious=worseChanceUpperPct<=use.maxCautiousWorsePct&&expectedMainLower>=-data.settings.mainMaterialLossPct;
+  // Outcome probabilities are unpublished: never let assumed equal odds certify safety.
+  // A USE requires a complete unaffected backup in every checked context/state.
+  const safeInCautious=STATES.every(state=>noLoss(baselines[state],unaffected[state]));
+  const possible=resolved.some(b=>STATES.some(state=>b.states?.[state].improves));
+  const boundedSmallLoss=unresolvedAtRisk<=1e-9&&resolved.every(b=>STATES.every(state=>{
+    const outcome=b.states?.[state];return outcome&&!outcome.worse&&outcome.mainChange>=-data.settings.mainMaterialLossPct;
+  }));
   let verdict:CertificateDecisionVerdict='HOLD';
-  if(worseChanceUpperPct>=MODEL_ASSUMPTIONS.certificate.doNotUse.minCautiousWorsePct)verdict='DO NOT USE';
-  // Always-on rolls give the same figure in every state, so they qualify on the cautious
-  // result; state-dependent rolls may qualify on their favourable upside, but only while
-  // the cautious state is safe. Central alone never makes a USE.
-  else if(safeInCautious&&confidence>=use.minConfidencePct&&
-    (improveChanceLowerPct.cautious>=use.minCautiousImprovePct||improveChanceLowerPct.favourable>=use.minFavourableImprovePct))verdict='USE';
-  else if(worseChanceUpperPct<consider.maxCautiousWorsePct&&improveChanceUpperPct>=consider.minImprovePct&&
-    (improveChancePct.favourable>0||potentialMass>0))verdict='CONSIDER';
+  if(possible&&safeInCautious)verdict='USE';
+  else if(possible&&boundedSmallLoss)verdict='CONSIDER';
+  else if(!safeInCautious&&item.authenticated)verdict='DO NOT USE';
 
   // Best roll: the outcome with the largest central gain; preference order breaks ties.
   let best:Branch|undefined;
@@ -720,7 +733,7 @@ export function analyseConditionalNumberReroll(
   if(!original)return undefined;
   const def=outcomesFor(data,cert,original.slot).find(d=>d.effect===canonicalEffect(roll.newAuthentication));
   if(!def)return undefined;
-  const supports=rollSupports(def,data,original.slot,cert);
+  const supports=rollSupports(def,data,original.slot,cert,original,true);
   if(!supports.length)return undefined;
   const baseline=auctionLoadouts(data.gear,data,'low');
   if(!baseline.main)return undefined;

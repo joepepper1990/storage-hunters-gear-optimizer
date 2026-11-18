@@ -1,6 +1,6 @@
 import {expect,it} from 'vitest';
 import {renderToStaticMarkup} from 'react-dom/server';
-import {makeInitialData} from '../defaults';
+import {makeInitialData} from '../test/legacyDefaults';
 import {buildGearLoadouts} from '../engine/gearLoadouts';
 import {BestSetCards} from './Equipment';
 import {chanceText,NextCertificate} from './Certificates';
@@ -20,17 +20,10 @@ function target():CertificateTargetDecision {
  unresolvedOutcomeMassPct:30,unresolvedEffects:['Focused'],worseChanceUpperPct:20,safeInCautious:true,currentArrow:77,currentArrowInBand:true,
  calculatedRanks:[]} as unknown as CertificateTargetDecision;
 }
-it('identifies unresolved strengths separately from active-effect scenarios',()=>{
- expect(chanceText(target()).detail).toContain('unresolved roll strengths');
- expect(chanceText(target()).detail).not.toContain('active effects');
- const dynamic=target();dynamic.improveChancePct.central=20;
- expect(chanceText(dynamic).detail).toContain('active-effect scenarios');
- expect(chanceText(dynamic).detail).toContain('unresolved roll strengths');
-});
-it('labels certificate estimates and contextual downside without promising safety',()=>{
+it('does not publish guessed certificate odds',()=>{
+ expect(chanceText(target()).value).toBe('Unknown');
  const data=makeInitialData();const row={certificate:data.ownedCertificates[0],target:target()} as CertificateQueueRow;
  const html=renderToStaticMarkup(<NextCertificate row={row} computing={false} hasCertificates details/>);
- expect(html).toContain('Model estimate');expect(html).toContain('not official game odds');
- expect(html).toContain('equal effect odds');expect(html).toContain('unresolved roll strengths');
- expect(html).toContain('Main, Day, Night or Rain');expect(html).not.toContain(' · safe');
+ expect(html).toContain('Odds unknown');expect(html).not.toContain('equal effect odds');
+ expect(html).toContain('Unknown ranges and odds');
 });

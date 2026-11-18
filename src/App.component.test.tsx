@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { makeEmptyData, makeInitialData, ZERO_STATS } from './defaults';
+import { makeEmptyData, makeInitialData, ZERO_STATS } from './test/legacyDefaults';
 import type { AppData, GearItem, ItemAnalysis } from './types';
 import { scoreStandalone } from './engine/scoring';
 import { button, byText, cleanup, click, flush, labelled, render, type, waitFor } from './test/dom';
@@ -161,7 +161,7 @@ describe('Equipment', () => {
     data.gear = [gear('Lucky Cap', 'Head', { luck: 50 }), gear('Plain Cap', 'Head'), gear('Pack', 'Back', { arrowReduction: 70 }), gear('Watch', 'Wrist')];
     const root = await openApp(data);
     await go(root, 'Equipment');
-    expect([...root.querySelectorAll('h2')].map(h => h.textContent)).toEqual(['Best Set', 'Keep', 'Safe to Discard']);
+    expect([...root.querySelectorAll('h2')].map(h => h.textContent)).toEqual(['Best Set', 'Safe to Discard']);
     await waitFor(() => byText(root, '.itemRow.check strong', 'Plain Cap'));
     const partial = makeEmptyData(); partial.gear = [gear('Only Cap', 'Head')];
     const view = equipmentView(partial, [{ item: partial.gear[0], verdict: 'KEEP', reason: 'Needed for a full set', standalone: scoreStandalone(partial.gear[0], partial.settings), currentlyEquipped: false, loadoutMemberships: [] }], true, new Set());
@@ -244,7 +244,7 @@ describe('Certificates', () => {
     const card = await waitFor(() => { if (root.querySelector('.updating')) throw new Error('pending'); return byText(root, '.answerCard', /Next certificate/); }, 60000);
     expect(root.querySelectorAll('.answerCard')).toHaveLength(1);
     expect(card.querySelector('.verdict')?.textContent).toMatch(/^(Use|Consider) /);
-    expect(card.querySelector('.facts b')?.textContent).toMatch(/^(0%|<1%|\d+%|\d+%–\d+%)$/);
+    expect(card.textContent).toContain('Odds unknown');
     const before = data.ownedCertificates.reduce((n, c) => n + c.quantity, 0);
     await click(button(card, 'Record result'));
     const result = labelled(document.body, 'Result') as HTMLSelectElement;
@@ -254,10 +254,7 @@ describe('Certificates', () => {
     await waitFor(() => expect(lastSaved().rollLog).toHaveLength(1));
     expect(lastSaved().ownedCertificates.reduce((n, c) => n + c.quantity, 0)).toBe(before - 1);
     expect(byText(root, 'summary', /History/).textContent).toBe('History (1)');
-    // The Authenticator prompt answer appears only after a fresh result, and closes for good.
-    await waitFor(() => byText(root, '.promptCard', /Authenticator prompt/), 60000);
-    expect(root.querySelector('.bigAnswer')?.textContent).toMatch(/^(Accept|Reroll|Reroll number)$/);
-    await click(button(root, 'Prompt closed'));
+    // Paid reroll prompts are excluded by the owner's policy.
     expect(root.querySelector('.promptCard')).toBeNull();
   }, 120000);
 });

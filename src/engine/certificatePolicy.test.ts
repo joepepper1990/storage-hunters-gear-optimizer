@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { canonicalEffect, currentPool } from '../authentication';
-import { makeInitialData } from '../defaults';
+import { makeInitialData } from '../test/legacyDefaults';
 import { certificateOutcomeLikelihoods } from './certificateDecision';
 import { wantedChance } from './certificatePolicy';
 import type { CertificateRollLog, OwnedCertificate, Slot } from '../types';

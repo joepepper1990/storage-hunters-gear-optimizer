@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { makeInitialData } from '../defaults';
+import { makeInitialData } from '../test/legacyDefaults';
 import { fingerprint, keepThisDevice, syncOnce, type CloudRow, type SyncBackend, type SyncMark } from './sync';
 import type { AppData } from '../types';
 

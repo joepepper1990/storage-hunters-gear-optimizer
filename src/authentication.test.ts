@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { makeDefaultAuthModel } from './defaults';
+import { makeDefaultAuthModel } from './test/legacyDefaults';
 import {
   activeAuthenticationOptions,
   activeCertificateOutcomeOptions,
@@ -23,7 +23,7 @@ describe('current authentication options',()=>{
   });
 
   it('offers Normal, Premium and Limited as current authentication types',()=>{
-    expect(CURRENT_AUTH_KINDS).toEqual(['Normal','Premium','Limited']);
+    expect(CURRENT_AUTH_KINDS).toEqual(['Normal','Premium','Limited','Carnival']);
     expect(activeAuthenticationOptions('Head','','Premium')).toContain('Mutated Luck');
     expect(activeAuthenticationOptions('Back','','Premium')).toEqual(['','Golden Hour','Drought Breaker']);
     expect(activeAuthenticationOptions('Wrist','','Premium')).toEqual(['','Club Pact','Temporal Split']);

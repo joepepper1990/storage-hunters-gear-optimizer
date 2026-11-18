@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LOCKED_DEFAULT_SETTINGS } from '../defaults';
+import { LOCKED_DEFAULT_SETTINGS } from '../test/legacyDefaults';
 import { arrowEffective, arrowTargetBand, effectiveItemStats, gameArrowToReduction, scoreStandalone } from './scoring';
 import type { GearItem, GearStats } from '../types';
 

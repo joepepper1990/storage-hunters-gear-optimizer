@@ -47,7 +47,7 @@ function fromCertificateTarget(target:CertificateTargetDecision|undefined):PostR
   // The same verdict as a fresh certificate on this item: cautious-safe and a real chance to help.
   return {
     action:'REROLL EFFECT',
-    recommendable:target.verdict==='USE',
+    recommendable:target.verdict==='USE'&&target.improveChanceLowerPct.cautious>=POLICY.minCautiousImprovePct&&target.worseChanceUpperPct<=POLICY.maxCautiousWorsePct,
     improveChancePct:target.improveChanceLowerPct.cautious,
     worseChancePct:target.worseChanceUpperPct,
     unresolvedOutcomeMassPct:target.unresolvedOutcomeMassPct,

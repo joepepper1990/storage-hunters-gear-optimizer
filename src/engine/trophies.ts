@@ -1,4 +1,4 @@
-import type { GavelTrophy, TrophyCombinationResult, TrophyOptimiserSettings } from '../types';
+import type { GavelCharm, GavelTrophy, TrophyCombinationResult, TrophyOptimiserSettings } from '../types';
 
 /** Maximum with the Extra Gavel Trophy gamepass; standard capacity is three. */
 export const TROPHY_ACTIVE_LIMIT = 4;
@@ -9,13 +9,13 @@ function weightMap(settings: TrophyOptimiserSettings): Map<string, number> {
 
 export function trophyScore(trophy: GavelTrophy, settings: TrophyOptimiserSettings): number {
   const weights = weightMap(settings);
-  return trophy.modifiers.reduce((sum, m) => sum + Math.max(0, m.boostPct) * (weights.get(m.mutation) ?? 0), 0);
+  return effectiveTrophyModifiers(trophy).reduce((sum, m) => sum + Math.max(0, m.boostPct) * (weights.get(m.mutation) ?? 0), 0);
 }
 
 export function evaluateTrophySet(trophies: GavelTrophy[], settings: TrophyOptimiserSettings): TrophyCombinationResult {
   const weights = weightMap(settings);
   const totalBoosts: Record<string, number> = {};
-  for (const trophy of trophies) for (const modifier of trophy.modifiers) {
+  for (const trophy of trophies) for (const modifier of effectiveTrophyModifiers(trophy)) {
     if (!modifier.mutation || modifier.boostPct <= 0) continue;
     totalBoosts[modifier.mutation] = (totalBoosts[modifier.mutation] ?? 0) + modifier.boostPct;
   }
@@ -36,15 +36,24 @@ export function evaluateTrophySet(trophies: GavelTrophy[], settings: TrophyOptim
  */
 export function optimiseTrophies(trophies: GavelTrophy[], settings: TrophyOptimiserSettings): TrophyCombinationResult[] {
   if (!trophies.length) return [];
-  const selected = [...trophies]
-    .sort((a, b) => trophyScore(b, settings) - trophyScore(a, settings) || a.id.localeCompare(b.id))
-    .slice(0, Math.min(settings.maxActive===3?3:TROPHY_ACTIVE_LIMIT, trophies.length));
-  return [evaluateTrophySet(selected, settings)];
+  const capacity=Math.min(settings.maxActive===3?3:TROPHY_ACTIVE_LIMIT,trophies.length);
+  if(!trophies.some(t=>t.charm?.type==='Mosaic'))return [evaluateTrophySet([...trophies].sort((a,b)=>trophyScore(b,settings)-trophyScore(a,settings)||a.id.localeCompare(b.id)).slice(0,capacity),settings)];
+  let best:GavelTrophy[]=[];
+  const visit=(start:number,picked:GavelTrophy[])=>{
+    if(picked.length===capacity){
+      const luck=placedCharmLuck(picked),previous=placedCharmLuck(best);
+      if(!best.length||luck>previous||luck===previous&&evaluateTrophySet(picked,settings).score>evaluateTrophySet(best,settings).score)best=[...picked];
+      return;
+    }
+    for(let i=start;i<=trophies.length-(capacity-picked.length);i++)visit(i+1,[...picked,trophies[i]]);
+  };
+  visit(0,[...[]]);
+  return best.length?[evaluateTrophySet(best,settings)]:[];
 }
 
 
 export function trophyMutationBoost(trophy: GavelTrophy, mutation: string): number {
-  return trophy.modifiers
+  return effectiveTrophyModifiers(trophy)
     .filter(modifier => modifier.mutation === mutation)
     .reduce((sum, modifier) => sum + Math.max(0, modifier.boostPct), 0);
 }
@@ -153,6 +162,7 @@ export function analyseTrophyRetention(
         specialistMutations
       };
     }
+    if(item.charm)return {item,verdict:'KEEP',reason:'Carries an owned charm; removal and future charm combinations matter.',specialistMutations:[]};
     const dominator = trophyDominator(item, trophies, settings);
     if (!dominator) return {
       item,
@@ -168,4 +178,40 @@ export function analyseTrophyRetention(
       dominator
     };
   });
+}
+
+export function effectiveTrophyModifiers(trophy:GavelTrophy):GavelTrophy['modifiers'] {
+  const rows=trophy.modifiers.map(m=>({...m}));
+  if(trophy.charm?.type==='Clover'&&rows.length){
+    const best=rows.reduce((a,b)=>b.boostPct>a.boostPct?b:a);best.boostPct+=Math.max(0,trophy.charm.value);
+  }
+  if(trophy.charm?.type==='Moon')rows.push({mutation:'Moonlit',boostPct:Math.max(0,trophy.charm.value)});
+  return rows;
+}
+export function placedCharmLuck(trophies:GavelTrophy[]):number {
+  const charms=trophies.flatMap(t=>t.charm?[t.charm]:[]);
+  const mosaic=Math.max(0,...charms.filter(c=>c.type==='Mosaic').map(c=>c.value));
+  return mosaic*new Set(charms.map(c=>c.type)).size;
+}
+export function charmLabel(t:GavelTrophy):string {
+ const c=t.charm;if(!c)return 'No charm';
+ return c.type+' Charm'+(c.type==='Clover'?` +${c.value}% to best mutation`:c.type==='Mosaic'?` +${c.value}% Luck per different charm`:c.type==='Moon'?` +${c.value}% Moonlit`:c.type==='Diamond'?` ${c.value} diamonds/hr`:c.type==='Star'?' +1 grading slot':' · highlights missing Index items');
+}
+/** Optional plan: keep the best Mosaic's diversity, then improve the mutation portfolio.
+ * Only moves a known charm to an empty gavel; requires destination forge unlock.
+ * No costs are silently applied and the actual owned arrangement stays unchanged. */
+export function gavelMoveOpportunity(trophies:GavelTrophy[],settings:TrophyOptimiserSettings,spares:GavelCharm[]=[]){
+ const current=optimiseTrophies(trophies,settings)[0];if(!current)return undefined;
+ const ids=new Set(current.trophies.map(t=>t.id));
+ let result:{from:GavelTrophy;to:GavelTrophy;trophies:GavelTrophy[];cost:number;luck:number;charm:GavelCharm;spare:boolean}|undefined;
+ let score=current.score;
+ for(const from of current.trophies)for(const to of trophies.filter(t=>!ids.has(t.id)&&!t.charm)){
+  const choices=[...(from.charm?[{charm:from.charm,spare:false}]:[]),...spares.map(charm=>({charm,spare:true}))];
+  for(const choice of choices){
+   const next=current.trophies.filter(t=>t.id!==from.id).concat({...to,charm:choice.charm});
+   const evaluated=evaluateTrophySet(next,settings);
+   if(placedCharmLuck(next)>=placedCharmLuck(current.trophies)&&evaluated.score>score){score=evaluated.score;result={from,to,trophies:next,cost:50,luck:placedCharmLuck(next),...choice};}
+  }
+ }
+ return result;
 }

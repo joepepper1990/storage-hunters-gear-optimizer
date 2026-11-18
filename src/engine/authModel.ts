@@ -2,6 +2,7 @@ import type { AuthModelEntry, OwnedCertificate, Slot } from '../types';
 import { canonicalEffect, catalogueOutcome, currentPool } from '../authentication';
 
 export function authModelCertificateType(type:OwnedCertificate['type']):AuthModelEntry['certificateType'] {
+  if(type==='Certificate of Clownticity')return 'Certificate of Clownticity';
   if(type==='Premium Certificate of Authenticity')return 'Premium Certificate of Authenticity';
   if(type==='Limited Certificate of Authenticity')return 'Limited Certificate of Authenticity';
   return 'Normal Certificate of Authenticity';

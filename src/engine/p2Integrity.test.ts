@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {makeInitialData,makeEmptyData} from '../defaults';
+import {makeInitialData,makeEmptyData} from '../test/legacyDefaults';
 import {selectNewestStoredSnapshot,saveEmergencyMirror,saveData,loadData} from '../data/storage';
 import {empiricalSupports,analyseOwnedCertificates,certificateOutcomeLikelihoods} from './certificateDecision';
 

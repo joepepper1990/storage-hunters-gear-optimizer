@@ -1,6 +1,6 @@
 import type { AlgorithmSettings } from '../types';
 
-const NUMERIC_FIELDS: Record<Exclude<keyof AlgorithmSettings,'version'>,string> = {
+const NUMERIC_FIELDS: Partial<Record<Exclude<keyof AlgorithmSettings,'version'>,string>> = {
   luckWeight:'Luck weight',arrowWeight:'Arrow weight',arrowTargetMin:'Arrow band start',arrowTargetMax:'Arrow band end',
   npcWeight:'NPC weight',npcBreakpoint1:'NPC breakpoint 1',npcBreakpoint2:'NPC breakpoint 2',
   npcMultiplier2:'NPC middle multiplier',npcMultiplier3:'NPC upper multiplier',
@@ -21,7 +21,7 @@ export function algorithmIssues(s:AlgorithmSettings):string[] {
     if(typeof value!=='number'||!Number.isFinite(value))issues.push(`${label} must be finite`);
     else if(value<0)issues.push(`${label} cannot be negative`);
   }
-  if(s.arrowTargetMin>=s.arrowTargetMax)issues.push('Arrow band start must be below its end');
+  if(s.arrowTargetMin>s.arrowTargetMax)issues.push('Arrow band start must not exceed its end');
   if(s.energyTarget>s.energyCeiling)issues.push('Energy target must be ≤ Energy ceiling');
   if(s.zoneBreakpoint1>s.zoneBreakpoint2)issues.push('Zone breakpoint 1 must be ≤ breakpoint 2');
   if(s.npcBreakpoint1>s.npcBreakpoint2)issues.push('NPC breakpoint 1 must be ≤ breakpoint 2');

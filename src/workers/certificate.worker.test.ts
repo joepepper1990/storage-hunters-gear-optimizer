@@ -1,5 +1,5 @@
 import {afterEach,expect,it,vi} from 'vitest';
-import {makeEmptyData} from '../defaults';
+import {makeEmptyData} from '../test/legacyDefaults';
 import {analyseOwnedCertificates} from '../engine/certificateDecision';
 import {analyseActivePostRoll} from '../engine/certificateReroll';
 vi.mock('../engine/certificateDecision',()=>({analyseOwnedCertificates:vi.fn(()=>[])}));

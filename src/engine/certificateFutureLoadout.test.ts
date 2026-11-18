@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { makeEmptyData } from '../defaults';
+import { makeEmptyData } from '../test/legacyDefaults';
 import type { AppData, GearItem, GearStats, OwnedCertificate, Slot } from '../types';
 import { analyseCertificate, type CertificateTargetDecision } from './certificateDecision';
 import { arrowDistance, buildGearLoadouts } from './gearLoadouts';

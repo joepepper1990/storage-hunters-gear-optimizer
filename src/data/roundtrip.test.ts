@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { makeEmptyData, makeInitialData } from '../defaults';
+import { makeEmptyData, makeInitialData } from '../test/legacyDefaults';
 import { csvToGear, gearToCsv } from './csv';
 import { exportJson, importJson, normalizeData, selectNewestStoredSnapshot } from './storage';
 import type { GearItem } from '../types';
@@ -42,9 +42,9 @@ describe('backup round trips',()=>{
     delete d.settings.npcBreakpoint1;
     const restored=importJson(JSON.stringify(d));
     expect(restored.settings.version).toBe('2.3');
-    expect(restored.settings.zoneWeight).toBe(0.6);
+    expect(restored.settings.zoneWeight).toBe(0);
     expect(restored.settings.npcWeight).toBe(0);
-    expect(restored.settings.recoveryWeight).toBe(0.2);
+    expect(restored.settings.recoveryWeight).toBe(0);
     expect(restored.settings.walkWeight).toBe(0);
     expect((restored.settings as any).arrowOvercapPenaltyMultiplier).toBeUndefined();
     expect((restored.settings as any).luckBreakpoint1).toBeUndefined();
@@ -62,7 +62,7 @@ describe('backup round trips',()=>{
     d.trophySettings.mutationWeights.find(w=>w.mutation==='Rainbow')!.multiplier=90;
     const restored=importJson(exportJson(d));
     expect(restored.trophies[0].modifiers[0].boostPct).toBe(42);
-    expect(restored.trophies[0].name).toBe('Void +42% / Gold +80%');
+    expect(restored.trophies[0].name).toBe('legacy label');
     expect(restored.trophySettings.maxActive).toBe(4);
     expect(restored.trophySettings.mutationWeights.find(w=>w.mutation==='Rainbow')?.multiplier).toBe(90);
   });
@@ -115,7 +115,7 @@ describe('backup round trips',()=>{
     d.trophySettings.mutationWeights=d.trophySettings.mutationWeights.filter(w=>w.mutation!=='Clockwork');
     const restored=importJson(exportJson(d));
     expect(restored.trophies[0].modifiers).toHaveLength(3);
-    expect(restored.trophies[0].name).toBe('Onyx +25% / Chrome +40% / Wet +10%');
+    expect(restored.trophies[0].name).toBe('old');
     expect(restored.trophySettings.mutationWeights.find(w=>w.mutation==='Onyx')?.multiplier).toBe(175);
     expect(restored.trophySettings.mutationWeights.find(w=>w.mutation==='Clockwork')?.multiplier).toBe(25);
   });
@@ -126,16 +126,16 @@ describe('backup round trips',()=>{
     d.gear=[gear];
     delete d.vehicleProfile; delete d.vehicleSettings; delete d.vehicleParts; delete d.trailers; delete d.trophies; delete d.trophySettings;
     const restored=normalizeData(d);
-    expect(restored.schemaVersion).toBe(20);
-    expect(restored.gear).toHaveLength(28);
+    expect(restored.schemaVersion).toBe(21);
+    expect(restored.gear).toHaveLength(63);
     expect(restored.gear.some((g:any)=>g.id==='abc')).toBe(false);
     expect(restored.ownedCertificates).toHaveLength(9);
-    expect(restored.trophies).toHaveLength(18);
+    expect(restored.trophies).toHaveLength(5);
     expect(restored.trophySettings.maxActive).toBe(4);
   });
   it('creates a genuinely empty workspace for destructive reset/start-empty actions',()=>{
     const empty=makeEmptyData();
-    expect(empty.schemaVersion).toBe(20);
+    expect(empty.schemaVersion).toBe(21);
     expect(empty.gear).toEqual([]);
     expect(empty.ownedCertificates).toEqual([]);
     expect(empty.trophies).toEqual([]);
@@ -181,7 +181,7 @@ describe('backup round trips',()=>{
     woodenSunny.assumedLikelihoodClass='MEDIUM';
     woodenNocturnal.assumedLikelihoodClass='HIGH';
     const restored=importJson(JSON.stringify(d));
-    expect(restored.schemaVersion).toBe(20);
+    expect(restored.schemaVersion).toBe(21);
     expect(restored.authModel.find(m=>m.id===woodenSunny.id)?.assumedLikelihoodClass).toBe('LOW');
     expect(restored.authModel.find(m=>m.id===woodenNocturnal.id)?.assumedLikelihoodClass).toBe('HIGH');
   });
@@ -195,7 +195,7 @@ describe('backup round trips',()=>{
     row.observedValues=Array(10).fill(50);
     const restored=importJson(JSON.stringify(d));
     const next=restored.authModel.find(m=>m.id===row.id)!;
-    expect(restored.schemaVersion).toBe(20);
+    expect(restored.schemaVersion).toBe(21);
     expect(next.confidence).toBe('Medium');
     expect(next.empiricalConfidence).toBe('Empirical');
     expect(next.observedValues).toHaveLength(10);

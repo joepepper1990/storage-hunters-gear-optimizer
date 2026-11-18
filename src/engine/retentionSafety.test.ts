@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LOCKED_DEFAULT_SETTINGS, ZERO_STATS } from '../defaults';
+import { LOCKED_DEFAULT_SETTINGS, ZERO_STATS } from '../test/legacyDefaults';
 import type { AlgorithmSettings, GearItem, GearStats, Slot } from '../types';
 import { algorithmIssues } from './settingsValidation';
 import { findDominator } from './dominance';
@@ -46,11 +46,11 @@ describe('irreversible retention safety',()=>{
     expect(verdict(items,head.id).verdict).toBe('EQUIP');
   });
 
-  it.each(['Tip Chance','NPC Offers Bonus','Grade Re-Roll'])('does not keep a weak item for %s alone',effect=>{
+  it.each(['Tip Chance','NPC Offers Bonus','Grade Re-Roll'])('protects secondary stats when a uniform replacement is not proven (%s)',effect=>{
     const specialist=gear('specialist','Head',{},effect,20);
     const winner=gear('main','Head',{luck:100});
     const items=[specialist,winner,gear('back','Back'),gear('wrist','Wrist')];
-    expect(verdict(items,specialist.id).verdict).toBe('SAFE TO DISCARD');
+    expect(verdict(items,specialist.id).verdict).toBe(effect==='Grade Re-Roll'?'SAFE TO DISCARD':'KEEP');
   });
 
   it('keeps a Head whose mutation would pay off once it gets Premium Mutated Luck',()=>{

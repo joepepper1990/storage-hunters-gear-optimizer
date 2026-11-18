@@ -2,7 +2,7 @@
 import { StrictMode, useEffect, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, flush, render, waitFor } from '../test/dom';
-import { makeInitialData } from '../defaults';
+import { makeInitialData } from '../test/legacyDefaults';
 import type { AppData } from '../types';
 import { useCloudSync, type CloudSync } from './useCloudSync';
 import { forgetCloudClients } from '../data/cloud';

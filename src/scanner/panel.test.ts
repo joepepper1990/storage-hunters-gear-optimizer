@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { countStars, parsePanel, type PanelLine } from './panel';
 import { applyDraft, knownSlots, matchDraft } from '../data/screenshotImport';
-import { makeInitialData as currentInitialData } from '../defaults';
+import { makeInitialData as currentInitialData } from '../test/legacyDefaults';
 import { makeKnownGear } from '../data/knownGear';
 // Fixed historical rolls exercise OCR identity and authentication replacement.
 const makeInitialData=()=>({...currentInitialData(),gear:makeKnownGear()});
