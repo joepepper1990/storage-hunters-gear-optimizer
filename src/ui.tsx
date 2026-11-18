@@ -48,9 +48,10 @@ export function Modal({ title, onClose, children, actions }: { title: string; on
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
-    ref.current?.focus();
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
+  // Re-focusing on callback changes dismisses native select menus during background updates.
+  useEffect(() => { ref.current?.focus(); }, []);
   return <div className="modalBackdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
     <div className="modal sheet" role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} ref={ref}>
       <div className="modalHeader"><h2>{title}</h2><button className="iconButton" onClick={onClose} aria-label="Close">×</button></div>
