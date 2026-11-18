@@ -64,11 +64,11 @@ export function RecordResultEditor({ data, certificate, initialItemId, onClose, 
     <div className="formGrid">
       <label className="wide">Item<select value={itemId} onChange={e => setItemId(e.target.value)}>{data.gear.map(g => <option value={g.id} key={g.id}>{itemTitle(g)} · {g.slot}</option>)}</select></label>
       <label>Result<select value={newAuth} onChange={e => setNewAuth(e.target.value)}><option value="">Select</option>{activeCertificateOutcomeOptions(item?.slot, kind, certificate.type).map(a => <option key={a}>{a}</option>)}</select></label>
-      <label>Value %<NumberInput value={newValue} onValue={setNewValue} /></label>
+      <label>Value %<NumberInput signed={newAuth === 'Bid Arrow Speed'} value={newValue} onValue={setNewValue} /></label>
     </div>
     {finalStats && newAuth && <details className="compactDetails"><summary>Stats shown in game</summary><div className="formGrid">
       {STAT_LABELS.map(([key, label]) => key === 'arrowReduction'
-        ? <label key={key}>{label} % (game sign)<NumberInput value={reductionToGameArrow(finalStats.arrowReduction)} onValue={n => setFinal('arrowReduction', gameArrowToReduction(n))} /></label>
+        ? <label key={key}>{label} % (game sign)<NumberInput signed value={reductionToGameArrow(finalStats.arrowReduction)} onValue={n => setFinal('arrowReduction', gameArrowToReduction(n))} /></label>
         : <label key={key}>{label} %<NumberInput value={finalStats[key]} onValue={n => setFinal(key, n)} /></label>)}
     </div></details>}
   </Modal>;
@@ -90,7 +90,7 @@ export function HistoryEditor({ data, roll, onClose, onSave, onDelete }: {
     <p className="modalMeta">{roll.itemName} · history only</p>
     <div className="formGrid">
       <label>Result<select value={effect} onChange={e => setEffect(e.target.value)}>{[...new Set([effect, ...options])].filter(Boolean).map(o => <option key={o}>{o}</option>)}</select></label>
-      <label>Value %<input type="number" step="any" value={value} onChange={e => setValue(Number(e.target.value))} /></label>
+      <label>Value %<NumberInput signed={effect === 'Bid Arrow Speed'} value={value} onValue={setValue} /></label>
     </div>
   </Modal>;
 }

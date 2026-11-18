@@ -162,3 +162,7 @@ label.check{flex-direction:row;align-items:center;gap:8px;min-height:44px}
 .gavelRecommendations small { display: block; margin-top: .25rem; }
 .targetControls input[type=range] { width: 100%; margin: 1rem 0; }
 .targetControls label { display:block; margin:.5rem 0; }
+
+.signedNumber { display: flex; gap: .4rem; align-items: center; min-width: 0; }
+.signedNumber input { width: 100%; min-width: 0; flex: 1; }
+.signedNumber button { flex: 0 0 auto; min-width: 44px; min-height: 44px; }

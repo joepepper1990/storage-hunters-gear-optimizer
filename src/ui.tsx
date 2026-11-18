@@ -86,14 +86,21 @@ export type SetData = (next: AppData) => void;
  * reports it. A browser number field reports "-" as empty, which used to turn into 0 and
  * drop the sign of a value like -24. Leaving the field shows the stored value again.
  */
-export function NumberInput({ value, onValue, ...rest }: { value: number | undefined; onValue: (value: number) => void }
+export function NumberInput({ value, onValue, signed = false, ...rest }: { value: number | undefined; onValue: (value: number) => void; signed?: boolean }
   & Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type'>) {
   const shown = value === undefined || !Number.isFinite(value) ? '' : String(value);
   const [text, setText] = useState(shown);
   const parsed = (raw: string) => /^\s*[-+]?(\d+([.,]\d*)?|[.,]\d+)\s*$/.test(raw) ? Number(raw.replace(',', '.')) : undefined;
   // A value changed from outside (another field, a reset) replaces the text.
   useEffect(() => { if (parsed(text) !== value) setText(shown); }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
-  return <input {...rest} type="text" inputMode="decimal" value={text}
+  const input = <input {...rest} type="text" inputMode="decimal" value={text}
     onChange={e => { setText(e.target.value); const n = parsed(e.target.value); if (n !== undefined) onValue(n); }}
     onBlur={e => { if (parsed(text) === undefined) setText(shown); rest.onBlur?.(e); }} />;
+  if (!signed) return input;
+  return <span className="signedNumber">{input}<button type="button" className="secondary compact" aria-label="Toggle minus sign" aria-pressed={text.trim().startsWith('-')}
+    title="Switch between positive and negative" onMouseDown={e => e.preventDefault()} onClick={() => {
+      const raw = text.trim();
+      const next = raw.startsWith('-') ? raw.slice(1) : '-' + raw.replace(/^\+/, '');
+      setText(next); const n = parsed(next); if (n !== undefined) onValue(n);
+    }}>+/−</button></span>;
 }

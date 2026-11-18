@@ -58,7 +58,7 @@ export function GearEditor({ item, mode, onClose, onSave, onDelete }: {
         <button type="button" key={key} onClick={() => setShown(current => [...current, key])}>＋ {SHORT_STAT[key]}</button>)}</div>}
       <div className="quickStatGrid">{STAT_LABELS.filter(([key]) => shown.includes(key)).map(([key, label]) => <div className="quickStatField" key={key}>
         {key === 'arrowReduction'
-          ? <label>{label} % (game sign)<NumberInput value={reductionToGameArrow(v.stats.arrowReduction)} onValue={n => setStat('arrowReduction', gameArrowToReduction(n))} placeholder="-24" /></label>
+          ? <label>{label} % (game sign)<NumberInput signed value={reductionToGameArrow(v.stats.arrowReduction)} onValue={n => setStat('arrowReduction', gameArrowToReduction(n))} placeholder="-24" /></label>
           : <label>{label} %<NumberInput value={v.stats[key]} onValue={n => setStat(key, n)} /></label>}
         <button type="button" className="removeStat" onClick={() => hideStat(key)} aria-label={`Remove ${label}`}>×</button>
       </div>)}</div>
@@ -73,11 +73,11 @@ export function GearEditor({ item, mode, onClose, onSave, onDelete }: {
       {v.authenticated && (legacyAlien ? <>
         <label>Type<input value="Legacy Alien" readOnly /></label>
         <label>Effect<input value={v.authentication.effect} readOnly /></label>
-        <label>Value %<input type="number" step="any" value={v.authentication.value} onChange={e => setAuthentication({ value: Number(e.target.value) })} /></label>
+        <label>Value %<NumberInput signed={v.authentication.effect === 'Bid Arrow Speed'} value={v.authentication.value} onValue={value => setAuthentication({ value })} /></label>
       </> : <>
         <label>Certificate<select value={kind} onChange={e => setAuthentication({ kind: e.target.value as 'Normal' | 'Premium' | 'Limited' | 'Carnival', effect: '', value: 0 })}><option>Normal</option><option>Premium</option><option>Limited</option><option>Carnival</option></select></label>
         <label>Effect<select value={v.authentication.effect} onChange={e => setAuthentication({ effect: e.target.value })}>{activeAuthenticationOptions(v.slot, v.authentication.effect, kind).map(x => <option value={x} key={x}>{x || 'Select effect'}</option>)}</select></label>
-        <label>Value %<input type="number" inputMode="decimal" step="any" value={v.authentication.value} onChange={e => setAuthentication({ value: Number(e.target.value) })} /></label>
+        <label>Value %<NumberInput signed={v.authentication.effect === 'Bid Arrow Speed'} value={v.authentication.value} onValue={value => setAuthentication({ value })} /></label>
       </>)}
     </div>
     {error && <p className="formError" role="alert">{error}</p>}
