@@ -1,9 +1,9 @@
 import type { AlgorithmSettings, CombinationResult, GearItem, ItemAnalysis, Slot } from '../types';
 import { arrowEffective, combineStats } from './scoring';
-import { analyseGearRetention, arrowDistance, mainCombination } from './gearLoadouts';
+import { analyseGearRetention, arrowDistance, mainCombination, defaultDynamicState, compareAuctionSecondary } from './gearLoadouts';
 
 export function evaluateCombination(head: GearItem, back: GearItem, wrist: GearItem, settings: AlgorithmSettings): CombinationResult {
-  return mainCombination(head, back, wrist, settings, 'Neutral', 'low');
+  return mainCombination(head, back, wrist, settings, 'Neutral', defaultDynamicState(settings));
 }
 
 export function optimise(gear: GearItem[], settings: AlgorithmSettings, limit = 100): CombinationResult[] {
@@ -13,9 +13,9 @@ export function optimise(gear: GearItem[], settings: AlgorithmSettings, limit = 
   if (!heads.length || !backs.length || !wrists.length) return [];
   const best: CombinationResult[] = [];
   for (const head of heads) for (const back of backs) for (const wrist of wrists) {
-    insertRanked(best, evaluateCombination(head, back, wrist, settings), limit, settings);
+    best.push(evaluateCombination(head, back, wrist, settings));
   }
-  return best;
+  return best.sort((a,b)=>compareCombination(a,b,settings)).slice(0,Math.max(0,limit));
 }
 
 function combinationKey(value:CombinationResult):string {
@@ -25,7 +25,7 @@ function combinationKey(value:CombinationResult):string {
 /** Same Main priority as the loadout engine: distance to the Arrow band first, then score. */
 function compareCombination(a:CombinationResult,b:CombinationResult,settings:AlgorithmSettings):number {
   const distance=(c:CombinationResult)=>arrowDistance(c.stats,settings);
-  return distance(a)-distance(b) || b.score.total-a.score.total || combinationKey(a).localeCompare(combinationKey(b));
+  return distance(a)-distance(b) || b.score.total-a.score.total || compareAuctionSecondary(a.stats,b.stats) || combinationKey(a).localeCompare(combinationKey(b));
 }
 
 function insertRanked(list: CombinationResult[], value: CombinationResult, limit: number, settings: AlgorithmSettings) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LOCKED_DEFAULT_SETTINGS, ZERO_STATS } from '../defaults';
+import { LOCKED_DEFAULT_SETTINGS, ZERO_STATS } from '../test/legacyDefaults';
 import { analyseGearRetention, arrowDistance, buildGearLoadouts, inArrowBand } from './gearLoadouts';
 import { optimise } from './optimizer';
 import type { GearItem, GearStats, Slot } from '../types';

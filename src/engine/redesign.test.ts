@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LOCKED_DEFAULT_SETTINGS, makeEmptyData, makeInitialData, ZERO_STATS } from '../defaults';
+import { LOCKED_DEFAULT_SETTINGS, makeEmptyData, makeInitialData, ZERO_STATS } from '../test/legacyDefaults';
 import type { AlgorithmSettings, AppData, AuthKind, GearItem, GearStats, OwnedCertificate, Slot } from '../types';
 import { activeSpecialists, analyseGearRetention, buildGearLoadouts, mainAuctionUtility } from './gearLoadouts';
 import { findDominator } from './dominance';
@@ -8,7 +8,7 @@ import { buildCertificateQueue } from './certificateQueue';
 import { addCertificateBatch, removeCertificateBatch, setCertificateQuantity, updateCertificateBatch } from './certificateInventory';
 import { applyRecordedCertificateRoll } from './certificateRolls';
 import { optimiseTrophies } from './trophies';
-import { arrowTargetBand, effectiveItemStats, scoreStandalone } from './scoring';
+import { combineStats, arrowTargetBand, effectiveItemStats, scoreStandalone } from './scoring';
 
 function gear(id:string,slot:Slot,stats:Partial<GearStats>={},effect='',value=0,kind:AuthKind='Normal'):GearItem {
   return {id,baseName:id,name:id,slot,stats:{...ZERO_STATS,...stats},authenticated:!!effect,
@@ -197,9 +197,10 @@ describe('loadout evaluator optimisation is exact',()=>{
       return r<band.min?band.min-r:r>band.max?r-band.max:0;
     };
     const scored=trios.map(t=>({t,tier:tier(t),u:utility(t),main:mainAuctionUtility(t,settings,'Neutral','low')}));
-    scored.sort((a,b)=>a.tier-b.tier||b.u-a.u||b.main-a.main||a.t.map(x=>x.id).join('|').localeCompare(b.t.map(x=>x.id).join('|')));
+    const secondary=(a:GearItem[],b:GearItem[])=>{const x=combineStats(a),y=combineStats(b);return y.zone-x.zone||y.recovery-x.recovery||y.energy-x.energy||y.tip-x.tip||y.npc-x.npc;};
+    scored.sort((a,b)=>a.tier-b.tier||b.u-a.u||secondary(a.t,b.t)||b.main-a.main||a.t.map(x=>x.id).join('|').localeCompare(b.t.map(x=>x.id).join('|')));
     const best=scored[0];
-    const tied=scored.filter(x=>x.tier===best.tier&&Math.abs(x.u-best.u)<=1e-9&&Math.abs(x.main-best.main)<=1e-9);
+    const tied=scored.filter(x=>x.tier===best.tier&&Math.abs(x.u-best.u)<=1e-9&&Math.abs(x.main-best.main)<=1e-9&&secondary(x.t,best.t)===0);
     return {ids:best.t.map(x=>x.id),u:best.u,tied:[...new Set(tied.flatMap(x=>x.t.map(i=>i.id)))].sort()};
   }
   let seed=7;const rand=()=>(seed=(seed*16807)%2147483647)/2147483647;

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { makeEmptyData } from '../defaults';
+import { makeEmptyData } from '../test/legacyDefaults';
 import { clearReplacedCopy, keepThisWindow, loadData, replacedCopy, saveData } from './storage';
 
 /** A minimal IndexedDB and localStorage, shared like two windows of one origin. */

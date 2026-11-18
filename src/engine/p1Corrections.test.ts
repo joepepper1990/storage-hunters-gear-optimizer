@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { makeInitialData } from '../defaults';
+import { makeInitialData } from '../test/legacyDefaults';
 import type { CertificateRollLog, GearItem, GearStats, Slot } from '../types';
 import { analyseGearRetention } from './gearLoadouts';
 import { optimise } from './optimizer';

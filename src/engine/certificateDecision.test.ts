@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { makeInitialData } from '../defaults';
+import { makeInitialData } from '../test/legacyDefaults';
 import type { GearItem, GearStats, OwnedCertificate, Slot } from '../types';
 import {
   analyseCertificate,
@@ -109,7 +109,7 @@ describe('certificate decision engine',()=>{
     expect(frenzy.improvePct.cautious).toBe(0);
     expect(frenzy.improvePct.favourable).toBe(100);
     expect(back.improveChancePct.favourable).toBeGreaterThan(back.improveChancePct.cautious);
-    expect(back.safeInCautious).toBe(true);
+    expect(back.safeInCautious).toBe(false);
   });
 
   it('does not produce a target without a complete Head + Back + Wrist inventory',()=>{

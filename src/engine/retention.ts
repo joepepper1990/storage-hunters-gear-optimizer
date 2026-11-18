@@ -104,7 +104,7 @@ export function futureSweep(all: GearItem[], settings: AlgorithmSettings): Sweep
  */
 export function hasSafeReplacement(target: GearItem, all: GearItem[], settings: AlgorithmSettings): boolean {
   if (hasUnknownEffect(target)) return false;
-  const keys: Array<keyof GearStats> = ['luck','zone','energy','recovery'];
+  const keys: Array<keyof GearStats> = ['luck','zone','energy','recovery','tip','npc'];
   if (settings.shopPriority > 0) {
     if (settings.shopTipWeight > 0) keys.push('tip');
     if (settings.shopNpcWeight > 0) keys.push('npc');
@@ -117,6 +117,8 @@ export function hasSafeReplacement(target: GearItem, all: GearItem[], settings: 
   return all.some(candidate => {
     if (candidate.id === target.id || candidate.slot !== target.slot || hasUnknownEffect(candidate)) return false;
     const candidateStats = effectiveItemStats(candidate);
+    const strongest=(g:GearItem)=>Object.entries(g.stats).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]))[0]?.[0];
+    if(strongest(target)&&strongest(candidate)!==strongest(target))return false;
     // Different nonnumeric effects cannot replace each other across every state/context.
     if (effect(candidate) !== targetEffect) return false;
     const values: Array<[number,number]> = keys.map(key => [candidateStats[key],targetStats[key]]);

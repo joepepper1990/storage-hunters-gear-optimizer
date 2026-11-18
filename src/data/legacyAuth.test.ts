@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { makeInitialData } from '../defaults';
+import { makeInitialData } from '../test/legacyDefaults';
 import { normalizeData } from './storage';
 import { buildGearLoadouts } from '../engine/gearLoadouts';
 import { catalogueRowsFor } from '../engine/authModel';
@@ -17,7 +17,7 @@ describe('legacy authentications stay readable',()=>{
       legacy('Droughtbreaker','Premium'),legacy('Club Packed','Premium','cp'),legacy('Timekeeper','Normal','tk')
     ]} as unknown as AppData;
     const data=normalizeData(raw,{preserveInventory:true});
-    expect(data.schemaVersion).toBe(20);
+    expect(data.schemaVersion).toBe(21);
     expect(data.gear.map(g=>g.authentication.effect)).toEqual(['Luck','Fossil Finder','Haggler','Drought Breaker','Club Pact','Time Keeper']);
     // A legacy plain-Luck authentication still adds Luck in the loadout engine.
     const loadouts=buildGearLoadouts([...data.gear.slice(0,1),
@@ -51,7 +51,7 @@ describe('legacy authentications stay readable',()=>{
       settings:{...makeInitialData().settings,version,arrowSweetSpot}} as unknown as AppData).settings;
     for(const [version,start] of [['2.1',65],['2.0',75],['2.1',72],['2.1',95]] as const){
       const s=settings(version,start);
-      expect([s.arrowTargetMin,s.arrowTargetMax,s.version]).toEqual([70,90,'2.3']);
+      expect([s.arrowTargetMin,s.arrowTargetMax,s.version]).toEqual([100,100,'2.3']);
     }
   });
 });

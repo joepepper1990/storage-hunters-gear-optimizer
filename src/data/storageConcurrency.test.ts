@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { makeEmptyData, makeInitialData } from '../defaults';
+import { makeEmptyData, makeInitialData } from '../test/legacyDefaults';
 import { importJson, loadData, replacedCopy, saveData, saveEmergencyMirror } from './storage';
 
 const mirrorKey = 'storage-hunters-gear-optimizer:emergency-mirror';

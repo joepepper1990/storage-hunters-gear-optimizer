@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { makeInitialData } from '../defaults';
+import { makeInitialData } from '../test/legacyDefaults';
 import type { CertificateRollLog, GearItem } from '../types';
 import { applyRecordedCertificateRoll, correctRecordedCertificateRoll, deleteRecordedCertificateRoll, rollModelWarnings, withObservedAuthenticationStats } from './certificateRolls';
 import { effectiveItemStats } from './scoring';

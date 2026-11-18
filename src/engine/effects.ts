@@ -8,7 +8,7 @@ export type EffectKnowledge = 'modelled' | 'zero' | 'unknown';
 const MODELLED_EFFECTS = new Set([
   'Luck','Bid Recovery','Bid Arrow Speed','Bid Zone Width','Energy Drink Time','Tip Chance',
   'NPC Offers Bonus','Sunny','Nocturnal','Overcharged','Raindrop','Mutated Luck',
-  'Droughtbreaker','Drought Breaker','Golden Hour','Luck Frenzy','Grade Re-Roll'
+  'Intermission','Droughtbreaker','Drought Breaker','Golden Hour','Luck Frenzy','Grade Re-Roll'
 ]);
 
 /** Effects this profile deliberately values at zero (F tier, or no Heavy Hauling / Time Capsule loadout). */

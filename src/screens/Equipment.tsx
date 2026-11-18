@@ -1,3 +1,5 @@
+import { BestGavels } from '../components/BestGavels';
+import { charmLabel } from '../engine/trophies';
 import { useMemo, useState } from 'react';
 import { algorithmIssues } from '../engine/settingsValidation';
 import { analyseTrophyRetention, optimiseTrophies, trophyMutationBoost } from '../engine/trophies';
@@ -125,7 +127,7 @@ export function Equipment({ data, setData, best, view }: { data: AppData; setDat
     setEditing(null);
   };
   const saveGavel = (input: GavelTrophy) => {
-    const item = { ...input, name: generateTrophyName(input.modifiers), updatedAt: new Date().toISOString() };
+    const item = { ...input, name: input.name || generateTrophyName(input.modifiers), updatedAt: new Date().toISOString() };
     const issue = validateTrophy(item); if (issue) { setError(issue); return; }
     setData({ ...data, trophies: data.trophies.map(t => t.id === item.id ? item : t) }); setGavel(null); setError('');
   };
@@ -138,13 +140,14 @@ export function Equipment({ data, setData, best, view }: { data: AppData; setDat
     {best ? <div className="rowList">{[best.head, best.back, best.wrist].map(item => <ItemRow key={item.id} item={item} reason="Current Best Set" onOpen={() => setEditing(structuredClone(item))} />)}</div>
       : <Empty>Add a Head, Back and Wrist</Empty>}
 
-    <h2>Keep</h2>
+    <details className="drawer"><summary>Keep ({view.keep.length})</summary>
     {!view.ready ? <p className="updating" role="status">Updating…</p> : !view.keep.length ? <Empty>Nothing else worth keeping</Empty>
       : SLOTS.map(slot => {
         const rows = view.keep.filter(r => r.item.slot === slot);
         return rows.length ? <div key={slot}><h3>{slot}</h3><div className="rowList">{rows.map(r => <ItemRow key={r.item.id} item={r.item} reason={r.reason} onOpen={() => setEditing(structuredClone(r.item))} />)}</div></div> : null;
       })}
 
+    </details>
     <h2>Safe to Discard</h2>
     {!view.ready && data.gear.length > 0 ? <p className="updating" role="status">Updating…</p> : !discardable.length ? <Empty>Nothing to discard</Empty> : <>
       <div className="toolbar">
@@ -164,15 +167,20 @@ export function Equipment({ data, setData, best, view }: { data: AppData; setDat
       {!data.gear.length && <Empty>No equipment yet</Empty>}
     </details>
 
+    <BestGavels data={data} onEdit={setGavel}/>
     <details className="drawer">
-      <summary>Gavels ({data.trophies.length})</summary>
-      {bestGavels?.trophies.length ? <p className="muted">Best: {bestGavels.trophies.map(gavelLabel).join(' / ')}</p> : null}
+      <summary>All Gavels ({data.trophies.length})</summary>
+
       <div className="rowList">{data.trophies.map(t => <button className="itemRow" key={t.id} onClick={() => setGavel(structuredClone(t))}>
-        <strong>{gavelLabel(t)}</strong>{t.gradeStars ? <small>{t.gradeStars}★</small> : null}
+        <strong>{t.name}</strong><small>{gavelLabel(t)}</small><small>{charmLabel(t)}</small>{t.gradeStars ? <small>{t.gradeStars}★</small> : null}
       </button>)}</div>
       {!data.trophies.length && <Empty>No Gavels</Empty>}
     </details>
 
+    <details className="drawer"><summary>Spare charms ({data.looseCharms?.length??0} listed)</summary>
+      <p className="muted">Your listed best spare charms; lesser owned charms are not included.</p>
+      {(data.looseCharms??[]).map((c,i)=><p key={i}>{c.type} Charm · {c.value}{c.type==='Diamond'?' diamonds/hr':'%'}</p>)}
+    </details>
     {editing && <GearEditor key={editing.id} item={editing} mode="edit" onClose={() => setEditing(null)} onSave={saveGear}
       onDelete={() => { if (confirm(`Delete ${itemTitle(editing)}?`)) { setData({ ...data, gear: data.gear.filter(g => g.id !== editing.id) }); setEditing(null); } }} />}
     {gavel && <TrophyEditor item={gavel} weights={data.trophySettings.mutationWeights} mode="edit" onClose={() => setGavel(null)} onSave={saveGavel} />}

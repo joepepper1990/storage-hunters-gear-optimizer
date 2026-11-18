@@ -21,16 +21,7 @@ function pct(value: number): string {
  * Unresolved roll strengths can only raise the upper end.
  */
 export function chanceText(target: CertificateTargetDecision): { value: string; detail: string } {
-  const lower = target.improveChanceLowerPct, exact = target.improveChancePct;
-  const low = Math.min(lower.cautious, lower.central, lower.favourable);
-  const high = Math.max(exact.cautious, exact.central, exact.favourable, target.improveChanceUpperPct);
-  const ranged = Math.round(high) - Math.round(low) >= 1;
-  const stateValues = [exact.cautious, exact.central, exact.favourable];
-  const causes = [
-    Math.max(...stateValues) - Math.min(...stateValues) >= 1 ? 'active-effect scenarios' : '',
-    target.unresolvedOutcomeMassPct > 1e-6 ? 'unresolved roll strengths' : ''
-  ].filter(Boolean);
-  return { value: ranged ? `${pct(low)}–${pct(high)}` : pct(low), detail: ['model estimate', ...causes].join(' · ') };
+  return {value:'Unknown',detail:'Outcome probabilities are not published. Recommendations compare possible gains and the cost of losing your current bonus.'};
 }
 
 function arrowText(target: CertificateTargetDecision): string {
@@ -44,10 +35,8 @@ function TargetDetails({ target }: { target: CertificateTargetDecision }) {
     <ul className="plainList">
       {target.currentAuthentication && <li>Now: {target.currentAuthentication.effect}{target.currentAuthentication.rank ? ` (#${target.currentAuthentication.rank.rank} of ${target.currentAuthentication.rank.of} wanted${target.currentAuthentication.rank.higher.length ? `; higher: ${target.currentAuthentication.rank.higher.join(', ')}` : ''})` : target.currentAuthentication.calculated ? ' (value calculated from the trio)' : ' (not a wanted result for this certificate)'}</li>}
       {best && <li>Best roll: {best.label} → {best.loadout.context === 'Neutral' ? 'main' : best.loadout.context} set {itemTitle(best.loadout.head)} / {itemTitle(best.loadout.back)} / {itemTitle(best.loadout.wrist)} · Arrow {num(best.loadout.arrow)}%{best.loadout.inBand ? '' : ' (outside band)'} · Modelled Luck {num(best.loadout.luck)} · Zone {num(best.loadout.zone)} · Energy {num(best.loadout.energy)}{best.state === 'central' ? ' (with active effects at the central sensitivity setting)' : ''}</li>}
-      <li>Modelled downside: up to {pct(target.worseChanceUpperPct)} for a worse Main, Day, Night or Rain set (cautious scenario){target.safeInCautious ? ' · within the policy risk limit' : ''}</li>
-      {target.calculatedRanks.map(r => <li key={r.effect}>{r.effect}{r.defaultRank ? ` · default #${r.defaultRank}` : ''}{r.calculatedRank ? ` · here #${r.calculatedRank}` : ''}: {r.reason}</li>)}
-      {target.unwantedOutcomePct > 0 && <li>{pct(target.unwantedOutcomePct)} of outcomes are unwanted.</li>}
-      {target.unresolvedOutcomeMassPct > 1e-6 && <li>Unresolved roll strengths ({target.unresolvedEffects.join(', ')}) widen the range independently of active-effect scenarios.</li>}
+      <li>{target.safeInCautious?'Existing gear provides protection in the checked scenarios.':'Replacing this bonus can make a useful auction set worse.'}</li>
+      <li>Possible outcomes are compared against keeping your current bonus. Unknown ranges and odds prevent a precise risk estimate.</li>
     </ul>
   </details>;
 }
@@ -69,18 +58,17 @@ export function NextCertificate({ row, computing, hasCertificates, onRecord, det
   if (!row) return <article className="answerCard">
     <span className="eyebrow">Next certificate</span>
     <strong className="verdict hold">{hasCertificates ? 'Hold certificates' : 'No certificates'}</strong>
-    <small>{hasCertificates ? 'Nothing is worth using right now.' : 'Add certificates to get a recommendation.'}</small>
+    <small>{hasCertificates ? 'No sufficiently supported improvement right now.' : 'Add certificates to get a recommendation.'}</small>
     {more}
   </article>;
-  const t = row.target, chance = chanceText(t);
+  const t = row.target;
   return <article className="answerCard">
     <span className="eyebrow">Next certificate</span>
     <strong className={`verdict ${t.verdict === 'USE' ? 'use' : 'consider'}`}>{VERDICT_WORD[t.verdict]} {certificateLabel(row.certificate)}</strong>
     <p className="target">→ {itemTitle(t.item)} · {t.item.slot}</p>
     <ul className="facts">
-      <li>Model estimate: <b>{chance.value}</b> chance of a better Best Set</li>
-      <li>{chance.detail} · assumes equal effect odds and modelled roll strengths; not official game odds.</li>
-      <li>Wanted roll {pct(t.wantedChancePct)}{t.unwantedOutcomePct > 0 ? ` · ${pct(t.unwantedOutcomePct)} of rolls unwanted` : ''}</li>
+      <li>{t.safeInCautious?'Backup gear limits the downside in the checked scenarios.':'Potential improvement; your current bonus may be lost.'}</li>
+      <li>Odds unknown. Check the possible improvement before spending a certificate.</li>
       {t.bestRoll && <li>Best result: {t.bestRoll.effect}</li>}
       <li>{arrowText(t)}</li>
     </ul>
@@ -109,7 +97,7 @@ export function Certificates({ data, setData, analysis, queue, onRecorded }: {
   const [editing, setEditing] = useState<OwnedCertificate[] | 'new' | null>(null);
   const [error, setError] = useState('');
   const available = data.ownedCertificates.filter(c => c.quantity > 0);
-  const post = analysis.postRoll;
+
   const next = queue?.rows[0];
   const run = (change: () => AppData) => { try { setData(change()); setEditing(null); setError(''); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } };
 
@@ -123,12 +111,6 @@ export function Certificates({ data, setData, analysis, queue, onRecorded }: {
     {error && <Notice tone="danger">{error}</Notice>}
     {analysis.error && <Notice tone="danger">{analysis.error}</Notice>}
 
-    {post && <div className="promptCard" role="status">
-      <span className="eyebrow">Authenticator prompt</span>
-      <strong className="bigAnswer">{post.recommendation === 'ACCEPT' ? 'Accept' : post.recommendation === 'REROLL EFFECT' ? 'Reroll' : 'Reroll number'}</strong>
-      <button className="secondary compact" onClick={() => onRecorded(undefined)}>Prompt closed</button>
-    </div>}
-    {analysis.postRollError && <Notice tone="danger">{analysis.postRollError}</Notice>}
 
     <NextCertificate row={next} computing={!queue} hasCertificates={available.length > 0} details
       onRecord={row => setRecording({ certificate: row.certificate, itemId: row.target.item.id })} />

@@ -1,3 +1,4 @@
+import { certificateFamily } from '../authentication';
 import { useEffect, useMemo, useState } from 'react';
 import { ZERO_STATS } from '../defaults';
 import { activeCertificateOutcomeOptions, canonicalEffect, currentPool } from '../authentication';
@@ -15,7 +16,7 @@ function applyRollToItem(item: GearItem, effect: string, value: number, type: Au
   let base = removeNumericAuthentication(item);
   if (base.authenticated) { base = structuredClone(base); base.authenticated = false; base.authentication = { kind: 'None', effect: '', value: 0 }; }
   const updated = addOutcomeToItem(base, effect, value);
-  updated.authentication.kind = type.startsWith('Premium') ? 'Premium' : type.startsWith('Limited') ? 'Limited' : 'Normal';
+  updated.authentication.kind = certificateFamily(type);
   updated.name = generateGearName(updated.baseName, updated.stats, updated.authenticated, updated.authentication);
   updated.updatedAt = new Date().toISOString();
   return updated;
@@ -40,7 +41,7 @@ export function RecordResultEditor({ data, certificate, initialItemId, onClose, 
     const observed = withObservedAuthenticationStats(autoPreview, finalStats);
     return { ...observed, name: generateGearName(observed.baseName, observed.stats, observed.authenticated, observed.authentication) };
   }, [autoPreview, finalStats]);
-  const kind = type.startsWith('Premium') ? 'Premium' : type.startsWith('Limited') ? 'Limited' : 'Normal';
+  const kind = certificateFamily(type);
   const setFinal = (key: keyof GearStats, value: number) => setFinalStats(current => ({ ...ZERO_STATS, ...current, [key]: Number.isFinite(value) ? value : 0 }));
   const save = () => {
     if (!item || !preview) return;
@@ -77,7 +78,7 @@ export function RecordResultEditor({ data, certificate, initialItemId, onClose, 
 export function HistoryEditor({ data, roll, onClose, onSave, onDelete }: {
   data: AppData; roll: CertificateRollLog; onClose: () => void; onSave: (effect: string, value: number) => void; onDelete: () => void;
 }) {
-  const kind = roll.certificateType.startsWith('Premium') ? 'Premium' : roll.certificateType.startsWith('Limited') ? 'Limited' : 'Normal';
+  const kind = roll.certificateType==='Certificate of Clownticity' ? 'Carnival' : roll.certificateType.startsWith('Premium') ? 'Premium' : roll.certificateType.startsWith('Limited') ? 'Limited' : 'Normal';
   const [effect, setEffect] = useState(roll.newAuthentication);
   const [value, setValue] = useState(roll.newValue);
   const options = activeCertificateOutcomeOptions(roll.slot, kind, roll.certificateInventoryType);

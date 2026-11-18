@@ -18,6 +18,7 @@ export const WANTED_ORDER: Record<CertificateFamily, Record<Slot, readonly strin
     Wrist: ['Bid Zone Width', 'Energy Drink Time']
   },
   Premium: { Head: ['Mutated Luck'], Back: ['Golden Hour', 'Drought Breaker'], Wrist: [] },
+  Carnival: {Head:[],Back:['Intermission','Jestered'],Wrist:[]},
   Limited: { Head: [], Back: ['Luck Frenzy', 'Featherweight'], Wrist: [] }
 };
 

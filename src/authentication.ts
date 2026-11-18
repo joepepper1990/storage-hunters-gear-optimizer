@@ -1,9 +1,9 @@
 import type { AuthModelEntry, OwnedCertificate, Slot } from './types';
 
 export type CertificateInventoryType = OwnedCertificate['type'];
-export type CertificateFamily = 'Normal' | 'Premium' | 'Limited';
+export type CertificateFamily = 'Normal' | 'Premium' | 'Limited' | 'Carnival';
 
-export const CURRENT_AUTH_KINDS = ['Normal','Premium','Limited'] as const;
+export const CURRENT_AUTH_KINDS = ['Normal','Premium','Limited','Carnival'] as const;
 
 /**
  * One factual row of the canonical certificate catalogue: an outcome that can currently
@@ -32,6 +32,11 @@ const PREMIUM='Premium Certificate of Authenticity', LIMITED='Limited Certificat
  * and legacy authentications stay readable). Fossil Finder and Alien effects are historical.
  */
 export const CERTIFICATE_CATALOGUE: readonly CatalogueOutcome[] = [
+  {type:'Certificate of Clownticity',slot:'Back',effect:'Jestered',confidence:'High',category:'Carnival — chance range unknown'},
+  {type:'Certificate of Clownticity',slot:'Back',effect:'Intermission',confidence:'High',category:'Carnival — up to 125 Luck; charge rate unknown'},
+  {type:'Certificate of Clownticity',slot:'Head',effect:'Potion Drinker',confidence:'High',category:'Carnival — chance range unknown'},
+  {type:'Certificate of Clownticity',slot:'Head',effect:'Mining Haven',confidence:'High',category:'Carnival — chance range unknown'},
+  {type:'Certificate of Clownticity',slot:'Wrist',effect:'Extra Cleaner',confidence:'High',category:'Carnival — chance range unknown'},
   {type:WOODEN,slot:'Any',effect:'Bid Recovery',min:5,max:25,confidence:'Medium',category:'Wooden basic'},
   {type:WOODEN,slot:'Any',effect:'Bid Arrow Speed',min:-60,max:-12,confidence:'Medium',category:'Wooden basic'},
   {type:WOODEN,slot:'Any',effect:'Bid Zone Width',min:15,max:75,confidence:'Medium',category:'Wooden basic'},
@@ -90,8 +95,8 @@ export function canonicalEffect(effect:string):string {
   return EFFECT_ALIASES[name]??name;
 }
 
-export function certificateFamily(type:CertificateInventoryType):CertificateFamily {
-  return type===PREMIUM?'Premium':type===LIMITED?'Limited':'Normal';
+export function certificateFamily(type:CertificateInventoryType|AuthModelEntry['certificateType']):CertificateFamily {
+  return type==='Certificate of Clownticity'?'Carnival':type===PREMIUM?'Premium':type===LIMITED?'Limited':'Normal';
 }
 
 /** Canonical outcome pool. The probability model assumes equal odds; official odds are unknown. */
@@ -106,7 +111,7 @@ export function catalogueOutcome(type:CertificateInventoryType,slot:Slot,effect:
 }
 
 const FAMILY_TYPES:Record<CertificateFamily,CertificateInventoryType[]>={
-  Normal:[WOODEN,RIPPED],Premium:[PREMIUM],Limited:[LIMITED]
+  Normal:[WOODEN,RIPPED],Premium:[PREMIUM],Limited:[LIMITED],Carnival:['Certificate of Clownticity']
 };
 
 function familyPool(family:CertificateFamily,slot?:Slot):string[] {
@@ -125,6 +130,7 @@ const bySlot=(family:CertificateFamily):Record<Slot,readonly string[]>=>({
 export const EXCLUSIVE_AUTH_EFFECTS:Record<Slot,readonly string[]>=bySlot('Normal');
 export const PREMIUM_AUTH_EFFECTS:Record<Slot,readonly string[]>=bySlot('Premium');
 export const LIMITED_AUTH_EFFECTS:Record<Slot,readonly string[]>=bySlot('Limited');
+export const CARNIVAL_AUTH_EFFECTS:Record<Slot,readonly string[]>=bySlot('Carnival');
 export const LEGACY_ALIEN_EFFECTS = ['Haggler','Anti-Gravity Field','Safecracker','Grade Re-Roll','Exhibitor','Rush'] as const;
 /** Readable on old items and logs, never part of a current certificate pool. */
 export const HISTORICAL_EFFECTS = ['Luck','Fossil Finder'] as const;
@@ -148,7 +154,12 @@ export function activeCertificateOutcomeOptions(
 /** Player-reported enchantment behaviour; informational, not an official score formula. */
 export function enchantmentDescription(effect:string,value:number):string {
   switch(effect){
-    case 'Mutated Luck': return 'Models extra Luck from mutations on the equipped Head + Back + Wrist trio. Mutation values and the highest-mutation-per-item rule are model assumptions, not verified game formulas.';
+    case 'Mutated Luck': return 'Confirmed in-game: each worn Head, Back and Wrist adds Luck from its strongest listed mutation. Silver 5, Gold 10, Corrupted 15, Diamond 20, Gem 25, Chrome 30, Hologram 35, Void 40, Secret 45, Rainbow 60, Onyx 75.';
+    case 'Intermission': return 'Back only. Builds Luck outside auctions, up to +125%, then spends it on the next auction. Charging rate and roll range are unknown.';
+    case 'Jestered': return 'Back only. Chance for a random auction item to gain Jestered. Chance range and reward value are unknown.';
+    case 'Potion Drinker': return 'Head only. Chance a drink or potion is not consumed when used.';
+    case 'Mining Haven': return 'Head only. Chance of a duplicate jewel when mining.';
+    case 'Extra Cleaner': return 'Wrist only. Chance a wash gains a cleaning mutation when it would otherwise miss.';
     case 'Nocturnal': return `Adds +${value}% Luck at night. Evaluated in the Night Auction context rather than averaged with invented uptime.`;
     case 'Temporal Split': return `${value}% chance for an item to instantly mutate when placed in the Time Capsule. Not counted as ordinary gear Luck.`;
     case 'Club Pact': return 'Premium wrist effect. It is not a wanted result for this profile and adds no auction value.';

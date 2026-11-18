@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {makeInitialData,DEFAULT_TROPHY_SETTINGS} from '../defaults';
+import {makeInitialData,DEFAULT_TROPHY_SETTINGS} from '../test/legacyDefaults';
 import {screenshotTrophies,screenshotCertificates,replaceWithVerifiedTrophies,replaceWithVerifiedCertificates} from './screenshotEquipment';
 import {exportJson,importJson,normalizeData} from './storage';
 import {optimiseTrophies,specialistTrophyLoadout,analyseTrophyRetention,evaluateTrophySet} from '../engine/trophies';
@@ -91,9 +91,9 @@ describe('October screenshot inventory — schema 15',()=>{
     legacy.ownedCertificates=[{id:'stale-cert',type:'Wooden Certificate of Authenticity',quantity:99}];
     legacy.trophies=[screenshotTrophies()[0]];
     const first=normalizeData(legacy);
-    expect(first.schemaVersion).toBe(20);
-    expect(first.gear).toHaveLength(28);
-    expect(first.trophies).toHaveLength(18);
+    expect(first.schemaVersion).toBe(21);
+    expect(first.gear).toHaveLength(63);
+    expect(first.trophies).toHaveLength(5);
     expect(first.ownedCertificates).toHaveLength(9);
     expect(first.ownedCertificates.some(c=>c.id==='stale-cert')).toBe(false);
 

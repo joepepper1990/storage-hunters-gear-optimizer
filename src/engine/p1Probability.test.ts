@@ -1,5 +1,5 @@
 import {it,expect} from 'vitest';
-import {makeInitialData,ZERO_STATS} from '../defaults';
+import {makeInitialData,ZERO_STATS} from '../test/legacyDefaults';
 import {analyseConditionalNumberReroll} from './certificateDecision';
 it('continuous range prior does not invent a 20% atom at the maximum',()=>{
  const d=makeInitialData();d.rollLog=[];

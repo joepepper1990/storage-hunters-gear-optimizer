@@ -21,13 +21,13 @@ describe('settings policy 2.3',()=>{
       {...LOCKED_DEFAULT_SETTINGS,version:'2.2',luckWeight:1.37,zoneWeight:.65,energyWeight:0,arrowTargetMin:72,drinkPriority:8}
     ]){
       const d=makeInitialData();d.settings=old as unknown as AppData['settings'];
-      expect(normalizeData(d).settings).toEqual(LOCKED_DEFAULT_SETTINGS);
+      expect(normalizeData({...d,schemaVersion:20} as never).settings).toEqual(LOCKED_DEFAULT_SETTINGS);
     }
   });
   it('resets every same-version algorithm field without changing inventory or history',()=>{
     const d=makeInitialData();
     for(const key of Object.keys(d.settings) as Array<keyof typeof d.settings>){
-      if(key!=='version')(d.settings[key] as number)=123;
+      if(!['version','arrowTargetMin','arrowTargetMax','goldenHourLuck','droughtbreakerStacks','intermissionLuck'].includes(key))(d.settings[key] as number)=123;
     }
     d.rollLog=[roll() as AppData['rollLog'][number]];
     const reloaded=normalizeData(structuredClone(d));
@@ -35,7 +35,7 @@ describe('settings policy 2.3',()=>{
     expect({...reloaded,settings:d.settings}).toEqual(d);
   });
   it('has no specialist sets and the agreed Arrow band and Energy policy',()=>{
-    expect(LOCKED_DEFAULT_SETTINGS).toMatchObject({version:'2.3',arrowTargetMin:70,arrowTargetMax:90,energyWeight:.3,zoneWeight:.6,drinkPriority:0,gradingPriority:0,shopPriority:0});
+    expect(LOCKED_DEFAULT_SETTINGS).toMatchObject({version:'2.3',arrowTargetMin:100,arrowTargetMax:100,energyWeight:0,zoneWeight:0,drinkPriority:0,gradingPriority:0,shopPriority:0});
   });
 });
 
@@ -120,17 +120,17 @@ describe('schema 15 inventory replacement',()=>{
     Object.assign(d,{vehicleParts:[{id:'p'}],trailers:[{id:'t'}],vehicleProfile:{name:'Truck'},vehicleSettings:{speedWeight:1}});
 
     const migrated=normalizeData(d);
-    expect(migrated.schemaVersion).toBe(20);
-    expect(migrated.gear).toHaveLength(28);
+    expect(migrated.schemaVersion).toBe(21);
+    expect(migrated.gear).toHaveLength(63);
     const cow=migrated.gear.find(g=>g.baseName==='Reactor Fedora')!;
     expect(cow).toMatchObject({id:'my-cow',favourite:true,createdAt:'2026-10-01T00:00:00.000Z'});
     expect(migrated.gear.some(g=>g.id==='sold')).toBe(false);
     expect(migrated.ownedCertificates).toHaveLength(9);
     expect(migrated.ownedCertificates.some(c=>c.id==='my-cert')).toBe(true);
     expect(migrated.ownedCertificates.some(c=>c.id==='used-cert')).toBe(false);
-    expect(migrated.trophies).toHaveLength(18);
-    expect(migrated.trophies.find(t=>t.id==='my-gem')?.favourite).toBe(true);
-    expect(migrated.trophies.filter(t=>t.modifiers[0].mutation==='Huge')).toHaveLength(1);
+    expect(migrated.trophies).toHaveLength(5);
+    expect(migrated.trophies.some(t=>t.id==='my-gem')).toBe(false);
+    expect(migrated.trophies.filter(t=>t.modifiers[0].mutation==='Huge')).toHaveLength(0);
     expect(migrated.settings).toEqual(LOCKED_DEFAULT_SETTINGS);
     expect(migrated.rollLog).toEqual(d.rollLog);
     for(const key of ['vehicleParts','trailers','vehicleProfile','vehicleSettings'])expect(key in migrated).toBe(false);
@@ -138,8 +138,8 @@ describe('schema 15 inventory replacement',()=>{
     // Saved as schema 15: later edits are kept, never re-seeded.
     const edited={...migrated,gear:migrated.gear.slice(1),trophies:migrated.trophies.slice(1),ownedCertificates:[]};
     const reloaded=normalizeData(JSON.parse(exportJson(edited)));
-    expect(reloaded.gear).toHaveLength(27);
-    expect(reloaded.trophies).toHaveLength(17);
+    expect(reloaded.gear).toHaveLength(62);
+    expect(reloaded.trophies).toHaveLength(4);
     expect(reloaded.ownedCertificates).toEqual([]);
   });
   it('takes the screenshot authentication but keeps stored detail for the same one',()=>{

@@ -1,4 +1,5 @@
-import { screenshotTrophies, screenshotCertificates } from './data/screenshotEquipment';
+import { screenshotCertificates } from './data/screenshotEquipment';
+import { currentGavels, currentLooseCharms } from './data/currentGavels';
 import { makeCurrentGear } from './data/currentInventory';
 import { CERTIFICATE_CATALOGUE } from './authentication';
 import { authModelCertificateType } from './engine/authModel';
@@ -72,12 +73,14 @@ export const DEFAULT_TROPHY_SETTINGS: TrophyOptimiserSettings = {
 
 export const LOCKED_DEFAULT_SETTINGS: AlgorithmSettings = {
   version: '2.3',
+  droughtbreakerStacks: 0,
+  goldenHourLuck: 100,
+  intermissionLuck: 0,
   luckWeight: 1,
-  // Arrow is a band, not a stat to maximise: value rises to 70% combined reduction and is
-  // flat through 90%. Sets inside 70-90% always rank first.
-  arrowWeight: 1,
-  arrowTargetMin: 70,
-  arrowTargetMax: 90,
+  // Distance to the chosen exact Arrow target ranks first. Arrow adds no utility.
+  arrowWeight: 0,
+  arrowTargetMin: 100,
+  arrowTargetMax: 100,
   npcWeight: 0,
   npcBreakpoint1: 20,
   npcBreakpoint2: 40,
@@ -85,17 +88,17 @@ export const LOCKED_DEFAULT_SETTINGS: AlgorithmSettings = {
   npcMultiplier3: 0.5,
   // Policy default, not a game fact: Energy counts in auction sets below Zone, with
   // full value to 50%, a tenth from 50% to 100% and nothing above 100%.
-  energyWeight: 0.3,
+  energyWeight: 0,
   energyTarget: 50,
   energySecondStageMultiplier: 0.1,
   energyCeiling: 100,
-  zoneWeight: 0.6,
+  zoneWeight: 0,
   zoneBreakpoint1: 30,
   zoneBreakpoint2: 60,
   zoneMultiplier2: 0.75,
   zoneMultiplier3: 0.5,
   tipWeight: 0,
-  recoveryWeight: 0.2,
+  recoveryWeight: 0,
   // Policy default, not a game fact: a certificate roll that costs the Neutral auction
   // set more than this percentage is not counted as an improvement.
   mainMaterialLossPct: 2,
@@ -132,7 +135,7 @@ export function makeDefaultAuthModel(): AuthModelEntry[] {
 
 export function makeEmptyData():AppData{
   return {
-    schemaVersion:20,
+    schemaVersion:21,
     gear:[],
     settings:{...LOCKED_DEFAULT_SETTINGS},
     authModel:makeDefaultAuthModel(),
@@ -147,14 +150,15 @@ export function makeEmptyData():AppData{
 
 export function makeInitialData(): AppData {
   return {
-    schemaVersion: 20,
+    schemaVersion: 21,
     gear: makeCurrentGear(),
     settings: { ...LOCKED_DEFAULT_SETTINGS },
     authModel: makeDefaultAuthModel(),
     rollLog: [],
     ownedCertificates: screenshotCertificates(),
     theme: 'system',
-    trophies: screenshotTrophies(),
+    trophies: currentGavels(),
+    looseCharms: currentLooseCharms(),
     trophySettings: structuredClone(DEFAULT_TROPHY_SETTINGS),
     gradeObservations: []
   };

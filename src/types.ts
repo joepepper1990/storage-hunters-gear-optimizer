@@ -1,5 +1,5 @@
 export type Slot = 'Head' | 'Back' | 'Wrist';
-export type AuthKind = 'None' | 'Normal' | 'Premium' | 'Limited' | 'Alien';
+export type AuthKind = 'None' | 'Normal' | 'Premium' | 'Limited' | 'Alien' | 'Carnival';
 export type ThemeMode = 'system' | 'light' | 'dark';
 export type Verdict = 'EQUIP' | 'KEEP' | 'SAFE TO DISCARD';
 export type LikelihoodClass = 'VERY HIGH' | 'HIGH' | 'MEDIUM' | 'LOW' | 'VERY LOW';
@@ -21,7 +21,14 @@ export interface TrophyModifier {
   boostPct: number;
 }
 
+export interface GavelCharm {
+  type: 'Clover' | 'Mosaic' | 'Moon' | 'Diamond' | 'Magnifier' | 'Star';
+  value: number;
+}
+
 export interface GavelTrophy {
+  charm?: GavelCharm;
+  displayedValue?: number;
   id: string;
   name: string;
   modifiers: TrophyModifier[];
@@ -89,6 +96,7 @@ export interface GearItem {
   conditionPct?: number;
   /** Star grade shown on the item (0 = not graded). Undefined when not recorded. */
   gradeStars?: number;
+  displayedValue?: number;
   stats: GearStats;
   authenticated: boolean;
   authentication: Authentication;
@@ -99,6 +107,9 @@ export interface GearItem {
 
 export interface AlgorithmSettings {
   version: '2.3';
+  droughtbreakerStacks?: number;
+  goldenHourLuck?: number;
+  intermissionLuck?: number;
   luckWeight: number;
   /** Weight of Bid Arrow below the band; inside the band more Arrow adds nothing. */
   arrowWeight: number;
@@ -187,7 +198,7 @@ export interface AuthModelEntry {
   id: string;
   /** Exact owned certificate tier this model row applies to. Legacy rows may omit this. */
   certificateInventoryType?: OwnedCertificate['type'];
-  certificateType: 'Normal Certificate of Authenticity' | 'Premium Certificate of Authenticity' | 'Limited Certificate of Authenticity' | 'Certificate of Alienticity';
+  certificateType: 'Normal Certificate of Authenticity' | 'Premium Certificate of Authenticity' | 'Limited Certificate of Authenticity' | 'Certificate of Alienticity' | 'Certificate of Clownticity';
   slot: Slot | 'Any';
   outcome: string;
   category: string;
@@ -243,7 +254,7 @@ export interface CertificateTarget {
 
 export interface OwnedCertificate {
   id: string;
-  type: 'Wooden Certificate of Authenticity' | 'Ripped Certificate of Authenticity' | 'Premium Certificate of Authenticity' | 'Limited Certificate of Authenticity';
+  type: 'Wooden Certificate of Authenticity' | 'Ripped Certificate of Authenticity' | 'Premium Certificate of Authenticity' | 'Limited Certificate of Authenticity' | 'Certificate of Clownticity';
   quantity: number;
   displayedValue?: number;
   conditionPct?: number;
@@ -255,7 +266,7 @@ export interface OwnedCertificate {
 }
 
 export interface AppData {
-  schemaVersion: 20;
+  schemaVersion: 21;
   gear: GearItem[];
   settings: AlgorithmSettings;
   authModel: AuthModelEntry[];
@@ -264,6 +275,7 @@ export interface AppData {
   theme: ThemeMode;
   trophies: GavelTrophy[];
   trophySettings: TrophyOptimiserSettings;
+  looseCharms?: GavelCharm[];
   /** Stat change seen when an item was regraded, used to work out what a star is worth. */
   gradeObservations: GradeObservation[];
 }

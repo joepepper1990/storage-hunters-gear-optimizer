@@ -77,25 +77,7 @@ export function useCertificateAnalysis(data: AppData | null, activePostRollId?: 
     return () => worker.terminate();
   }, [sourceKey]);
 
-  useEffect(() => {
-    const id = ++postId.current;
-    setPost({ key: '' });
-    if (!data || !activePostRollId) return;
-    const foreground = () => {
-      try { const value = analyseActivePostRoll(data, activePostRollId); if (id === postId.current) setPost({ value, key: postKey }); }
-      catch (error) { if (id === postId.current) setPost({ key: postKey, error: error instanceof Error ? error.message : String(error) }); }
-    };
-    const worker = certificateWorker();
-    if (!worker) { const timer = setTimeout(foreground, 0); return () => clearTimeout(timer); }
-    worker.onmessage = (event: MessageEvent<{ id: number; postRoll?: PostRollDecision; error?: string }>) => {
-      if (event.data.id !== id) return;
-      worker.terminate();
-      setPost({ value: event.data.postRoll, key: postKey, error: event.data.error });
-    };
-    worker.onerror = () => { worker.terminate(); foreground(); };
-    worker.postMessage({ id, data, mode: 'postRoll', activePostRollId });
-    return () => worker.terminate();
-  }, [postKey]);
+  useEffect(() => { setPost({key:postKey}); }, [postKey]);
 
   return {
     ...state,

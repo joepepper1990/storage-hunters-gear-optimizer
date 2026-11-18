@@ -4,7 +4,8 @@ export const CERTIFICATE_TYPES: OwnedCertificate['type'][] = [
   'Wooden Certificate of Authenticity',
   'Ripped Certificate of Authenticity',
   'Premium Certificate of Authenticity',
-  'Limited Certificate of Authenticity'
+  'Limited Certificate of Authenticity',
+  'Certificate of Clownticity'
 ];
 
 export interface CertificateBatchInput {
