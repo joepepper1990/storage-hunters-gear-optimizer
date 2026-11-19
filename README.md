@@ -26,7 +26,7 @@ Mosaic counts itself, applies only the strongest placed Mosaic and grants its ro
 
 ## Certificate limits and discard protection
 
-Effect selection probabilities and several roll-strength ranges are unpublished. Internal sample comparisons are opportunities, not official odds or guarantees. A Use requires an unaffected complete backup for every checked context/state; Consider requires no sampled loss and no unresolved downside. Current blue bonuses are removed before evaluating replacements. Carnival unknown magnitudes are not invented.
+Effect selection probabilities and several roll-strength ranges are unpublished. Internal sample comparisons are opportunities, not official odds or guarantees. A Use requires either an unaffected complete backup for every checked context/state or a proof that every possible effect adds only nonnegative value to a clean item. Existing blue bonuses are still evaluated as replacement costs. Recommendation order compares the resulting Arrow/Luck/Zone sets, without assuming outcome probabilities. Consider requires no sampled loss and no unresolved downside. Current blue bonuses are removed before evaluating replacements. Carnival unknown magnitudes are not invented.
 
 Discard requires a same-slot replacement proof with equal native/effective Arrow, no worse relevant native/effective stats or mutation contribution, compatible effects and strict improvement. A strongest-native-stat guard protects future Focused opportunities. Favourites, unresolved effects and current certificate targets are kept. Missing a sampled future role is never proof of disposal.
 

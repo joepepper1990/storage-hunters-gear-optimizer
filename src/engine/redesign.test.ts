@@ -50,13 +50,13 @@ describe('no specialist sets in the app',()=>{
 function syntheticTarget(id:string,chance:number,gain:number,verdict:CertificateTargetDecision['verdict']='CONSIDER',preference=0):CertificateTargetDecision {
   const range=(x:number)=>({cautious:x,central:x,favourable:x});
   return {item:gear(id,'Head'),verdict,improveChanceLowerPct:range(chance),improveChancePct:range(chance),
-    expectedBestGainPct:range(gain),worseChanceUpperPct:0,bestRoll:{preference}} as unknown as CertificateTargetDecision;
+    expectedBestGainPct:range(gain),worseChanceUpperPct:0,bestRoll:{preference,gainPct:gain}} as unknown as CertificateTargetDecision;
 }
 
-describe('certificate sorting: verdict, then chance, then gain, then preference order; never item IDs or rarity',()=>{
-  it('ranks the higher central chance first even when its item ID sorts last',()=>{
+describe('certificate sorting: safety, resulting upgrade, then preference; no assumed odds',()=>{
+  it('does not prefer assumed chance over a larger upgrade',()=>{
     const low=syntheticTarget('a-low',20,9),high=syntheticTarget('z-high',40,1);
-    expect([low,high].sort(compareCertificateTargets).map(t=>t.item.id)).toEqual(['z-high','a-low']);
+    expect([low,high].sort(compareCertificateTargets).map(t=>t.item.id)).toEqual(['a-low','z-high']);
   });
   it('ranks the larger gain first at equal chance',()=>{
     const small=syntheticTarget('a',30,4),large=syntheticTarget('z',30,9);

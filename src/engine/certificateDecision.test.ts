@@ -109,7 +109,8 @@ describe('certificate decision engine',()=>{
     expect(frenzy.improvePct.cautious).toBe(0);
     expect(frenzy.improvePct.favourable).toBe(100);
     expect(back.improveChancePct.favourable).toBeGreaterThan(back.improveChancePct.cautious);
-    expect(back.safeInCautious).toBe(false);
+    // A clean item cannot lose native auction stats from either Limited Back outcome.
+    expect(back.safeInCautious).toBe(true);
   });
 
   it('does not produce a target without a complete Head + Back + Wrist inventory',()=>{

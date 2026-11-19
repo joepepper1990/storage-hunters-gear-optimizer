@@ -51,6 +51,10 @@ export interface ResultingLoadout {
   wrist: GearItem;
   arrow: number;
   inBand: boolean;
+  arrowDistance?: number;
+  recovery?: number;
+  tip?: number;
+  npc?: number;
   luck: number;
   zone: number;
   energy: number;
@@ -247,6 +251,11 @@ export function empiricalSupports(values:number[],mass:number):Array<{value:numb
 }
 
 function rollSupports(def:CertificateOutcomeDefinition,data:AppData,slot:Slot,cert:OwnedCertificate,target?:GearItem,dense=false):RollSupport[] {
+  // Fixed/state-controlled mechanics do not use the rolled number for auction value.
+  // Golden Hour's owned value is a charging rate, not its +100 maximum Luck.
+  if(!effectNeedsNumericMagnitude(def.effect)&&def.modeledMechanic){
+    return [{value:0,weight:1,unresolved:false}];
+  }
   const relevant=data.rollLog
     .filter(r=>r.slot===slot&&canonicalEffect(r.newAuthentication)===def.effect&&rollMatchesCertificate(r,cert)&&Number.isFinite(r.newValue));
   const exact=relevant.filter(r=>evidenceWeight(r,cert)===1);
@@ -313,10 +322,6 @@ function rollSupports(def:CertificateOutcomeDefinition,data:AppData,slot:Slot,ce
     // the complete future roll range on their own.
     const supports=empiricalSupports(inventoryValues,1);
     return supports.map(x=>({...x,unresolved:true}));
-  }
-
-  if(!effectNeedsNumericMagnitude(def.effect)&&def.modeledMechanic){
-    return [{value:0,weight:1,unresolved:false}];
   }
 
   return [{
@@ -514,9 +519,17 @@ function resultingLoadout(loadouts:Loadouts,key:typeof AUCTION_KEYS[number],data
   if(!l)return undefined;
   return {
     context:l.context??'Neutral',head:l.head,back:l.back,wrist:l.wrist,
-    arrow:l.stats.arrowReduction,inBand:l.arrowDistance<=1e-9,
+    arrow:l.stats.arrowReduction,inBand:l.arrowDistance<=1e-9,arrowDistance:l.arrowDistance,
+    recovery:l.stats.recovery,tip:l.stats.tip,npc:l.stats.npc,
     luck:l.stats.luck,zone:l.stats.zone,energy:l.stats.energy
   };
+}
+
+function compareResultingLoadouts(a:ResultingLoadout,b:ResultingLoadout):number {
+  const distance=(l:ResultingLoadout)=>l.arrowDistance??(l.inBand?0:Number.MAX_VALUE);
+  return distance(a)-distance(b)||b.luck-a.luck||b.zone-a.zone||
+    (b.recovery??0)-(a.recovery??0)||b.energy-a.energy||
+    (b.tip??0)-(a.tip??0)||(b.npc??0)-(a.npc??0);
 }
 
 function calculatedRanks(
@@ -561,6 +574,14 @@ function targetDecision(data:AppData,cert:OwnedCertificate,item:GearItem,baselin
   const defs=outcomesFor(data,cert,item.slot);
   if(!defs.length)return undefined;
   const pool=defs.map(d=>d.effect);
+  // These effects add nonnegative Luck or auction-irrelevant utility without changing
+  // native Arrow/Zone/stats. A clean item cannot get worse from any of these outcomes,
+  // even if an outcome's exact magnitude is unpublished. Replacing an existing bonus
+  // does not qualify: that loss must still be tested against the complete loadouts.
+  const nonnegativeAdditions=new Set(['Mutated Luck','Golden Hour','Drought Breaker',
+    'Luck Frenzy','Featherweight','Auto X-Ray','Grade Re-Roll','Club Pact','Temporal Split',
+    'Second Chance','Steady Hand','Intermission','Jestered','Potion Drinker','Mining Haven','Extra Cleaner']);
+  const safeAddition=(!item.authenticated||item.authentication.kind==='None')&&pool.every(effect=>nonnegativeAdditions.has(effect));
   const p=1/pool.length;
   const needArrow=arrowNeeded(base.main.stats,data.settings);
   const family=certificateFamily(cert.type);
@@ -633,7 +654,7 @@ function targetDecision(data:AppData,cert:OwnedCertificate,item:GearItem,baselin
   };
   const worseChancePct:StateRange={cautious:mass(worse('low')),central:mass(worse('central')),favourable:mass(worse('high'))};
   const potentialMass=branches.filter(b=>b.unresolved&&b.potential).reduce((s,b)=>s+b.p,0)*100;
-  const unresolvedAtRisk=STATES.every(state=>noLoss(baselines[state],unaffected[state]))?0:Math.max(0,unresolvedMass)*100;
+  const unresolvedAtRisk=(safeAddition||STATES.every(state=>noLoss(baselines[state],unaffected[state])))?0:Math.max(0,unresolvedMass)*100;
   const worseChanceUpperPct=Math.min(100,worseChancePct.cautious+err(worse('low'))+unresolvedAtRisk);
   const improveChanceUpperPct=Math.min(100,Math.max(improveChancePct.cautious,improveChancePct.central,improveChancePct.favourable)+Math.max(...STATES.map(state=>err(improve(state))))+potentialMass);
   const expectedMainChangePct=range(o=>o.mainChange);
@@ -645,8 +666,8 @@ function targetDecision(data:AppData,cert:OwnedCertificate,item:GearItem,baselin
   const use=MODEL_ASSUMPTIONS.certificate.use, consider=MODEL_ASSUMPTIONS.certificate.consider;
   const expectedMainLower=unresolvedAtRisk>1e-9?-Infinity:resolved.reduce((sum,b)=>sum+b.p*(b.mainLower??b.states!.low.mainChange),0);
   // Outcome probabilities are unpublished: never let assumed equal odds certify safety.
-  // A USE requires a complete unaffected backup in every checked context/state.
-  const safeInCautious=STATES.every(state=>noLoss(baselines[state],unaffected[state]));
+  // Safety follows either from a nonnegative addition to a clean item or a complete unaffected backup.
+  const safeInCautious=safeAddition||STATES.every(state=>noLoss(baselines[state],unaffected[state]));
   const possible=resolved.some(b=>STATES.some(state=>b.states?.[state].improves));
   const boundedSmallLoss=unresolvedAtRisk<=1e-9&&resolved.every(b=>STATES.every(state=>{
     const outcome=b.states?.[state];return outcome&&!outcome.worse&&outcome.mainChange>=-data.settings.mainMaterialLossPct;
@@ -656,13 +677,20 @@ function targetDecision(data:AppData,cert:OwnedCertificate,item:GearItem,baselin
   else if(possible&&boundedSmallLoss)verdict='CONSIDER';
   else if(!safeInCautious&&item.authenticated)verdict='DO NOT USE';
 
-  // Best roll: the outcome with the largest central gain; preference order breaks ties.
+  // Pick the best resulting auction set, not the first sampled roll that helps.
+  // Use the player's selected bonuses when that state improves; sensitivity is fallback.
   let best:Branch|undefined;
-  for(const b of resolved){
-    if(!b.states?.central.improves)continue;
-    const gain=b.states.central.bestGain;
-    if(!best||gain>best.states!.central.bestGain+1e-9||
-      (Math.abs(gain-best.states!.central.bestGain)<=1e-9&&preferenceOrder(family,item.slot,b.effect)<preferenceOrder(family,item.slot,best.effect)))best=b;
+  let bestResult:ResultingLoadout|undefined;
+  const selectedStateAvailable=resolved.some(branch=>branch.states?.low.improves);
+  for(const branch of resolved){
+    const state:DynamicScenario=selectedStateAvailable?'low':'central';
+    if(!branch.states?.[state].improves)continue;
+    const result=resultingLoadout(branch.next![state],branch.states[state].bestContext,data);
+    if(!result)continue;
+    const order=bestResult?compareResultingLoadouts(result,bestResult):-1;
+    if(!best||order<0||order===0&&preferenceOrder(family,item.slot,branch.effect)<preferenceOrder(family,item.slot,best.effect)){
+      best=branch;bestResult=result;
+    }
   }
   const bestState:'cautious'|'central'=best?.states!.low.improves?'cautious':'central';
   const bestLoadout=best?(bestState==='cautious'
@@ -769,17 +797,17 @@ export function analyseConditionalNumberReroll(
   };
 }
 
-/** Verdict first, then the conservative central chance (ordering only), then the central
- * gain, then the preference order of the best roll; item IDs only break exact ties.
- * Certificate rarity or cost is never considered. */
+/** Safety verdict first, then the actual resulting Arrow/Luck/Zone set.
+ * Unknown effect odds and roll-strength priors never determine recommendation order.
+ * Certificate tier is not a preference; the queue conserves rarer tiers only on exact ties. */
 export function compareCertificateTargets(a:CertificateTargetDecision,b:CertificateTargetDecision):number {
   const vr=(v:CertificateDecisionVerdict)=>({USE:0,CONSIDER:1,HOLD:2,'DO NOT USE':3}[v]);
-  return vr(a.verdict)-vr(b.verdict)||
-    b.improveChanceLowerPct.central-a.improveChanceLowerPct.central||
-    b.expectedBestGainPct.central-a.expectedBestGainPct.central||
-    (a.bestRoll?.preference??99)-(b.bestRoll?.preference??99)||
-    a.worseChanceUpperPct-b.worseChanceUpperPct||
-    a.item.id.localeCompare(b.item.id);
+  const x=a.bestRoll?.loadout,y=b.bestRoll?.loadout;
+  const resultOrder=x&&y?compareResultingLoadouts(x,y):x?-1:y?1:0;
+  const stateRank=(t:CertificateTargetDecision)=>t.bestRoll?.state==='central'?1:0;
+  return vr(a.verdict)-vr(b.verdict)||stateRank(a)-stateRank(b)||resultOrder||
+    (b.bestRoll?.gainPct??0)-(a.bestRoll?.gainPct??0)||
+    (a.bestRoll?.preference??99)-(b.bestRoll?.preference??99)||a.item.id.localeCompare(b.item.id);
 }
 
 function baselinesFor(data:AppData):Baselines {

@@ -35,7 +35,7 @@ function TargetDetails({ target }: { target: CertificateTargetDecision }) {
     <ul className="plainList">
       {target.currentAuthentication && <li>Now: {target.currentAuthentication.effect}{target.currentAuthentication.rank ? ` (#${target.currentAuthentication.rank.rank} of ${target.currentAuthentication.rank.of} wanted${target.currentAuthentication.rank.higher.length ? `; higher: ${target.currentAuthentication.rank.higher.join(', ')}` : ''})` : target.currentAuthentication.calculated ? ' (value calculated from the trio)' : ' (not a wanted result for this certificate)'}</li>}
       {best && <li>Best roll: {best.label} → {best.loadout.context === 'Neutral' ? 'main' : best.loadout.context} set {itemTitle(best.loadout.head)} / {itemTitle(best.loadout.back)} / {itemTitle(best.loadout.wrist)} · Arrow {num(best.loadout.arrow)}%{best.loadout.inBand ? '' : ' (outside band)'} · Modelled Luck {num(best.loadout.luck)} · Zone {num(best.loadout.zone)} · Energy {num(best.loadout.energy)}{best.state === 'central' ? ' (with active effects at the central sensitivity setting)' : ''}</li>}
-      <li>{target.safeInCautious?'Existing gear provides protection in the checked scenarios.':'Replacing this bonus can make a useful auction set worse.'}</li>
+      <li>{target.safeInCautious?'The checked outcomes preserve your current auction setup.':'Replacing this bonus can make a useful auction set worse.'}</li>
       <li>Possible outcomes are compared against keeping your current bonus. Unknown ranges and odds prevent a precise risk estimate.</li>
     </ul>
   </details>;
@@ -67,7 +67,7 @@ export function NextCertificate({ row, computing, hasCertificates, onRecord, det
     <strong className={`verdict ${t.verdict === 'USE' ? 'use' : 'consider'}`}>{VERDICT_WORD[t.verdict]} {certificateLabel(row.certificate)}</strong>
     <p className="target">→ {itemTitle(t.item)} · {t.item.slot}</p>
     <ul className="facts">
-      <li>{t.safeInCautious?'Backup gear limits the downside in the checked scenarios.':'Potential improvement; your current bonus may be lost.'}</li>
+      <li>{t.safeInCautious?'No modelled downside in the checked scenarios.':'Potential improvement; your current bonus may be lost.'}</li>
       <li>Odds unknown. Check the possible improvement before spending a certificate.</li>
       {t.bestRoll && <li>Best result: {t.bestRoll.effect}</li>}
       <li>{arrowText(t)}</li>
@@ -118,8 +118,10 @@ export function Certificates({ data, setData, analysis, queue, onRecorded }: {
     <h2>Owned</h2>
     <div className="rowList">{groupByLabel(data.ownedCertificates).map(({ label, batches, quantity }) => {
       const last = [...batches].reverse().find(b => b.quantity > 0) ?? batches[batches.length - 1];
+      const bestForType=analysis.decisions.find(d=>batches.some(b=>b.id===d.certificate.id))?.recommendedTarget;
+      const opportunity=bestForType?.bestRoll;
       return <div className="certRow" key={label}>
-        <button className="link rowName" onClick={() => setEditing(batches)}><strong>{label}</strong><small>{queue ? statusOf(analysis.decisions, batches, next) : '…'}</small></button>
+        <button className="link rowName" onClick={() => setEditing(batches)}><strong>{label}</strong><small>{queue ? statusOf(analysis.decisions, batches, next) : '…'}{queue&&opportunity?` · ${opportunity.effect} on ${itemTitle(bestForType!.item)}`:''}</small></button>
         <div className="stepper" role="group" aria-label={`${label} quantity`}>
           <button onClick={() => run(() => setCertificateQuantity(data, last.id, last.quantity - 1))} disabled={quantity < 1} aria-label="Remove one">−</button>
           <output aria-live="polite">{quantity}</output>
