@@ -16,6 +16,8 @@ const NUMERIC_FIELDS: Partial<Record<Exclude<keyof AlgorithmSettings,'version'>,
 /** Shared precondition for scoring, recommendations and irreversible discard proofs. */
 export function algorithmIssues(s:AlgorithmSettings):string[] {
   const issues:string[]=[];
+  if(s.goalMode!==undefined&&s.goalMode!=='arrow'&&s.goalMode!=='luck')issues.push('Unknown goal mode');
+  if(s.goalMode==='luck'&&(typeof s.luckTarget!=='number'||!Number.isFinite(s.luckTarget)))issues.push('Luck target must be finite');
   for(const [key,label] of Object.entries(NUMERIC_FIELDS)) {
     const value=s[key as keyof typeof NUMERIC_FIELDS];
     if(typeof value!=='number'||!Number.isFinite(value))issues.push(`${label} must be finite`);

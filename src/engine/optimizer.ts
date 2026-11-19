@@ -1,6 +1,6 @@
 import type { AlgorithmSettings, CombinationResult, GearItem, ItemAnalysis, Slot } from '../types';
 import { arrowEffective, combineStats } from './scoring';
-import { analyseGearRetention, arrowDistance, mainCombination, defaultDynamicState, compareAuctionSecondary } from './gearLoadouts';
+import { analyseGearRetention, arrowDistance, mainCombination, defaultDynamicState, compareAuctionSecondary, compareGoalStats } from './gearLoadouts';
 
 export function evaluateCombination(head: GearItem, back: GearItem, wrist: GearItem, settings: AlgorithmSettings): CombinationResult {
   return mainCombination(head, back, wrist, settings, 'Neutral', defaultDynamicState(settings));
@@ -25,7 +25,7 @@ function combinationKey(value:CombinationResult):string {
 /** Same Main priority as the loadout engine: distance to the Arrow band first, then score. */
 function compareCombination(a:CombinationResult,b:CombinationResult,settings:AlgorithmSettings):number {
   const distance=(c:CombinationResult)=>arrowDistance(c.stats,settings);
-  return distance(a)-distance(b) || b.score.total-a.score.total || compareAuctionSecondary(a.stats,b.stats) || combinationKey(a).localeCompare(combinationKey(b));
+  return (settings.goalMode==='luck'?compareGoalStats(a.stats,b.stats,settings):distance(a)-distance(b) || b.score.total-a.score.total || compareAuctionSecondary(a.stats,b.stats)) || combinationKey(a).localeCompare(combinationKey(b));
 }
 
 function insertRanked(list: CombinationResult[], value: CombinationResult, limit: number, settings: AlgorithmSettings) {

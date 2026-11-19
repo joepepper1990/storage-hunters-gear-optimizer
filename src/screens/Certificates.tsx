@@ -31,11 +31,11 @@ function arrowText(target: CertificateTargetDecision): string {
 function TargetDetails({ target }: { target: CertificateTargetDecision }) {
   const best = target.bestRoll;
   return <details className="compactDetails">
-    <summary>Why</summary>
+    <summary>Details &amp; risk</summary>
     <ul className="plainList">
       {target.currentAuthentication && <li>Now: {target.currentAuthentication.effect}{target.currentAuthentication.rank ? ` (#${target.currentAuthentication.rank.rank} of ${target.currentAuthentication.rank.of} wanted${target.currentAuthentication.rank.higher.length ? `; higher: ${target.currentAuthentication.rank.higher.join(', ')}` : ''})` : target.currentAuthentication.calculated ? ' (value calculated from the trio)' : ' (not a wanted result for this certificate)'}</li>}
       {best && <li>Best roll: {best.label} → {best.loadout.context === 'Neutral' ? 'main' : best.loadout.context} set {itemTitle(best.loadout.head)} / {itemTitle(best.loadout.back)} / {itemTitle(best.loadout.wrist)} · Arrow {num(best.loadout.arrow)}%{best.loadout.inBand ? '' : ' (outside band)'} · Modelled Luck {num(best.loadout.luck)} · Zone {num(best.loadout.zone)} · Energy {num(best.loadout.energy)}{best.state === 'central' ? ' (with active effects at the central sensitivity setting)' : ''}</li>}
-      <li>{target.safeInCautious?'The checked outcomes preserve your current auction setup.':'Replacing this bonus can make a useful auction set worse.'}</li>
+      <li>{target.safeInCautious?'*Checked scenarios only; unknown roll strengths may change the result.':'Replacing this bonus may worsen your setup.'}</li>
       <li>Possible outcomes are compared against keeping your current bonus. Unknown ranges and odds prevent a precise risk estimate.</li>
     </ul>
   </details>;
@@ -67,10 +67,11 @@ export function NextCertificate({ row, computing, hasCertificates, onRecord, det
     <strong className={`verdict ${t.verdict === 'USE' ? 'use' : 'consider'}`}>{VERDICT_WORD[t.verdict]} {certificateLabel(row.certificate)}</strong>
     <p className="target">→ {itemTitle(t.item)} · {t.item.slot}</p>
     <ul className="facts">
-      <li>{t.safeInCautious?'No modelled downside in the checked scenarios.':'Potential improvement; your current bonus may be lost.'}</li>
-      <li>Odds unknown. Check the possible improvement before spending a certificate.</li>
-      {t.bestRoll && <li>Best result: {t.bestRoll.effect}</li>}
-      <li>{arrowText(t)}</li>
+      <li><span>Upgrade potential</span><b>{t.bestRoll?t.bestRoll.state==='central'?'Needs active bonuses':'Can improve your best set':'Not confirmed'}</b></li>
+      <li><span>Chance</span><b>Odds unknown</b></li>
+      <li><span>Replacement risk</span><b>{t.safeInCautious?'No downside found*':'Current bonus at risk'}</b></li>
+      {t.bestRoll && <li><span>Best result</span><b>{t.bestRoll.effect}</b></li>}
+      {t.bestRoll&&<li><span>Possible set</span><b>{num(t.bestRoll.loadout.luck)}% Luck · {num(t.bestRoll.loadout.arrow)}% Arrow</b></li>}
     </ul>
     {details && <TargetDetails target={t} />}
     {onRecord && <button className="primary" onClick={() => onRecord(row)}>Record result</button>}
@@ -121,7 +122,7 @@ export function Certificates({ data, setData, analysis, queue, onRecorded }: {
       const bestForType=analysis.decisions.find(d=>batches.some(b=>b.id===d.certificate.id))?.recommendedTarget;
       const opportunity=bestForType?.bestRoll;
       return <div className="certRow" key={label}>
-        <button className="link rowName" onClick={() => setEditing(batches)}><strong>{label}</strong><small>{queue ? statusOf(analysis.decisions, batches, next) : '…'}{queue&&opportunity?` · ${opportunity.effect} on ${itemTitle(bestForType!.item)}`:''}</small></button>
+        <button className="link rowName" onClick={() => setEditing(batches)}><strong>{label}</strong><small>{queue ? statusOf(analysis.decisions, batches, next) : '…'}{queue&&opportunity?` · ${opportunity.effect}`:''}</small></button>
         <div className="stepper" role="group" aria-label={`${label} quantity`}>
           <button onClick={() => run(() => setCertificateQuantity(data, last.id, last.quantity - 1))} disabled={quantity < 1} aria-label="Remove one">−</button>
           <output aria-live="polite">{quantity}</output>

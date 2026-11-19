@@ -124,7 +124,7 @@ describe('navigation', () => {
   it('opens on Home, reaches every screen, and keeps Add one tap away', async () => {
     const root = await openApp(makeInitialData());
     expect([...root.querySelectorAll('nav button')].map(b => b.textContent)).toEqual(['◎Home', '◆Equipment', '＋Add', '◈Certificates']);
-    for (const [tab, heading] of [['Equipment', 'Equipment'], ['Certificates', 'Certificates'], ['Settings', 'Settings'], ['Home', 'Home']]) {
+    for (const [tab, heading] of [['Equipment', 'Equipment'], ['Certificates', 'Certificates'], ['Settings', 'Settings'], ['Home', 'Make every bid count.']]) {
       await go(root, tab);
       expect(root.querySelector('h1')?.textContent).toBe(heading);
       if (tab !== 'Settings') expect(byText(root, 'nav button', new RegExp(tab)).getAttribute('aria-current')).toBe('page');
@@ -143,7 +143,7 @@ describe('Home', () => {
     expect(byText(root, '.totals', /Arrow/).textContent).toContain('Arrow 70% ✓');
     expect(root.querySelectorAll('.answerCard .eyebrow')[0].textContent).toBe('Next certificate');
     expect(root.textContent).toContain('No certificates');
-    await waitFor(() => byText(root, '.counts', /Keep/));
+    await waitFor(() => byText(root, '.inventoryShortcut', /discardable/));
     const main = root.querySelector('main')!.textContent!;
     expect(main).not.toMatch(/Day Auction|Night Auction|Rain Auction|Drink Prep|Grading|Shop \/ Idle|score|utility|confidence/i);
   });
@@ -161,7 +161,8 @@ describe('Equipment', () => {
     data.gear = [gear('Lucky Cap', 'Head', { luck: 50 }), gear('Plain Cap', 'Head'), gear('Pack', 'Back', { arrowReduction: 70 }), gear('Watch', 'Wrist')];
     const root = await openApp(data);
     await go(root, 'Equipment');
-    expect([...root.querySelectorAll('h2')].map(h => h.textContent)).toEqual(['Best Set', 'Safe to Discard']);
+    expect([...root.querySelectorAll('h2')].map(h => h.textContent)).toEqual(['Best Set']);
+    expect(byText(root, 'summary', /Safe to Discard/)).toBeTruthy();
     await waitFor(() => byText(root, '.itemRow.check strong', 'Plain Cap'));
     const partial = makeEmptyData(); partial.gear = [gear('Only Cap', 'Head')];
     const view = equipmentView(partial, [{ item: partial.gear[0], verdict: 'KEEP', reason: 'Needed for a full set', standalone: scoreStandalone(partial.gear[0], partial.settings), currentlyEquipped: false, loadoutMemberships: [] }], true, new Set());

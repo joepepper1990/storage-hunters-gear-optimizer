@@ -42,3 +42,14 @@ npm run dev
 ```
 
 Historical algorithm tests use explicit pre-November fixtures; current requirements and inventory are covered separately. GitHub Actions tests, builds and deploys main to GitHub Pages.
+
+
+### 3.2: compact auction workspace
+
+- Teal/slate mobile layout, grouped auction stats, compact gear cards and expandable detail.
+- Navigation stays outside the scrolling content pane. Switching pages starts at the top.
+- Linked Arrow and gear Luck sliders: the last slider moved controls the closest-match goal. Arrow ties maximise Luck; Luck ties favour the chosen Arrow target, then Bid Zone and secondary auction stats.
+- Fixed passive assumptions: Golden Hour +100%, Droughtbreaker 0 stacks, Intermission 0%. Charm Luck is shown separately from the gear Luck slider.
+- Certificate summaries show potential, unknown exact odds, replacement risk and possible set. Unpublished probabilities are never presented as measured chances.
+- Discard proofs preserve different Luck contributions so later slider choices remain possible. Inventory search and short batches reduce scrolling.
+- Saved inventory, charms, certificate quantities and history are preserved.
