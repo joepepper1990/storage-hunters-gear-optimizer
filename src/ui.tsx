@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type InputHTMLAttributes, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import type { AppData, GearItem, GearStats } from './types';
 import { effectiveItemStats, reductionToGameArrow } from './engine/scoring';
 
@@ -52,13 +53,13 @@ export function Modal({ title, onClose, children, actions }: { title: string; on
   }, [onClose]);
   // Re-focusing on callback changes dismisses native select menus during background updates.
   useEffect(() => { ref.current?.focus(); }, []);
-  return <div className="modalBackdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
-    <div className="modal sheet" role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} ref={ref}>
+  return createPortal(<div className="modalBackdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
+    <div className="modal sharedModal sheet" role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} ref={ref}>
       <div className="modalHeader"><h2>{title}</h2><button className="iconButton" onClick={onClose} aria-label="Close">×</button></div>
-      {children}
+      <div className="modalBody">{children}</div>
       {actions && <div className="stickyActions">{actions}</div>}
     </div>
-  </div>;
+  </div>, document.body);
 }
 
 export function Empty({ children }: { children: ReactNode }) {

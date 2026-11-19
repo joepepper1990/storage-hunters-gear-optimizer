@@ -11,7 +11,8 @@ export async function render(ui: ReactNode): Promise<HTMLElement> {
   const root = createRoot(container);
   await act(async () => { root.render(ui); });
   mounted.push({ root, container });
-  return container;
+  // Queries include dialogs portalled outside the React mount.
+  return document.body;
 }
 
 export async function cleanup() {
