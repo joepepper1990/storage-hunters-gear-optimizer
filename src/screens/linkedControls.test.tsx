@@ -11,7 +11,8 @@ it('links both slider outputs to achievable stats without editable passive assum
  initial.gear=[item('fast','Head',100,30),item('slow','Head',20,100),item('b','Back',0,0),item('w','Wrist',0,0)];
  function Harness(){const [data,setData]=useState(initial);return <Home data={data} setData={setData} best={buildGearLoadouts(data.gear,data.settings).main} view={{ready:true,keep:[],discard:[],gavelDiscard:[]}} onOpen={()=>{}} onAdd={()=>{}}/>;}
  const root=await render(<Harness/>);const arrow=root.querySelector<HTMLInputElement>('#arrow-target')!;const luck=root.querySelector<HTMLInputElement>('#luck-target')!;
- expect(luck.value).toBe('20');await type(luck,'100');expect(arrow.value).toBe('30');expect(root.querySelector('.heroLuck strong')?.textContent).toBe('100%');
+ expect(luck.value).toBe('20');await type(arrow,'30');expect(luck.value).toBe('100');expect(root.querySelector('.heroLuck strong')?.textContent).toBe('100%');
+ await type(luck,'20');expect(arrow.value).toBe('30');expect(root.querySelector('.heroLuck strong')?.textContent).toBe('20%');
  await type(arrow,'100');expect(luck.value).toBe('20');expect(root.querySelector('.heroLuck strong')?.textContent).toBe('20%');
  expect(root.querySelector('[aria-label="Golden Hour Luck"]')).toBeNull();
  expect(root.querySelectorAll('input[type=number],select')).toHaveLength(0);

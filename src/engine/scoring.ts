@@ -3,7 +3,7 @@ import { effectKnowledge } from './effects';
 
 /** The required band of combined Bid Arrow reduction (70-90% by default), inclusive. */
 export function arrowTargetBand(s: AlgorithmSettings): { min: number; max: number } {
-  return { min: s.arrowTargetMin, max: Math.max(s.arrowTargetMin, s.arrowTargetMax) };
+  return { min: s.arrowTargetMin, max: s.arrowPolicy==='minimum'?Infinity:Math.max(s.arrowTargetMin, s.arrowTargetMax) };
 }
 
 /** Distance of a combined Arrow reduction from the band: 0 inside it, else points outside.

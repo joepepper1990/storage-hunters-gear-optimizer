@@ -53,3 +53,8 @@ Historical algorithm tests use explicit pre-November fixtures; current requireme
 - Certificate summaries show potential, unknown exact odds, replacement risk and possible set. Unpublished probabilities are never presented as measured chances.
 - Discard proofs preserve different Luck contributions so later slider choices remain possible. Inventory search and short batches reduce scrolling.
 - Saved inventory, charms, certificate quantities and history are preserved.
+
+
+### 3.2.1: Arrow minimum
+
+Arrow is now a minimum threshold, default 95%. Below the minimum, the smallest shortfall wins. At or above it, maximise Luck, then Bid Zone and other auction tie-breaks. Extra Arrow receives no reward or penalty. The Luck slider explores only sets with the best attainable Arrow shortfall. Older closest-target preferences migrate once to the 95% minimum; inventory and history are preserved.

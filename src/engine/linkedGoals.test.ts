@@ -6,7 +6,7 @@ it('locks passive assumptions even when old preferences exist',()=>{
  const d=makeInitialData();expect(defaultDynamicState({...d.settings,goldenHourLuck:4,droughtbreakerStacks:5,intermissionLuck:125})).toMatchObject({goldenHourLuck:100,droughtbreakerStacks:0,intermissionLuck:0});
 });
 it('selects Luck endpoints and intermediate targets consistently in both engines',()=>{
- const d=makeInitialData();const all=optimise(d.gear,d.settings,10000);const lucks=all.map(c=>c.stats.luck);
+ const d=makeInitialData();const all=optimise(d.gear,d.settings,10000);const minShortfall=Math.min(...all.map(c=>Math.max(0,d.settings.arrowTargetMin-c.stats.arrowReduction)));const lucks=all.filter(c=>Math.max(0,d.settings.arrowTargetMin-c.stats.arrowReduction)===minShortfall).map(c=>c.stats.luck);
  for(const target of [Math.min(...lucks),Math.max(...lucks),(Math.min(...lucks)+Math.max(...lucks))/2]){
  const settings={...d.settings,goalMode:'luck' as const,luckTarget:target};const result=optimise(d.gear,settings,1)[0];const best=buildGearLoadouts(d.gear,settings).main!;
  expect(Math.abs(result.stats.luck-target)).toBeCloseTo(Math.min(...lucks.map(l=>Math.abs(l-target))));

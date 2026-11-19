@@ -34,8 +34,8 @@ describe('settings policy 2.3',()=>{
     expect(reloaded.settings).toEqual(LOCKED_DEFAULT_SETTINGS);
     expect({...reloaded,settings:d.settings}).toEqual(d);
   });
-  it('has no specialist sets and the agreed Arrow band and Energy policy',()=>{
-    expect(LOCKED_DEFAULT_SETTINGS).toMatchObject({version:'2.3',arrowTargetMin:100,arrowTargetMax:100,energyWeight:0,zoneWeight:0,drinkPriority:0,gradingPriority:0,shopPriority:0});
+  it('has no specialist sets and uses the Arrow minimum and Energy policy',()=>{
+    expect(LOCKED_DEFAULT_SETTINGS).toMatchObject({version:'2.3',arrowPolicy:'minimum',arrowTargetMin:95,arrowTargetMax:95,energyWeight:0,zoneWeight:0,drinkPriority:0,gradingPriority:0,shopPriority:0});
   });
 });
 
