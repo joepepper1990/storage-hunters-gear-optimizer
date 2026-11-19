@@ -74,14 +74,15 @@ export const DEFAULT_TROPHY_SETTINGS: TrophyOptimiserSettings = {
 export const LOCKED_DEFAULT_SETTINGS: AlgorithmSettings = {
   version: '2.3',
   goalMode: 'arrow',
+  arrowPolicy: 'minimum',
   droughtbreakerStacks: 0,
   goldenHourLuck: 100,
   intermissionLuck: 0,
   luckWeight: 1,
   // Distance to the chosen exact Arrow target ranks first. Arrow adds no utility.
   arrowWeight: 0,
-  arrowTargetMin: 100,
-  arrowTargetMax: 100,
+  arrowTargetMin: 95,
+  arrowTargetMax: 95,
   npcWeight: 0,
   npcBreakpoint1: 20,
   npcBreakpoint2: 40,

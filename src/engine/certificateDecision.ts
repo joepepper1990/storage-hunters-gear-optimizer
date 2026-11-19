@@ -523,7 +523,7 @@ function resultingLoadout(loadouts:Loadouts,key:typeof AUCTION_KEYS[number],data
   if(!l)return undefined;
   return {
     context:l.context??'Neutral',head:l.head,back:l.back,wrist:l.wrist,
-    arrow:l.stats.arrowReduction,inBand:l.arrowDistance<=1e-9,arrowDistance:l.arrowDistance,objectiveDistance:l.objectiveDistance,goalSecondary:data.settings.goalMode==='luck'?-l.arrowDistance:l.stats.luck,
+    arrow:l.stats.arrowReduction,inBand:l.arrowDistance<=1e-9,arrowDistance:l.arrowDistance,objectiveDistance:l.objectiveDistance,goalSecondary:data.settings.goalMode==='luck'?(data.settings.arrowPolicy==='minimum'?-Math.abs(l.stats.luck-(data.settings.luckTarget??l.stats.luck)):-l.arrowDistance):l.stats.luck,
     recovery:l.stats.recovery,tip:l.stats.tip,npc:l.stats.npc,
     luck:l.stats.luck,zone:l.stats.zone,energy:l.stats.energy
   };
@@ -743,7 +743,7 @@ function targetDecision(data:AppData,cert:OwnedCertificate,item:GearItem,baselin
     calculatedRanks:calculatedRanks(item,cert,pool,needArrow,branches),
     reasons:[
       `The model assumes every one of the ${pool.length} possible outcomes is equally likely (${(p*100).toFixed(1)}% each).`,
-      `Each roll is put back into the inventory and the Neutral, Day, Night and Rain sets are re-optimised with the ${band.min}–${band.max}% Bid Arrow band first.`,
+      `Each roll is put back into the inventory and the Neutral, Day, Night and Rain sets are re-optimised with the ${band.min}% Bid Arrow minimum first.`,
       'A roll improves things only if a re-optimised set gains, every set stays as close to the Arrow band, and the Neutral set loses no more than '+data.settings.mainMaterialLossPct+'%.',
       'Cautious, central and favourable dynamic states are shown as a range; none of them is a claimed average.',
       item.authenticated?'Replaces the current authentication: '+(existing||'unspecified')+'.':'Clean target: no current authentication is lost.',

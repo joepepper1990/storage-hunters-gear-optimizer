@@ -220,10 +220,13 @@ export function arrowDistance(stats:Pick<GearStats,'arrowReduction'>,settings:Al
 
 /** The last adjusted slider owns the primary objective. */
 export function goalDistance(stats:GearStats,settings:AlgorithmSettings):number {
+  if(settings.arrowPolicy==='minimum')return arrowDistance(stats,settings);
   return settings.goalMode==='luck' && Number.isFinite(settings.luckTarget)
     ? Math.abs(stats.luck-settings.luckTarget!) : arrowDistance(stats,settings);
 }
 export function compareGoalStats(a:GearStats,b:GearStats,settings:AlgorithmSettings):number {
+  if(settings.arrowPolicy==='minimum')return arrowDistance(a,settings)-arrowDistance(b,settings) ||
+    (settings.goalMode==='luck'&&Number.isFinite(settings.luckTarget)?Math.abs(a.luck-settings.luckTarget!)-Math.abs(b.luck-settings.luckTarget!):b.luck-a.luck) || compareAuctionSecondary(a,b) || b.luck-a.luck;
   return goalDistance(a,settings)-goalDistance(b,settings) ||
     (settings.goalMode==='luck'?arrowDistance(a,settings)-arrowDistance(b,settings):b.luck-a.luck) || compareAuctionSecondary(a,b) || (settings.goalMode==='luck'?b.luck-a.luck:0);
 }
@@ -262,7 +265,7 @@ function makeResult(
   // first. Ties then fall to the Main priority (band distance, robust Main score), then IDs.
   const scored=trios.map(trio=>{
     const stats={...trio.stats,luck:trio.stats.luck+dynamicLuck(trio.items,context??'Neutral',dynamic)};
-    return {trio,stats,u:auction&&settings.goalMode==='luck'?-trio.dist:utility(trio),rank:auction?goalDistance(stats,settings):0};
+    return {trio,stats,u:auction&&settings.goalMode==='luck'?(settings.arrowPolicy==='minimum'?-Math.abs(stats.luck-(settings.luckTarget??stats.luck)):-trio.dist):utility(trio),rank:auction?goalDistance(stats,settings):0};
   });
   const tie=(x:Trio,y:Trio)=> compareAuctionSecondary(x.stats,y.stats);
   const better=(x:typeof scored[number],y:typeof scored[number])=>
@@ -291,7 +294,7 @@ export function buildGearLoadouts(
   const specialists=activeSpecialists(settings);
   const auction=(context:MainAuctionContext)=>(t:Trio)=>mainAuctionUtility(t.items,settings,context,dynamic,t.stats);
   return {
-    main:makeResult('Main Auction',trios,auction('Neutral'),settings,'Neutral','Closest Arrow target, then highest Luck, then Bid Zone. Other auction stats break equal choices.',false,dynamic,true),
+    main:makeResult('Main Auction',trios,auction('Neutral'),settings,'Neutral','Meet the Arrow minimum first, then maximise Luck, then Bid Zone. Other auction stats break equal choices.',false,dynamic,true),
     day:makeResult('Day Auction',trios,auction('Day'),settings,'Day','Main Auction with Sunny effects active.',false,dynamic,true),
     night:makeResult('Night Auction',trios,auction('Night'),settings,'Night','Main Auction with Nocturnal effects active.',false,dynamic,true),
     rain:makeResult('Rain Auction',trios,auction('Rain'),settings,'Rain','Main Auction with Raindrop effects active.',false,dynamic,true),

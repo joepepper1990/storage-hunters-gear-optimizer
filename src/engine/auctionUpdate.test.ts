@@ -39,9 +39,9 @@ it('makes certificate odds explicitly unknown in the simple view',async()=>{
  const {chanceText}=await import('../screens/Certificates');
  expect(chanceText({} as never).value).toBe('Unknown');
 });
-it('does not trade Luck for Arrow when both choices are equally close',()=>{
+it('prioritises a satisfied minimum over more Luck below the minimum',()=>{
  const d=makeInitialData(); const gear=[item('fast','Head',{luck:15,arrowReduction:90}),item('slow','Head',{luck:10,arrowReduction:110}),item('b','Back',{}),item('w','Wrist',{})];
- expect(buildGearLoadouts(gear,d.settings).main?.head.id).toBe('fast');
+ expect(buildGearLoadouts(gear,d.settings).main?.head.id).toBe('slow');
 });
 it('suggests a stronger gavel through a single charm move without reducing Mosaic Luck',async()=>{
  const {gavelMoveOpportunity}=await import('./trophies');const d=makeInitialData();

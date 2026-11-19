@@ -33,10 +33,10 @@ it('ranks the better resulting auction set ahead of assumed outcome probabilitie
  higher.improveChanceLowerPct.central=0;lower.improveChanceLowerPct.central=100;
  expect(compareCertificateTargets(higher,lower)).toBeLessThan(0);
 });
-it('chooses the exact Arrow target rather than an earlier sampled overshoot',()=>{
+it('accepts Arrow rolls above the minimum without penalising overshoot',()=>{
  const d=makeEmptyData();d.gear=[gear('h','Head',{arrowReduction:70}),gear('b','Back',{luck:100}),gear('w','Wrist')];
  const t=analyseCertificate(d,{id:'wooden',type:'Wooden Certificate of Authenticity',quantity:1},undefined,'b').targets[0];
- expect(t.bestRoll?.effect).toBe('Bid Arrow Speed');expect(t.bestRoll?.loadout.arrow).toBe(100);
+ expect(t.bestRoll?.effect).toBe('Bid Arrow Speed');expect(t.bestRoll?.loadout.arrow).toBeGreaterThanOrEqual(95);
 });
 it('prefers an improvement under selected bonuses before drink-based sensitivity',()=>{
  const d=makeEmptyData();d.gear=[gear('h','Head',{arrowReduction:100}),gear('b','Back'),gear('w','Wrist')];

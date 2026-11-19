@@ -584,9 +584,10 @@ function normalizeSettings(raw: Partial<AppData['settings']> | undefined,current
   // The app has one fixed optimisation policy and no settings editor. Apply it to
   // every load and restore, including same-version backups with hidden overrides.
   const clamp=(v:unknown,fallback:number,max:number)=>typeof v==='number'&&Number.isFinite(v)?Math.min(max,Math.max(0,v)):fallback;
-  const target=current?clamp(raw?.arrowTargetMin,100,500):100;
+  const minimumPolicy=raw?.arrowPolicy==='minimum';
+  const target=current&&minimumPolicy?clamp(raw?.arrowTargetMin,95,500):95;
   return {...LOCKED_DEFAULT_SETTINGS,arrowTargetMin:target,arrowTargetMax:target,
-    goalMode:raw?.goalMode==='luck'?'luck':'arrow',...(typeof raw?.luckTarget==='number'&&Number.isFinite(raw.luckTarget)?{luckTarget:raw.luckTarget}:{}),
+    goalMode:minimumPolicy&&raw?.goalMode==='luck'?'luck':'arrow',...(typeof raw?.luckTarget==='number'&&Number.isFinite(raw.luckTarget)?{luckTarget:raw.luckTarget}:{}),
     droughtbreakerStacks:0,goldenHourLuck:100,intermissionLuck:0};
 }
 
@@ -670,6 +671,7 @@ function validateImportedData(raw: AppData): void {
   if (raw.settings && typeof raw.settings === 'object') {
     for (const [key,value] of Object.entries(raw.settings)) {
       if (key === 'version') continue;
+      if (key === 'arrowPolicy') { if(value!=='minimum')throw new Error('Settings: invalid Arrow policy.'); continue; }
       if (key === 'goalMode') { if(value!=='arrow'&&value!=='luck')throw new Error('Settings: invalid goal mode.'); continue; }
       if (!Number.isFinite(Number(value))) throw new Error(`Settings: ${key} is not a finite number.`);
     }
