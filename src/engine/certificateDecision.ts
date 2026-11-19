@@ -52,6 +52,8 @@ export interface ResultingLoadout {
   arrow: number;
   inBand: boolean;
   arrowDistance?: number;
+  objectiveDistance?: number;
+  goalSecondary?: number;
   recovery?: number;
   tip?: number;
   npc?: number;
@@ -353,11 +355,11 @@ export const ARROW_BAND_CHANGE_PCT=100;
 
 function auctionChangePct(after:Loadout|undefined,before:Loadout|undefined):number {
   if(!after||!before)return after?ARROW_BAND_CHANGE_PCT:before?-ARROW_BAND_CHANGE_PCT:0;
-  if(Math.abs(after.arrowDistance-before.arrowDistance)>1e-9)return after.arrowDistance<before.arrowDistance?ARROW_BAND_CHANGE_PCT:-ARROW_BAND_CHANGE_PCT;
+  if(Math.abs((after.objectiveDistance??after.arrowDistance)-(before.objectiveDistance??before.arrowDistance))>1e-9)return (after.objectiveDistance??after.arrowDistance)<(before.objectiveDistance??before.arrowDistance)?ARROW_BAND_CHANGE_PCT:-ARROW_BAND_CHANGE_PCT;
   if(Math.abs(after.utility-before.utility)>1e-9)return pct(after.utility,before.utility);
   const fields=['zone','recovery','energy','tip','npc'] as const;
   for(const field of fields)if(Math.abs(after.stats[field]-before.stats[field])>1e-9)return pct(after.stats[field],before.stats[field]);
-  return 0;
+  return pct(after.stats.luck,before.stats.luck);
 }
 
 /** A replacement changes only trios containing the target. Reuse the best unaffected
@@ -369,7 +371,7 @@ function mergeLoadouts(a:Loadouts,b:Loadouts):Loadouts {
     if(!x||!y){out[key]=x??y;continue;}
     const id=(v:Loadout)=>[v.head.id,v.back.id,v.wrist.id].join('|');
     // Same order as buildGearLoadouts: Arrow band distance, utility, robust Main score, IDs.
-    const order=x.arrowDistance-y.arrowDistance||y.utility-x.utility||compareAuctionSecondary(x.stats,y.stats)||y.mainUtility-x.mainUtility||id(x).localeCompare(id(y));
+    const order=(x.objectiveDistance??x.arrowDistance)-(y.objectiveDistance??y.arrowDistance)||y.utility-x.utility||compareAuctionSecondary(x.stats,y.stats)||y.stats.luck-x.stats.luck||y.mainUtility-x.mainUtility||id(x).localeCompare(id(y));
     out[key]=order<=0?x:y;
   }
   return out;
@@ -398,7 +400,7 @@ function judge(before:Loadouts,after:Loadouts,data:AppData,eligible:boolean):Sta
   const tolerance=data.settings.mainMaterialLossPct;
   const main=auctionChangePct(after.main,before.main);
   // Neutral is the primary safeguard: never further from the band, never a material loss.
-  const mainOK=Boolean(after.main&&before.main)&&after.main!.arrowDistance<=before.main!.arrowDistance+1e-9&&main>=-tolerance-1e-9;
+  const mainOK=Boolean(after.main&&before.main)&&(after.main!.objectiveDistance??after.main!.arrowDistance)<=(before.main!.objectiveDistance??before.main!.arrowDistance)+1e-9&&main>=-tolerance-1e-9;
   let bestGain=0,bestContext:StateOutcome['bestContext']='main',anyLower=false;
   for(const key of AUCTION_KEYS){
     const x=after[key],y=before[key];
@@ -406,7 +408,7 @@ function judge(before:Loadouts,after:Loadouts,data:AppData,eligible:boolean):Sta
     if(change<-1e-4)anyLower=true;
     // A contextual gain counts only while that set stays as close to the band as before
     // (inside it whenever an in-band set exists, since sets rank by band distance first).
-    const bandOK=Boolean(x&&y)&&x!.arrowDistance<=y!.arrowDistance+1e-9;
+    const bandOK=Boolean(x&&y)&&(x!.objectiveDistance??x!.arrowDistance)<=(y!.objectiveDistance??y!.arrowDistance)+1e-9;
     if(bandOK&&change>bestGain+1e-12){bestGain=change;bestContext=key;}
   }
   const gain=bestGain>1e-4;
@@ -455,6 +457,7 @@ function companionPairs(data:AppData,item:GearItem):GearItem[][] {
  * trio crosses either edge, and either an in-band trio exists throughout or every
  * affected trio is on the same side. Mixed-side envelopes remain uncertain. */
 function certifiedCell(data:AppData,item:GearItem,effect:string,min:number,max:number):boolean {
+  if(data.settings.goalMode==='luck')return false;
   if(effect!=='Bid Arrow Speed')return true;
   const band=arrowTargetBand(data.settings);
   let inside=false,below=false,above=false;
@@ -473,6 +476,7 @@ function certifiedCell(data:AppData,item:GearItem,effect:string,min:number,max:n
  * is monotone in numeric Arrow; its minimum is at an endpoint. The chosen optimum
  * can never have utility below the minimum of every candidate. Band losses are -100. */
 function cellMainLower(data:AppData,item:GearItem,cert:OwnedCertificate,effect:string,min:number,max:number,before:Loadout,unaffected:Loadouts):number {
+  if(data.settings.goalMode==='luck')return -Infinity;
   let floor=unaffected.main?.utility??Infinity;
   for(const pair of companionPairs(data,item))for(const value of [min,max]){
     floor=Math.min(floor,mainAuctionUtility([...pair,replaceAuthentication(item,cert,effect,value)],data.settings,'Neutral','low'));
@@ -484,8 +488,8 @@ function cellMainLower(data:AppData,item:GearItem,cert:OwnedCertificate,effect:s
 function noLoss(before:Loadouts,after:Loadouts):boolean {
   return AUCTION_KEYS.every(key=>{
     const a=after[key],b=before[key];
-    return Boolean(a&&b)&&(a!.arrowDistance<b!.arrowDistance-1e-9||
-      (Math.abs(a!.arrowDistance-b!.arrowDistance)<=1e-9&&(a!.utility>b!.utility+1e-9||Math.abs(a!.utility-b!.utility)<=1e-9&&compareAuctionSecondary(a!.stats,b!.stats)<=0)));
+    return Boolean(a&&b)&&((a!.objectiveDistance??a!.arrowDistance)<(b!.objectiveDistance??b!.arrowDistance)-1e-9||
+      (Math.abs((a!.objectiveDistance??a!.arrowDistance)-(b!.objectiveDistance??b!.arrowDistance))<=1e-9&&(a!.utility>b!.utility+1e-9||Math.abs(a!.utility-b!.utility)<=1e-9&&(compareAuctionSecondary(a!.stats,b!.stats)||b!.stats.luck-a!.stats.luck)<=0)));
   });
 }
 
@@ -519,7 +523,7 @@ function resultingLoadout(loadouts:Loadouts,key:typeof AUCTION_KEYS[number],data
   if(!l)return undefined;
   return {
     context:l.context??'Neutral',head:l.head,back:l.back,wrist:l.wrist,
-    arrow:l.stats.arrowReduction,inBand:l.arrowDistance<=1e-9,arrowDistance:l.arrowDistance,
+    arrow:l.stats.arrowReduction,inBand:l.arrowDistance<=1e-9,arrowDistance:l.arrowDistance,objectiveDistance:l.objectiveDistance,goalSecondary:data.settings.goalMode==='luck'?-l.arrowDistance:l.stats.luck,
     recovery:l.stats.recovery,tip:l.stats.tip,npc:l.stats.npc,
     luck:l.stats.luck,zone:l.stats.zone,energy:l.stats.energy
   };
@@ -527,9 +531,9 @@ function resultingLoadout(loadouts:Loadouts,key:typeof AUCTION_KEYS[number],data
 
 function compareResultingLoadouts(a:ResultingLoadout,b:ResultingLoadout):number {
   const distance=(l:ResultingLoadout)=>l.arrowDistance??(l.inBand?0:Number.MAX_VALUE);
-  return distance(a)-distance(b)||b.luck-a.luck||b.zone-a.zone||
+  return (a.objectiveDistance??distance(a))-(b.objectiveDistance??distance(b))||(b.goalSecondary??b.luck)-(a.goalSecondary??a.luck)||b.zone-a.zone||
     (b.recovery??0)-(a.recovery??0)||b.energy-a.energy||
-    (b.tip??0)-(a.tip??0)||(b.npc??0)-(a.npc??0);
+    (b.tip??0)-(a.tip??0)||(b.npc??0)-(a.npc??0)||b.luck-a.luck;
 }
 
 function calculatedRanks(
@@ -581,7 +585,7 @@ function targetDecision(data:AppData,cert:OwnedCertificate,item:GearItem,baselin
   const nonnegativeAdditions=new Set(['Mutated Luck','Golden Hour','Drought Breaker',
     'Luck Frenzy','Featherweight','Auto X-Ray','Grade Re-Roll','Club Pact','Temporal Split',
     'Second Chance','Steady Hand','Intermission','Jestered','Potion Drinker','Mining Haven','Extra Cleaner']);
-  const safeAddition=(!item.authenticated||item.authentication.kind==='None')&&pool.every(effect=>nonnegativeAdditions.has(effect));
+  const safeAddition=data.settings.goalMode!=='luck'&&(!item.authenticated||item.authentication.kind==='None')&&pool.every(effect=>nonnegativeAdditions.has(effect));
   const p=1/pool.length;
   const needArrow=arrowNeeded(base.main.stats,data.settings);
   const family=certificateFamily(cert.type);
@@ -669,8 +673,9 @@ function targetDecision(data:AppData,cert:OwnedCertificate,item:GearItem,baselin
   // Safety follows either from a nonnegative addition to a clean item or a complete unaffected backup.
   const safeInCautious=safeAddition||STATES.every(state=>noLoss(baselines[state],unaffected[state]));
   const possible=resolved.some(b=>STATES.some(state=>b.states?.[state].improves));
-  const boundedSmallLoss=unresolvedAtRisk<=1e-9&&resolved.every(b=>STATES.every(state=>{
-    const outcome=b.states?.[state];return outcome&&!outcome.worse&&outcome.mainChange>=-data.settings.mainMaterialLossPct;
+  const boundedSmallLoss=unresolvedAtRisk<=1e-9&&resolved.every(b=>b.certified!==false&&STATES.every(state=>{
+    const safe=(outcome:StateOutcome|undefined)=>outcome&&!outcome.worse&&outcome.mainChange>=-data.settings.mainMaterialLossPct;
+    return safe(b.states?.[state])&&(!b.edges||b.edges.every(edge=>safe(edge[state])));
   }));
   let verdict:CertificateDecisionVerdict='HOLD';
   if(possible&&safeInCautious)verdict='USE';

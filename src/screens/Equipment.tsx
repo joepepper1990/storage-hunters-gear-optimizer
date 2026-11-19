@@ -86,14 +86,14 @@ export function BestSetCards({ best }: { best?: GearLoadoutResult }) {
       {itemDetail(item) && <small>{itemDetail(item)}</small>}
       {keyStats(item) && <small>{keyStats(item)}</small>}
     </article>)}
-    <div className="totals" aria-label="Best Set totals">
+    <details className="setBreakdown"><summary>Stat breakdown</summary><div className="totals" aria-label="Best Set totals">
       <span>Item Luck <b>{num(itemLuck)}</b></span>
       {Math.abs(modelledLuck) > 1e-9 && <span>Modelled Luck <b>{num(s.luck)}</b></span>}
       <span>Arrow <b>{num(s.arrowReduction)}%{best.arrowDistance <= 1e-9 ? ' ✓' : ''}</b></span>
       {Math.abs(s.zone) > 1e-9 && <span>Zone <b>{num(s.zone)}%</b></span>}
       {Math.abs(s.energy) > 1e-9 && <span>Energy <b>{num(s.energy)}%</b></span>}
     </div>
-    {Math.abs(modelledLuck) > 1e-9 && <small>Includes {modelledLuck >= 0 ? '+' : ''}{num(modelledLuck)} Luck from modelled effects; excludes other game boosts.</small>}
+    {Math.abs(modelledLuck) > 1e-9 && <small>Includes {modelledLuck >= 0 ? '+' : ''}{num(modelledLuck)} Luck from modelled effects; excludes other game boosts.</small>}</details>
   </div>;
 }
 
@@ -111,6 +111,10 @@ export function Equipment({ data, setData, best, view }: { data: AppData; setDat
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [reviewing, setReviewing] = useState(false);
   const [error, setError] = useState('');
+  const [search,setSearch]=useState('');
+  const [slotFilter,setSlotFilter]=useState('All');
+  const [visible,setVisible]=useState(12);
+  const filteredGear=data.gear.filter(g=>(slotFilter==='All'||g.slot===slotFilter)&&[itemTitle(g),itemDetail(g),keyStats(g)].join(' ').toLowerCase().includes(search.toLowerCase()));
   const bestGavels = useMemo(() => optimiseTrophies(data.trophies, data.trophySettings)[0], [data.trophies, data.trophySettings]);
 
   const discardable = [...view.discard.map(r => ({ id: r.item.id, name: itemTitle(r.item), detail: `${r.item.slot} · ${keyStats(r.item)}` })),
@@ -148,7 +152,7 @@ export function Equipment({ data, setData, best, view }: { data: AppData; setDat
       })}
 
     </details>
-    <h2>Safe to Discard</h2>
+    <details className="drawer"><summary>Safe to Discard ({discardable.length})</summary>
     {!view.ready && data.gear.length > 0 ? <p className="updating" role="status">Updating…</p> : !discardable.length ? <Empty>Nothing to discard</Empty> : <>
       <div className="toolbar">
         <button className="secondary compact" onClick={() => setPicked(selected.length === discardable.length ? new Set() : new Set(discardable.map(c => c.id)))}>{selected.length === discardable.length ? 'Clear' : 'Select all'}</button>
@@ -160,10 +164,14 @@ export function Equipment({ data, setData, best, view }: { data: AppData; setDat
       </label>)}</div>
     </>}
 
+    </details>
     <details className="drawer">
       <summary>All equipment ({data.gear.length})</summary>
-      <div className="rowList">{SLOTS.flatMap(slot => data.gear.filter(g => g.slot === slot)).map(item =>
+      <div className="inventoryFilters"><input aria-label="Search equipment" type="search" placeholder="Search your gear…" value={search} onChange={e=>{setSearch(e.target.value);setVisible(12);}}/><select aria-label="Equipment slot" value={slotFilter} onChange={e=>{setSlotFilter(e.target.value);setVisible(12);}}>{['All',...SLOTS].map(s=><option key={s}>{s}</option>)}</select></div>
+      <div className="rowList">{filteredGear.slice(0,visible).map(item =>
         <ItemRow key={item.id} item={item} onOpen={() => setEditing(structuredClone(item))} />)}</div>
+      {filteredGear.length>visible&&<button className="link" onClick={()=>setVisible(visible+12)}>Show more ({filteredGear.length-visible})</button>}
+      {!filteredGear.length&&data.gear.length>0&&<Empty>No matching equipment</Empty>}
       {!data.gear.length && <Empty>No equipment yet</Empty>}
     </details>
 

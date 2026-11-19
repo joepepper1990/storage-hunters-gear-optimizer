@@ -32,6 +32,7 @@ export interface GearLoadoutResult {
   /** Points of combined Bid Arrow outside the required band (0 = inside). Smaller ranks
    * before `utility` for auction sets and before `mainUtility` as every tie-break. */
   arrowDistance: number;
+  objectiveDistance?: number;
   tiedItemIds: Set<string>;
   rationale: string;
 }
@@ -217,6 +218,16 @@ export function arrowDistance(stats:Pick<GearStats,'arrowReduction'>,settings:Al
   return arrowBandDistance(stats.arrowReduction,settings);
 }
 
+/** The last adjusted slider owns the primary objective. */
+export function goalDistance(stats:GearStats,settings:AlgorithmSettings):number {
+  return settings.goalMode==='luck' && Number.isFinite(settings.luckTarget)
+    ? Math.abs(stats.luck-settings.luckTarget!) : arrowDistance(stats,settings);
+}
+export function compareGoalStats(a:GearStats,b:GearStats,settings:AlgorithmSettings):number {
+  return goalDistance(a,settings)-goalDistance(b,settings) ||
+    (settings.goalMode==='luck'?arrowDistance(a,settings)-arrowDistance(b,settings):b.luck-a.luck) || compareAuctionSecondary(a,b) || (settings.goalMode==='luck'?b.luck-a.luck:0);
+}
+
 export function inArrowBand(stats:Pick<GearStats,'arrowReduction'>,settings:AlgorithmSettings):boolean {
   return arrowDistance(stats,settings)<=1e-9;
 }
@@ -249,22 +260,26 @@ function makeResult(
   if(!trios.length)return undefined;
   // Auction sets: distance to the Arrow band first, then utility. Specialists: utility
   // first. Ties then fall to the Main priority (band distance, robust Main score), then IDs.
-  const scored=trios.map(trio=>({trio,u:utility(trio),rank:auction?trio.dist:0}));
+  const scored=trios.map(trio=>{
+    const stats={...trio.stats,luck:trio.stats.luck+dynamicLuck(trio.items,context??'Neutral',dynamic)};
+    return {trio,stats,u:auction&&settings.goalMode==='luck'?-trio.dist:utility(trio),rank:auction?goalDistance(stats,settings):0};
+  });
   const tie=(x:Trio,y:Trio)=> compareAuctionSecondary(x.stats,y.stats);
   const better=(x:typeof scored[number],y:typeof scored[number])=>
+    auction&&settings.goalMode!==undefined?(compareGoalStats(x.stats,y.stats,settings)||x.trio.key.localeCompare(y.trio.key))<0:
     x.rank!==y.rank?x.rank<y.rank:x.u!==y.u?x.u>y.u:auction&&tie(x.trio,y.trio)!==0?tie(x.trio,y.trio)<0:x.trio.dist!==y.trio.dist?x.trio.dist<y.trio.dist
       :x.trio.main!==y.trio.main?x.trio.main>y.trio.main:x.trio.key.localeCompare(y.trio.key)<0;
   let best=scored[0];
   for(const x of scored)if(better(x,best))best=x;
   if(requirePositive&&best.u<=1e-9)return undefined;
   const epsilon=1e-9;
-  const tied=scored.filter(x=>x.rank===best.rank&&x.trio.dist===best.trio.dist&&Math.abs(x.u-best.u)<=epsilon&&Math.abs(x.trio.main-best.trio.main)<=epsilon&&(!auction||tie(x.trio,best.trio)===0));
+  const tied=scored.filter(x=>auction&&settings.goalMode!==undefined?compareGoalStats(x.stats,best.stats,settings)===0:x.rank===best.rank&&x.trio.dist===best.trio.dist&&Math.abs(x.u-best.u)<=epsilon&&Math.abs(x.trio.main-best.trio.main)<=epsilon&&(!auction||tie(x.trio,best.trio)===0));
   const tiedItemIds=new Set(tied.flatMap(x=>x.trio.items.map(i=>i.id)));
   const items=best.trio.items,stats=best.trio.stats;
   return {
     name,context,head:items[0],back:items[1],wrist:items[2],
     stats:{...stats,luck:stats.luck+dynamicLuck(items,context??'Neutral',dynamic)},utility:best.u,mainUtility:best.trio.main,
-    arrowDistance:best.trio.dist,tiedItemIds,rationale
+    arrowDistance:best.trio.dist,objectiveDistance:best.rank,tiedItemIds,rationale
   };
 }
 
@@ -379,7 +394,7 @@ export function analyseGearRetention(gear:GearItem[],settings:AlgorithmSettings)
 
 /** The owner's selected effect assumptions, shared by screens and calculations. */
 export function defaultDynamicState(settings:AlgorithmSettings):DynamicState & {intermissionLuck:number} {
-  return {droughtbreakerStacks:Math.min(5,Math.max(0,settings.droughtbreakerStacks??0)),goldenHourLuck:Math.min(100,Math.max(0,settings.goldenHourLuck??100)),luckFrenzyUptime:0,drinkLuckBoost:0,intermissionLuck:Math.min(125,Math.max(0,settings.intermissionLuck??0)),label:'Selected bonuses'};
+  return {droughtbreakerStacks:0,goldenHourLuck:100,luckFrenzyUptime:0,drinkLuckBoost:0,intermissionLuck:0,label:'Fixed auction bonuses'};
 }
 /** Lower is better. No secondary stat can buy away a point of Luck. */
 export function compareAuctionSecondary(a:GearStats,b:GearStats):number {

@@ -107,6 +107,8 @@ export interface GearItem {
 
 export interface AlgorithmSettings {
   version: '2.3';
+  goalMode?: 'arrow' | 'luck';
+  luckTarget?: number;
   droughtbreakerStacks?: number;
   goldenHourLuck?: number;
   intermissionLuck?: number;

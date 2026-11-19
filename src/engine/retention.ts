@@ -117,10 +117,15 @@ export function hasSafeReplacement(target: GearItem, all: GearItem[], settings: 
   return all.some(candidate => {
     if (candidate.id === target.id || candidate.slot !== target.slot || hasUnknownEffect(candidate)) return false;
     const candidateStats = effectiveItemStats(candidate);
+    // Both sliders must remain useful after discarding: greater Luck can overshoot
+    // a later Luck target. Require identical Luck contributions under future gear/auth.
+    if(settings.goalMode!==undefined && (candidateStats.luck!==targetStats.luck || candidate.stats.luck!==target.stats.luck || mutationLuckForItem(candidate)!==mutationLuckForItem(target)))return false;
+
     const strongest=(g:GearItem)=>Object.entries(g.stats).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]))[0]?.[0];
     if(strongest(target)&&strongest(candidate)!==strongest(target))return false;
     // Different nonnumeric effects cannot replace each other across every state/context.
     if (effect(candidate) !== targetEffect) return false;
+    if(settings.goalMode!==undefined&&targetEffect&&candidate.authentication.value!==target.authentication.value)return false;
     const values: Array<[number,number]> = keys.map(key => [candidateStats[key],targetStats[key]]);
     const arrows: Array<[number,number]> = [[candidateStats.arrowReduction,targetStats.arrowReduction]];
     // Future certificates replace numeric authentication on every slot. A currently

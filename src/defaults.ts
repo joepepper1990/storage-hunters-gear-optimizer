@@ -73,6 +73,7 @@ export const DEFAULT_TROPHY_SETTINGS: TrophyOptimiserSettings = {
 
 export const LOCKED_DEFAULT_SETTINGS: AlgorithmSettings = {
   version: '2.3',
+  goalMode: 'arrow',
   droughtbreakerStacks: 0,
   goldenHourLuck: 100,
   intermissionLuck: 0,
