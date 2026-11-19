@@ -10,7 +10,7 @@ it('keeps the authentication result focused when its dialog rerenders',async()=>
  const view=(close:()=>void)=><Modal title="Record result" onClose={close}><label>Result<select defaultValue=""><option value="">Select</option><option>Mutated Luck</option></select></label></Modal>;
  try {
  await act(async()=>root.render(view(()=>{})));
- const select=host.querySelector('select')!;select.focus();
+ const select=document.body.querySelector('select')!;select.focus();
  expect(document.activeElement).toBe(select);
  await act(async()=>root.render(view(()=>{})));
  expect(document.activeElement).toBe(select);

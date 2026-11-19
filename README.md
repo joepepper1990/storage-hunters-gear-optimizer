@@ -58,3 +58,8 @@ Historical algorithm tests use explicit pre-November fixtures; current requireme
 ### 3.2.1: Arrow minimum
 
 Arrow is now a minimum threshold, default 95%. Below the minimum, the smallest shortfall wins. At or above it, maximise Luck, then Bid Zone and other auction tie-breaks. Extra Arrow receives no reward or penalty. The Luck slider explores only sets with the best attainable Arrow shortfall. Older closest-target preferences migrate once to the 95% minimum; inventory and history are preserved.
+
+
+### 3.2.2: mobile dialog actions
+
+Shared dialogs render above the app scroll layer. Form fields scroll independently while Save/Cancel stay visible at the bottom of the dialog, including on short mobile viewports. Mobile input text avoids Safari focus zoom. Inventory and history remain unchanged by the update.
