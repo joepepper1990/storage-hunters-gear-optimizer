@@ -86,6 +86,12 @@ export interface Authentication {
 }
 
 export interface GearItem {
+  /** Original inventory evidence; different photographs can represent distinct copies. */
+  sourceImage?: string;
+  /** Stats await owner verification. Runtime zero placeholders are not confirmed stats. */
+  needsReview?: boolean;
+  metadataUncertain?: string[];
+  reviewNotes?: string;
   id: string;
   baseName: string;
   name: string;
@@ -269,7 +275,7 @@ export interface OwnedCertificate {
 }
 
 export interface AppData {
-  schemaVersion: 21;
+  schemaVersion: 22;
   gear: GearItem[];
   settings: AlgorithmSettings;
   authModel: AuthModelEntry[];

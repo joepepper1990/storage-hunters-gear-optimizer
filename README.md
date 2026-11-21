@@ -6,7 +6,7 @@ Mobile-first offline PWA for Storage Hunters: Open World.
 
 ## Current authoritative inventory and rules — 21 November 2026
 
-The owner confirms **80 accessories total** (39Head,26Back,15Wrist), from78 photos plus2 reported additions. The reviewed plan is3 worn,54 display,16 storage and7 recommended disbands. All80 remain owned; the plan does not record completed removals.
+The owner confirms **80 accessories total** (39 Head, 26 Back, 15 Wrist), from 78 photos plus 2 reported additions. The reviewed plan is 3 worn, 54 display, 16 storage and 7 recommended disbands. All 80 remain owned; the plan does not record completed removals.
 
 - [Full agreed rules](docs/rules/gear-and-collection.md)
 - [Complete80-item evidence JSON](docs/audits/2026-11-21-inventory.json)
@@ -15,7 +15,7 @@ The owner confirms **80 accessories total** (39Head,26Back,15Wrist), from78 phot
 
 The current rule is **95% minimum Arrow reduction → maximum Luck → Bid Zone**, with no overshoot penalty. Wear the best setup first; display a separate remaining copy based on combined mutation value; retain useful future copies; disband only proven surplus, lowest displayed value first. The rules above supersede older version descriptions below.
 
-These files commit the assessed data and rules. The running app's seed/migration and collection UI are not changed by this documentation/data commit. Witch Robe and one photographed Safe Wristband retain unconfirmed stats; those are not invented or silently replaced with zeroes.
+Version 3.3.0 wires this inventory into the runtime with a once-only schema 22 migration and Display/Chest Storage/Discard equipment groups. Witch Robe and one photographed Safe Wristband retain unconfirmed stats; those are not invented or silently replaced with zeroes.
 
 ## Version 3.1
 
@@ -27,9 +27,9 @@ These files commit the assessed data and rules. The running app's seed/migration
 - Certificates: possible improvements and backup protection; no published chance figures or paid reroll prompts. Unknown ranges stay unknown. Carnival slot restrictions and five effects come from owner-supplied in-game screenshots.
 - Settings: theme, backups, optional existing cloud sync and maintenance.
 
-## Confirmed inventory and mechanics
+## Historical inventory and confirmed mechanics (3.1)
 
-The current inventory is 41 Head, 13 Back, 9 Wrist, 5 Gavels and the 10 best listed spare charms. Latest grading corrections are included. Grade and condition remain absent when unknown; neither is inferred from value. Displayed values are metadata.
+The 3.1 inventory was 41 Head, 13 Back, 9 Wrist, 5 Gavels and the 10 best listed spare charms. The accessory inventory is superseded by the 80-copy snapshot above. Grade and condition remain absent when unknown; neither is inferred from value. Displayed values are metadata.
 
 Base stats and blue certificate bonuses stay separate. The Void Elegant Business Backpack has original Luck 80 plus an observed Focused delta of 23, displaying 103. Replacing the certificate removes that delta.
 
@@ -76,3 +76,11 @@ Arrow is now a minimum threshold, default 95%. Below the minimum, the smallest s
 ### 3.2.2: mobile dialog actions
 
 Shared dialogs render above the app scroll layer. Form fields scroll independently while Save/Cancel stay visible at the bottom of the dialog, including on short mobile viewports. Mobile input text avoids Safari focus zoom. Inventory and history remain unchanged by the update.
+
+
+### 3.3.0: live 80-item collection and improvement probability
+
+- Loads all 80 accessories with a once-only schema 22 migration, preserving matching identities, favourites, history, certificate quantities, gavels and charms. Later edits, removals and explicit backup restores are not reseeded.
+- Equipment shows Best Set, Display, Chest Storage and Discard, followed by the existing gavel section. Display reserves a separate copy by combined mutation value. Discard requires a retained replacement proof and sorts by known item value.
+- Certificate cards show the probability of improving the re-optimised current Neutral best set, assuming equal chances for each mod type (1/N). Unknown strength distributions produce conservative bounds; contextual-only gains do not inflate this probability.
+- Unconfirmed stats are excluded from selection and certificate targets. Verification is required before those records can be used. Carnival results retain their correct certificate family.

@@ -27,8 +27,8 @@ export function RecordResultEditor({ data, certificate, initialItemId, onClose, 
   data: AppData; certificate: OwnedCertificate; initialItemId?: string; onClose: () => void; onSave: (roll: CertificateRollLog, updated: GearItem) => void;
 }) {
   const type = authModelTypeForOwnedCertificate(certificate);
-  const [itemId, setItemId] = useState(initialItemId ?? data.gear[0]?.id ?? '');
-  const item = data.gear.find(g => g.id === itemId);
+  const [itemId, setItemId] = useState(initialItemId ?? data.gear.find(g=>!g.needsReview)?.id ?? '');
+  const item = data.gear.find(g => g.id === itemId&&!g.needsReview);
   const [newAuth, setNewAuth] = useState('');
   const [newValue, setNewValue] = useState(0);
   const autoPreview = useMemo(() => item && newAuth ? applyRollToItem(item, newAuth, newValue, type) : item, [item, newAuth, newValue, type]);
@@ -62,7 +62,7 @@ export function RecordResultEditor({ data, certificate, initialItemId, onClose, 
   </>}>
     <p className="modalMeta">{certificateLabel(certificate)} · {certificate.quantity} left</p>
     <div className="formGrid">
-      <label className="wide">Item<select value={itemId} onChange={e => setItemId(e.target.value)}>{data.gear.map(g => <option value={g.id} key={g.id}>{itemTitle(g)} · {g.slot}</option>)}</select></label>
+      <label className="wide">Item<select value={itemId} onChange={e => setItemId(e.target.value)}>{data.gear.filter(g=>!g.needsReview).map(g => <option value={g.id} key={g.id}>{itemTitle(g)} · {g.slot}</option>)}</select></label>
       <label>Result<select value={newAuth} onChange={e => setNewAuth(e.target.value)}><option value="">Select</option>{activeCertificateOutcomeOptions(item?.slot, kind, certificate.type).map(a => <option key={a}>{a}</option>)}</select></label>
       <label>Value %<NumberInput signed={newAuth === 'Bid Arrow Speed'} value={newValue} onValue={setNewValue} /></label>
     </div>

@@ -1,23 +1,27 @@
 import { BestGavels } from '../components/BestGavels';
 import { charmLabel } from '../engine/trophies';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { algorithmIssues } from '../engine/settingsValidation';
-import { analyseTrophyRetention, optimiseTrophies, trophyMutationBoost } from '../engine/trophies';
+import { analyseTrophyRetention, trophyMutationBoost } from '../engine/trophies';
 import { combineStats, effectiveItemStats } from '../engine/scoring';
-import { hasUnknownEffect } from '../engine/effects';
-import type { GearLoadoutResult } from '../engine/gearLoadouts';
+import { classifyCollection, type CollectionRow, type MissingDisplay } from '../engine/collection';
+import { buildGearLoadouts, type GearLoadoutResult } from '../engine/gearLoadouts';
 import { GearEditor } from '../components/GearEditor';
 import { TrophyEditor, validateTrophy } from '../components/TrophyEditor';
 import { generateTrophyName } from '../naming';
 import type { AppData, GavelTrophy, GearItem, ItemAnalysis, Slot } from '../types';
 import { authSummary, Empty, gameStat, itemTitle, Modal, num, SHORT_STAT, type SetData } from '../ui';
 
-export interface EquipmentRow { item: GearItem; reason: string }
+export type EquipmentRow = CollectionRow;
 export interface GavelRow { trophy: GavelTrophy; reason: string }
 export interface EquipmentView {
   /** False while retention or the certificate targets are still being worked out: nothing is offered for discard then. */
   ready: boolean;
+  /** Compatibility alias for retained accessory rows outside the worn set. */
   keep: EquipmentRow[];
+  display?: EquipmentRow[];
+  storage?: EquipmentRow[];
+  missingDisplay?: MissingDisplay[];
   discard: EquipmentRow[];
   gavelDiscard: GavelRow[];
 }
@@ -39,29 +43,16 @@ function gavelLabel(t: GavelTrophy): string {
   return t.modifiers.map(m => `${m.mutation} +${num(m.boostPct)}%`).join(' · ') || t.name;
 }
 
-/**
- * Equipment in three groups. The Best Set comes from the loadout engine; Keep and Safe to
- * discard come from the retention analysis. An item a certificate is aimed at, a favourite,
- * or one with an unresolved effect is always kept; nothing is offered for discard while the
- * analysis or the certificate targets are out of date.
- */
-export function equipmentView(data: AppData, analyses: ItemAnalysis[], current: boolean, certificateTargets?: Set<string>): EquipmentView {
+/** Collection placement never changes ownership. Disposal requires a fresh retained-witness proof. */
+export function equipmentView(data: AppData, analyses: ItemAnalysis[], current: boolean, certificateTargets?: Set<string>, best?: GearLoadoutResult): EquipmentView {
   const ready = current && certificateTargets !== undefined && algorithmIssues(data.settings).length === 0;
-  const verdicts = new Map(analyses.map(a => [a.item.id, a]));
-  const keep: EquipmentRow[] = [], discard: EquipmentRow[] = [];
-  if (ready) for (const item of data.gear) {
-    const analysis = verdicts.get(item.id);
-    if (!analysis || analysis.verdict === 'EQUIP') continue;
-    if (analysis.verdict === 'KEEP') keep.push({ item, reason: analysis.reason });
-    else if (certificateTargets!.has(item.id)) keep.push({ item, reason: 'Strong future certificate target' });
-    else if (item.favourite) keep.push({ item, reason: 'Locked by you' });
-    else if (hasUnknownEffect(item)) keep.push({ item, reason: 'Valuable authentication' });
-    else discard.push({ item, reason: analysis.reason });
-  }
-  const gavelDiscard = analyseTrophyRetention(data.trophies, data.trophySettings)
+  const freshBest = best ?? (algorithmIssues(data.settings).length ? undefined : buildGearLoadouts(data.gear,data.settings).main);
+  const wornIds = new Set(freshBest?[freshBest.head.id,freshBest.back.id,freshBest.wrist.id]:[]);
+  const collection = classifyCollection(data.gear, wornIds, data.settings, { ready, certificateTargets, analyses });
+  const gavelDiscard = ready ? analyseTrophyRetention(data.trophies, data.trophySettings)
     .filter(a => a.verdict === 'SAFE TO DISCARD' && !a.item.favourite)
-    .map(a => ({ trophy: a.item, reason: a.dominator ? `Beaten by ${gavelLabel(a.dominator)}${beatenOn(a.item, a.dominator)}` : 'Beaten by another Gavel' }));
-  return { ready, keep, discard, gavelDiscard };
+    .map(a => ({ trophy: a.item, reason: a.dominator ? `Beaten by ${gavelLabel(a.dominator)}${beatenOn(a.item, a.dominator)}` : 'Beaten by another Gavel' })) : [];
+  return { ready, ...collection, keep: [...collection.display, ...collection.storage], gavelDiscard };
 }
 
 function beatenOn(item: GavelTrophy, by: GavelTrophy): string {
@@ -97,10 +88,16 @@ export function BestSetCards({ best }: { best?: GearLoadoutResult }) {
   </div>;
 }
 
+function copyEvidence(item: GearItem): string {
+  const evidence = item as GearItem & { sourceImage?: string; needsReview?: boolean; metadataUncertain?: string[] };
+  return [typeof item.displayedValue === 'number' ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(item.displayedValue) : 'Value unknown', evidence.sourceImage,
+    evidence.needsReview ? 'Needs stat review' : '', evidence.metadataUncertain?.length ? `Unverified: ${evidence.metadataUncertain.join(', ')}` : ''].filter(Boolean).join(' · ');
+}
 function ItemRow({ item, reason, onOpen }: { item: GearItem; reason?: string; onOpen: () => void }) {
   return <button className="itemRow" onClick={onOpen}>
     <strong>{itemTitle(item)}</strong>
     <small>{[keyStats(item), itemDetail(item)].filter(Boolean).join(' · ')}</small>
+    <small>{copyEvidence(item)}</small>
     {reason && <em>{reason}</em>}
   </button>;
 }
@@ -113,12 +110,12 @@ export function Equipment({ data, setData, best, view }: { data: AppData; setDat
   const [error, setError] = useState('');
   const [search,setSearch]=useState('');
   const [slotFilter,setSlotFilter]=useState('All');
-  const [visible,setVisible]=useState(12);
-  const filteredGear=data.gear.filter(g=>(slotFilter==='All'||g.slot===slotFilter)&&[itemTitle(g),itemDetail(g),keyStats(g)].join(' ').toLowerCase().includes(search.toLowerCase()));
-  const bestGavels = useMemo(() => optimiseTrophies(data.trophies, data.trophySettings)[0], [data.trophies, data.trophySettings]);
+  const matches = (item: GearItem) => (slotFilter === 'All' || item.slot === slotFilter) && [itemTitle(item), itemDetail(item), keyStats(item), copyEvidence(item)].join(' ').toLowerCase().includes(search.toLowerCase());
+  const display = view.display ?? [];
+  const storage = view.storage ?? view.keep;
+  const discardable = [...view.discard.map(r => ({ id: r.item.id, name: itemTitle(r.item), detail: `${r.item.slot} · ${keyStats(r.item)} · ${copyEvidence(r.item)}`, item: r.item, reason: r.reason })),
+    ...view.gavelDiscard.map(r => ({ id: r.trophy.id, name: gavelLabel(r.trophy), detail: 'Gavel', trophy: r.trophy, reason: r.reason }))];
 
-  const discardable = [...view.discard.map(r => ({ id: r.item.id, name: itemTitle(r.item), detail: `${r.item.slot} · ${keyStats(r.item)}` })),
-    ...view.gavelDiscard.map(r => ({ id: r.trophy.id, name: gavelLabel(r.trophy), detail: 'Gavel' }))];
   // A selection never outlives its proof: anything no longer listed is dropped.
   const selected = discardable.filter(c => picked.has(c.id));
   const toggle = (id: string) => setPicked(current => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next; });
@@ -144,35 +141,33 @@ export function Equipment({ data, setData, best, view }: { data: AppData; setDat
     {best ? <div className="rowList">{[best.head, best.back, best.wrist].map(item => <ItemRow key={item.id} item={item} reason="Current Best Set" onOpen={() => setEditing(structuredClone(item))} />)}</div>
       : <Empty>Add a Head, Back and Wrist</Empty>}
 
-    <details className="drawer"><summary>Keep ({view.keep.length})</summary>
-    {!view.ready ? <p className="updating" role="status">Updating…</p> : !view.keep.length ? <Empty>Nothing else worth keeping</Empty>
-      : SLOTS.map(slot => {
-        const rows = view.keep.filter(r => r.item.slot === slot);
+    <div className="inventoryFilters"><input aria-label="Search equipment" type="search" placeholder="Search your gear…" value={search} onChange={e => setSearch(e.target.value)} /><select aria-label="Equipment slot" value={slotFilter} onChange={e => setSlotFilter(e.target.value)}>{['All', ...SLOTS].map(slot => <option key={slot}>{slot}</option>)}</select></div>
+    <details className="drawer"><summary>Display ({display.length})</summary>
+      {display.length ? SLOTS.map(slot => {
+        const rows = display.filter(r => r.item.slot === slot && matches(r.item));
         return rows.length ? <div key={slot}><h3>{slot}</h3><div className="rowList">{rows.map(r => <ItemRow key={r.item.id} item={r.item} reason={r.reason} onOpen={() => setEditing(structuredClone(r.item))} />)}</div></div> : null;
-      })}
-
+      }) : <Empty>No spare display copies</Empty>}
+      {view.missingDisplay?.map(item => <p className="muted" key={`${item.slot}-${item.baseName}`}>{item.baseName}: another physical copy is needed for display; the owned copy is in the Best Set.</p>)}
     </details>
-    <details className="drawer"><summary>Safe to Discard ({discardable.length})</summary>
+    <details className="drawer"><summary>Chest Storage ({storage.length})</summary>
+      {!view.ready && <p className="updating" role="status">Updating…</p>}
+      {storage.length ? SLOTS.map(slot => {
+        const rows = storage.filter(r => r.item.slot === slot && matches(r.item));
+        return rows.length ? <div key={slot}><h3>{slot}</h3><div className="rowList">{rows.map(r => <ItemRow key={r.item.id} item={r.item} reason={r.reason} onOpen={() => setEditing(structuredClone(r.item))} />)}</div></div> : null;
+      }) : <Empty>No copies in storage</Empty>}
+    </details>
+    <details className="drawer"><summary>Discard ({discardable.length})</summary>
     {!view.ready && data.gear.length > 0 ? <p className="updating" role="status">Updating…</p> : !discardable.length ? <Empty>Nothing to discard</Empty> : <>
+      <p className="muted">Accessory copies are ordered by current displayed item value, lowest first. This is not a guaranteed disband reward. Records stay owned until you confirm removal.</p>
       <div className="toolbar">
         <button className="secondary compact" onClick={() => setPicked(selected.length === discardable.length ? new Set() : new Set(discardable.map(c => c.id)))}>{selected.length === discardable.length ? 'Clear' : 'Select all'}</button>
         <button className="danger compact" disabled={!selected.length} onClick={() => setReviewing(true)}>Remove ({selected.length})</button>
       </div>
-      <div className="rowList">{discardable.map(c => <label className="itemRow check" key={c.id}>
-        <input type="checkbox" checked={picked.has(c.id)} onChange={() => toggle(c.id)} />
-        <span><strong>{c.name}</strong><small>{c.detail}</small></span>
-      </label>)}</div>
+      <div className="rowList">{discardable.filter(c => !('item' in c) || matches(c.item)).map(c => <div className="itemRow check" key={c.id}>
+        <label><input type="checkbox" checked={picked.has(c.id)} onChange={() => toggle(c.id)} /><span><strong>{c.name}</strong><small>{c.detail}</small><em>{c.reason}</em></span></label>
+        <button className="secondary compact" aria-label={`Edit ${c.name}`} onClick={() => 'item' in c ? setEditing(structuredClone(c.item)) : setGavel(structuredClone(c.trophy))}>Edit</button>
+      </div>)}</div>
     </>}
-
-    </details>
-    <details className="drawer">
-      <summary>All equipment ({data.gear.length})</summary>
-      <div className="inventoryFilters"><input aria-label="Search equipment" type="search" placeholder="Search your gear…" value={search} onChange={e=>{setSearch(e.target.value);setVisible(12);}}/><select aria-label="Equipment slot" value={slotFilter} onChange={e=>{setSlotFilter(e.target.value);setVisible(12);}}>{['All',...SLOTS].map(s=><option key={s}>{s}</option>)}</select></div>
-      <div className="rowList">{filteredGear.slice(0,visible).map(item =>
-        <ItemRow key={item.id} item={item} onOpen={() => setEditing(structuredClone(item))} />)}</div>
-      {filteredGear.length>visible&&<button className="link" onClick={()=>setVisible(visible+12)}>Show more ({filteredGear.length-visible})</button>}
-      {!filteredGear.length&&data.gear.length>0&&<Empty>No matching equipment</Empty>}
-      {!data.gear.length && <Empty>No equipment yet</Empty>}
     </details>
 
     <BestGavels data={data} onEdit={setGavel}/>

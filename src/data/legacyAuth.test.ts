@@ -17,7 +17,7 @@ describe('legacy authentications stay readable',()=>{
       legacy('Droughtbreaker','Premium'),legacy('Club Packed','Premium','cp'),legacy('Timekeeper','Normal','tk')
     ]} as unknown as AppData;
     const data=normalizeData(raw,{preserveInventory:true});
-    expect(data.schemaVersion).toBe(21);
+    expect(data.schemaVersion).toBe(22);
     expect(data.gear.map(g=>g.authentication.effect)).toEqual(['Luck','Fossil Finder','Haggler','Drought Breaker','Club Pact','Time Keeper']);
     // A legacy plain-Luck authentication still adds Luck in the loadout engine.
     const loadouts=buildGearLoadouts([...data.gear.slice(0,1),

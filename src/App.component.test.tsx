@@ -156,14 +156,15 @@ describe('Home', () => {
 });
 
 describe('Equipment', () => {
-  it('splits equipment into Best Set, Keep and Safe to Discard, and never discards without a full set', async () => {
+  it('splits equipment into Best Set, Display, Chest Storage and Discard, and retains a unique display type', async () => {
     const data = makeEmptyData();
     data.gear = [gear('Lucky Cap', 'Head', { luck: 50 }), gear('Plain Cap', 'Head'), gear('Pack', 'Back', { arrowReduction: 70 }), gear('Watch', 'Wrist')];
     const root = await openApp(data);
     await go(root, 'Equipment');
     expect([...root.querySelectorAll('h2')].map(h => h.textContent)).toEqual(['Best Set']);
-    expect(byText(root, 'summary', /Safe to Discard/)).toBeTruthy();
-    await waitFor(() => byText(root, '.itemRow.check strong', 'Plain Cap'));
+    expect([...root.querySelectorAll('section > details > summary')].slice(0, 3).map(x => x.textContent)).toEqual(['Display (1)', 'Chest Storage (0)', 'Discard (0)']);
+    await waitFor(() => byText(root, '.itemRow strong', 'Plain Cap'));
+    expect(root.querySelector('.itemRow.check')).toBeNull();
     const partial = makeEmptyData(); partial.gear = [gear('Only Cap', 'Head')];
     const view = equipmentView(partial, [{ item: partial.gear[0], verdict: 'KEEP', reason: 'Needed for a full set', standalone: scoreStandalone(partial.gear[0], partial.settings), currentlyEquipped: false, loadoutMemberships: [] }], true, new Set());
     expect(view.discard).toEqual([]);
@@ -245,7 +246,7 @@ describe('Certificates', () => {
     const card = await waitFor(() => { if (root.querySelector('.updating')) throw new Error('pending'); return byText(root, '.answerCard', /Next certificate/); }, 60000);
     expect(root.querySelectorAll('.answerCard')).toHaveLength(1);
     expect(card.querySelector('.verdict')?.textContent).toMatch(/^(Use|Consider) /);
-    expect(card.textContent).toContain('Odds unknown');
+    expect(card.textContent).toContain('Improves best set');
     const before = data.ownedCertificates.reduce((n, c) => n + c.quantity, 0);
     await click(button(card, 'Record result'));
     const result = labelled(document.body, 'Result') as HTMLSelectElement;
@@ -260,10 +261,17 @@ describe('Certificates', () => {
   }, 120000);
 });
 
-describe('Safe to Discard', () => {
+describe('Discard with a retained replacement', () => {
   const data = makeEmptyData();
-  data.gear = [gear('weak', 'Head'), gear('fav', 'Head'), gear('strong', 'Head', { luck: 100, energy: 50, tip: 20, npc: 20 }), gear('back', 'Back'), gear('wrist', 'Wrist')];
+  data.settings = { ...data.settings, arrowPolicy: 'minimum', goalMode: 'arrow', arrowTargetMin: 95, arrowTargetMax: 95 };
+  data.gear = [gear('weak', 'Head', { luck: 1 }), gear('fav', 'Head', { luck: 1 }), gear('strong', 'Head', { luck: 100, energy: 50, tip: 20, npc: 20 }), gear('back', 'Back'), gear('wrist', 'Wrist')];
+  for (const item of data.gear) { item.gradeStars = 1; item.displayedValue = 10; }
+  // These distinct owned rolls share one display type.
+  data.gear[0].baseName = data.gear[1].baseName = data.gear[2].baseName = 'Cap';
+  data.gear[2].mutation = 'Diamond';
   data.gear[1].favourite = true;
+  // The strongest Cap stays available for display; a different type is worn.
+  data.gear.push({ ...gear('worn', 'Head', { luck: 1000 }), gradeStars: 1, displayedValue: 1000 });
   const safe = (item: GearItem): ItemAnalysis => ({ item, verdict: 'SAFE TO DISCARD', reason: 'Not needed in any best set', standalone: scoreStandalone(item, data.settings), currentlyEquipped: false, loadoutMemberships: [] });
   const analyses = [safe(data.gear[0]), safe(data.gear[1])];
   const show = (setData: (d: AppData) => void, current: boolean, targets?: Set<string>) =>
@@ -277,16 +285,16 @@ describe('Safe to Discard', () => {
   it('keeps favourites and removes only reviewed, confirmed selections', async () => {
     const setData = vi.fn();
     const root = await show(setData, true, new Set());
-    expect(byText(root, '.itemRow.check strong', 'weak')).toBeTruthy();
+    expect(byText(root, '.itemRow.check strong', 'Cap')).toBeTruthy();
     expect(root.querySelectorAll('.itemRow.check')).toHaveLength(1);
     expect(button(root, 'Remove (0)').disabled).toBe(true);
     await click(root.querySelector<HTMLInputElement>('.itemRow.check input')!);
     await click(button(root, 'Remove (1)'));
     expect(setData).not.toHaveBeenCalled();
-    expect(document.body.querySelector('.reviewList')?.textContent).toContain('weak');
+    expect(document.body.querySelector('.reviewList')?.textContent).toContain('Cap');
     await click(button(document.body, 'Remove 1'));
     expect(setData).toHaveBeenCalledTimes(1);
-    expect((setData.mock.calls[0][0] as AppData).gear.map(g => g.id)).toEqual(['fav', 'strong', 'back', 'wrist']);
+    expect((setData.mock.calls[0][0] as AppData).gear.map(g => g.id)).toEqual(['fav', 'strong', 'back', 'wrist', 'worn']);
   });
   it('keeps an item a certificate is aimed at, and waits for the certificate queue', async () => {
     const pending = await show(() => {}, true);

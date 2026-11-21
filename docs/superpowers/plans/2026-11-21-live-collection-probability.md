@@ -1,0 +1,8 @@
+# Live collection and equal-mod probability
+
+Owner requests production update and already authorises implementation/publishing without further approval gates.
+
+1. Load authoritative80accessories into runtime with once-only schema22 migration. Preserve IDs/favorites/history/certificates/gavels/charms. Explicit backups preserve their inventory. Keepunknownstatstworecords, excludeplaceholdersfromoptimisation/certification andprotectfromdiscard.
+2. Equipment: BestSet thenDisplay/ChestStorage/Discard accessorydrawers, existinggavelsectionbelow. Distinctphysicaldisplaycopyafterwornreservation; combinedmutationvalue; conservativeretaineddominancewitness;ascendingknownprices. Keepall80untilconfirmedactualremoval.
+3. Certificate probability:1/N effect types intruepool. Compare rerolled/reoptimisedNeutralbestsetwithcurrentbestunderselectedfixedbonuses, notwantedchanceorcontextualgain. Unknownstrengthdistributionyieldsconservativeprobabilitybounds, notinventedprecisepoint. Keeprecommendationsafety/ranking.
+4. Verifydata/migration,probabilitymath,unknownitemexclusion,newdrawers,edit/save/reload/discardbatch,responsivebrowserchecks,fulltests/build,reviewthenpublish.

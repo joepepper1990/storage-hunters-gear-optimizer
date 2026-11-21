@@ -4,7 +4,7 @@ export function optimisationInputKey(gear:GearItem[],settings:AlgorithmSettings)
   return JSON.stringify({
     settings,
     gear:gear.map(item=>({
-      id:item.id,
+      id:item.id,needsReview:item.needsReview??false,metadataUncertain:item.metadataUncertain??[],
       slot:item.slot,
       mutation:item.mutation??'',
       favourite:item.favourite,
@@ -19,7 +19,7 @@ export function optimisationInputKey(gear:GearItem[],settings:AlgorithmSettings)
 export function certificateInputKey(data:AppData):string {
   return JSON.stringify({
     gear:data.gear.map(item=>({
-      id:item.id,slot:item.slot,mutation:item.mutation??'',stats:item.stats,
+      id:item.id,needsReview:item.needsReview??false,metadataUncertain:item.metadataUncertain??[],slot:item.slot,mutation:item.mutation??'',stats:item.stats,
       authenticated:item.authenticated,authentication:item.authentication
     })),
     settings:data.settings,

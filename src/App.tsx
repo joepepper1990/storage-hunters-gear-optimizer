@@ -109,7 +109,7 @@ export default function App() {
   const certificateTargets = useMemo(() => queue ? new Set(queue.rows.map(row => row.target.item.id)) : undefined, [queue]);
   const valid = data ? algorithmIssues(data.settings).length === 0 : false;
   const best = useMemo(() => data && valid ? buildGearLoadouts(data.gear, data.settings, 'low').main : undefined, [data?.gear, data?.settings, valid]);
-  const view = useMemo(() => data ? equipmentView(data, gear.analyses, gear.current, certificateTargets) : undefined, [data, gear.analyses, gear.current, certificateTargets]);
+  const view = useMemo(() => data ? equipmentView(data, gear.analyses, gear.current, certificateTargets, best) : undefined, [data, gear.analyses, gear.current, certificateTargets, best]);
 
   if (!data) return <div className="splash">
     <div className="logoMark">SH</div>

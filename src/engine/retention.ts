@@ -103,7 +103,7 @@ export function futureSweep(all: GearItem[], settings: AlgorithmSettings): Sweep
  * still leaves a maximal replacement in each same-slot chain.
  */
 export function hasSafeReplacement(target: GearItem, all: GearItem[], settings: AlgorithmSettings): boolean {
-  if (hasUnknownEffect(target)) return false;
+  if (target.needsReview || hasUnknownEffect(target)) return false;
   const keys: Array<keyof GearStats> = ['luck','zone','energy','recovery','tip','npc'];
   if (settings.shopPriority > 0) {
     if (settings.shopTipWeight > 0) keys.push('tip');
@@ -115,7 +115,7 @@ export function hasSafeReplacement(target: GearItem, all: GearItem[], settings: 
   };
   const targetStats = effectiveItemStats(target), targetEffect = effect(target);
   return all.some(candidate => {
-    if (candidate.id === target.id || candidate.slot !== target.slot || hasUnknownEffect(candidate)) return false;
+    if (candidate.needsReview || candidate.id === target.id || candidate.slot !== target.slot || hasUnknownEffect(candidate)) return false;
     const candidateStats = effectiveItemStats(candidate);
     // Both sliders must remain useful after discarding: greater Luck can overshoot
     // a later Luck target. Require identical Luck contributions under future gear/auth.

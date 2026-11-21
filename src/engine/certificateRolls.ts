@@ -4,6 +4,7 @@ import { empiricalConfidenceForCount } from './authModel';
 import { canonicalEffect } from '../authentication';
 
 export function authModelTypeForOwnedCertificate(cert:OwnedCertificate):AuthModelEntry['certificateType'] {
+  if(cert.type==='Certificate of Clownticity')return 'Certificate of Clownticity';
   if(cert.type==='Premium Certificate of Authenticity') return 'Premium Certificate of Authenticity';
   if(cert.type==='Limited Certificate of Authenticity') return 'Limited Certificate of Authenticity';
   return 'Normal Certificate of Authenticity';

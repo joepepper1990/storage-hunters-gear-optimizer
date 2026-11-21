@@ -96,13 +96,13 @@ describe('P2: JSON roll history is validated and normalised on restore',()=>{
   });
 });
 
-describe('schema 15 inventory replacement',()=>{
+describe('schema 22 accessory migration',()=>{
   function schema14(){
     const d=makeInitialData() as unknown as Record<string,unknown> & AppData;
     (d as unknown as {schemaVersion:number}).schemaVersion=14;
     return d;
   }
-  it('replaces gear, certificates and Gavels once and keeps history with the fixed policy',()=>{
+  it('reconciles accessories once while retaining certificates, Gavels and history',()=>{
     const d=schema14();
     const fresh=makeInitialData();
     // A schema-14 store: an old 22-item list with a favourite and a roll on a kept item,
@@ -120,26 +120,26 @@ describe('schema 15 inventory replacement',()=>{
     Object.assign(d,{vehicleParts:[{id:'p'}],trailers:[{id:'t'}],vehicleProfile:{name:'Truck'},vehicleSettings:{speedWeight:1}});
 
     const migrated=normalizeData(d);
-    expect(migrated.schemaVersion).toBe(21);
-    expect(migrated.gear).toHaveLength(63);
+    expect(migrated.schemaVersion).toBe(22);
+    expect(migrated.gear).toHaveLength(80);
     const cow=migrated.gear.find(g=>g.baseName==='Reactor Fedora')!;
     expect(cow).toMatchObject({id:'my-cow',favourite:true,createdAt:'2026-10-01T00:00:00.000Z'});
     expect(migrated.gear.some(g=>g.id==='sold')).toBe(false);
-    expect(migrated.ownedCertificates).toHaveLength(9);
+    expect(migrated.ownedCertificates).toEqual(d.ownedCertificates);
     expect(migrated.ownedCertificates.some(c=>c.id==='my-cert')).toBe(true);
-    expect(migrated.ownedCertificates.some(c=>c.id==='used-cert')).toBe(false);
-    expect(migrated.trophies).toHaveLength(5);
-    expect(migrated.trophies.some(t=>t.id==='my-gem')).toBe(false);
-    expect(migrated.trophies.filter(t=>t.modifiers[0].mutation==='Huge')).toHaveLength(0);
+    expect(migrated.ownedCertificates.some(c=>c.id==='used-cert')).toBe(true);
+    expect(migrated.trophies).toHaveLength(3);
+    expect(migrated.trophies.some(t=>t.id==='my-gem')).toBe(true);
+    expect(migrated.trophies.filter(t=>t.modifiers[0].mutation==='Huge')).toHaveLength(2);
     expect(migrated.settings).toEqual(LOCKED_DEFAULT_SETTINGS);
     expect(migrated.rollLog).toEqual(d.rollLog);
     for(const key of ['vehicleParts','trailers','vehicleProfile','vehicleSettings'])expect(key in migrated).toBe(false);
 
-    // Saved as schema 15: later edits are kept, never re-seeded.
+    // Saved as schema 22: later edits are kept, never re-seeded.
     const edited={...migrated,gear:migrated.gear.slice(1),trophies:migrated.trophies.slice(1),ownedCertificates:[]};
     const reloaded=normalizeData(JSON.parse(exportJson(edited)));
-    expect(reloaded.gear).toHaveLength(62);
-    expect(reloaded.trophies).toHaveLength(4);
+    expect(reloaded.gear).toHaveLength(79);
+    expect(reloaded.trophies).toHaveLength(2);
     expect(reloaded.ownedCertificates).toEqual([]);
   });
   it('takes the screenshot authentication but keeps stored detail for the same one',()=>{

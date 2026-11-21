@@ -236,7 +236,7 @@ export function inArrowBand(stats:Pick<GearStats,'arrowReduction'>,settings:Algo
 }
 
 function allTrios(gear:GearItem[],settings:AlgorithmSettings):Trio[] {
-  const heads=gear.filter(g=>g.slot==='Head'), backs=gear.filter(g=>g.slot==='Back'), wrists=gear.filter(g=>g.slot==='Wrist');
+  const heads=gear.filter(g=>!g.needsReview&&g.slot==='Head'), backs=gear.filter(g=>!g.needsReview&&g.slot==='Back'), wrists=gear.filter(g=>!g.needsReview&&g.slot==='Wrist');
   if(!heads.length||!backs.length||!wrists.length)return [];
   // Each item's stats (authentication included) are worked out once per call, not once per trio.
   const ownStats=new Map<GearItem,GearStats>();
@@ -322,7 +322,7 @@ export function membershipsForItem(
 export type RetentionReason =
   | 'Current Best Set' | 'Tied with Best Set' | 'High Luck alternative' | 'High Arrow alternative'
   | 'Useful Luck/Arrow balance' | 'Valuable authentication' | 'Valuable mutation' | 'Focused potential'
-  | 'Locked by you' | 'Strong future certificate target' | 'Needed for a full set' | 'Not needed in any best set';
+  | 'Unconfirmed stats — verify in game' | 'Locked by you' | 'Strong future certificate target' | 'Needed for a full set' | 'Not needed in any best set';
 
 const VALUABLE_EFFECTS = new Set(['Sunny','Nocturnal','Overcharged','Raindrop','Focused','Mutated Luck','Golden Hour','Drought Breaker','Luck Frenzy','Featherweight']);
 
@@ -369,6 +369,7 @@ export function analyseGearRetention(gear:GearItem[],settings:AlgorithmSettings)
     const loadoutMemberships=memberships.get(item.id)??[];
     const result=(verdict:ItemAnalysis['verdict'],reason:RetentionReason)=>({item,verdict,reason,standalone,currentlyEquipped:verdict==='EQUIP',loadoutMemberships});
     const effect=item.authenticated?canonicalEffect(item.authentication.effect):'';
+    if(item.needsReview)return result('KEEP','Unconfirmed stats — verify in game');
     if(bestIds.has(item.id))return result('EQUIP','Current Best Set');
     if(best?.tiedItemIds.has(item.id))return result('KEEP','Tied with Best Set');
     if(item.favourite)return result('KEEP','Locked by you');
