@@ -2,6 +2,7 @@ import type { AppData, AuthModelEntry, GearItem, MainAuctionContext, OwnedCertif
 import { canonicalEffect, certificateFamily, currentPool } from '../authentication';
 import {
   buildGearLoadouts,
+  compareGoalStats,
   compareAuctionSecondary,
   gradeRerollExpectedValueGainPct,
   LUCKY_GRADING,
@@ -81,6 +82,10 @@ export interface CertificateTargetDecision {
   arrowNeeded: boolean;
   currentArrow: number;
   currentArrowInBand: boolean;
+  /** Distribution-free chance bounds for the selected Neutral best set, with fixed bonuses.
+   * Each effect has mass 1/N; no roll-strength distribution is assumed. */
+  selectedNeutralChanceLowerPct: number;
+  selectedNeutralChanceUpperPct: number;
   /** Chance the best re-optimised loadout improves, per dynamic state (resolved outcomes only). */
   improveChancePct: StateRange;
   /** Conservative lower bounds of improveChancePct after numerical integration error. */
@@ -114,6 +119,10 @@ export interface OutcomeSummary {
   probability: number;
   wanted: boolean;
   unresolved: boolean;
+  /** Conditional on this effect: 100 only when every supported strength wins;
+   * an unproved or unknown strength keeps the upper bound at 100. */
+  selectedNeutralChanceLowerPct: number;
+  selectedNeutralChanceUpperPct: number;
   /** Share of this outcome's roll strengths that improve the best loadout, per state. */
   improvePct: StateRange;
   /** Largest central-state gain any strength of this outcome reaches (%). */
@@ -449,8 +458,8 @@ function integrationError(branches:Branch[],pick:(b:Branch)=>number):number {
 
 function companionPairs(data:AppData,item:GearItem):GearItem[][] {
   const slots=(['Head','Back','Wrist'] as Slot[]).filter(slot=>slot!==item.slot);
-  return data.gear.filter(g=>g.slot===slots[0]).flatMap(a=>
-    data.gear.filter(g=>g.slot===slots[1]).map(b=>[a,b]));
+  return data.gear.filter(g=>!g.needsReview&&g.slot===slots[0]).flatMap(a=>
+    data.gear.filter(g=>!g.needsReview&&g.slot===slots[1]).map(b=>[a,b]));
 }
 
 /** Arrow is nonmonotone across its band. Certify only cells in which no affected
@@ -516,6 +525,35 @@ function unresolvedPotential(effect:string,item:GearItem,needArrow:boolean):bool
   if(isUnwanted(effect))return false;
   if(effect==='Focused')return focusedHelps(item,needArrow);
   return true;
+}
+
+/** These effects have no strength-dependent contribution in Neutral with the fixed
+ * bonuses used by the current best set. Removing the old bonus is still evaluated. */
+const FIXED_NEUTRAL_EFFECTS=new Set([
+  'Sunny','Nocturnal','Raindrop','Overcharged','Drought Breaker','Luck Frenzy',
+  'Intermission','Jestered','Potion Drinker','Mining Haven','Extra Cleaner','Grade Re-Roll'
+]);
+
+/** Bounds over the entire strength support, never quadrature weights or frequencies.
+ * With a monotone stat, the re-optimised maximum is bounded by its endpoint optima.
+ * Arrow requires the existing interval proof unless the objective is a minimum. */
+function selectedNeutralBounds(
+  data:AppData,cert:OwnedCertificate,item:GearItem,def:CertificateOutcomeDefinition,
+  wins:(value:number)=>boolean
+):{lower:number;upper:number} {
+  const exact=(value:number)=>{const chance=wins(value)?100:0;return {lower:chance,upper:chance};};
+  if(FIXED_NEUTRAL_EFFECTS.has(def.effect)||!effectNeedsNumericMagnitude(def.effect)&&def.modeledMechanic)return exact(0);
+  if(!def.modeledMechanic)return {lower:0,upper:100};
+  if(def.min===undefined||def.max===undefined||!Number.isFinite(def.min)||!Number.isFinite(def.max))return {lower:0,upper:100};
+  // Out-of-range evidence widens the support; it never becomes a probability atom.
+  const observations=data.rollLog.filter(r=>r.slot===item.slot&&canonicalEffect(r.newAuthentication)===def.effect&&evidenceWeight(r,cert)>0)
+    .map(r=>r.newValue).concat(data.authModel.find(m=>m.id===def.modelEntryId)?.observedValues??[]).filter(Number.isFinite);
+  const min=Math.min(def.min,def.max,...observations),max=Math.max(def.min,def.max,...observations);
+  if(min===max)return exact(min);
+  const proved=data.settings.goalMode!=='luck'&&(def.effect!=='Bid Arrow Speed'||data.settings.arrowPolicy==='minimum'||certifiedCell(data,item,def.effect,min,max));
+  if(!proved)return {lower:0,upper:100};
+  const endpoints=[wins(min),wins(max)];
+  return {lower:endpoints.every(Boolean)?100:0,upper:endpoints.some(Boolean)?100:0};
 }
 
 function resultingLoadout(loadouts:Loadouts,key:typeof AUCTION_KEYS[number],data:AppData):ResultingLoadout|undefined {
@@ -596,19 +634,30 @@ function targetDecision(data:AppData,cert:OwnedCertificate,item:GearItem,baselin
   const others=data.gear.filter(g=>g.slot!==item.slot);
 
   const branches:Branch[]=[];
+  const neutralBounds=new Map<string,{lower:number;upper:number}>();
   for(const def of defs){
     const eligible=!isUnwanted(def.effect);
-    const evaluated=new Map<number,{next:Record<DynamicScenario,Loadouts>;states:Record<DynamicScenario,StateOutcome>}>();
+    const evaluated=new Map<number,{next:Record<DynamicScenario,Loadouts>;states:Record<DynamicScenario,StateOutcome>;selectedNeutralImproves:boolean}>();
     const evaluate=(value:number)=>{
       const cached=evaluated.get(value);if(cached)return cached;
       const gear=others.concat(replaceAuthentication(item,cert,def.effect,value));
       const next={} as Record<DynamicScenario,Loadouts>,states={} as Record<DynamicScenario,StateOutcome>;
+      let selectedNeutralImproves=false;
       for(const state of STATES){
-        next[state]=mergeLoadouts(unaffected[state],auctionLoadouts(gear,data,state));
+        const affected=auctionLoadouts(gear,data,state);
+        next[state]=mergeLoadouts(unaffected[state],affected);
         states[state]=judge(baselines[state],next[state],data,eligible);
+        if(state==='low'){
+          // Use exactly the current set's Arrow/Luck/Zone/secondary ordering. This
+          // probability is independent of wanted effects and contextual safeguards.
+          const a=unaffected.low.main,b=affected.main;
+          const best=!a?b:!b?a:compareGoalStats(a.stats,b.stats,data.settings)<=0?a:b;
+          selectedNeutralImproves=Boolean(best&&compareGoalStats(best.stats,base.main!.stats,data.settings)<-1e-9);
+        }
       }
-      const result={next,states};evaluated.set(value,result);return result;
+      const result={next,states,selectedNeutralImproves};evaluated.set(value,result);return result;
     };
+    neutralBounds.set(def.effect,selectedNeutralBounds(data,cert,item,def,value=>evaluate(value).selectedNeutralImproves));
     for(const support of rollSupports(def,data,item.slot,cert,item)){
       const branch:Branch={
         p:p*support.weight,effect:def.effect,value:support.value,
@@ -718,6 +767,8 @@ function targetDecision(data:AppData,cert:OwnedCertificate,item:GearItem,baselin
     arrowNeeded:needArrow,
     currentArrow:base.main.stats.arrowReduction,
     currentArrowInBand:base.main.arrowDistance<=1e-9,
+    selectedNeutralChanceLowerPct:Math.min(100,[...neutralBounds.values()].reduce((sum,b)=>sum+p*b.lower,0)),
+    selectedNeutralChanceUpperPct:Math.min(100,[...neutralBounds.values()].reduce((sum,b)=>sum+p*b.upper,0)),
     improveChancePct,improveChanceLowerPct,improveChanceUpperPct,
     worseChancePct,worseChanceUpperPct,safeInCautious,
     expectedMainChangePct,expectedBestGainPct,
@@ -733,6 +784,8 @@ function targetDecision(data:AppData,cert:OwnedCertificate,item:GearItem,baselin
         effect,probability:p,
         wanted:wantedEffects(family,item.slot,needArrow).includes(effect),
         unresolved:branches.some(b=>b.effect===effect&&b.unresolved),
+        selectedNeutralChanceLowerPct:neutralBounds.get(effect)!.lower,
+        selectedNeutralChanceUpperPct:neutralBounds.get(effect)!.upper,
         improvePct:{cautious:share('low'),central:share('central'),favourable:share('high')},
         bestGainPct:Math.max(0,...own.map(b=>b.states!.central.improves?b.states!.central.bestGain:0))
       };
@@ -823,6 +876,7 @@ export function analyseCertificate(data:AppData,cert:OwnedCertificate,sharedBase
   if(algorithmIssues(data.settings).length)return {certificate:cert,verdict:'HOLD',targets:[],modelNotes:['Invalid algorithm settings: '+algorithmIssues(data.settings).join('; ')]};
   const baselines=sharedBaselines??baselinesFor(data);
   const targets=data.gear
+    .filter(item=>!item.needsReview&&!item.metadataUncertain?.includes('authentication'))
     .filter(item=>!targetId||item.id===targetId)
     .map(item=>targetDecision(data,cert,item,baselines))
     .filter((x):x is CertificateTargetDecision=>Boolean(x))
@@ -835,6 +889,7 @@ export function analyseCertificate(data:AppData,cert:OwnedCertificate,sharedBase
     targets,
     modelNotes:[
       'Outcome pools use the current catalogue; equal effect probabilities are a model assumption, not independently verified game odds.',
+      'Displayed improvement probability bounds compare the current Neutral best set with fixed bonuses; unknown strength distributions are not assigned probabilities.',
       'Roll history only informs roll strength, never which effect is rolled.',
       'Every roll is judged by re-optimising the complete Head + Back + Wrist sets with the Arrow band first.',
       'HOLD is a first-class option with zero guaranteed change.'

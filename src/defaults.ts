@@ -1,6 +1,6 @@
 import { screenshotCertificates } from './data/screenshotEquipment';
 import { currentGavels, currentLooseCharms } from './data/currentGavels';
-import { makeCurrentGear } from './data/currentInventory';
+import { makeCurrentGear } from './data/currentCollection';
 import { CERTIFICATE_CATALOGUE } from './authentication';
 import { authModelCertificateType } from './engine/authModel';
 import type { AlgorithmSettings, AppData, AuthModelEntry, GearStats, TrophyOptimiserSettings } from './types';
@@ -137,7 +137,7 @@ export function makeDefaultAuthModel(): AuthModelEntry[] {
 
 export function makeEmptyData():AppData{
   return {
-    schemaVersion:21,
+    schemaVersion:22,
     gear:[],
     settings:{...LOCKED_DEFAULT_SETTINGS},
     authModel:makeDefaultAuthModel(),
@@ -152,7 +152,7 @@ export function makeEmptyData():AppData{
 
 export function makeInitialData(): AppData {
   return {
-    schemaVersion: 21,
+    schemaVersion: 22,
     gear: makeCurrentGear(),
     settings: { ...LOCKED_DEFAULT_SETTINGS },
     authModel: makeDefaultAuthModel(),

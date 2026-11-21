@@ -1,6 +1,6 @@
 # Authoritative gear and collection rules
 
-Owner-confirmed on 21 November 2026. This document supersedes older policy descriptions in the repository, including the old Arrow band/closest-target rules. It records the rules to implement and the reviewed inventory plan; committing these documents alone does not wire that plan into the running app.
+Owner-confirmed on 21 November 2026. This document supersedes older policy descriptions in the repository, including the old Arrow band/closest-target rules. Version3.3.0 implements these rules and the reviewed inventory through schema22; destinations are recalculated after changes.
 
 ## Complete inventory and evidence
 
@@ -88,7 +88,9 @@ The reviewed order is Tactical Mask$2,948.82; Green Ghillie Vest$3,601.80; Tacti
 ## Certificates, gavels and recording policy carried forward
 
 - Prefer worthwhile improvements with modest risk; no paid certificate refills/rerolls. Compare keeping the current bonus against the full resulting setup, including losses from replacing existing authentication.
-- Honour certificate family, tier and slot restrictions, including Premium, Limited and Carnival. Unknown odds/strengths stay unknown; do not present assumed equal outcome odds as published probabilities.
+- Honour certificate family, tier and slot restrictions, including Premium, Limited and Carnival.
+- Owner probability assumption (21November2026): each different mod type in the true certificate/slot pool has equal probability1/N. Improvement means a strict gain in the re-optimised current Neutral best set under selected fixed bonuses, not merely a wanted mod or Day/Night/Rain-only gain.
+- Equal mod-type chances do not establish a distribution for numeric strengths. Sum1/N for guaranteed-improving types to get the lower bound, and for possibly-improving types to get the upper bound. A pointpercentage is valid only when bounds agree. Do not label this assumption as published game odds.
 - Confirm a certificate record before deducting one owned unit, updating its item and recording history. Editing history alone must be clearly distinguished from correcting current gear.
 - Recommend four owned gavels with their actual attached charms. Keep proposed rearrangements separate until the owner records making them in game.
 - Clover adds percentage points on top of the gavel's mutation percentage:101+28=129.

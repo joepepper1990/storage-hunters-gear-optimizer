@@ -1,8 +1,5 @@
-import { currentGavels, currentLooseCharms, reconcileCurrentGavels } from './currentGavels';
-import { reconcileCurrentGear } from './currentInventory';
+import { reconcileCurrentGear } from './currentCollection';
 import { validateStatDeltas } from './statDeltas';
-import { fillVerifiedTrophyStars, replaceWithVerifiedCertificates, replaceWithVerifiedTrophies } from './screenshotEquipment';
-import { addVerifiedItems, applyInventoryUpdate20261029, fillVerifiedGearStars, replaceWithVerifiedGear } from './knownGear';
 import { DEFAULT_TROPHY_SETTINGS, makeInitialData, LOCKED_DEFAULT_SETTINGS } from '../defaults';
 import { canonicalEffect, currentPool } from '../authentication';
 import type { AppData, CertificateRollLog, GavelTrophy, GearItem, TrophyOptimiserSettings } from '../types';
@@ -289,37 +286,24 @@ function request<T = unknown>(req: IDBRequest<T>): Promise<T> {
 export function normalizeData(raw: AppData, options: { preserveInventory?: boolean } = {}): AppData {
   const initial = makeInitialData();
   const preserveInventory = options.preserveInventory === true;
-  // Schema 15 is a deliberate one-time replacement of gear, certificates and Gavels from the
-  // user's complete 27 October 2026 screenshots (earlier schemas 9 and 14 did the same from
-  // older screenshots). Stored records that match a screenshot keep their ID, favourite and
-  // created date; anything not in the screenshots is removed. Explicit backup restores keep
-  // their own inventory. Vehicle data from older versions is dropped: vehicles are no longer modelled.
-  const replace = !preserveInventory && !(Number(raw?.schemaVersion) >= 15);
+  // Schema 22 replaces accessories once using the complete 80-copy evidence.
+  // No new complete certificate/gavel/charm inventory was supplied: preserve those
+  // records even when loading an older store. Explicit restores retain their gear,
+  // and are marked current so subsequent reloads cannot reseed them.
   const storedGear = Array.isArray(raw?.gear) ? raw.gear.map(normalizeItem) : [];
   const storedCertificates = Array.isArray(raw?.ownedCertificates) ? raw.ownedCertificates.map(normalizeOwnedCertificate) : [];
   const storedTrophies = Array.isArray(raw?.trophies) ? raw.trophies.map(normalizeTrophy) : [];
-  // Schema 16 fills the star grades the same screenshots showed, once, without overwriting
-  // a grade already recorded. Backup restores keep exactly what they contain.
-  const fillStars = !preserveInventory && !(Number(raw?.schemaVersion) >= 16);
-  // Schema 17 applies the 29 October inventory screenshots once: four items gone, two added.
-  const update1029 = !preserveInventory && !(Number(raw?.schemaVersion) >= 17);
-  // Schema 18 adds the ten accessories whose detail screenshots came on 30 October.
-  const add1030 = !preserveInventory && !(Number(raw?.schemaVersion) >= 18);
-  const replaced = replace ? replaceWithVerifiedGear(storedGear) : storedGear;
-  const updated = update1029 ? applyInventoryUpdate20261029(replaced) : replaced;
-  const gear = add1030 ? addVerifiedItems(updated, '20261030') : updated;
-  const trophies = replace ? replaceWithVerifiedTrophies(storedTrophies) : storedTrophies;
   return {
-    schemaVersion: 21,
-    gear: !preserveInventory && !(Number(raw?.schemaVersion) >= 21)
-      ? reconcileCurrentGear(storedGear) : (fillStars ? fillVerifiedGearStars(gear) : gear),
+    schemaVersion: 22,
+    gear: !preserveInventory && !(Number(raw?.schemaVersion) >= 22)
+      ? reconcileCurrentGear(storedGear) : storedGear,
     settings: normalizeSettings(raw?.settings,Number(raw?.schemaVersion)>=21),
     authModel: canonicaliseAuthModel(normalizeAuthModel(raw?.authModel, initial.authModel, Number(raw?.schemaVersion ?? 0)), initial.authModel),
     rollLog: Array.isArray(raw?.rollLog) ? raw.rollLog.map((roll, index) => canonicalRoll(preserveInventory ? normalizeRollLog(roll, index) : coerceStoredRollLog(roll, index))) : [],
-    ownedCertificates: replace ? replaceWithVerifiedCertificates(storedCertificates) : storedCertificates,
+    ownedCertificates: storedCertificates,
     theme: raw?.theme ?? 'system',
-    trophies: !preserveInventory && Number(raw?.schemaVersion)<21 ? reconcileCurrentGavels(storedTrophies) : (fillStars ? fillVerifiedTrophyStars(trophies) : trophies),
-    looseCharms: !preserveInventory && Number(raw?.schemaVersion)<21 ? currentLooseCharms() : (raw?.looseCharms??[]),
+    trophies: storedTrophies,
+    looseCharms: raw?.looseCharms??[],
     trophySettings: normalizeTrophySettings(raw?.trophySettings,Number(raw?.schemaVersion)<6),
     gradeObservations: Array.isArray(raw?.gradeObservations) ? raw.gradeObservations.filter(validGradeObservation) : []
   };
@@ -611,6 +595,10 @@ function normalizeItem(i: GearItem): GearItem {
     baseName,
     name: generateGearName(baseName, stats, authenticated, authentication),
     slot: i?.slot,
+    ...(typeof i?.sourceImage === 'string' ? {sourceImage:i.sourceImage} : {}),
+    ...(typeof i?.needsReview === 'boolean' ? {needsReview:i.needsReview} : {}),
+    ...(Array.isArray(i?.metadataUncertain) ? {metadataUncertain:i.metadataUncertain.filter((field):field is string => typeof field === 'string')} : {}),
+    ...(typeof i?.reviewNotes === 'string' ? {reviewNotes:i.reviewNotes} : {}),
     mutation: typeof i?.mutation === 'string' ? i.mutation : undefined,
     conditionPct: i?.conditionPct === undefined || i?.conditionPct === null
       ? undefined : finite(i.conditionPct),

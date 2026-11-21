@@ -53,3 +53,9 @@ describe('optimiser result freshness',()=>{
   });
 
 });
+
+it('invalidates certificate advice when previously unknown authentication is verified',()=>{
+ const d=makeInitialData();d.gear[0].metadataUncertain=['authentication'];
+ const before=certificateInputKey(d);const after=certificateInputKey({...d,gear:d.gear.map((g,i)=>i?g:{...g,metadataUncertain:[],needsReview:false})});
+ expect(before).not.toBe(after);
+});

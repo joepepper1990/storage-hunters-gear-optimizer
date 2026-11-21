@@ -5,8 +5,8 @@ import { normalizeData } from '../data/storage';
 import type { GearItem } from '../types';
 const item=(id:string,slot:GearItem['slot'],stats:Partial<GearItem['stats']>):GearItem=>({id,baseName:id,name:id,slot,stats:{...ZERO_STATS,...stats},authenticated:false,authentication:{kind:'None',effect:'',value:0},favourite:false,createdAt:'',updatedAt:''});
 describe('November auction requirements',()=>{
- it('loads all 63 current accessories and five gavels with latest grades',()=>{
- const d=makeInitialData();expect(d.gear).toHaveLength(63);expect(d.trophies).toHaveLength(5);
+ it('loads all 80 current accessories and five gavels with latest grades',()=>{
+ const d=makeInitialData();expect(d.gear).toHaveLength(80);expect(d.trophies).toHaveLength(5);
  expect(d.gear.find(g=>g.baseName==='Fireman Hat')?.stats.zone).toBe(31);
  expect(d.gear.find(g=>g.baseName==='Tactical Vest'&&g.stats.arrowReduction>0)?.stats.arrowReduction).toBe(44);
  });
@@ -35,9 +35,9 @@ it('counts only the strongest placed Mosaic, including itself',async()=>{
  expect(placedCharmLuck(d.trophies.slice(0,4))).toBe(52);
  expect(placedCharmLuck([d.trophies[2]])).toBe(13);
 });
-it('makes certificate odds explicitly unknown in the simple view',async()=>{
+it('shows bounded certificate odds under the equal-mod assumption in the simple view',async()=>{
  const {chanceText}=await import('../screens/Certificates');
- expect(chanceText({} as never).value).toBe('Unknown');
+ expect(chanceText({selectedNeutralChanceLowerPct:20,selectedNeutralChanceUpperPct:40} as never).value).toBe('20%–40%');
 });
 it('prioritises a satisfied minimum over more Luck below the minimum',()=>{
  const d=makeInitialData(); const gear=[item('fast','Head',{luck:15,arrowReduction:90}),item('slow','Head',{luck:10,arrowReduction:110}),item('b','Back',{}),item('w','Wrist',{})];

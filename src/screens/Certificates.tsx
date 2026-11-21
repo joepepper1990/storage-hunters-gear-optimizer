@@ -8,20 +8,26 @@ import { CertificateBatchEditor, HistoryEditor, RecordResultEditor } from '../co
 import type { AppData, CertificateRollLog, OwnedCertificate } from '../types';
 import { Empty, itemTitle, Notice, num, type SetData } from '../ui';
 
-function pct(value: number): string {
+function pct(value: number, bound?: 'lower' | 'upper'): string {
   if (value <= 0) return '0%';
-  if (value < 1) return '<1%';
-  return `${Math.round(value)}%`;
+  if (value >= 100 - 1e-8) return '100%';
+  // Round ranges outwards so presentation never narrows the engine's bounds.
+  if(bound==='lower')return `${Math.floor(value*10+1e-8)/10}%`;
+  if(bound==='upper')return `${Math.ceil(value*10-1e-8)/10}%`;
+  return `${Math.round(value * 10) / 10}%`;
 }
 
 /**
- * Chance this certificate improves the best re-optimised loadout. When the figure depends on
- * dynamic effects (Golden Hour, Drought Breaker, Luck Frenzy, Overcharged) it is shown as the
- * range across the cautious, central and favourable states; none of them is a claimed average.
- * Unresolved roll strengths can only raise the upper end.
+ * Chance of improving the current Neutral best set after re-optimising all gear.
+ * Strength distributions are unknown; equal effect chances alone only justify bounds.
  */
 export function chanceText(target: CertificateTargetDecision): { value: string; detail: string } {
-  return {value:'Unknown',detail:'Outcome probabilities are not published. Recommendations compare possible gains and the cost of losing your current bonus.'};
+  const lower=target.selectedNeutralChanceLowerPct,upper=target.selectedNeutralChanceUpperPct;
+  if(!Number.isFinite(lower)||!Number.isFinite(upper))return {value:'Unknown',detail:'Equal mod chances; unknown strength gives range.'};
+  return {
+    value:Math.abs(upper-lower)<1e-8?pct(lower):`${pct(lower,'lower')}–${pct(upper,'upper')}`,
+    detail:'Equal mod chances; unknown strength gives range. Neutral set, fixed bonuses; all gear re-optimised.'
+  };
 }
 
 function arrowText(target: CertificateTargetDecision): string {
@@ -36,7 +42,7 @@ function TargetDetails({ target }: { target: CertificateTargetDecision }) {
       {target.currentAuthentication && <li>Now: {target.currentAuthentication.effect}{target.currentAuthentication.rank ? ` (#${target.currentAuthentication.rank.rank} of ${target.currentAuthentication.rank.of} wanted${target.currentAuthentication.rank.higher.length ? `; higher: ${target.currentAuthentication.rank.higher.join(', ')}` : ''})` : target.currentAuthentication.calculated ? ' (value calculated from the trio)' : ' (not a wanted result for this certificate)'}</li>}
       {best && <li>Best roll: {best.label} → {best.loadout.context === 'Neutral' ? 'main' : best.loadout.context} set {itemTitle(best.loadout.head)} / {itemTitle(best.loadout.back)} / {itemTitle(best.loadout.wrist)} · Arrow {num(best.loadout.arrow)}%{best.loadout.inBand ? '' : ' (below minimum)'} · Modelled Luck {num(best.loadout.luck)} · Zone {num(best.loadout.zone)} · Energy {num(best.loadout.energy)}{best.state === 'central' ? ' (with active effects at the central sensitivity setting)' : ''}</li>}
       <li>{target.safeInCautious?'*Checked scenarios only; unknown roll strengths may change the result.':'Replacing this bonus may worsen your setup.'}</li>
-      <li>Possible outcomes are compared against keeping your current bonus. Unknown ranges and odds prevent a precise risk estimate.</li>
+      <li>Possible outcomes are compared against keeping your current bonus. Improvement chance uses equal mod chances; unknown strengths widen the range.</li>
     </ul>
   </details>;
 }
@@ -62,17 +68,19 @@ export function NextCertificate({ row, computing, hasCertificates, onRecord, det
     {more}
   </article>;
   const t = row.target;
+  const chance = chanceText(t);
   return <article className="answerCard">
     <span className="eyebrow">Next certificate</span>
     <strong className={`verdict ${t.verdict === 'USE' ? 'use' : 'consider'}`}>{VERDICT_WORD[t.verdict]} {certificateLabel(row.certificate)}</strong>
     <p className="target">→ {itemTitle(t.item)} · {t.item.slot}</p>
     <ul className="facts">
-      <li><span>Upgrade potential</span><b>{t.bestRoll?t.bestRoll.state==='central'?'Needs active bonuses':'Can improve your best set':'Not confirmed'}</b></li>
-      <li><span>Chance</span><b>Odds unknown</b></li>
+      <li><span>Upgrade potential</span><b>{t.selectedNeutralChanceLowerPct>0?'Can improve your best set':t.selectedNeutralChanceUpperPct>0?'Depends on roll strength':'No Neutral improvement'}</b></li>
+      <li><span>Improves best set</span><b>{chance.value}</b></li>
       <li><span>Replacement risk</span><b>{t.safeInCautious?'No downside found*':'Current bonus at risk'}</b></li>
       {t.bestRoll && <li><span>Best result</span><b>{t.bestRoll.effect}</b></li>}
       {t.bestRoll&&<li><span>Possible set</span><b>{num(t.bestRoll.loadout.luck)}% Luck · {num(t.bestRoll.loadout.arrow)}% Arrow</b></li>}
     </ul>
+    <small>{chance.detail}</small>
     {details && <TargetDetails target={t} />}
     {onRecord && <button className="primary" onClick={() => onRecord(row)}>Record result</button>}
     {more}
@@ -120,9 +128,9 @@ export function Certificates({ data, setData, analysis, queue, onRecorded }: {
     <div className="rowList">{groupByLabel(data.ownedCertificates).map(({ label, batches, quantity }) => {
       const last = [...batches].reverse().find(b => b.quantity > 0) ?? batches[batches.length - 1];
       const bestForType=analysis.decisions.find(d=>batches.some(b=>b.id===d.certificate.id))?.recommendedTarget;
-      const opportunity=bestForType?.bestRoll;
+      const opportunity=bestForType?chanceText(bestForType):undefined;
       return <div className="certRow" key={label}>
-        <button className="link rowName" onClick={() => setEditing(batches)}><strong>{label}</strong><small>{queue ? statusOf(analysis.decisions, batches, next) : '…'}{queue&&opportunity?` · ${opportunity.effect}`:''}</small></button>
+        <button className="link rowName" onClick={() => setEditing(batches)}><strong>{label}</strong><small>{queue ? statusOf(analysis.decisions, batches, next) : '…'}{queue&&opportunity?` · Improves best set ${opportunity.value}`:''}</small></button>
         <div className="stepper" role="group" aria-label={`${label} quantity`}>
           <button onClick={() => run(() => setCertificateQuantity(data, last.id, last.quantity - 1))} disabled={quantity < 1} aria-label="Remove one">−</button>
           <output aria-live="polite">{quantity}</output>

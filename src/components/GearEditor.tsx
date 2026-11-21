@@ -27,7 +27,8 @@ export function GearEditor({ item, mode, onClose, onSave, onDelete }: {
   const [shown, setShown] = useState<Array<keyof GearStats>>(STAT_LABELS.filter(([key]) => Math.abs(item.stats[key]) > 1e-12).map(([key]) => key));
   const [error, setError] = useState('');
   const renamed = (next: GearItem) => ({ ...next, name: generateGearName(next.baseName, next.stats, next.authenticated, next.authentication) });
-  const patch = (next: Partial<GearItem>) => setV(current => renamed({ ...current, ...next }));
+  const patch = (next: Partial<GearItem>) => setV(current => renamed({ ...current, ...next,
+    metadataUncertain:('metadataUncertain' in next?next.metadataUncertain:current.metadataUncertain)?.filter(key=>!(key==='mutation'&&'mutation' in next)&&!(key==='gradeStars'&&'gradeStars' in next)&&!(key==='conditionPct'&&'conditionPct' in next)&&!(key==='displayedValue'&&'displayedValue' in next)) }));
   const setStat = (key: keyof GearStats, n: number) => setV(current => renamed({ ...current, stats: { ...current.stats, [key]: Number.isFinite(n) ? n : 0 } }));
   const setAuthentication = (next: Partial<GearItem['authentication']>) => setV(current => renamed({ ...current, authentication: editAuthentication(current.authentication, next) }));
   const hideStat = (key: keyof GearStats) => { setStat(key, 0); setShown(current => current.filter(k => k !== key)); };
@@ -41,12 +42,14 @@ export function GearEditor({ item, mode, onClose, onSave, onDelete }: {
 
   return <div className="modalBackdrop"><div className="modal sheet" role="dialog" aria-modal="true" aria-label={mode === 'add' ? 'Add gear' : 'Edit gear'}>
     <div className="modalHeader"><h2>{mode === 'add' ? 'Add gear' : 'Edit gear'}</h2><button className="iconButton" onClick={onClose} aria-label="Close">×</button></div>
+    {(item.needsReview||item.metadataUncertain?.includes('authentication'))&&<div className="notice warning"><p>{item.reviewNotes||'The photo did not confirm this item’s stats. Enter the game values before verifying.'}</p><label className="check"><input type="checkbox" checked={!v.needsReview&&!v.metadataUncertain?.includes('authentication')} onChange={e=>patch({needsReview:!e.target.checked,reviewNotes:e.target.checked?undefined:item.reviewNotes,metadataUncertain:e.target.checked?v.metadataUncertain?.filter(k=>!['displayedStats','authentication'].includes(k)):item.metadataUncertain})}/> I verified these stats and authentication in game</label></div>}
     <div className="formGrid">
       <label className="wide">Name<input autoFocus value={v.baseName} onChange={e => patch({ baseName: e.target.value })} placeholder="e.g. Pearl Dominus" /></label>
       <label>Slot<select value={v.slot} onChange={e => patch({ slot: e.target.value as Slot })}><option>Head</option><option>Back</option><option>Wrist</option></select></label>
       <label>Mutation<input list="gear-mutations" value={v.mutation ?? ''} onChange={e => patch({ mutation: e.target.value })} placeholder="None" />
         <datalist id="gear-mutations">{['None','Silver','Gold','Corrupted','Diamond','Gem','Chrome','Hologram','Void','Secret','Rainbow','Onyx','Cobwebbed','Exclusive','Police'].map(m => <option key={m} value={m} />)}</datalist></label>
       <label>Condition %<input type="number" min="0" max="100" step="any" inputMode="decimal" value={v.conditionPct ?? ''} onChange={e => patch({ conditionPct: e.target.value === '' ? undefined : Number(e.target.value) })} placeholder="Optional" /></label>
+      <label>Item value<input type="number" inputMode="decimal" min="0" step="any" value={v.displayedValue??''} placeholder="Unknown" onChange={e=>patch({displayedValue:e.target.value===''?undefined:Number(e.target.value)})}/></label>
       <label>Stars<select value={v.gradeStars ?? ''} onChange={e => patch({ gradeStars: e.target.value === '' ? undefined : Number(e.target.value) })}>
         <option value="">Not recorded</option><option value="0">Not graded</option>{[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}★</option>)}</select></label>
       <label className="check"><input type="checkbox" checked={v.favourite} onChange={e => patch({ favourite: e.target.checked })} /> Always keep</label>
@@ -91,6 +94,8 @@ export function GearEditor({ item, mode, onClose, onSave, onDelete }: {
 }
 
 export function validateGear(i: GearItem): string {
+  if(i.needsReview)return 'Verify the item stats in game before saving.';
+  if(i.displayedValue!==undefined&&(!Number.isFinite(i.displayedValue)||i.displayedValue<0))return 'Item value must be a non-negative number.';
   if (!i.baseName.trim()) return 'Name is required.';
   if (!['Head','Back','Wrist'].includes(i.slot)) return 'Choose a slot.';
   if (i.conditionPct !== undefined && (!Number.isFinite(i.conditionPct) || i.conditionPct < 0 || i.conditionPct > 100)) return 'Condition must be 0–100%.';

@@ -7,9 +7,9 @@ export function evaluateCombination(head: GearItem, back: GearItem, wrist: GearI
 }
 
 export function optimise(gear: GearItem[], settings: AlgorithmSettings, limit = 100): CombinationResult[] {
-  const heads = gear.filter(i => i.slot === 'Head');
-  const backs = gear.filter(i => i.slot === 'Back');
-  const wrists = gear.filter(i => i.slot === 'Wrist');
+  const heads = gear.filter(i => !i.needsReview && i.slot === 'Head');
+  const backs = gear.filter(i => !i.needsReview && i.slot === 'Back');
+  const wrists = gear.filter(i => !i.needsReview && i.slot === 'Wrist');
   if (!heads.length || !backs.length || !wrists.length) return [];
   const best: CombinationResult[] = [];
   for (const head of heads) for (const back of backs) for (const wrist of wrists) {
@@ -36,9 +36,9 @@ function insertRanked(list: CombinationResult[], value: CombinationResult, limit
 
 /** Compatibility helper for diagnostics. User-facing specialist loadouts are now defined in gearLoadouts.ts. */
 export function specialistLoadout(gear: GearItem[], key: keyof CombinationResult['stats'], settings: AlgorithmSettings): CombinationResult | undefined {
-  const heads = gear.filter(i => i.slot === 'Head');
-  const backs = gear.filter(i => i.slot === 'Back');
-  const wrists = gear.filter(i => i.slot === 'Wrist');
+  const heads = gear.filter(i => !i.needsReview && i.slot === 'Head');
+  const backs = gear.filter(i => !i.needsReview && i.slot === 'Back');
+  const wrists = gear.filter(i => !i.needsReview && i.slot === 'Wrist');
   let best: CombinationResult | undefined;
   for (const h of heads) for (const b of backs) for (const w of wrists) {
     const c = evaluateCombination(h, b, w, settings);

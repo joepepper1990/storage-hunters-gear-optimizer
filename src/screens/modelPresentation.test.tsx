@@ -17,13 +17,25 @@ it('separates the screenshot numeric Luck from the modelled passive total',()=>{
 function target():CertificateTargetDecision {
  return {item:makeInitialData().gear[0],verdict:'CONSIDER',wantedChancePct:50,unwantedOutcomePct:50,
  improveChanceLowerPct:{cautious:10,central:10,favourable:10},improveChancePct:{cautious:10,central:10,favourable:10},improveChanceUpperPct:40,
+ selectedNeutralChanceLowerPct:20,selectedNeutralChanceUpperPct:40,
  unresolvedOutcomeMassPct:30,unresolvedEffects:['Focused'],worseChanceUpperPct:20,safeInCautious:true,currentArrow:77,currentArrowInBand:true,
  calculatedRanks:[]} as unknown as CertificateTargetDecision;
 }
-it('does not publish guessed certificate odds',()=>{
- expect(chanceText(target()).value).toBe('Unknown');
+it('shows the equal-mod chance bounds for the current best set',()=>{
+ expect(chanceText(target()).value).toBe('20%–40%');
  const data=makeInitialData();const row={certificate:data.ownedCertificates[0],target:target()} as CertificateQueueRow;
  const html=renderToStaticMarkup(<NextCertificate row={row} computing={false} hasCertificates details/>);
- expect(html).toContain('Odds unknown');expect(html).not.toContain('equal effect odds');
- expect(html).toContain('Unknown ranges and odds');
+ expect(html).toContain('Improves best set');expect(html).toContain('20%–40%');
+ expect(html).toContain('Equal mod chances; unknown strength gives range.');
+ expect(html).toContain('Neutral set, fixed bonuses; all gear re-optimised.');
+});
+it('shows a point chance only when the strength bounds coincide',()=>{
+ const t=target();t.selectedNeutralChanceLowerPct=50;t.selectedNeutralChanceUpperPct=50;
+ expect(chanceText(t).value).toBe('50%');
+ t.selectedNeutralChanceLowerPct=0;t.selectedNeutralChanceUpperPct=100;
+ expect(chanceText(t).value).toBe('0%–100%');
+});
+it('rounds displayed probability bounds outwards',()=>{
+ const t=target();t.selectedNeutralChanceLowerPct=100/9;t.selectedNeutralChanceUpperPct=200/9;
+ expect(chanceText(t).value).toBe('11.1%–22.3%');
 });
