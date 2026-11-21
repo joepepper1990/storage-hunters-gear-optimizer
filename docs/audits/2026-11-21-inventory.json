@@ -1,0 +1,2231 @@
+{
+  "photoCount": 78,
+  "ownerReportedAdditions": 2,
+  "itemCount": 80,
+  "items": [
+    {
+      "source": "IMG_8343.jpg",
+      "baseName": "Reactor Fedora",
+      "slot": "Head",
+      "mutation": "None",
+      "gradeStars": 2,
+      "conditionPct": 55,
+      "displayedValue": 53136,
+      "displayedStats": {
+        "luck": 75,
+        "arrowReduction": 45,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": "Mutated Luck",
+        "value": null,
+        "description": "Each worn accessory adds luck based on its mutator"
+      },
+      "uncertainFields": [],
+      "notes": "Two white stars and no mutation label confirmed by the same card in IMG_8344. HIDDEN shown under equipped checkmark.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8344.jpg",
+      "baseName": "Autumn Dominus",
+      "slot": "Head",
+      "mutation": "Exclusive",
+      "gradeStars": 3,
+      "conditionPct": 85,
+      "displayedValue": 555540,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 82,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 20,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Three gold stars and Exclusive label confirmed by same card in IMG_8343/8345.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8345.jpg",
+      "baseName": "Cow Dominus",
+      "slot": "Head",
+      "mutation": "Gold",
+      "gradeStars": 2,
+      "conditionPct": 86,
+      "displayedValue": 382320,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 0,
+        "zone": 50,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 10,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Gold label and two white stars confirmed on same card in IMG_8343/8344.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8346.jpg",
+      "baseName": "Autumn Valk",
+      "slot": "Head",
+      "mutation": "Exclusive",
+      "gradeStars": 2,
+      "conditionPct": 87,
+      "displayedValue": 255960,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 12,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8347.jpg",
+      "baseName": "Desert Bandit Mask",
+      "slot": "Head",
+      "mutation": "Exclusive Mint",
+      "gradeStars": 1,
+      "conditionPct": 100,
+      "displayedValue": 2940,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 15,
+        "recovery": -4,
+        "tip": 0,
+        "npc": 4.5,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Full mutation labels and value confirmed on same card in IMG_8348.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8348.jpg",
+      "baseName": "Electrical Fedora",
+      "slot": "Head",
+      "mutation": "None",
+      "gradeStars": 2,
+      "conditionPct": 75,
+      "displayedValue": 109350,
+      "displayedStats": {
+        "luck": 73,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 11,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Price confirmed unobscured in IMG_8347/8350.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8349.jpg",
+      "baseName": "Green Ghillie Mask",
+      "slot": "Head",
+      "mutation": "Void",
+      "gradeStars": 2,
+      "conditionPct": 68,
+      "displayedValue": 94764.6,
+      "displayedStats": {
+        "luck": 88,
+        "arrowReduction": -3,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Tooltip explicitly says +68% from Void, included in displayed +88% Luck.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8350.jpg",
+      "baseName": "Fireman Hat",
+      "slot": "Head",
+      "mutation": "Gem",
+      "gradeStars": 2,
+      "conditionPct": 71,
+      "displayedValue": 34131.24,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 0,
+        "zone": 31,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Condition reads 71%; left digit partly crossed by cursor ring.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8351.jpg",
+      "baseName": "Green Ghillie Mask",
+      "slot": "Head",
+      "mutation": "Hologram",
+      "gradeStars": 1,
+      "conditionPct": null,
+      "displayedValue": 32312.7,
+      "displayedStats": {
+        "luck": 69,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [
+        "conditionPct"
+      ],
+      "notes": "Condition ends in 3%; first digit obscured by cursor ring (appears 73%, unconfirmed). Value confirmed on same card in IMG_8352. Tooltip explicitly says +52% from Hologram, included in displayed +69% Luck.",
+      "plannedLocation": "Storage chest"
+    },
+    {
+      "source": "IMG_8352.jpg",
+      "baseName": "Motorbike Helmet",
+      "slot": "Head",
+      "mutation": "Corrupted",
+      "gradeStars": 1,
+      "conditionPct": 73,
+      "displayedValue": 1517.29,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 0,
+        "recovery": -4,
+        "tip": 1,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Full value confirmed on same card in IMG_8351.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8353.jpg",
+      "baseName": "Pickle Necklace",
+      "slot": "Head",
+      "mutation": "Exclusive",
+      "gradeStars": 1,
+      "conditionPct": 95,
+      "displayedValue": 3910.2,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 0,
+        "zone": 23,
+        "energy": -6,
+        "recovery": 0,
+        "tip": 4.7,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "",
+      "plannedLocation": "Storage chest"
+    },
+    {
+      "source": "IMG_8354.jpg",
+      "baseName": "Pickle Hat",
+      "slot": "Head",
+      "mutation": "Exclusive",
+      "gradeStars": 1,
+      "conditionPct": 92,
+      "displayedValue": 3049.2,
+      "displayedStats": {
+        "luck": 30,
+        "arrowReduction": -3,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 7.5,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8355.jpg",
+      "baseName": "Pickle Necklace",
+      "slot": "Head",
+      "mutation": "Exclusive",
+      "gradeStars": 2,
+      "conditionPct": 98,
+      "displayedValue": 5088.96,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 9.2,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8356.jpg",
+      "baseName": "Pilot Helm",
+      "slot": "Head",
+      "mutation": "Wet Mint",
+      "gradeStars": 3,
+      "conditionPct": null,
+      "displayedValue": 2156,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 13,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [
+        "conditionPct"
+      ],
+      "notes": "Condition mostly obscured by cursor ring, appears 100% but not fully readable. Three gold stars and Wet Mint labels confirmed on same card in IMG_8355.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8357.jpg",
+      "baseName": "Race Car Dominus",
+      "slot": "Head",
+      "mutation": "None",
+      "gradeStars": 2,
+      "conditionPct": 91,
+      "displayedValue": 195210,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 45,
+        "zone": 0,
+        "energy": 38,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8358.jpg",
+      "baseName": "Pumpkin Boss Hat",
+      "slot": "Head",
+      "mutation": "Limited",
+      "gradeStars": 3,
+      "conditionPct": null,
+      "displayedValue": 88000,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 14,
+        "walk": -1
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [
+        "conditionPct"
+      ],
+      "notes": "Condition begins 5 and appears 50%, but second digit partly obscured by cursor ring. Value confirmed on same card in IMG_8357.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8359.jpg",
+      "baseName": "Race Valk",
+      "slot": "Head",
+      "mutation": "Cobwebbed",
+      "gradeStars": 3,
+      "conditionPct": null,
+      "displayedValue": 118656,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 76,
+        "zone": 0,
+        "energy": 64,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 7.7,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": "NPC Offers Bonus",
+        "value": 7.7,
+        "description": null
+      },
+      "uncertainFields": [
+        "conditionPct"
+      ],
+      "notes": "Blue +7.7% NPC Offers Bonus authentication line included in displayedStats. Condition ends 6%; first digit obscured (possibly 86%). Value and complete mutation label confirmed on same card in IMG_8360.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8360.jpg",
+      "baseName": "Reactor Dominus",
+      "slot": "Head",
+      "mutation": "None",
+      "gradeStars": 1,
+      "conditionPct": 74,
+      "displayedValue": 155232,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 16,
+        "tip": 0,
+        "npc": 0,
+        "walk": 31
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8361.jpg",
+      "baseName": "Rider Helmet",
+      "slot": "Head",
+      "mutation": "Dirty",
+      "gradeStars": 2,
+      "conditionPct": 99,
+      "displayedValue": 859.45,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 4.3,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Two white stars confirmed on same card in IMG_8360/8362.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8362.jpg",
+      "baseName": "Red Beret",
+      "slot": "Head",
+      "mutation": "None",
+      "gradeStars": 2,
+      "conditionPct": 73,
+      "displayedValue": 2589.03,
+      "displayedStats": {
+        "luck": 19,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Two white stars confirmed on same card in IMG_8360/8361.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8363.jpg",
+      "baseName": "Royal Dominus",
+      "slot": "Head",
+      "mutation": "None",
+      "gradeStars": 3,
+      "conditionPct": 83,
+      "displayedValue": 493960,
+      "displayedStats": {
+        "luck": 120,
+        "arrowReduction": 0,
+        "zone": 90,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": "Overcharged",
+        "value": 6,
+        "description": "Energy Drinks grant 6% more luck"
+      },
+      "uncertainFields": [],
+      "notes": "Three gold stars confirmed on same card in IMG_8364. Overcharged has conditional effect; not added to unconditional displayedStats.luck.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8364.jpg",
+      "baseName": "Snorkeling Goggles",
+      "slot": "Head",
+      "mutation": "None",
+      "gradeStars": 2,
+      "conditionPct": 94,
+      "displayedValue": 1482.3,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 18,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": -2,
+        "npc": 0,
+        "walk": 15
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Two white stars confirmed on same card in IMG_8363.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8365.jpg",
+      "baseName": "Spec Ops Dominus",
+      "slot": "Head",
+      "mutation": "None",
+      "gradeStars": 2,
+      "conditionPct": 95,
+      "displayedValue": 687960,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 54,
+        "zone": 68,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Price confirmed unobscured on same card in IMG_8364/8366.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8366.jpg",
+      "baseName": "Spec Ops Dominus",
+      "slot": "Head",
+      "mutation": "None",
+      "gradeStars": 3,
+      "conditionPct": null,
+      "displayedValue": 965120,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 80,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 34,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [
+        "conditionPct"
+      ],
+      "notes": "Condition ends 2%; first digit obscured by cursor ring (appears 82%, unconfirmed). Value confirmed on same card in IMG_8365.",
+      "plannedLocation": "Wear"
+    },
+    {
+      "source": "IMG_8367.jpg",
+      "baseName": "Spec Ops Dominus",
+      "slot": "Head",
+      "mutation": "None",
+      "gradeStars": 1,
+      "conditionPct": 81,
+      "displayedValue": 504504,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 0,
+        "zone": 62,
+        "energy": 41,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Value confirmed on same card in IMG_8368.",
+      "plannedLocation": "Storage chest"
+    },
+    {
+      "source": "IMG_8368.jpg",
+      "baseName": "Spec Ops Dominus",
+      "slot": "Head",
+      "mutation": "None",
+      "gradeStars": 2,
+      "conditionPct": null,
+      "displayedValue": 592488,
+      "displayedStats": {
+        "luck": 98,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 15,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [
+        "conditionPct"
+      ],
+      "notes": "Condition ends 1%; first digit obscured by cursor ring. No mutation label on same card in IMG_8367.",
+      "plannedLocation": "Storage chest"
+    },
+    {
+      "source": "IMG_8369.jpg",
+      "baseName": "Spec Ops Fedora",
+      "slot": "Head",
+      "mutation": "",
+      "gradeStars": 3,
+      "conditionPct": 62,
+      "displayedValue": 125504,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 62,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 26,
+        "tip": 0,
+        "npc": 0,
+        "walk": -1
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Price recovered from exact same right-hand Spec Ops Fedora card unhovered in adjacent IMG_8370.",
+      "plannedLocation": "Disband"
+    },
+    {
+      "source": "IMG_8370.jpg",
+      "baseName": "Spec Ops Fedora",
+      "slot": "Head",
+      "mutation": "",
+      "gradeStars": 3,
+      "conditionPct": 87,
+      "displayedValue": 140304,
+      "displayedStats": {
+        "luck": 88,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Price recovered from exact same left-hand Spec Ops Fedora card unhovered in adjacent IMG_8369.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8371.jpg",
+      "baseName": "Spec Ops Fedora",
+      "slot": "Head",
+      "mutation": "",
+      "gradeStars": 2,
+      "conditionPct": 98,
+      "displayedValue": 99100.8,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 42,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "",
+      "plannedLocation": "Storage chest"
+    },
+    {
+      "source": "IMG_8372.jpg",
+      "baseName": "Steampunk Fedora",
+      "slot": "Head",
+      "mutation": "",
+      "gradeStars": 2,
+      "conditionPct": 82,
+      "displayedValue": 110246.4,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 18,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Two stars verified on same card unhovered in IMG_8371; ring overlaps hovered stars.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8373.jpg",
+      "baseName": "Steampunk Goggle",
+      "slot": "Head",
+      "mutation": "Chrome",
+      "gradeStars": 2,
+      "conditionPct": 84,
+      "displayedValue": 227448,
+      "displayedStats": {
+        "luck": 100,
+        "arrowReduction": 27,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Luck tooltip includes +54% from Chrome. Two stars verified on same card unhovered in IMG_8372.",
+      "plannedLocation": "Storage chest"
+    },
+    {
+      "source": "IMG_8375.jpg",
+      "baseName": "Steampunk Goggle",
+      "slot": "Head",
+      "mutation": "Diamond Silver",
+      "gradeStars": 3,
+      "conditionPct": 85,
+      "displayedValue": 451200,
+      "displayedStats": {
+        "luck": 136,
+        "arrowReduction": 0,
+        "zone": 64,
+        "energy": 0,
+        "recovery": 0,
+        "tip": -2,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": "Mutated Luck",
+        "value": null,
+        "description": "Each worn accessory adds luck based on its mutator"
+      },
+      "uncertainFields": [],
+      "notes": "Luck tooltip includes +50% from Diamond. Prefix labels verified on same card in IMG_8373.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8376.jpg",
+      "baseName": "Tactical Mask",
+      "slot": "Head",
+      "mutation": "",
+      "gradeStars": 1,
+      "conditionPct": 86,
+      "displayedValue": 2948.82,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 3.2,
+        "npc": -1.5,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "",
+      "plannedLocation": "Disband"
+    },
+    {
+      "source": "IMG_8377.jpg",
+      "baseName": "Steampunk Valk Helm",
+      "slot": "Head",
+      "mutation": "Gummy",
+      "gradeStars": 1,
+      "conditionPct": null,
+      "displayedValue": 22008,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 5.4,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [
+        "conditionPct"
+      ],
+      "notes": "Pointer ring obscures second condition digit; visible condition is 5?%.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8378.jpg",
+      "baseName": "Tactical Mask",
+      "slot": "Head",
+      "mutation": "Silver",
+      "gradeStars": 1,
+      "conditionPct": 58,
+      "displayedValue": 5197.92,
+      "displayedStats": {
+        "luck": 36,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 6,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Luck tooltip includes +12% from Silver.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8379.jpg",
+      "baseName": "Tactical Mask",
+      "slot": "Head",
+      "mutation": "",
+      "gradeStars": 2,
+      "conditionPct": null,
+      "displayedValue": 3919.86,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 19,
+        "zone": 0,
+        "energy": 0,
+        "recovery": -4,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [
+        "conditionPct"
+      ],
+      "notes": "Pointer ring obscures first condition digit; final visible digit is 4.",
+      "plannedLocation": "Disband"
+    },
+    {
+      "source": "IMG_8380.jpg",
+      "baseName": "Wooden Domino Crown",
+      "slot": "Head",
+      "mutation": "",
+      "gradeStars": 2,
+      "conditionPct": 85,
+      "displayedValue": 642.2,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 18,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Two stars verified on same card unhovered in IMG_8381.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8381.jpg",
+      "baseName": "Toxic Dominus",
+      "slot": "Head",
+      "mutation": "Exclusive",
+      "gradeStars": 3,
+      "conditionPct": 91,
+      "displayedValue": 559120,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 36,
+        "tip": 22,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Three stars verified on same card unhovered in IMG_8380.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8382.jpg",
+      "baseName": "Zombie Head Helm",
+      "slot": "Head",
+      "mutation": "Sandy Limited",
+      "gradeStars": 2,
+      "conditionPct": 92,
+      "displayedValue": 5292.54,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 19,
+        "zone": 0,
+        "energy": 16,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": -1
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Prefix and two stars verified on same card unhovered in IMG_8381.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8383.jpg",
+      "baseName": "Luxury Backpack",
+      "slot": "Back",
+      "mutation": "",
+      "gradeStars": 2,
+      "conditionPct": null,
+      "displayedValue": 232502.4,
+      "displayedStats": {
+        "luck": 104,
+        "arrowReduction": 21,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 16,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": "Bid Arrow Speed",
+        "value": -21,
+        "description": null
+      },
+      "uncertainFields": [
+        "conditionPct"
+      ],
+      "notes": "Blue authentication line: -21% Bid Arrow Speed. Condition first digit obscured; final visible digit is 7. Two stars verified on same card in IMG_8384.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8384.jpg",
+      "baseName": "Bullet Sash",
+      "slot": "Back",
+      "mutation": "",
+      "gradeStars": 2,
+      "conditionPct": 65,
+      "displayedValue": 11610,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 0,
+        "zone": -5,
+        "energy": 31,
+        "recovery": 16,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Two stars verified on same card unhovered in IMG_8383.",
+      "plannedLocation": "Storage chest"
+    },
+    {
+      "source": "IMG_8385.jpg",
+      "baseName": "Bullet Sash",
+      "slot": "Back",
+      "mutation": "Secret",
+      "gradeStars": 2,
+      "conditionPct": 92,
+      "displayedValue": 653400,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 32,
+        "zone": 0,
+        "energy": -6,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Two stars and Secret prefix verified on same card unhovered in IMG_8384.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8386.jpg",
+      "baseName": "Bullet Sash",
+      "slot": "Back",
+      "mutation": "",
+      "gradeStars": 1,
+      "conditionPct": 61,
+      "displayedValue": 8862,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 0,
+        "zone": -5,
+        "energy": 0,
+        "recovery": 7.7,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "",
+      "plannedLocation": "Disband"
+    },
+    {
+      "source": "IMG_8387.jpg",
+      "baseName": "Bunny Balloon Backpack",
+      "slot": "Back",
+      "mutation": "",
+      "gradeStars": 2,
+      "conditionPct": 97,
+      "displayedValue": 66690,
+      "displayedStats": {
+        "luck": 53,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 27
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Price recovered from exact same left-hand Bunny Balloon Backpack card unhovered in adjacent IMG_8388.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8388.jpg",
+      "baseName": "Dark Heart Backpack",
+      "slot": "Back",
+      "mutation": "Exclusive",
+      "gradeStars": 1,
+      "conditionPct": null,
+      "displayedValue": 244650,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 40,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 35
+      },
+      "authentication": {
+        "effect": "Droughtbreaker",
+        "value": 18,
+        "description": "+18 Luck per auction without mutation, up to 5 stacks"
+      },
+      "uncertainFields": [
+        "conditionPct"
+      ],
+      "notes": "Blue line: +18 Luck/stack Droughtbreaker. First condition digit partly obscured; final digit 3 visible, possibly63%.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8389.jpg",
+      "baseName": "Green Ghillie Vest",
+      "slot": "Back",
+      "mutation": "Secret",
+      "gradeStars": 2,
+      "conditionPct": 66,
+      "displayedValue": 169128,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 14,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 3.4,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Two stars verified on same card unhovered in IMG_8388.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8390.jpg",
+      "baseName": "Elegant Business Backpack",
+      "slot": "Back",
+      "mutation": "Void",
+      "gradeStars": 1,
+      "conditionPct": 92,
+      "displayedValue": 48914.25,
+      "displayedStats": {
+        "luck": 103,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 11,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": "Focused",
+        "value": 28,
+        "description": "+28% to Luck"
+      },
+      "uncertainFields": [],
+      "notes": "Displayed luck +103% (was +80%) (+75% from Void). Retained displayed total without decomposing Focused.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8391.jpg",
+      "baseName": "Green Ghillie Vest",
+      "slot": "Back",
+      "mutation": "Dune Sandy",
+      "gradeStars": 1,
+      "conditionPct": 74,
+      "displayedValue": 76734,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 7.9,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Dune Sandy prefix verified on same card unhovered in IMG_8392.",
+      "plannedLocation": "Storage chest"
+    },
+    {
+      "source": "IMG_8392.jpg",
+      "baseName": "Green Ghillie Vest",
+      "slot": "Back",
+      "mutation": "",
+      "gradeStars": 2,
+      "conditionPct": 80,
+      "displayedValue": 3601.8,
+      "displayedStats": {
+        "luck": 19,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 4.6,
+        "tip": 0,
+        "npc": 0,
+        "walk": -1
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "",
+      "plannedLocation": "Disband"
+    },
+    {
+      "source": "IMG_8393.jpg",
+      "baseName": "Medic Backpack",
+      "slot": "Back",
+      "mutation": "Firefly Spotless",
+      "gradeStars": 1,
+      "conditionPct": 73,
+      "displayedValue": 126441,
+      "displayedStats": {
+        "luck": 41,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 20,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8394.jpg",
+      "baseName": "Halloween Boombox",
+      "slot": "Back",
+      "mutation": "Limited",
+      "gradeStars": 2,
+      "conditionPct": 67,
+      "displayedValue": 210924,
+      "displayedStats": {
+        "luck": 91,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 46
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8395.jpg",
+      "baseName": "Medic Backpack",
+      "slot": "Back",
+      "mutation": "",
+      "gradeStars": 2,
+      "conditionPct": 57,
+      "displayedValue": 12072.24,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": -3,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 11,
+        "tip": 0,
+        "npc": 6.6,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "",
+      "plannedLocation": "Storage chest"
+    },
+    {
+      "source": "IMG_8396.jpg",
+      "baseName": "Military Fanny Pack",
+      "slot": "Back",
+      "mutation": null,
+      "gradeStars": 3,
+      "conditionPct": 53,
+      "displayedValue": 3613.4,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 28,
+        "zone": 0,
+        "energy": -6,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 22
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Three stars confirmed on same card in IMG_8397/8398.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8397.jpg",
+      "baseName": "Pickle Backpack",
+      "slot": "Back",
+      "mutation": "Exclusive",
+      "gradeStars": 2,
+      "conditionPct": 83,
+      "displayedValue": 42778.8,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 0,
+        "zone": 47,
+        "energy": -6,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8398.jpg",
+      "baseName": "Military Fanny Pack",
+      "slot": "Back",
+      "mutation": null,
+      "gradeStars": 2,
+      "conditionPct": 84,
+      "displayedValue": 2811.51,
+      "displayedStats": {
+        "luck": 21,
+        "arrowReduction": 12,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "",
+      "plannedLocation": "Storage chest"
+    },
+    {
+      "source": "IMG_8399.jpg",
+      "baseName": "Shark Tail Backpack",
+      "slot": "Back",
+      "mutation": "Exclusive",
+      "gradeStars": 2,
+      "conditionPct": 81,
+      "displayedValue": 8571.12,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 9.2,
+        "recovery": 0,
+        "tip": 0,
+        "npc": -1.5,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Selected card value partly blocked by ring; exact same card value visible in IMG_8400.",
+      "plannedLocation": "Storage chest"
+    },
+    {
+      "source": "IMG_8400.jpg",
+      "baseName": "Shark Tail Backpack",
+      "slot": "Back",
+      "mutation": "Exclusive",
+      "gradeStars": 1,
+      "conditionPct": 97,
+      "displayedValue": 17512.13,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 11
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Selected card value blocked by ring; exact same card value visible in IMG_8399/8402.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8401.jpg",
+      "baseName": "Steampunk Jacket",
+      "slot": "Back",
+      "mutation": "Hologram",
+      "gradeStars": 1,
+      "conditionPct": null,
+      "displayedValue": 232407,
+      "displayedStats": {
+        "luck": 83,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 4.7,
+        "walk": -1
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [
+        "conditionPct"
+      ],
+      "notes": "Luck text: +83% Luck (+52% from Hologram). Condition begins 8; second digit obscured by ring.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8402.jpg",
+      "baseName": "Steampunk Backpack",
+      "slot": "Back",
+      "mutation": null,
+      "gradeStars": 2,
+      "conditionPct": 96,
+      "displayedValue": 119556,
+      "displayedStats": {
+        "luck": 57,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 15,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Selected card value partly blocked by ring; exact same card value visible in IMG_8401.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8403.jpg",
+      "baseName": "Tactical Vest",
+      "slot": "Back",
+      "mutation": "Chrome",
+      "gradeStars": 2,
+      "conditionPct": 71,
+      "displayedValue": 203355.36,
+      "displayedStats": {
+        "luck": 110,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 8.2,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": "Golden Hour",
+        "value": 1.2,
+        "description": "+1.2% luck per minute while equipped, up to 100% per session"
+      },
+      "uncertainFields": [],
+      "notes": "Blue line: +1.2%/min Golden Hour. Tooltip left edge clipped, but numeric values visible. Luck text +110% Luck (+54% from Chrome). Exact same card value visible in IMG_8404.",
+      "plannedLocation": "Wear"
+    },
+    {
+      "source": "IMG_8404.jpg",
+      "baseName": "Tactical Vest",
+      "slot": "Back",
+      "mutation": null,
+      "gradeStars": 3,
+      "conditionPct": null,
+      "displayedValue": 24537.6,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 44,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 11,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [
+        "conditionPct"
+      ],
+      "notes": "Condition ends 6%; tens digit hidden by ring. Exact same card value visible in IMG_8403.",
+      "plannedLocation": "Storage chest"
+    },
+    {
+      "source": "IMG_8405.jpg",
+      "baseName": "Tactical Vest",
+      "slot": "Back",
+      "mutation": "Emerald",
+      "gradeStars": 2,
+      "conditionPct": null,
+      "displayedValue": 717724.8,
+      "displayedStats": {
+        "luck": 36,
+        "arrowReduction": 20,
+        "zone": 0,
+        "energy": 0,
+        "recovery": -4,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [
+        "conditionPct"
+      ],
+      "notes": "Condition ends 4%; tens digit hidden by ring.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8406.jpg",
+      "baseName": "Tactical Vest",
+      "slot": "Back",
+      "mutation": null,
+      "gradeStars": 2,
+      "conditionPct": null,
+      "displayedValue": 15872.76,
+      "displayedStats": {
+        "luck": 38,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 19,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": -1
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [
+        "conditionPct"
+      ],
+      "notes": "Condition begins 5; units digit hidden by ring. Exact same card value visible in IMG_8405.",
+      "plannedLocation": "Disband"
+    },
+    {
+      "source": "IMG_8407.jpg",
+      "baseName": "Witch Robe",
+      "slot": "Back",
+      "mutation": "Limited",
+      "gradeStars": 1,
+      "conditionPct": null,
+      "displayedValue": null,
+      "displayedStats": {
+        "luck": null,
+        "arrowReduction": null,
+        "zone": null,
+        "energy": null,
+        "recovery": null,
+        "tip": null,
+        "npc": null,
+        "walk": null
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [
+        "displayedStats",
+        "authentication",
+        "conditionPct",
+        "displayedValue"
+      ],
+      "notes": "Selected card is Limited Witch Robe, but tooltip is stale Tactical Vest (+38 Luck,+19 Energy Drink Time,-1 Walkspeed) from IMG_8406. Do not attribute stale tooltip stats to robe. Selected card shows name rather than condition; value obscured by ring.",
+      "plannedLocation": "Display \u2014 check stats"
+    },
+    {
+      "source": "IMG_8408.jpg",
+      "baseName": "Jellyfish Wristband",
+      "slot": "Wrist",
+      "mutation": "Diamond",
+      "gradeStars": 2,
+      "conditionPct": null,
+      "displayedValue": 23120.64,
+      "displayedStats": {
+        "luck": 54,
+        "arrowReduction": 32,
+        "zone": 0,
+        "energy": 24,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": -1
+      },
+      "authentication": {
+        "effect": "Energy Drink Time",
+        "value": 24,
+        "description": "+24% Energy Drink Time"
+      },
+      "uncertainFields": [
+        "conditionPct"
+      ],
+      "notes": "Blue authentication line contributes +24% Energy Drink Time. Condition begins 7; units digit partly obscured by ring. Equipped/hidden checkmark visible.",
+      "plannedLocation": "Wear"
+    },
+    {
+      "source": "IMG_8409.jpg",
+      "baseName": "Autumn Fox Wristband",
+      "slot": "Wrist",
+      "mutation": "Exclusive",
+      "gradeStars": 2,
+      "conditionPct": null,
+      "displayedValue": 99792,
+      "displayedStats": {
+        "luck": 73,
+        "arrowReduction": 0,
+        "zone": 55,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 5.4,
+        "npc": -1.5,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": "Tip Chance",
+        "value": 5.4,
+        "description": "+5.4% Tip Chance"
+      },
+      "uncertainFields": [
+        "conditionPct"
+      ],
+      "notes": "Blue authentication line contributes +5.4% Tip Chance. Condition ends 1%; tens digit hidden by ring.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8410.jpg",
+      "baseName": "Bat Wristband",
+      "slot": "Wrist",
+      "mutation": "Exclusive",
+      "gradeStars": 2,
+      "conditionPct": 98,
+      "displayedValue": 29462.4,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 30,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Two stars confirmed on same card in IMG_8411.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8411.jpg",
+      "baseName": "Autumn Fox Wristband",
+      "slot": "Wrist",
+      "mutation": "Exclusive",
+      "gradeStars": 1,
+      "conditionPct": 80,
+      "displayedValue": 77280,
+      "displayedStats": {
+        "luck": 50,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": -6,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "",
+      "plannedLocation": "Storage chest"
+    },
+    {
+      "source": "IMG_8412.jpg",
+      "baseName": "Flower Wristband",
+      "slot": "Wrist",
+      "mutation": null,
+      "gradeStars": 2,
+      "conditionPct": 62,
+      "displayedValue": 824.93,
+      "displayedStats": {
+        "luck": -5,
+        "arrowReduction": 16,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 4.1,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Selected card value partly obscured by ring; exact same card value visible in IMG_8413.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8413.jpg",
+      "baseName": "Kevlar Shield",
+      "slot": "Wrist",
+      "mutation": null,
+      "gradeStars": 2,
+      "conditionPct": null,
+      "displayedValue": 17237.34,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 20,
+        "recovery": -4,
+        "tip": 0,
+        "npc": 0,
+        "walk": 20
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [
+        "conditionPct"
+      ],
+      "notes": "Condition units digit appears 3 but tens digit hidden by ring. Exact same card value visible in IMG_8412.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8414.jpg",
+      "baseName": "Military Stopwatch Wristband",
+      "slot": "Wrist",
+      "mutation": "Secret; Silver; Mint",
+      "gradeStars": 1,
+      "conditionPct": 100,
+      "displayedValue": 1354500,
+      "displayedStats": {
+        "luck": -5,
+        "arrowReduction": 0,
+        "zone": 29,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 5.8,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "Card prefixes exactly [Secret] [Silver] [Mint].",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8415.jpg",
+      "baseName": "Luxury Watch",
+      "slot": "Wrist",
+      "mutation": "Corrupted",
+      "gradeStars": 1,
+      "conditionPct": null,
+      "displayedValue": 185220,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 23,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [
+        "conditionPct"
+      ],
+      "notes": "Condition begins 6; units digit hidden by ring. Exact same card value visible in IMG_8414.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8416.jpg",
+      "baseName": "Military Stopwatch Wristband",
+      "slot": "Wrist",
+      "mutation": null,
+      "gradeStars": 1,
+      "conditionPct": null,
+      "displayedValue": 11215.26,
+      "displayedStats": {
+        "luck": -5,
+        "arrowReduction": 0,
+        "zone": 24,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 16
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [
+        "conditionPct"
+      ],
+      "notes": "Condition ends 7%; tens digit hidden by ring. Exact same card value visible in IMG_8417.",
+      "plannedLocation": "Disband"
+    },
+    {
+      "source": "IMG_8417.jpg",
+      "baseName": "Military Stopwatch Wristband",
+      "slot": "Wrist",
+      "mutation": "Corrupted",
+      "gradeStars": 2,
+      "conditionPct": 69,
+      "displayedValue": 91533.24,
+      "displayedStats": {
+        "luck": -5,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 24,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "",
+      "plannedLocation": "Storage chest"
+    },
+    {
+      "source": "IMG_8418.jpg",
+      "baseName": "Safe Wristband",
+      "slot": "Wrist",
+      "mutation": null,
+      "gradeStars": 3,
+      "conditionPct": null,
+      "displayedValue": 850.18,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 7.6,
+        "tip": 0,
+        "npc": 4.6,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [
+        "conditionPct"
+      ],
+      "notes": "Condition ends 2%; tens digit hidden by ring. Exact same card value visible in IMG_8417/8419.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8419.jpg",
+      "baseName": "Pickle Wristband",
+      "slot": "Wrist",
+      "mutation": "Exclusive",
+      "gradeStars": 2,
+      "conditionPct": null,
+      "displayedValue": 4351.32,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 5.7,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [
+        "conditionPct"
+      ],
+      "notes": "Condition ends 7%; tens digit hidden by ring.",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "IMG_8420.jpg",
+      "baseName": "Safe Wristband",
+      "slot": "Wrist",
+      "mutation": null,
+      "gradeStars": 3,
+      "conditionPct": null,
+      "displayedValue": 700.44,
+      "displayedStats": {
+        "luck": null,
+        "arrowReduction": null,
+        "zone": null,
+        "energy": null,
+        "recovery": null,
+        "tip": null,
+        "npc": null,
+        "walk": null
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [
+        "displayedStats",
+        "authentication",
+        "conditionPct"
+      ],
+      "notes": "Selected card is Safe Wristband ($700.44, three stars), but tooltip is stale Pickle Wristband +5.7% NPC Offers Bonus from IMG_8419. Do not attribute that stat to Safe Wristband. Card shows name rather than condition.",
+      "plannedLocation": "Storage chest \u2014 check stats"
+    },
+    {
+      "source": "IMG_8421.jpg",
+      "baseName": "Satellite Dish Wristband",
+      "slot": "Wrist",
+      "mutation": null,
+      "gradeStars": 1,
+      "conditionPct": 93,
+      "displayedValue": 667.82,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 7.5
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "notes": "",
+      "plannedLocation": "Display"
+    },
+    {
+      "source": "USER_20261121_SAFE_WRISTBAND",
+      "baseName": "Safe Wristband",
+      "slot": "Wrist",
+      "mutation": null,
+      "gradeStars": null,
+      "conditionPct": null,
+      "displayedValue": null,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 14,
+        "zone": 17,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [
+        "mutation",
+        "gradeStars",
+        "conditionPct",
+        "displayedValue"
+      ],
+      "notes": "New separate copy reported by owner on2026-11-21; authentication not specified. Do not merge with previous copies.",
+      "plannedLocation": "Storage chest"
+    },
+    {
+      "source": "USER_20261121_GOLD_GEM_BACKPACK",
+      "baseName": "Gem Backpack",
+      "slot": "Back",
+      "mutation": "Gold",
+      "gradeStars": null,
+      "conditionPct": null,
+      "displayedValue": null,
+      "displayedStats": {
+        "luck": -5,
+        "arrowReduction": 11,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 2.8,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [
+        "gradeStars",
+        "conditionPct",
+        "displayedValue"
+      ],
+      "notes": "New separate copy reported by owner on2026-11-21; authentication not specified. Do not merge with previous copies.",
+      "plannedLocation": "Display"
+    }
+  ],
+  "inventoryDate": "2026-11-21",
+  "authoritativeCompleteAccessoryInventory": true,
+  "rulesFile": "../rules/gear-and-collection.md",
+  "recommendationsAreCompletedActions": false
+}

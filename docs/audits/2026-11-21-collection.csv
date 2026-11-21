@@ -1,0 +1,81 @@
+Action,Item,Slot,Mutation stack,Stars,Value,luck,arrowReduction,zone,energy,recovery,tip,npc,walk,Authentication,Auth value,Photo,Retained replacement,Uncertain fields,Notes
+Wear,Spec Ops Dominus,Head,None,3,965120,0,80,0,0,34,0,0,0,,,IMG_8366.jpg,,conditionPct,"Condition ends 2%; first digit obscured by cursor ring (appears 82%, unconfirmed). Value confirmed on same card in IMG_8365."
+Wear,Tactical Vest,Back,Chrome,2,203355.36,110,0,0,0,0,8.2,0,0,Golden Hour,1.2,IMG_8403.jpg,,,"Blue line: +1.2%/min Golden Hour. Tooltip left edge clipped, but numeric values visible. Luck text +110% Luck (+54% from Chrome). Exact same card value visible in IMG_8404."
+Wear,Jellyfish Wristband,Wrist,Diamond,2,23120.64,54,32,0,24,0,0,0,-1,Energy Drink Time,24,IMG_8408.jpg,,conditionPct,Blue authentication line contributes +24% Energy Drink Time. Condition begins 7; units digit partly obscured by ring. Equipped/hidden checkmark visible.
+Display,Reactor Fedora,Head,None,2,53136,75,45,0,0,0,0,0,0,Mutated Luck,,IMG_8343.jpg,,,Two white stars and no mutation label confirmed by the same card in IMG_8344. HIDDEN shown under equipped checkmark.
+Display,Autumn Dominus,Head,Exclusive,3,555540,0,82,0,0,0,20,0,0,,,IMG_8344.jpg,,,Three gold stars and Exclusive label confirmed by same card in IMG_8343/8345.
+Display,Cow Dominus,Head,Gold,2,382320,0,0,50,0,0,0,10,0,,,IMG_8345.jpg,,,Gold label and two white stars confirmed on same card in IMG_8343/8344.
+Display,Autumn Valk,Head,Exclusive,2,255960,0,0,0,0,0,0,12,0,,,IMG_8346.jpg,,,
+Display,Desert Bandit Mask,Head,Exclusive Mint,1,2940,0,0,0,15,-4,0,4.5,0,,,IMG_8347.jpg,,,Full mutation labels and value confirmed on same card in IMG_8348.
+Display,Electrical Fedora,Head,None,2,109350,73,0,0,0,0,11,0,0,,,IMG_8348.jpg,,,Price confirmed unobscured in IMG_8347/8350.
+Display,Green Ghillie Mask,Head,Void,2,94764.6,88,-3,0,0,0,0,0,0,,,IMG_8349.jpg,,,"Tooltip explicitly says +68% from Void, included in displayed +88% Luck."
+Display,Fireman Hat,Head,Gem,2,34131.24,0,0,31,0,0,0,0,0,,,IMG_8350.jpg,,,Condition reads 71%; left digit partly crossed by cursor ring.
+Display,Motorbike Helmet,Head,Corrupted,1,1517.29,0,0,0,0,-4,1,0,0,,,IMG_8352.jpg,,,Full value confirmed on same card in IMG_8351.
+Display,Pickle Hat,Head,Exclusive,1,3049.2,30,-3,0,0,7.5,0,0,0,,,IMG_8354.jpg,,,
+Display,Pickle Necklace,Head,Exclusive,2,5088.96,0,0,0,0,9.2,0,0,0,,,IMG_8355.jpg,,,
+Display,Pilot Helm,Head,Wet Mint,3,2156,0,13,0,0,0,0,0,0,,,IMG_8356.jpg,,conditionPct,"Condition mostly obscured by cursor ring, appears 100% but not fully readable. Three gold stars and Wet Mint labels confirmed on same card in IMG_8355."
+Display,Race Car Dominus,Head,None,2,195210,0,45,0,38,0,0,0,0,,,IMG_8357.jpg,,,
+Display,Pumpkin Boss Hat,Head,Limited,3,88000,0,0,0,0,0,0,14,-1,,,IMG_8358.jpg,,conditionPct,"Condition begins 5 and appears 50%, but second digit partly obscured by cursor ring. Value confirmed on same card in IMG_8357."
+Display,Race Valk,Head,Cobwebbed,3,118656,0,76,0,64,0,0,7.7,0,NPC Offers Bonus,7.7,IMG_8359.jpg,,conditionPct,Blue +7.7% NPC Offers Bonus authentication line included in displayedStats. Condition ends 6%; first digit obscured (possibly 86%). Value and complete mutation label confirmed on same card in IMG_8360.
+Display,Reactor Dominus,Head,None,1,155232,0,0,0,0,16,0,0,31,,,IMG_8360.jpg,,,
+Display,Rider Helmet,Head,Dirty,2,859.45,0,0,0,0,0,4.3,0,0,,,IMG_8361.jpg,,,Two white stars confirmed on same card in IMG_8360/8362.
+Display,Red Beret,Head,None,2,2589.03,19,0,0,0,0,0,0,0,,,IMG_8362.jpg,,,Two white stars confirmed on same card in IMG_8360/8361.
+Display,Royal Dominus,Head,None,3,493960,120,0,90,0,0,0,0,0,Overcharged,6,IMG_8363.jpg,,,Three gold stars confirmed on same card in IMG_8364. Overcharged has conditional effect; not added to unconditional displayedStats.luck.
+Display,Snorkeling Goggles,Head,None,2,1482.3,0,18,0,0,0,-2,0,15,,,IMG_8364.jpg,,,Two white stars confirmed on same card in IMG_8363.
+Display,Spec Ops Dominus,Head,None,2,687960,0,54,68,0,0,0,0,0,,,IMG_8365.jpg,,,Price confirmed unobscured on same card in IMG_8364/8366.
+Display,Spec Ops Fedora,Head,None,3,140304,88,0,0,0,0,0,0,0,,,IMG_8370.jpg,,,Price recovered from exact same left-hand Spec Ops Fedora card unhovered in adjacent IMG_8369.
+Display,Steampunk Fedora,Head,None,2,110246.4,0,0,0,0,18,0,0,0,,,IMG_8372.jpg,,,Two stars verified on same card unhovered in IMG_8371; ring overlaps hovered stars.
+Display,Steampunk Valk Helm,Head,Gummy,1,22008,0,0,0,0,0,5.4,0,0,,,IMG_8377.jpg,,conditionPct,Pointer ring obscures second condition digit; visible condition is 5?%.
+Display,Tactical Mask,Head,Silver,1,5197.92,36,0,0,0,6,0,0,0,,,IMG_8378.jpg,,,Luck tooltip includes +12% from Silver.
+Display,Wooden Domino Crown,Head,None,2,642.2,0,18,0,0,0,0,0,0,,,IMG_8380.jpg,,,Two stars verified on same card unhovered in IMG_8381.
+Display,Toxic Dominus,Head,Exclusive,3,559120,0,0,0,0,36,22,0,0,,,IMG_8381.jpg,,,Three stars verified on same card unhovered in IMG_8380.
+Display,Zombie Head Helm,Head,Sandy Limited,2,5292.54,0,19,0,16,0,0,0,-1,,,IMG_8382.jpg,,,Prefix and two stars verified on same card unhovered in IMG_8381.
+Display,Luxury Backpack,Back,None,2,232502.4,104,21,0,0,0,0,16,0,Bid Arrow Speed,-21,IMG_8383.jpg,,conditionPct,Blue authentication line: -21% Bid Arrow Speed. Condition first digit obscured; final visible digit is 7. Two stars verified on same card in IMG_8384.
+Display,Bullet Sash,Back,Secret,2,653400,0,32,0,-6,0,0,0,0,,,IMG_8385.jpg,,,Two stars and Secret prefix verified on same card unhovered in IMG_8384.
+Display,Bunny Balloon Backpack,Back,None,2,66690,53,0,0,0,0,0,0,27,,,IMG_8387.jpg,,,Price recovered from exact same left-hand Bunny Balloon Backpack card unhovered in adjacent IMG_8388.
+Display,Dark Heart Backpack,Back,Exclusive,1,244650,0,40,0,0,0,0,0,35,Droughtbreaker,18,IMG_8388.jpg,,conditionPct,"Blue line: +18 Luck/stack Droughtbreaker. First condition digit partly obscured; final digit 3 visible, possibly63%."
+Display,Green Ghillie Vest,Back,Secret,2,169128,0,14,0,0,0,3.4,0,0,,,IMG_8389.jpg,,,Two stars verified on same card unhovered in IMG_8388.
+Display,Elegant Business Backpack,Back,Void,1,48914.25,103,0,0,11,0,0,0,0,Focused,28,IMG_8390.jpg,,,Displayed luck +103% (was +80%) (+75% from Void). Retained displayed total without decomposing Focused.
+Display,Medic Backpack,Back,Firefly Spotless,1,126441,41,0,0,20,0,0,0,0,,,IMG_8393.jpg,,,
+Display,Halloween Boombox,Back,Limited,2,210924,91,0,0,0,0,0,0,46,,,IMG_8394.jpg,,,
+Display,Military Fanny Pack,Back,None,3,3613.4,0,28,0,-6,0,0,0,22,,,IMG_8396.jpg,,,Three stars confirmed on same card in IMG_8397/8398.
+Display,Pickle Backpack,Back,Exclusive,2,42778.8,0,0,47,-6,0,0,0,0,,,IMG_8397.jpg,,,
+Display,Shark Tail Backpack,Back,Exclusive,1,17512.13,0,0,0,0,0,0,0,11,,,IMG_8400.jpg,,,Selected card value blocked by ring; exact same card value visible in IMG_8399/8402.
+Display,Steampunk Jacket,Back,Hologram,1,232407,83,0,0,0,0,0,4.7,-1,,,IMG_8401.jpg,,conditionPct,Luck text: +83% Luck (+52% from Hologram). Condition begins 8; second digit obscured by ring.
+Display,Steampunk Backpack,Back,None,2,119556,57,0,0,0,15,0,0,0,,,IMG_8402.jpg,,,Selected card value partly blocked by ring; exact same card value visible in IMG_8401.
+Display,Tactical Vest,Back,Emerald,2,717724.8,36,20,0,0,-4,0,0,0,,,IMG_8405.jpg,,conditionPct,Condition ends 4%; tens digit hidden by ring.
+Display — check stats,Witch Robe,Back,Limited,1,,,,,,,,,,,,IMG_8407.jpg,,"displayedStats, authentication, conditionPct, displayedValue","Selected card is Limited Witch Robe, but tooltip is stale Tactical Vest (+38 Luck,+19 Energy Drink Time,-1 Walkspeed) from IMG_8406. Do not attribute stale tooltip stats to robe. Selected card shows name rather than condition; value obscured by ring."
+Display,Autumn Fox Wristband,Wrist,Exclusive,2,99792,73,0,55,0,0,5.4,-1.5,0,Tip Chance,5.4,IMG_8409.jpg,,conditionPct,Blue authentication line contributes +5.4% Tip Chance. Condition ends 1%; tens digit hidden by ring.
+Display,Bat Wristband,Wrist,Exclusive,2,29462.4,0,30,0,0,0,0,0,0,,,IMG_8410.jpg,,,Two stars confirmed on same card in IMG_8411.
+Display,Flower Wristband,Wrist,None,2,824.93,-5,16,0,0,0,0,4.1,0,,,IMG_8412.jpg,,,Selected card value partly obscured by ring; exact same card value visible in IMG_8413.
+Display,Kevlar Shield,Wrist,None,2,17237.34,0,0,0,20,-4,0,0,20,,,IMG_8413.jpg,,conditionPct,Condition units digit appears 3 but tens digit hidden by ring. Exact same card value visible in IMG_8412.
+Display,Military Stopwatch Wristband,Wrist,Secret + Silver + Mint,1,1354500,-5,0,29,0,0,0,5.8,0,,,IMG_8414.jpg,,,Card prefixes exactly [Secret] [Silver] [Mint].
+Display,Luxury Watch,Wrist,Corrupted,1,185220,0,0,0,23,0,0,0,0,,,IMG_8415.jpg,,conditionPct,Condition begins 6; units digit hidden by ring. Exact same card value visible in IMG_8414.
+Display,Safe Wristband,Wrist,None,3,850.18,0,0,0,0,7.6,0,4.6,0,,,IMG_8418.jpg,,conditionPct,Condition ends 2%; tens digit hidden by ring. Exact same card value visible in IMG_8417/8419.
+Display,Pickle Wristband,Wrist,Exclusive,2,4351.32,0,0,0,0,0,0,5.7,0,,,IMG_8419.jpg,,conditionPct,Condition ends 7%; tens digit hidden by ring.
+Display,Satellite Dish Wristband,Wrist,None,1,667.82,0,0,0,0,0,0,0,7.5,,,IMG_8421.jpg,,,
+Display,Steampunk Goggle,Head,Diamond Silver,3,451200,136,0,64,0,0,-2,0,0,Mutated Luck,,IMG_8375.jpg,,,Luck tooltip includes +50% from Diamond. Prefix labels verified on same card in IMG_8373.
+Display,Gem Backpack,Back,Gold,,,-5,11,0,0,0,2.8,0,0,,,USER_20261121_GOLD_GEM_BACKPACK,,"gradeStars, conditionPct, displayedValue",New separate copy reported by owner on2026-11-21; authentication not specified. Do not merge with previous copies.
+Storage chest,Green Ghillie Mask,Head,Hologram,1,32312.7,69,0,0,0,0,0,0,0,,,IMG_8351.jpg,,conditionPct,"Condition ends in 3%; first digit obscured by cursor ring (appears 73%, unconfirmed). Value confirmed on same card in IMG_8352. Tooltip explicitly says +52% from Hologram, included in displayed +69% Luck."
+Storage chest,Pickle Necklace,Head,Exclusive,1,3910.2,0,0,23,-6,0,4.7,0,0,,,IMG_8353.jpg,,,
+Storage chest,Spec Ops Dominus,Head,None,1,504504,0,0,62,41,0,0,0,0,,,IMG_8367.jpg,,,Value confirmed on same card in IMG_8368.
+Storage chest,Spec Ops Dominus,Head,None,2,592488,98,0,0,0,0,0,15,0,,,IMG_8368.jpg,,conditionPct,Condition ends 1%; first digit obscured by cursor ring. No mutation label on same card in IMG_8367.
+Storage chest,Spec Ops Fedora,Head,None,2,99100.8,0,0,0,42,0,0,0,0,,,IMG_8371.jpg,,,
+Storage chest,Bullet Sash,Back,None,2,11610,0,0,-5,31,16,0,0,0,,,IMG_8384.jpg,,,Two stars verified on same card unhovered in IMG_8383.
+Storage chest,Green Ghillie Vest,Back,Dune Sandy,1,76734,0,0,0,0,7.9,0,0,0,,,IMG_8391.jpg,,,Dune Sandy prefix verified on same card unhovered in IMG_8392.
+Storage chest,Medic Backpack,Back,None,2,12072.24,0,-3,0,0,11,0,6.6,0,,,IMG_8395.jpg,,,
+Storage chest,Military Fanny Pack,Back,None,2,2811.51,21,12,0,0,0,0,0,0,,,IMG_8398.jpg,,,
+Storage chest,Shark Tail Backpack,Back,Exclusive,2,8571.12,0,0,0,9.2,0,0,-1.5,0,,,IMG_8399.jpg,,,Selected card value partly blocked by ring; exact same card value visible in IMG_8400.
+Storage chest,Tactical Vest,Back,None,3,24537.6,0,44,0,0,0,0,11,0,,,IMG_8404.jpg,,conditionPct,Condition ends 6%; tens digit hidden by ring. Exact same card value visible in IMG_8403.
+Storage chest,Autumn Fox Wristband,Wrist,Exclusive,1,77280,50,0,0,-6,0,0,0,0,,,IMG_8411.jpg,,,
+Storage chest,Military Stopwatch Wristband,Wrist,Corrupted,2,91533.24,-5,0,0,24,0,0,0,0,,,IMG_8417.jpg,,,
+Storage chest — check stats,Safe Wristband,Wrist,None,3,700.44,,,,,,,,,,,IMG_8420.jpg,,"displayedStats, authentication, conditionPct","Selected card is Safe Wristband ($700.44, three stars), but tooltip is stale Pickle Wristband +5.7% NPC Offers Bonus from IMG_8419. Do not attribute that stat to Safe Wristband. Card shows name rather than condition."
+Storage chest,Steampunk Goggle,Head,Chrome,2,227448,100,27,0,0,0,0,0,0,,,IMG_8373.jpg,,,Luck tooltip includes +54% from Chrome. Two stars verified on same card unhovered in IMG_8372.
+Storage chest,Safe Wristband,Wrist,Unspecified,,,0,14,17,0,0,0,0,0,,,USER_20261121_SAFE_WRISTBAND,,"mutation, gradeStars, conditionPct, displayedValue",New separate copy reported by owner on2026-11-21; authentication not specified. Do not merge with previous copies.
+Disband,Tactical Mask,Head,None,1,2948.82,0,0,0,0,0,3.2,-1.5,0,,,IMG_8376.jpg,Steampunk Valk Helm (IMG_8377.jpg),,
+Disband,Green Ghillie Vest,Back,None,2,3601.8,19,0,0,0,4.6,0,0,-1,,,IMG_8392.jpg,Steampunk Backpack (IMG_8402.jpg),,
+Disband,Tactical Mask,Head,None,2,3919.86,0,19,0,0,-4,0,0,0,,,IMG_8379.jpg,Race Car Dominus (IMG_8357.jpg),conditionPct,Pointer ring obscures first condition digit; final visible digit is 4.
+Disband,Bullet Sash,Back,None,1,8862,0,0,-5,0,7.7,0,0,0,,,IMG_8386.jpg,Green Ghillie Vest (IMG_8391.jpg),,
+Disband,Military Stopwatch Wristband,Wrist,None,1,11215.26,-5,0,24,0,0,0,0,16,,,IMG_8416.jpg,Military Stopwatch Wristband (IMG_8414.jpg),conditionPct,Condition ends 7%; tens digit hidden by ring. Exact same card value visible in IMG_8417.
+Disband,Tactical Vest,Back,None,2,15872.76,38,0,0,19,0,0,0,-1,,,IMG_8406.jpg,Medic Backpack (IMG_8393.jpg),conditionPct,Condition begins 5; units digit hidden by ring. Exact same card value visible in IMG_8405.
+Disband,Spec Ops Fedora,Head,None,3,125504,0,62,0,0,26,0,0,-1,,,IMG_8369.jpg,Spec Ops Dominus (IMG_8366.jpg),,Price recovered from exact same right-hand Spec Ops Fedora card unhovered in adjacent IMG_8370.

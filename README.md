@@ -4,6 +4,19 @@ Mobile-first offline PWA for Storage Hunters: Open World.
 
 [Open the app](https://joepepper1990.github.io/storage-hunters-gear-optimizer/)
 
+## Current authoritative inventory and rules — 21 November 2026
+
+The owner confirms **80 accessories total** (39Head,26Back,15Wrist), from78 photos plus2 reported additions. The reviewed plan is3 worn,54 display,16 storage and7 recommended disbands. All80 remain owned; the plan does not record completed removals.
+
+- [Full agreed rules](docs/rules/gear-and-collection.md)
+- [Complete80-item evidence JSON](docs/audits/2026-11-21-inventory.json)
+- [Collection/storage/disband assessment](docs/audits/2026-11-21-collection.md)
+- [80-item spreadsheet](docs/audits/2026-11-21-collection.csv)
+
+The current rule is **95% minimum Arrow reduction → maximum Luck → Bid Zone**, with no overshoot penalty. Wear the best setup first; display a separate remaining copy based on combined mutation value; retain useful future copies; disband only proven surplus, lowest displayed value first. The rules above supersede older version descriptions below.
+
+These files commit the assessed data and rules. The running app's seed/migration and collection UI are not changed by this documentation/data commit. Witch Robe and one photographed Safe Wristband retain unconfirmed stats; those are not invented or silently replaced with zeroes.
+
 ## Version 3.1
 
 - Home: saved Arrow reduction target slider (100% default), best Head/Back/Wrist and faster/slower alternatives.
