@@ -5,8 +5,8 @@ import { normalizeData } from '../data/storage';
 import type { GearItem } from '../types';
 const item=(id:string,slot:GearItem['slot'],stats:Partial<GearItem['stats']>):GearItem=>({id,baseName:id,name:id,slot,stats:{...ZERO_STATS,...stats},authenticated:false,authentication:{kind:'None',effect:'',value:0},favourite:false,createdAt:'',updatedAt:''});
 describe('November auction requirements',()=>{
- it('loads all 80 current accessories and five gavels with latest grades',()=>{
- const d=makeInitialData();expect(d.gear).toHaveLength(80);expect(d.trophies).toHaveLength(5);
+ it('loads all 85 current accessories and five gavels with latest grades',()=>{
+ const d=makeInitialData();expect(d.gear).toHaveLength(85);expect(d.trophies).toHaveLength(5);
  expect(d.gear.find(g=>g.baseName==='Fireman Hat')?.stats.zone).toBe(31);
  expect(d.gear.find(g=>g.baseName==='Tactical Vest'&&g.stats.arrowReduction>0)?.stats.arrowReduction).toBe(44);
  });

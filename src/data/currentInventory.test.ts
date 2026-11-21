@@ -6,11 +6,11 @@ import {effectiveItemStats} from '../engine/scoring';
 import evidence from '../../docs/audits/2026-11-21-inventory.json';
 import {makeCurrentGear as makeNovember18Gear} from './currentInventory';
 
-describe('complete 80-copy inventory',()=>{
- it('seeds 39 Head, 26 Back and 15 Wrist with authentication separate from base stats',()=>{
+describe('80-copy snapshot plus five reviewed additions',()=>{
+ it('seeds 40 Head, 29 Back and 16 Wrist with authentication separate from base stats',()=>{
   const d=makeInitialData();
-  expect(d.gear).toHaveLength(80);
-  expect(['Head','Back','Wrist'].map(s=>d.gear.filter(g=>g.slot===s).length)).toEqual([39,26,15]);
+  expect(d.gear).toHaveLength(85);
+  expect(['Head','Back','Wrist'].map(s=>d.gear.filter(g=>g.slot===s).length)).toEqual([40,29,16]);
   const voidBack=d.gear.find(g=>g.baseName==='Elegant Business Backpack'&&g.mutation==='Void')!;
   expect(voidBack.stats.luck).toBe(80);
   expect(effectiveItemStats(voidBack).luck).toBe(103);
@@ -20,8 +20,8 @@ describe('complete 80-copy inventory',()=>{
  });
  it('keeps every evidence copy, including all seven disband recommendations',()=>{
   const gear=makeInitialData().gear;
-  expect(new Set(gear.map(g=>g.id)).size).toBe(80);
-  expect(gear.map(g=>g.sourceImage)).toEqual(evidence.items.map(row=>row.source));
+  expect(new Set(gear.map(g=>g.id)).size).toBe(85);
+  expect(gear.slice(0,80).map(g=>g.sourceImage)).toEqual(evidence.items.map(row=>row.source));
   expect(gear.filter(g=>g.sourceImage?.startsWith('IMG_'))).toHaveLength(78);
   expect(gear.filter(g=>g.sourceImage?.startsWith('USER_'))).toHaveLength(2);
   expect(gear.filter(g=>g.baseName==='Safe Wristband')).toHaveLength(3);
@@ -68,7 +68,7 @@ describe('complete 80-copy inventory',()=>{
   old.settings.arrowTargetMin=123;old.settings.arrowTargetMax=123;
   old.rollLog=[{id:'roll',date:'2026-11-20',certificateType:'Normal Certificate of Authenticity',itemId:fedora.id,itemName:fedora.name,slot:'Head',previousAuthentication:'',previousValue:0,newAuthentication:'Luck',newValue:5,improvedBestSet:false,bestScoreBefore:0,bestScoreAfter:0}];
   const next=normalizeData(old as never);
-  expect(next.schemaVersion).toBe(22);expect(next.gear).toHaveLength(80);
+  expect(next.schemaVersion).toBe(23);expect(next.gear).toHaveLength(85);
   expect(next.gear.find(g=>g.id==='owner-fedora')).toMatchObject({favourite:true,createdAt:'2020-01-01'});
   expect(next.ownedCertificates).toEqual(old.ownedCertificates);expect(next.trophies).toEqual(old.trophies);
   expect(next.looseCharms).toEqual(old.looseCharms);expect(next.settings).toEqual(old.settings);expect(next.rollLog).toEqual(old.rollLog);
@@ -84,7 +84,7 @@ describe('complete 80-copy inventory',()=>{
   expect(restored.gear).toEqual(initial.gear);
   const own={...initial,schemaVersion:21,gear:initial.gear.filter(g=>g.needsReview)};
   const imported=importJson(JSON.stringify(own));
-  expect(imported.schemaVersion).toBe(22);expect(imported.gear).toHaveLength(2);
+  expect(imported.schemaVersion).toBe(23);expect(imported.gear).toHaveLength(2);
   expect(normalizeData(JSON.parse(exportJson(imported))).gear).toEqual(own.gear);
   expect(normalizeData(importJson(JSON.stringify({...own,gear:[]}))).gear).toEqual([]);
  });
@@ -108,7 +108,7 @@ describe('complete 80-copy inventory',()=>{
   const fedora=old.find(g=>g.baseName==='Reactor Fedora')!;
   fedora.id='my-fedora';fedora.favourite=true;fedora.createdAt='2020-01-01';
   const next=normalizeData({...d,schemaVersion:19,gear:old} as never);
-  expect(next.gear).toHaveLength(80);
+  expect(next.gear).toHaveLength(85);
   expect(next.gear.find(g=>g.id==='my-fedora')).toMatchObject({favourite:true,createdAt:'2020-01-01'});
   expect(next.ownedCertificates).toEqual(d.ownedCertificates);expect(next.trophies).toEqual(d.trophies);
   expect(next.rollLog).toEqual(d.rollLog);expect(next.settings).toEqual(d.settings);

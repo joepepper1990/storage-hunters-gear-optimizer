@@ -1,4 +1,5 @@
 import evidence from '../../docs/audits/2026-11-21-inventory.json';
+import ownerReview from '../../docs/audits/2026-11-21-seven-accessories.json';
 import type { Authentication, GearItem, GearStats } from '../types';
 import { canonicalEffect } from '../authentication';
 import { generateGearName } from '../naming';
@@ -15,8 +16,19 @@ const PREMIUM_EFFECTS = new Set(['Mutated Luck','Golden Hour','Drought Breaker']
 
 /** All 78 photographed copies and both owner-reported additions remain owned.
  * Display/disband recommendations never remove records from this snapshot. */
-export function makeCurrentGear(): GearItem[] {
-  const rows = evidence.items.map(row => {
+export function makeReviewed80Gear(): GearItem[] {
+  return retainIdentities(convertEvidence(evidence.items), makeNovember18Gear());
+}
+
+interface EvidenceRow {
+  source: string; baseName: string; slot: string; mutation: string | null;
+  gradeStars: number | null; conditionPct: number | null; displayedValue: number | null;
+  displayedStats: Partial<Record<keyof GearStats, number | null>>;
+  authentication: {effect: string | null; value: number | null};
+  uncertainFields: string[]; notes: string;
+}
+function convertEvidence(sourceRows: EvidenceRow[]): GearItem[] {
+  return sourceRows.map(row => {
     const uncertainFields: string[] = row.uncertainFields;
     const stats = Object.fromEntries(STAT_KEYS.map(key => [key,
       (row.displayedStats as Partial<Record<keyof GearStats, number | null>>)[key] ?? 0
@@ -51,7 +63,36 @@ export function makeCurrentGear(): GearItem[] {
       favourite:false, createdAt:SNAPSHOT_DATE, updatedAt:SNAPSHOT_DATE
     };
   });
-  return retainIdentities(rows, makeNovember18Gear());
+}
+
+/** Current records include five newly identified copies, not seven new copies. */
+export function makeCurrentGear(): GearItem[] {
+  return reconcileSevenAccessories(makeReviewed80Gear());
+}
+
+/** Schema 23 adds only missing reviewed copies; never replaces the owner's store. */
+export function reconcileSevenAccessories(existing: GearItem[]): GearItem[] {
+  const result = existing.map(item => {
+    const update = ownerReview.existingUpdates.find(row => row.source === item.sourceImage);
+    if (!update) return item;
+    return { ...item, rarity: update.rarity, gradeStarColour: update.gradeStarColour,
+      foundBy: update.foundBy, foundDate: update.foundDate,
+      conditionPct: item.conditionPct ?? update.conditionPct,
+      metadataUncertain: item.metadataUncertain?.filter(field => field !== 'conditionPct') };
+  });
+  const additions = convertEvidence(ownerReview.newItems);
+  for (let index = 0; index < additions.length; index++) {
+    const next = additions[index], detail = ownerReview.newItems[index];
+    const metadata = { rarity: detail.rarity, gradeStarColour: detail.gradeStarColour ?? undefined,
+      foundBy: detail.foundBy, foundDate: detail.foundDate };
+    const match = result.findIndex(item => item.sourceImage === next.sourceImage || item.id === next.id
+      || (sameType(item,next) && sameStats(item,next) && mutationKey(item) === mutationKey(next)
+        && item.displayedValue === next.displayedValue && item.conditionPct === next.conditionPct
+        && item.authentication.kind === next.authentication.kind && item.authentication.effect === next.authentication.effect));
+    if (match >= 0) result[match] = { ...result[match], ...metadata, sourceImage: next.sourceImage };
+    else result.push({ ...next, ...metadata });
+  }
+  return result;
 }
 
 function sameType(a: GearItem, b: GearItem): boolean {

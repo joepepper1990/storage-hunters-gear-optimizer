@@ -92,6 +92,10 @@ export interface GearItem {
   needsReview?: boolean;
   metadataUncertain?: string[];
   reviewNotes?: string;
+  rarity?: string;
+  gradeStarColour?: string;
+  foundBy?: string;
+  foundDate?: string;
   id: string;
   baseName: string;
   name: string;
@@ -275,7 +279,7 @@ export interface OwnedCertificate {
 }
 
 export interface AppData {
-  schemaVersion: 22;
+  schemaVersion: 23;
   gear: GearItem[];
   settings: AlgorithmSettings;
   authModel: AuthModelEntry[];

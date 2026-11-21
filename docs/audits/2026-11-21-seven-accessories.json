@@ -1,0 +1,195 @@
+{
+  "reviewedAt": "2026-11-21",
+  "baselineCommit": "0d0a74dbbbcfa4ae72a2aa4f884ce8329927dbe5",
+  "baselineItemCount": 80,
+  "newItemCount": 5,
+  "recordedItemCount": 85,
+  "newItems": [
+    {
+      "source": "OWNER_REVIEW_20261121_TACTICAL_VEST_TIP",
+      "baseName": "Tactical Vest",
+      "slot": "Back",
+      "mutation": "None",
+      "gradeStars": 2,
+      "gradeStarColour": "white",
+      "displayedValue": 16486.2,
+      "conditionPct": 65,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 7.4,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "rarity": "Epic",
+      "foundBy": "Markersaur",
+      "foundDate": "2026-11-15",
+      "notes": "Owner supplied full item details on 21 November 2026. Keep as a clean Tip/Focused alternative; Chrome Vest already gives 8.2 Tip plus Luck and Golden Hour, so do not equip this for routine auctions. No complete future-use disposal proof.",
+      "plannedLocation": "Storage chest",
+      "recommendation": "Keep as a clean Tip/Focused alternative; Chrome Vest already gives 8.2 Tip plus Luck and Golden Hour, so do not equip this for routine auctions. No complete future-use disposal proof."
+    },
+    {
+      "source": "OWNER_REVIEW_20261121_CANDY_CORN_ANTLERS",
+      "baseName": "Candy Corn Antlers",
+      "slot": "Head",
+      "mutation": "Limited",
+      "gradeStars": null,
+      "gradeStarColour": null,
+      "displayedValue": 2699.2,
+      "conditionPct": 91,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 2.2,
+        "npc": -1.5,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [
+        "gradeStars"
+      ],
+      "rarity": "Rare",
+      "foundBy": "Markersaur",
+      "foundDate": "2026-11-01",
+      "notes": "Owner supplied full item details on 21 November 2026. Keep for the Limited collection and display this newly recorded gear type. No routine auction upgrade. Stars were not displayed; do not infer a grade. Different from the historical 76%-condition Energy12/NPC3.6 copy.",
+      "plannedLocation": "Display",
+      "recommendation": "Keep for the Limited collection and display this newly recorded gear type. No routine auction upgrade. Stars were not displayed; do not infer a grade. Different from the historical 76%-condition Energy12/NPC3.6 copy."
+    },
+    {
+      "source": "OWNER_REVIEW_20261121_GOLD_SAILOR_BAG",
+      "baseName": "Sailor Bag",
+      "slot": "Back",
+      "mutation": "Gold",
+      "gradeStars": 1,
+      "gradeStarColour": "gold",
+      "displayedValue": 13250.16,
+      "conditionPct": 89,
+      "displayedStats": {
+        "luck": 0,
+        "arrowReduction": 0,
+        "zone": 8.6,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "rarity": "Epic",
+      "foundBy": "Markersaur",
+      "foundDate": "2026-11-21",
+      "notes": "Owner supplied full item details on 21 November 2026. Keep and display the only recorded Sailor Bag. Gold collection/Mutated Luck value and clean Zone alternative; lower Zone than Pickle Backpack47, but no Energy penalty. Do not replace the worn Golden Hour Vest.",
+      "plannedLocation": "Display",
+      "recommendation": "Keep and display the only recorded Sailor Bag. Gold collection/Mutated Luck value and clean Zone alternative; lower Zone than Pickle Backpack47, but no Energy penalty. Do not replace the worn Golden Hour Vest."
+    },
+    {
+      "source": "OWNER_REVIEW_20261121_STACKED_TACTICAL_VEST",
+      "baseName": "Tactical Vest",
+      "slot": "Back",
+      "mutation": "Gold + Sapphire + Fortified",
+      "gradeStars": 2,
+      "gradeStarColour": "light blue",
+      "displayedValue": 16930944,
+      "conditionPct": 80,
+      "displayedStats": {
+        "luck": -5,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 23,
+        "recovery": 12,
+        "tip": 0,
+        "npc": 0,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "rarity": "Epic",
+      "foundBy": "Markersaur",
+      "foundDate": "2026-11-21",
+      "notes": "Owner supplied full item details on 21 November 2026. Keep protected in the chest as a valuable collection/display contender and Recovery/Energy alternative. Preserve the Emerald display copy too: Sapphire/Fortified stack mechanics are not sufficiently verified for a final combined-value comparison. Price alone is not mutation proof; do not equip or sell for routine auctions.",
+      "plannedLocation": "Storage chest",
+      "recommendation": "Keep protected in the chest as a valuable collection/display contender and Recovery/Energy alternative. Preserve the Emerald display copy too: Sapphire/Fortified stack mechanics are not sufficiently verified for a final combined-value comparison. Price alone is not mutation proof; do not equip or sell for routine auctions."
+    },
+    {
+      "source": "OWNER_REVIEW_20261121_LUCK_STOPWATCH",
+      "baseName": "Military Stopwatch Wristband",
+      "slot": "Wrist",
+      "mutation": "None",
+      "gradeStars": 3,
+      "gradeStarColour": "gold",
+      "displayedValue": 21465.6,
+      "conditionPct": 58,
+      "displayedStats": {
+        "luck": 58,
+        "arrowReduction": 0,
+        "zone": 0,
+        "energy": 0,
+        "recovery": 0,
+        "tip": 0,
+        "npc": 8.6,
+        "walk": 0
+      },
+      "authentication": {
+        "effect": null,
+        "value": null,
+        "description": null
+      },
+      "uncertainFields": [],
+      "rarity": "Epic",
+      "foundBy": "Markersaur",
+      "foundDate": "2026-11-21",
+      "notes": "Owner supplied full item details on 21 November 2026. Keep as a Luck/NPC alternative: highest recorded wrist NPC bonus, no negative stats. Autumn Fox73Luck/55Zone is better for Luck/Zone; the worn Jellyfish supplies32Arrow/54Luck. Do not replace the current best set. Retain the Secret/Silver/Mint copy for display.",
+      "plannedLocation": "Storage chest",
+      "recommendation": "Keep as a Luck/NPC alternative: highest recorded wrist NPC bonus, no negative stats. Autumn Fox73Luck/55Zone is better for Luck/Zone; the worn Jellyfish supplies32Arrow/54Luck. Do not replace the current best set. Retain the Secret/Silver/Mint copy for display."
+    }
+  ],
+  "existingUpdates": [
+    {
+      "source": "IMG_8416.jpg",
+      "baseName": "Military Stopwatch Wristband",
+      "conditionPct": 57,
+      "rarity": "Epic",
+      "gradeStarColour": "gold",
+      "foundBy": "Markersaur",
+      "foundDate": "2026-11-19",
+      "previousRecommendation": "Disband",
+      "recommendation": "Disband remains the auction-policy recommendation, lowest-value order unchanged. Secret/Silver/Mint Stopwatch retains29Zone/5.8NPC and the same-5Luck versus24Zone here. This copy has16Walk; movement is excluded by owner policy. Still owned: recommendation is not a recorded sale or disband."
+    },
+    {
+      "source": "IMG_8401.jpg",
+      "baseName": "Steampunk Jacket",
+      "conditionPct": 88,
+      "rarity": "Epic",
+      "gradeStarColour": "gold",
+      "foundBy": "Markersaur",
+      "foundDate": "2026-11-06",
+      "previousRecommendation": "Display",
+      "recommendation": "Keep and display; retain as an83Luck/4.7NPC alternative. Chrome Tactical Vest110Luck/8.2Tip plus Golden Hour100 remains better for routine auctions. Hologram contributes52 of the displayed83Luck; do not add52 again."
+    }
+  ]
+}

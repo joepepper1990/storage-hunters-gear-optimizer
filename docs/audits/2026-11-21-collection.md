@@ -1,4 +1,6 @@
-# Collection and disband assessment — 80 items (78 photos + 2 owner-reported additions)
+# Collection and disband assessment — 85 recorded items
+
+The original 80-copy assessment is preserved in commit `5fa2c99`. The [seven-accessory review](2026-11-21-seven-accessories.md) verifies two matches and adds five distinct copies. None of these recommendations records an actual in-game sale or disband.
 
 ## Rules
 
@@ -14,12 +16,12 @@
 | Destination | Copies |
 |---|---:|
 | Wear | 3 |
-| Display | 54 (one needs stats checked) |
-| Storage chest | 16 (one needs stats checked) |
+| Display | 56 (one needs stats checked) |
+| Storage chest | 19 (one needs stats checked) |
 | Safely disband | 7 |
-| Total | 80 |
+| Total | 85 |
 
-55 gear types. Jellyfish Wristband is worn and has no spare display copy.
+57 gear types. Jellyfish Wristband is worn and has no spare display copy.
 
 ## Best confirmed setup
 
@@ -31,7 +33,7 @@
 
 - Arrow reduction:112%. Gear Luck:264%, including maximum Golden Hour +100%. Bid Zone:0%.
 - The previously recorded four-gavel arrangement adds52% charm Luck, giving316% total under those assumptions. These photos do not re-verify the gavel arrangement.
-- This is the best set among the78 items with confirmed stats. Witch Robe and the$700.44 Safe Wristband need corrected tooltip photos before claiming a complete-inventory optimum.
+- This is the best set among the 83 recorded copies with confirmed stats. Witch Robe and the$700.44 Safe Wristband need corrected tooltip photos before claiming a complete-inventory optimum.
 
 ## Disband — lowest value first
 
@@ -69,6 +71,10 @@ The unchanged app engines independently reproduce the112%/264% setup. Removing t
 | Military Stopwatch Wristband | Corrupted | $91,533.24 | luck -5 · energy 24 | IMG_8417.jpg |
 | Safe Wristband | Unspecified |  | arrowReduction 14 · zone 17 | USER_20261121_SAFE_WRISTBAND |
 | Safe Wristband | None | $700.44 | Unconfirmed | IMG_8420.jpg |
+
+| Tactical Vest | None | $16,486.20 | tip 7.4 | OWNER_REVIEW_20261121_TACTICAL_VEST_TIP |
+| Tactical Vest | Gold + Sapphire + Fortified | $16,930,944.00 | luck -5 · recovery 12 · energy 23 | OWNER_REVIEW_20261121_STACKED_TACTICAL_VEST |
+| Military Stopwatch Wristband | None | $21,465.60 | luck 58 · npc 8.6 | OWNER_REVIEW_20261121_LUCK_STOPWATCH |
 
 ## Display copies
 
@@ -129,6 +135,9 @@ The unchanged app engines independently reproduce the112%/264% setup. Removing t
 | Safe Wristband | None | $850.18 | IMG_8418.jpg |
 | Satellite Dish Wristband | None | $667.82 | IMG_8421.jpg |
 
+| Candy Corn Antlers | Limited | $2,699.20 | OWNER_REVIEW_20261121_CANDY_CORN_ANTLERS |
+| Sailor Bag | Gold | $13,250.16 | OWNER_REVIEW_20261121_GOLD_SAILOR_BAG |
+
 ## Evidence needing a check
 
 - IMG_8407: selected Witch Robe card, but tooltip still shows Tactical Vest. Its stats, authentication and price are not confirmed; retain it.
@@ -142,3 +151,11 @@ The unchanged app engines independently reproduce the112%/264% setup. Removing t
 - New Safe Wristband:14% Arrow reduction,+17% Bid Zone. Retain in storage as an alternative; mutation, grade, condition and value are not yet recorded. It is a separate copy from both photographed Safe Wristbands.
 - Gold Gem Backpack:11% Arrow reduction,+2.8% Tip Chance,-5% Luck. Retain as the display copy for this new gear type. Grade, condition and value are not yet recorded.
 - Confirmed best setup and seven-item disband list remain unchanged.
+
+## Seven-accessory follow-up
+
+- The $11,215.26 Stopwatch was already recommended for disbanding; its condition is now confirmed as 57%. It remains owned until actual removal is recorded. Walkspeed remains excluded by the owner’s auction policy.
+- The $232,407 Hologram Steampunk Jacket was already reserved for display; condition 88% is confirmed, and its displayed Luck83 already includes the Hologram contribution52.
+- Five distinct copies were absent from the latest inventory and all exact-copy history searches. All are retained: two new display types and three chest alternatives. Full exact statistics, metadata, previous-decision evidence and reasons are in the linked review and JSON.
+- Keep both the Emerald and Gold/Sapphire/Fortified Vests. Their complete combined mutation comparison remains provisional; an expensive displayed price alone must not eliminate another collector copy.
+- The best confirmed worn setup and the seven previous disband recommendations are unchanged.

@@ -1,16 +1,16 @@
 # Authoritative gear and collection rules
 
-Owner-confirmed on 21 November 2026. This document supersedes older policy descriptions in the repository, including the old Arrow band/closest-target rules. Version3.3.0 implements these rules and the reviewed inventory through schema22; destinations are recalculated after changes.
+Owner-confirmed on 21 November 2026. This document supersedes older policy descriptions in the repository, including the old Arrow band/closest-target rules. Version 3.3.1 implements these rules and the reviewed inventory through schema 23; destinations are recalculated after changes.
 
 ## Complete inventory and evidence
 
-- The complete accessory inventory is **80 distinct copies**: **39 Head, 26 Back, 15 Wrist**.
-- Source: 78 photographs in `SHG1.zip`–`SHG8.zip`, plus two explicitly reported new copies. Different copies with the same name must remain separate.
+- Current records contain **85 distinct copies**: **40 Head, 29 Back, 16 Wrist**. The initial 80-copy report omitted five copies subsequently identified in the seven-accessory follow-up.
+- Source: 78 photographs in `SHG1.zip`–`SHG8.zip`, two initial reported additions, and five copies in the [seven-accessory review](../audits/2026-11-21-seven-accessories.md). Different copies with the same name must remain separate.
 - The two additions are Safe Wristband (14% Arrow reduction, +17% Bid Zone) and Gold Gem Backpack (11% Arrow reduction, +2.8% Tip Chance, -5% Luck).
 - The new Safe Wristband is separate from both photographed Safe Wristbands. Its mutation, grade, condition and value are unspecified. The Gem Backpack's grade, condition and value are unspecified.
-- Canonical evidence: [80-item inventory JSON](../audits/2026-11-21-inventory.json). Reviewed destinations: [CSV](../audits/2026-11-21-collection.csv), [assessment](../audits/2026-11-21-collection.md).
-- Recommendations do not mean an item has been moved or disbanded. All 80 remain owned until the owner records an actual change.
-- Gavels and charms are separate from these 80 accessories; the photos do not establish a new complete gavel/charm inventory.
+- Canonical evidence: [80-copy photo-era JSON](../audits/2026-11-21-inventory.json) plus [five additions and two corrections](../audits/2026-11-21-seven-accessories.json). Reviewed destinations: [CSV](../audits/2026-11-21-collection.csv), [assessment](../audits/2026-11-21-collection.md).
+- Recommendations do not mean an item has been moved or disbanded. All 85 remain recorded as owned until the owner records an actual change.
+- Gavels and charms are separate from these 85 accessories; the photos do not establish a new complete gavel/charm inventory.
 
 ## Best worn setup: unchanged auction priorities
 
@@ -72,7 +72,7 @@ An item can be recommended only if all applicable requirements hold:
 7. Sampled loadouts support a proof but never replace it. Do not claim to guarantee unknown future game mechanics.
 8. Sort eligible copies by their **current displayed item value, lowest first**. This is not the amount of a guaranteed disband reward.
 9. Unknown prices remain unknown and prevent an unqualified complete price ordering. Do not assign zero to an unpriced item.
-10. Recommendations never automatically delete inventory records or perform in-game actions. Keep all80 until an actual owner-confirmed removal.
+10. Recommendations never automatically delete inventory records or perform in-game actions. Keep all 85 until an actual owner-confirmed removal.
 
 The reviewed order is Tactical Mask$2,948.82; Green Ghillie Vest$3,601.80; Tactical Mask$3,919.86; Bullet Sash$8,862; Military Stopwatch Wristband$11,215.26; Tactical Vest$15,872.76; Spec Ops Fedora$125,504. Exact copy identifiers and retained witnesses are in the assessment.
 
@@ -81,7 +81,7 @@ The reviewed order is Tactical Mask$2,948.82; Green Ghillie Vest$3,601.80; Tacti
 - IMG_8407 is Witch Robe but shows the previous Tactical Vest tooltip. Do not transfer those stats to Witch Robe.
 - IMG_8420 is Safe Wristband$700.44 but shows the previous Pickle Wristband tooltip. Do not transfer those stats.
 - Keep both items; exclude their unconfirmed stats from any claim of a complete-inventory optimum. Missing condition digits alone do not erase otherwise readable stats.
-- Current plan: **3 worn, 54 display, 16 storage, 7 recommended disbands =80**. One display copy and one storage copy still require stat verification. The new Safe Wristband's unspecified mutation/value can also affect its eventual display tie-break.
+- Current plan: **3 worn, 56 display, 19 storage, 7 recommended disbands =85**. One display copy and one storage copy still require stat verification. The new Safe Wristband's unspecified mutation/value can also affect its eventual display tie-break.
 - Confirmed setup: Spec Ops Dominus(-80% Arrow,+34% Recovery), Chrome Tactical Vest(+110 Luck,Golden Hour), Diamond Jellyfish Wristband(-32% Arrow,+54 Luck).
 - Confirmed totals under routine assumptions: **112% Arrow reduction,264% gear Luck,0% Bid Zone**. The previously recorded four-gavel arrangement adds52 charm Luck, giving316 total; it was not re-verified in the78 photos.
 
@@ -95,4 +95,12 @@ The reviewed order is Tactical Mask$2,948.82; Green Ghillie Vest$3,601.80; Tacti
 - Recommend four owned gavels with their actual attached charms. Keep proposed rearrangements separate until the owner records making them in game.
 - Clover adds percentage points on top of the gavel's mutation percentage:101+28=129.
 - Mosaic counts itself; only the best placed Mosaic counts, granting its percentage for each different placed charm type. Previously recorded13 ×4=52 general Luck.
-- Preserve existing gavel/charm records, certificate quantities, owner locks, history and subsequent corrections when implementing this inventory snapshot. Do not reset them merely because the accessory inventory is now80.
+- Preserve existing gavel/charm records, certificate quantities, owner locks, history and subsequent corrections when implementing this inventory review. Schema 23 appends only missing reviewed copies and does not reset an existing store.
+
+## Seven-accessory review clarification
+
+- Two exact matches were already assessed: the $11,215.26 Stopwatch (disband recommendation, still owned) and $232,407 Hologram Jacket (display). Conditions 57% and 88% are now confirmed.
+- Five distinct missing copies are added: Tip7.4 Tactical Vest, Limited Candy Corn Antlers, Gold Sailor Bag, Gold/Sapphire/Fortified Tactical Vest, and Luck58/NPC8.6 Stopwatch. All five are retained; two for display and three in the chest.
+- The historical Antlers had condition76, Energy12 and NPC3.6. It is not evidence that the newly reported condition91, Tip2.2/NPC-1.5 copy was previously recorded.
+- The high-value stacked Vest and Emerald Vest remain protected display contenders until their combined-value order is established. Research found conflicting stacking descriptions and no verified Fortified factor; do not silently change the existing display rule or fabricate a factor.
+- Star colour and rarity are recorded as supplied, without inventing additional stat or price multipliers. “No stars displayed” is unknown grade, not a confirmed grade zero.

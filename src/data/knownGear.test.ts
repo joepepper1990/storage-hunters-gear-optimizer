@@ -116,16 +116,16 @@ describe('verified 26-27 October 2026 accessory inventory',()=>{
     const matching={...one('Reactor Fedora'),id:'my-luxury',favourite:true};
     const old={...makeInitialData(),schemaVersion:8,gear:[matching,changed]} as any;
     const upgraded=normalizeData(old);
-    expect(upgraded.schemaVersion).toBe(22);
-    expect(upgraded.gear).toHaveLength(80);
+    expect(upgraded.schemaVersion).toBe(23);
+    expect(upgraded.gear).toHaveLength(85);
     // An item with the same base stats keeps its ID and favourite; one with other stats is not owned.
     expect(upgraded.gear.find(g=>g.id==='my-luxury')?.favourite).toBe(true);
     expect(upgraded.gear.some(g=>g.id==='manual-cow')).toBe(false);
 
-    // Once schema 22 has been saved, later user edits are respected.
+    // Once schema 23 has been saved, later user edits are respected.
     const edited={...upgraded,gear:upgraded.gear.slice(1)};
     const again=normalizeData(JSON.parse(exportJson(edited)));
-    expect(again.gear).toHaveLength(79);
+    expect(again.gear).toHaveLength(84);
   });
 
   it('round-trips condition, mutation and signed stats in JSON and CSV',()=>{
@@ -166,14 +166,14 @@ describe('29 October inventory update (schema 17)',()=>{
     const old=before();
     expect(old.gear).toHaveLength(29);
     const next=normalizeData(old);
-    expect(next.schemaVersion).toBe(22);
-    expect(next.gear).toHaveLength(80); // Latest complete inventory supersedes intermediate batches.
+    expect(next.schemaVersion).toBe(23);
+    expect(next.gear).toHaveLength(85); // Latest complete inventory supersedes intermediate batches.
     expect(next.gear.some(g=>g.id.startsWith('old-'))).toBe(false);
     expect(next.gear.some(g=>g.baseName==='Demon Pumpkin Head')).toBe(false);
     expect(next.gear.find(g=>g.baseName==='Royal Dominus')).toMatchObject({gradeStars:3,stats:expect.objectContaining({luck:120,zone:90})});
-    // Saved at 22: never applied again, so a re-added item stays.
+    // Saved at 23: never applied again, so a re-added item stays.
     const readded={...next,gear:[...next.gear,old.gear.find(g=>g.id==='old-0')!]};
-    expect(normalizeData(JSON.parse(exportJson(readded))).gear).toHaveLength(81);
+    expect(normalizeData(JSON.parse(exportJson(readded))).gear).toHaveLength(86);
   });
   it('removes only exact matches and never duplicates an item already added',()=>{
     const old=before();

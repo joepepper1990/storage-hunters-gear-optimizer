@@ -6,16 +6,18 @@ Mobile-first offline PWA for Storage Hunters: Open World.
 
 ## Current authoritative inventory and rules — 21 November 2026
 
-The owner confirms **80 accessories total** (39 Head, 26 Back, 15 Wrist), from 78 photos plus 2 reported additions. The reviewed plan is 3 worn, 54 display, 16 storage and 7 recommended disbands. All 80 remain owned; the plan does not record completed removals.
+The current records contain **85 accessories** (40 Head, 29 Back, 16 Wrist). The original 80-copy inventory came from 78 photos and two reports. A follow-up review identified two existing copies and five genuinely missing copies; none was recorded as sold or disbanded.
 
 - [Full agreed rules](docs/rules/gear-and-collection.md)
-- [Complete80-item evidence JSON](docs/audits/2026-11-21-inventory.json)
-- [Collection/storage/disband assessment](docs/audits/2026-11-21-collection.md)
-- [80-item spreadsheet](docs/audits/2026-11-21-collection.csv)
+- [Seven-accessory comparison and decisions](docs/audits/2026-11-21-seven-accessories.md)
+- [Five additions and two existing-copy corrections](docs/audits/2026-11-21-seven-accessories.json)
+- [Original 80-copy evidence, with confirmed metadata corrections](docs/audits/2026-11-21-inventory.json)
+- [Current collection assessment](docs/audits/2026-11-21-collection.md)
+- [85-item spreadsheet](docs/audits/2026-11-21-collection.csv)
 
-The current rule is **95% minimum Arrow reduction → maximum Luck → Bid Zone**, with no overshoot penalty. Wear the best setup first; display a separate remaining copy based on combined mutation value; retain useful future copies; disband only proven surplus, lowest displayed value first. The rules above supersede older version descriptions below.
+The current rule is **95% minimum Arrow reduction → maximum Luck → Bid Zone**, with no overshoot penalty. Wear the best setup first; display a separate remaining copy based on combined mutation value; retain useful future copies; disband only proven surplus, lowest displayed value first. Current destinations: **3 worn, 56 display, 19 chest, 7 discard recommendations**.
 
-Version 3.3.0 wires this inventory into the runtime with a once-only schema 22 migration and Display/Chest Storage/Discard equipment groups. Witch Robe and one photographed Safe Wristband retain unconfirmed stats; those are not invented or silently replaced with zeroes.
+Version 3.3.1 appends the five additions once through schema 23, preserving saved edits and matching manually entered copies. Witch Robe and one photographed Safe Wristband still have unconfirmed stats and remain protected. Earlier version descriptions below are historical.
 
 ## Version 3.1
 
@@ -84,3 +86,9 @@ Shared dialogs render above the app scroll layer. Form fields scroll independent
 - Equipment shows Best Set, Display, Chest Storage and Discard, followed by the existing gavel section. Display reserves a separate copy by combined mutation value. Discard requires a retained replacement proof and sorts by known item value.
 - Certificate cards show the probability of improving the re-optimised current Neutral best set, assuming equal chances for each mod type (1/N). Unknown strength distributions produce conservative bounds; contextual-only gains do not inflate this probability.
 - Unconfirmed stats are excluded from selection and certificate targets. Verification is required before those records can be used. Carnival results retain their correct certificate family.
+
+### 3.3.1: seven-accessory reconciliation
+
+- Adds five missing copies, confirms two existing copies without duplication, and preserves exact rarity, star colour, condition and discovery metadata.
+- Keeps the best setup and existing discard recommendations; retains the five additions for display or chest alternatives.
+- Schema 23 appends only missing reviewed copies. Existing edits, certificate history, favourites and explicit imports remain intact; subsequent removals are not reseeded.

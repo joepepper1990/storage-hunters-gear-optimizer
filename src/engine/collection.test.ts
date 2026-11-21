@@ -77,9 +77,9 @@ it('does not treat missing condition digits as unknown stats and preserves Focus
 });
 
 it('recalculates the reviewed 80-copy snapshot from current worn gear and retained proofs', async () => {
- const { makeCurrentGear } = await import('../data/currentCollection');
+ const { makeReviewed80Gear } = await import('../data/currentCollection');
  const { buildGearLoadouts } = await import('./gearLoadouts');
- const gear = makeCurrentGear();
+ const gear = makeReviewed80Gear();
  const best = buildGearLoadouts(gear, settings).main!;
  const worn = new Set([best.head.id, best.back.id, best.wrist.id]);
  const result = classify(gear, worn);
