@@ -1,4 +1,4 @@
-import { reconcileCurrentGear } from './currentCollection';
+import { reconcileCurrentGear, reconcileSevenAccessories } from './currentCollection';
 import { validateStatDeltas } from './statDeltas';
 import { DEFAULT_TROPHY_SETTINGS, makeInitialData, LOCKED_DEFAULT_SETTINGS } from '../defaults';
 import { canonicalEffect, currentPool } from '../authentication';
@@ -293,10 +293,12 @@ export function normalizeData(raw: AppData, options: { preserveInventory?: boole
   const storedGear = Array.isArray(raw?.gear) ? raw.gear.map(normalizeItem) : [];
   const storedCertificates = Array.isArray(raw?.ownedCertificates) ? raw.ownedCertificates.map(normalizeOwnedCertificate) : [];
   const storedTrophies = Array.isArray(raw?.trophies) ? raw.trophies.map(normalizeTrophy) : [];
+  const snapshotGear = !preserveInventory && !(Number(raw?.schemaVersion) >= 22)
+    ? reconcileCurrentGear(storedGear) : storedGear;
   return {
-    schemaVersion: 22,
-    gear: !preserveInventory && !(Number(raw?.schemaVersion) >= 22)
-      ? reconcileCurrentGear(storedGear) : storedGear,
+    schemaVersion: 23,
+    gear: !preserveInventory && !(Number(raw?.schemaVersion) >= 23)
+      ? reconcileSevenAccessories(snapshotGear) : snapshotGear,
     settings: normalizeSettings(raw?.settings,Number(raw?.schemaVersion)>=21),
     authModel: canonicaliseAuthModel(normalizeAuthModel(raw?.authModel, initial.authModel, Number(raw?.schemaVersion ?? 0)), initial.authModel),
     rollLog: Array.isArray(raw?.rollLog) ? raw.rollLog.map((roll, index) => canonicalRoll(preserveInventory ? normalizeRollLog(roll, index) : coerceStoredRollLog(roll, index))) : [],
@@ -599,6 +601,10 @@ function normalizeItem(i: GearItem): GearItem {
     ...(typeof i?.needsReview === 'boolean' ? {needsReview:i.needsReview} : {}),
     ...(Array.isArray(i?.metadataUncertain) ? {metadataUncertain:i.metadataUncertain.filter((field):field is string => typeof field === 'string')} : {}),
     ...(typeof i?.reviewNotes === 'string' ? {reviewNotes:i.reviewNotes} : {}),
+    ...(typeof i?.rarity === 'string' ? {rarity:i.rarity} : {}),
+    ...(typeof i?.gradeStarColour === 'string' ? {gradeStarColour:i.gradeStarColour} : {}),
+    ...(typeof i?.foundBy === 'string' ? {foundBy:i.foundBy} : {}),
+    ...(typeof i?.foundDate === 'string' ? {foundDate:i.foundDate} : {}),
     mutation: typeof i?.mutation === 'string' ? i.mutation : undefined,
     conditionPct: i?.conditionPct === undefined || i?.conditionPct === null
       ? undefined : finite(i.conditionPct),

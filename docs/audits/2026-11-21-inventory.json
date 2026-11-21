@@ -1568,7 +1568,7 @@
       "slot": "Back",
       "mutation": "Hologram",
       "gradeStars": 1,
-      "conditionPct": null,
+      "conditionPct": 88,
       "displayedValue": 232407,
       "displayedStats": {
         "luck": 83,
@@ -1585,11 +1585,13 @@
         "value": null,
         "description": null
       },
-      "uncertainFields": [
-        "conditionPct"
-      ],
-      "notes": "Luck text: +83% Luck (+52% from Hologram). Condition begins 8; second digit obscured by ring.",
-      "plannedLocation": "Display"
+      "uncertainFields": [],
+      "notes": "Luck text: +83% Luck (+52% from Hologram). Condition begins 8; second digit obscured by ring. Owner review on 21 November confirms condition 88%; see 2026-11-21-seven-accessories.json.",
+      "plannedLocation": "Display",
+      "rarity": "Epic",
+      "gradeStarColour": "gold",
+      "foundBy": "Markersaur",
+      "foundDate": "2026-11-06"
     },
     {
       "source": "IMG_8402.jpg",
@@ -1994,7 +1996,7 @@
       "slot": "Wrist",
       "mutation": null,
       "gradeStars": 1,
-      "conditionPct": null,
+      "conditionPct": 57,
       "displayedValue": 11215.26,
       "displayedStats": {
         "luck": -5,
@@ -2011,11 +2013,13 @@
         "value": null,
         "description": null
       },
-      "uncertainFields": [
-        "conditionPct"
-      ],
-      "notes": "Condition ends 7%; tens digit hidden by ring. Exact same card value visible in IMG_8417.",
-      "plannedLocation": "Disband"
+      "uncertainFields": [],
+      "notes": "Condition ends 7%; tens digit hidden by ring. Exact same card value visible in IMG_8417. Owner review on 21 November confirms condition 57%; see 2026-11-21-seven-accessories.json.",
+      "plannedLocation": "Disband",
+      "rarity": "Epic",
+      "gradeStarColour": "gold",
+      "foundBy": "Markersaur",
+      "foundDate": "2026-11-19"
     },
     {
       "source": "IMG_8417.jpg",

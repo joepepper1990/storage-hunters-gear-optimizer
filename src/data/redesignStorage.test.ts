@@ -96,7 +96,7 @@ describe('P2: JSON roll history is validated and normalised on restore',()=>{
   });
 });
 
-describe('schema 22 accessory migration',()=>{
+describe('schema 23 accessory migration',()=>{
   function schema14(){
     const d=makeInitialData() as unknown as Record<string,unknown> & AppData;
     (d as unknown as {schemaVersion:number}).schemaVersion=14;
@@ -120,8 +120,8 @@ describe('schema 22 accessory migration',()=>{
     Object.assign(d,{vehicleParts:[{id:'p'}],trailers:[{id:'t'}],vehicleProfile:{name:'Truck'},vehicleSettings:{speedWeight:1}});
 
     const migrated=normalizeData(d);
-    expect(migrated.schemaVersion).toBe(22);
-    expect(migrated.gear).toHaveLength(80);
+    expect(migrated.schemaVersion).toBe(23);
+    expect(migrated.gear).toHaveLength(85);
     const cow=migrated.gear.find(g=>g.baseName==='Reactor Fedora')!;
     expect(cow).toMatchObject({id:'my-cow',favourite:true,createdAt:'2026-10-01T00:00:00.000Z'});
     expect(migrated.gear.some(g=>g.id==='sold')).toBe(false);
@@ -135,10 +135,10 @@ describe('schema 22 accessory migration',()=>{
     expect(migrated.rollLog).toEqual(d.rollLog);
     for(const key of ['vehicleParts','trailers','vehicleProfile','vehicleSettings'])expect(key in migrated).toBe(false);
 
-    // Saved as schema 22: later edits are kept, never re-seeded.
+    // Saved as schema 23: later edits are kept, never re-seeded.
     const edited={...migrated,gear:migrated.gear.slice(1),trophies:migrated.trophies.slice(1),ownedCertificates:[]};
     const reloaded=normalizeData(JSON.parse(exportJson(edited)));
-    expect(reloaded.gear).toHaveLength(79);
+    expect(reloaded.gear).toHaveLength(84);
     expect(reloaded.trophies).toHaveLength(2);
     expect(reloaded.ownedCertificates).toEqual([]);
   });

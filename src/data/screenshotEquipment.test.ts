@@ -91,13 +91,13 @@ describe('October screenshot inventory — schema 15',()=>{
     legacy.ownedCertificates=[{id:'stale-cert',type:'Wooden Certificate of Authenticity',quantity:99}];
     legacy.trophies=[screenshotTrophies()[0]];
     const first=normalizeData(legacy);
-    expect(first.schemaVersion).toBe(22);
-    expect(first.gear).toHaveLength(80);
+    expect(first.schemaVersion).toBe(23);
+    expect(first.gear).toHaveLength(85);
     expect(first.trophies).toHaveLength(1);
     expect(first.ownedCertificates).toEqual(legacy.ownedCertificates);
     expect(first.ownedCertificates.some(c=>c.id==='stale-cert')).toBe(true);
 
-    // Once schema 22 is saved, deliberate later removals stay removed.
+    // Once schema 23 is saved, deliberate later removals stay removed.
     const again=importJson(exportJson(first));
     const deliberatelyRemoved={...again,gear:[],trophies:[],ownedCertificates:[]};
     const saved=normalizeData(JSON.parse(exportJson(deliberatelyRemoved)));
